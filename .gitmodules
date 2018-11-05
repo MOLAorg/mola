@@ -1,0 +1,3 @@
+[submodule "mola-kernel"]
+	path = mola-kernel
+	url = git@github.com:jlblancoc/mola-kernel.git
