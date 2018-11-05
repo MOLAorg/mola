@@ -21,26 +21,8 @@ add_library(${PROJECT_NAME} SHARED
 
 # Define common flags:
 mola_set_target_build_options(${PROJECT_NAME})
-
-# Public hdrs interface:
-target_include_directories(${PROJECT_NAME} PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-    PRIVATE src
-  )
+mola_define_library(${PROJECT_NAME})
 
 # Dependencies:
 find_package(MRPT COMPONENTS serialization)
 #target_link_libraries(${PROJECT_NAME} mrpt-serialization)
-
-# Install lib:
-install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}-Config
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  )
-# Install hdrs:
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-# Install cmake config module
-install(EXPORT ${PROJECT_NAME}-Config DESTINATION share/${PROJECT_NAME}/cmake)
