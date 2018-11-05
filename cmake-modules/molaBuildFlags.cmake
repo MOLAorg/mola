@@ -44,3 +44,25 @@ function(mola_set_target_build_options TARGETNAME)
     add_compile_options(${TARGETNAME} PRIVATE -O3 -mtune=native)
   endif()
 endfunction()
+
+# Define a consistent install behavior for cmake-based library project:
+function(mola_define_library TARGETNAME)
+  # Public hdrs interface:
+  target_include_directories(${TARGETNAME} PUBLIC
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:include>
+      PRIVATE src
+    )
+
+  # Install lib:
+  install(TARGETS ${TARGETNAME} EXPORT ${TARGETNAME}Config
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+  # Install hdrs:
+  install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+  # Install cmake config module
+  install(EXPORT ${TARGETNAME}Config DESTINATION share/${TARGETNAME}/cmake)  
+endfunction()
