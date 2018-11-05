@@ -1,4 +1,4 @@
-build* # build directories
+build* 
 CMakeCache.txt
 CMakeFiles
 CMakeScripts
