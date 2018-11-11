@@ -122,16 +122,25 @@ function(mola_define_library TARGETNAME)
   # -------------------
   set_target_properties(${TARGETNAME} PROPERTIES FOLDER "modules")
 
-
   # Install lib:
-  install(TARGETS ${TARGETNAME} EXPORT ${TARGETNAME}Config
+  install(TARGETS ${TARGETNAME} EXPORT ${TARGETNAME}-config
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
   # Install hdrs:
-  install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  install(
+    DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
 
   # Install cmake config module
-  install(EXPORT ${TARGETNAME}Config DESTINATION share/${TARGETNAME}/cmake)
+  install(EXPORT ${TARGETNAME}-config DESTINATION share/${TARGETNAME}/cmake)
+
+  # make project importable from build_dir:
+  export(
+    TARGETS ${TARGETNAME}
+    FILE ${TARGETNAME}-config.cmake
+  )
+
 endfunction()
