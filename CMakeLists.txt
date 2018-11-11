@@ -34,24 +34,3 @@ target_link_libraries(${PROJECT_NAME}
     mrpt-maps
     mrpt-obs
 )
-
-# make install:
-install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}-config
-  ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-install(
-  DIRECTORY include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-# make project importable:
-install(
-  EXPORT ${PROJECT_NAME}-config
-  DESTINATION share/${PROJECT_NAME}/cmake
-)
-# make project importable from build_dir:
-export(
-  TARGETS ${PROJECT_NAME}
-  FILE ${PROJECT_NAME}-config.cmake
-)
