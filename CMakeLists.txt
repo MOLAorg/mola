@@ -26,7 +26,7 @@ include(GNUInstallDirs) # for install dirs in multilib
 
 # Include our aux cmake scripts:
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules)
-include(molaBuildFlags)
+include(mola_cmake_functions)
 
 # Process subdirectories:
 enable_testing()
