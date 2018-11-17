@@ -1,0 +1,40 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# a 3D LiDAR-SLAM problem, fed from a Kitti dataset.
+# -----------------------------------------------------------------------------
+
+# Setup of SLAM back-end =====================================
+slam_backend:
+  # Built-up of the state vector of the system
+  state_vector:
+    # Keyframe dynamic state:
+    keyframe_state_type: Pose3D
+    # Other dynamic variables (one per timestep)
+    dynamic:
+      # None
+    # Static/Global variables (one value for all timesteps)
+    static:
+      # None
+      # camera intrinsics?
+  # List of sensor models:
+  sensors:
+    # Relative poses from 3D Lidar Sensor
+    - name: RelPosesLidar
+      type: RelativePose3D
+      input_front_end: lidar_fe
+
+# Setup of SLAM front-ends ====================================
+front_ends:
+  - name: lidar_fe
+    type: FE_Lidar3D_SimpleICP
+    raw_data_source: kitti_input
+    raw_sensor_label: "lidar"
+
+# Offline or online sensory data sources =====================
+raw_data_sources:
+  - name: kitti_input
+    type: KittiOdometryDataset
+    params:
+      base_dir: ${KITTI_BASE_DIR}
+      sequence: "00"
