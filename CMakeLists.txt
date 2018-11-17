@@ -30,4 +30,4 @@ include(mola_cmake_functions)
 
 # Process subdirectories:
 enable_testing()
-add_subdirectory(mola-kernel)
+add_subdirectory(modules)
