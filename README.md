@@ -1,2 +1,6 @@
 # mola
-a Modern Optimization framework for Localization and mApping (MOLA)
+A Modular Optimization framework for Localization and mApping (MOLA)
+
+## Build and install
+
+### Requisites
