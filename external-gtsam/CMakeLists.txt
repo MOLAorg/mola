@@ -9,7 +9,7 @@ include(ExternalProject)
 # download
 ExternalProject_Add(EP_gtsam
   GIT_REPOSITORY   https://bitbucket.org/gtborg/gtsam.git
-  GIT_TAG          develop
+  GIT_TAG          6f8bfe0f0a10a94db26b7dda6b5e1d1e6b8e4b72  # Nov-2018
   GIT_PROGRESS     ON
   GIT_SHALLOW      ON
   PREFIX           EP_gtsam
