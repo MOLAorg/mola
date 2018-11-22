@@ -5,12 +5,18 @@
 
 include(ExternalProject)
 
+if(NOT ${CMAKE_VERSION} VERSION_LESS "3.8.0")
+	set(MODERN_CMAKE_GIT_OPTIONS
+		GIT_PROGRESS     ON
+		GIT_SHALLOW      ON
+	)
+endif()
+
 # download
 ExternalProject_Add(EP_gtsam
   GIT_REPOSITORY   https://bitbucket.org/gtborg/gtsam.git
   GIT_TAG          6f8bfe0f0a10a94db26b7dda6b5e1d1e6b8e4b72  # Nov-2018
-  GIT_PROGRESS     ON
-  GIT_SHALLOW      ON
+  ${MODERN_CMAKE_GIT_OPTIONS}
   PREFIX           EP_gtsam
   SOURCE_DIR       "${mola_BINARY_DIR}/EP_gtsam/src"
   CMAKE_ARGS
@@ -28,19 +34,18 @@ ExternalProject_Add(EP_gtsam
   -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${mola_BINARY_DIR}/bin
   -DRUNTIME_OUTPUT_DIRECTORY=${mola_BINARY_DIR}/bin
   TEST_COMMAND      ""
+  INSTALL_COMMAND   ""
 )
 
 # Imported CMake target:
-ExternalProject_Get_Property(EP_gtsam install_dir)
-
 add_library(gtsam INTERFACE)
 target_link_libraries(gtsam
   INTERFACE
-  ${install_dir}/lib/libgtsam.so
+  ${mola_BINARY_DIR}/lib/libgtsam.so
 )
 target_include_directories(gtsam
   INTERFACE
-  ${install_dir}/include
+  ${mola_BINARY_DIR}/EP_gtsam/src/
 )
 # Enforce building EP first:
 add_dependencies(gtsam EP_gtsam)
