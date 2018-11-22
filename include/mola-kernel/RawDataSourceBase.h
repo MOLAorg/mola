@@ -12,18 +12,23 @@
 #pragma once
 
 #include <mrpt/obs/CObservation.h>
+#include <mrpt/system/COutputLogger.h>
+#include <yaml-cpp/node/node.h>
 #include <mola-kernel/RawDataConsumer.h>
 
 namespace mola
 {
-class RawDataSourceBase
+class RawDataSourceBase : public mrpt::system::COutputLogger
 {
    public:
-    RawDataSourceBase(RawDataConsumer& rdc) : rdc_(rdc) {}
+    RawDataSourceBase(RawDataConsumer& rdc);
     virtual ~RawDataSourceBase() = default;
 
     /** @name Virtual interface of any RawDataSource
      *{ */
+
+    /** This should be reimplemented to read all the required parameters */
+    virtual void initialize(const YAML::Node& cfg);
 
     /** This will be called in an infinite loop at the sensor execution
      * rate. New observations should be sent to the associated MOLA

@@ -23,14 +23,22 @@ add_library(${PROJECT_NAME} SHARED
 mola_set_target_build_options(${PROJECT_NAME})
 mola_define_library(${PROJECT_NAME})
 
-# Dependencies:
+# find dependencies:
 find_package(mrpt-graphs)
 find_package(mrpt-maps)
 find_package(mrpt-obs)
 
+# Public lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     mrpt-graphs
     mrpt-maps
     mrpt-obs
+    yaml-cpp
+)
+
+# Private lib Dependencies:
+target_link_libraries(${PROJECT_NAME}
+  PRIVATE
+    gtsam
 )
