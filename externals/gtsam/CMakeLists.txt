@@ -3,7 +3,6 @@
 # See: https://bitbucket.org/gtborg/gtsam
 # BSD License
 
-# Include embedded version headers:
 include(ExternalProject)
 
 # download

@@ -1,3 +1,6 @@
 [submodule "mola-kernel"]
 	path = modules/mola-kernel
 	url = git@github.com:jlblancoc/mola-kernel.git
+[submodule "externals/yaml-cpp/yaml-cpp"]
+	path = externals/yaml-cpp/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git
