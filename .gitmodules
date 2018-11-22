@@ -4,3 +4,6 @@
 [submodule "externals/yaml-cpp/yaml-cpp"]
 	path = externals/yaml-cpp/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
+[submodule "externals/gtsam/gtsam"]
+	path = externals/gtsam/gtsam
+	url = https://bitbucket.org/gtborg/gtsam.git
