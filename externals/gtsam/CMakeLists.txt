@@ -99,6 +99,14 @@ mark_as_advanced(GTSAM_SUPPORT_NESTED_DISSECTION)
 option(GTSAM_TANGENT_PREINTEGRATION      "Use new ImuFactor with integration on tangent space" ON)
 mark_as_advanced(GTSAM_TANGENT_PREINTEGRATION)
 
+set(GTSAM_BUILD_TESTS OFF CACHE BOOL "Enable/Disable building of tests" FORCE)
+mark_as_advanced(GTSAM_BUILD_TESTS)
+set(GTSAM_BUILD_EXAMPLES_ALWAYS OFF CACHE BOOL "Build examples with 'make all' (build with 'make examples' if not)" FORCE)
+mark_as_advanced(GTSAM_BUILD_EXAMPLES_ALWAYS)
+set(GTSAM_BUILD_TIMING_ALWAYS OFF CACHE BOOL "Build timing scripts with 'make all' (build with 'make timing' if not" FORCE)
+mark_as_advanced(GTSAM_BUILD_TIMING_ALWAYS)
+
+
 # Options relating to MATLAB wrapper
 # TODO: Check for matlab mex binary before handling building of binaries
 #option(GTSAM_INSTALL_MATLAB_TOOLBOX      "Enable/Disable installation of matlab toolbox"  OFF)
@@ -449,14 +457,14 @@ list(APPEND gtsam_srcs ${gtsam_core_headers})
 IF(MSVC)
 	# Add precompiled header to sources
 	include(gtsamAddPch)
-	gtsamAddPch("precompiled_header.h" "precompiled_header.cpp" ${gtsam_srcs})
-	list(INSERT gtsam_srcs 0 "precompiled_header.cpp")
+	gtsamAddPch("precompiled_header.h" "gtsam/gtsam/precompiled_header.cpp" ${gtsam_srcs})
+	list(INSERT gtsam_srcs 0 "gtsam/gtsam/precompiled_header.cpp")
 ENDIF(MSVC)
 
 # Generate and install config and dllexport files
 configure_file(gtsam/gtsam/config.h.in ${PROJECT_BINARY_DIR}/gtsam/config.h)
 set(library_name GTSAM) # For substitution in dllexport.h.in
-configure_file("${PROJECT_SOURCE_DIR}/gtsam/cmake/dllexport.h.in" "dllexport.h")
+configure_file("${PROJECT_SOURCE_DIR}/gtsam/cmake/dllexport.h.in" "${PROJECT_BINARY_DIR}/gtsam/dllexport.h")
 list(APPEND gtsam_srcs "${PROJECT_BINARY_DIR}/gtsam/config.h" "${PROJECT_BINARY_DIR}/gtsam/dllexport.h")
 install(FILES "${PROJECT_BINARY_DIR}/gtsam/config.h" "${PROJECT_BINARY_DIR}/gtsam/dllexport.h" DESTINATION include/gtsam)
 
@@ -513,6 +521,8 @@ else()
     set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
 endif()
 
+SET_TARGET_PROPERTIES(gtsam PROPERTIES FOLDER "ExternalProjectTargets")
+
 # make sure that ccolamd compiles even in face of warnings
 if(WIN32)
     set_source_files_properties(${3rdparty_srcs} PROPERTIES COMPILE_FLAGS "-w")
@@ -528,21 +538,6 @@ if(MSVC)
 		APPEND PROPERTY COMPILE_FLAGS "/bigobj")
 endif()
 
-
-# Create the matlab toolbox for the gtsam library
-if (GTSAM_INSTALL_MATLAB_TOOLBOX)
-    # Set up codegen
-    include(GtsamMatlabWrap)
-
-    # Generate, build and install toolbox
-    set(mexFlags "${GTSAM_BUILD_MEX_BINARY_FLAGS}")
-	if(GTSAM_BUILD_STATIC_LIBRARY)
-		list(APPEND mexFlags -DGTSAM_IMPORT_STATIC)
-	endif()
-
-    # Wrap
-    wrap_and_install_library(../gtsam.h "${GTSAM_ADDITIONAL_LIBRARIES}" "" "${mexFlags}")
-endif ()
 # ===== END OF EMBEDDED gtsam/gtsam =======
 
 # Build Tests  # Not needed for MOLA
@@ -576,7 +571,7 @@ endif(GTSAM_BUILD_METIS)
 
 set(GTSAM_UNSTABLE_BOOST_LIBRARIES ${GTSAM_BOOST_LIBRARIES})
 
-add_custom_target(check.unstable COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure)
+#add_custom_target(check.unstable COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure)
 
 # To exclude a source from the library build (in any subfolder)
 # Add the full name to this list, as in the following example
@@ -656,7 +651,12 @@ else()
     set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
 endif()
 # ===== END OF EMBEDDED gtsam/gtsam_unstable =======
+SET_TARGET_PROPERTIES(gtsam_unstable PROPERTIES FOLDER "ExternalProjectTargets") # For MOLA
 endif(GTSAM_BUILD_UNSTABLE)
+
+if(GTSAM_BUILD_METIS)
+  SET_TARGET_PROPERTIES(metis PROPERTIES FOLDER "ExternalProjectTargets") # For MOLA
+endif()
 
 # Not needed for MOLA:
 # Matlab toolbox
