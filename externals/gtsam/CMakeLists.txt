@@ -384,18 +384,18 @@ endif()
 # tests, timing, and an optional convenience library.
 # The following variable is the master list of subdirs to add
 set (gtsam_subdirs
-    gtsam/gtsam/base
-    gtsam/gtsam/geometry
-    gtsam/gtsam/inference
-    gtsam/gtsam/symbolic
-    gtsam/gtsam/discrete
-    gtsam/gtsam/linear
-    gtsam/gtsam/nonlinear
-    gtsam/gtsam/sam
-    gtsam/gtsam/sfm
-    gtsam/gtsam/slam
-    gtsam/gtsam/smart
-    gtsam/gtsam/navigation
+    base
+    geometry
+    inference
+    symbolic
+    discrete
+    linear
+    nonlinear
+    sam
+    sfm
+    slam
+    smart
+    navigation
 )
 
 set(gtsam_srcs)
@@ -434,16 +434,16 @@ install(FILES ${gtsam_core_headers} DESTINATION include/gtsam)
 # assemble core libaries
 foreach(subdir ${gtsam_subdirs})
     # Build convenience libraries
-    file(GLOB_RECURSE subdir_srcs "${subdir}/*.cpp" "${subdir}/*.h") # Include header files so they show up in Visual Studio
+    file(GLOB_RECURSE subdir_srcs "gtsam/gtsam/${subdir}/*.cpp" "gtsam/gtsam/${subdir}/*.h") # Include header files so they show up in Visual Studio
     list(REMOVE_ITEM subdir_srcs ${excluded_sources})
-	file(GLOB subdir_test_files "${subdir}/tests/*")
+	file(GLOB subdir_test_files "gtsam/gtsam/${subdir}/tests/*")
 	list(REMOVE_ITEM subdir_srcs ${subdir_test_files}) # Remove test files from sources compiled into library
     gtsam_assign_source_folders("${subdir_srcs}") # Create MSVC structure
     set(${subdir}_srcs ${subdir_srcs})
 
     # Build local library and tests
     #message(STATUS "Building ${subdir}")
-    add_subdirectory(${subdir})
+    add_subdirectory(gtsam/gtsam/${subdir})
 endforeach(subdir)
 
 # To add additional sources to gtsam when building the full library (static or shared)
@@ -457,7 +457,7 @@ list(APPEND gtsam_srcs ${gtsam_core_headers})
 IF(MSVC)
 	# Add precompiled header to sources
 	include(gtsamAddPch)
-	gtsamAddPch("precompiled_header.h" "gtsam/gtsam/precompiled_header.cpp" ${gtsam_srcs})
+	gtsamAddPch("precompiled_header.h" "gtsam/gtsam/precompiled_header.cpp" "${gtsam_srcs}")
 	list(INSERT gtsam_srcs 0 "gtsam/gtsam/precompiled_header.cpp")
 ENDIF(MSVC)
 
@@ -556,13 +556,13 @@ if (GTSAM_BUILD_UNSTABLE)
 # Build full gtsam_unstable library as a single library
 # and also build tests
 set (gtsam_unstable_subdirs
-    gtsam/gtsam_unstable/base
-    gtsam/gtsam_unstable/geometry
-    gtsam/gtsam_unstable/linear
-    gtsam/gtsam_unstable/discrete
-    gtsam/gtsam_unstable/dynamics
-    gtsam/gtsam_unstable/nonlinear
-    gtsam/gtsam_unstable/slam
+    base
+    geometry
+    linear
+    discrete
+    dynamics
+    nonlinear
+    slam
 )
 
 if(GTSAM_BUILD_METIS) # Only build partition if metis is built
@@ -588,8 +588,8 @@ set (excluded_headers # "")
 set(gtsam_unstable_srcs "")
 foreach(subdir ${gtsam_unstable_subdirs})
     # Build convenience libraries
-    file(GLOB subdir_srcs "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/*.cpp")
-	file(GLOB subdir_headers "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/*.h")
+    file(GLOB subdir_srcs "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam_unstable/${subdir}/*.cpp")
+	file(GLOB subdir_headers "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam_unstable/${subdir}/*.h")
     list(REMOVE_ITEM subdir_srcs ${excluded_sources})
     list(REMOVE_ITEM subdir_headers ${excluded_headers})
     set(${subdir}_srcs ${subdir_srcs} ${subdir_headers})
@@ -599,8 +599,8 @@ foreach(subdir ${gtsam_unstable_subdirs})
     list(APPEND gtsam_unstable_srcs ${subdir_srcs})
 
     # Build local library and tests
-    message(STATUS "Building ${subdir}_unstable")
-    add_subdirectory(${subdir})
+    #message(STATUS "Building ${subdir}_unstable")
+    add_subdirectory(gtsam/gtsam_unstable/${subdir})
 endforeach(subdir)
 
 if(GTSAM_BUILD_METIS) # Only build partition if metis is built
