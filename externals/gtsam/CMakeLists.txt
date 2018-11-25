@@ -330,7 +330,7 @@ include_directories(BEFORE
   gtsam/gtsam/3rdparty/SuiteSparse_config
   gtsam/gtsam/3rdparty/CCOLAMD/Include
   ${METIS_INCLUDE_DIRECTORIES}
-  ${PROJECT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/gtsam/
   ${PROJECT_BINARY_DIR} # So we can include generated config header files
   gtsam/CppUnitLite)
 
@@ -362,34 +362,305 @@ endif()
 # Add components
 
 # Build CppUnitLite
-add_subdirectory(gtsam/CppUnitLite)
+#add_subdirectory(gtsam/CppUnitLite) # Not needed for MOLA
 
-# Build wrap
+# Build wrap  # Not needed for MOLA
 #if (GTSAM_BUILD_WRAP)
 #    add_subdirectory(wrap)
 #endif(GTSAM_BUILD_WRAP)
 
 # Build GTSAM library
-add_subdirectory(gtsam/gtsam)
+#add_subdirectory(gtsam/gtsam)
+# ===== START OF EMBEDDED gtsam/gtsam ======
+# We split the library in to separate subfolders, each containing
+# tests, timing, and an optional convenience library.
+# The following variable is the master list of subdirs to add
+set (gtsam_subdirs
+    gtsam/gtsam/base
+    gtsam/gtsam/geometry
+    gtsam/gtsam/inference
+    gtsam/gtsam/symbolic
+    gtsam/gtsam/discrete
+    gtsam/gtsam/linear
+    gtsam/gtsam/nonlinear
+    gtsam/gtsam/sam
+    gtsam/gtsam/sfm
+    gtsam/gtsam/slam
+    gtsam/gtsam/smart
+    gtsam/gtsam/navigation
+)
 
-# Build Tests
+set(gtsam_srcs)
+
+# Build 3rdparty separately
+#message(STATUS "Building 3rdparty")
+add_subdirectory(gtsam/gtsam/3rdparty)
+
+set (3rdparty_srcs
+ ${eigen_headers} # Set by 3rdparty/CMakeLists.txt
+ ${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/3rdparty/CCOLAMD/Source/ccolamd.c
+ ${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/3rdparty/SuiteSparse_config/SuiteSparse_config.c)
+gtsam_assign_source_folders("${3rdparty_srcs}") # Create MSVC structure
+
+# To exclude a source from the library build (in any subfolder)
+# Add the full name to this list, as in the following example
+# Sources to remove from builds
+set (excluded_sources #"")
+    "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/slam/serialization.cpp"
+)
+
+set (excluded_headers #"")
+    "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/slam/serialization.h"
+)
+
+if(GTSAM_USE_QUATERNIONS)
+    set(excluded_sources ${excluded_sources} "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/geometry/Rot3M.cpp")
+else()
+    set(excluded_sources ${excluded_sources} "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/geometry/Rot3Q.cpp")
+endif()
+
+# Common headers
+file(GLOB gtsam_core_headers "*.h")
+install(FILES ${gtsam_core_headers} DESTINATION include/gtsam)
+
+# assemble core libaries
+foreach(subdir ${gtsam_subdirs})
+    # Build convenience libraries
+    file(GLOB_RECURSE subdir_srcs "${subdir}/*.cpp" "${subdir}/*.h") # Include header files so they show up in Visual Studio
+    list(REMOVE_ITEM subdir_srcs ${excluded_sources})
+	file(GLOB subdir_test_files "${subdir}/tests/*")
+	list(REMOVE_ITEM subdir_srcs ${subdir_test_files}) # Remove test files from sources compiled into library
+    gtsam_assign_source_folders("${subdir_srcs}") # Create MSVC structure
+    set(${subdir}_srcs ${subdir_srcs})
+
+    # Build local library and tests
+    #message(STATUS "Building ${subdir}")
+    add_subdirectory(${subdir})
+endforeach(subdir)
+
+# To add additional sources to gtsam when building the full library (static or shared)
+# append the subfolder with _srcs appended to the end to this list
+set(gtsam_srcs ${3rdparty_srcs})
+foreach(subdir ${gtsam_subdirs})
+	list(APPEND gtsam_srcs ${${subdir}_srcs})
+endforeach(subdir)
+list(APPEND gtsam_srcs ${gtsam_core_headers})
+
+IF(MSVC)
+	# Add precompiled header to sources
+	include(gtsamAddPch)
+	gtsamAddPch("precompiled_header.h" "precompiled_header.cpp" ${gtsam_srcs})
+	list(INSERT gtsam_srcs 0 "precompiled_header.cpp")
+ENDIF(MSVC)
+
+# Generate and install config and dllexport files
+configure_file(gtsam/gtsam/config.h.in ${PROJECT_BINARY_DIR}/gtsam/config.h)
+set(library_name GTSAM) # For substitution in dllexport.h.in
+configure_file("${PROJECT_SOURCE_DIR}/gtsam/cmake/dllexport.h.in" "dllexport.h")
+list(APPEND gtsam_srcs "${PROJECT_BINARY_DIR}/gtsam/config.h" "${PROJECT_BINARY_DIR}/gtsam/dllexport.h")
+install(FILES "${PROJECT_BINARY_DIR}/gtsam/config.h" "${PROJECT_BINARY_DIR}/gtsam/dllexport.h" DESTINATION include/gtsam)
+
+if(GTSAM_SUPPORT_NESTED_DISSECTION)
+    list(APPEND GTSAM_ADDITIONAL_LIBRARIES metis)
+endif()
+
+# Versions
+set(gtsam_version   ${GTSAM_VERSION_MAJOR}.${GTSAM_VERSION_MINOR}.${GTSAM_VERSION_PATCH})
+set(gtsam_soversion ${GTSAM_VERSION_MAJOR})
+message(STATUS "GTSAM Version: ${gtsam_version}")
+#message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
+
+# build shared and static versions of the library
+if (GTSAM_BUILD_STATIC_LIBRARY)
+    message(STATUS "Building GTSAM - static")
+    add_library(gtsam STATIC ${gtsam_srcs})
+	target_link_libraries(gtsam ${GTSAM_BOOST_LIBRARIES} ${GTSAM_ADDITIONAL_LIBRARIES})
+    set_target_properties(gtsam PROPERTIES
+        OUTPUT_NAME         gtsam
+        CLEAN_DIRECT_OUTPUT 1
+    	VERSION             ${gtsam_version}
+     	SOVERSION           ${gtsam_soversion})
+	if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with shared library
+		set_target_properties(gtsam PROPERTIES
+			PREFIX "lib"
+			COMPILE_DEFINITIONS GTSAM_IMPORT_STATIC)
+	endif()
+    install(TARGETS gtsam EXPORT GTSAM-exports ARCHIVE DESTINATION lib)
+    list(APPEND GTSAM_EXPORTED_TARGETS gtsam)
+    set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
+else()
+    message(STATUS "Building GTSAM - shared")
+    add_library(gtsam SHARED ${gtsam_srcs})
+    target_link_libraries(gtsam ${GTSAM_BOOST_LIBRARIES} ${GTSAM_ADDITIONAL_LIBRARIES})
+    set_target_properties(gtsam PROPERTIES
+        OUTPUT_NAME         gtsam
+        CLEAN_DIRECT_OUTPUT 1
+    	VERSION             ${gtsam_version}
+     	SOVERSION           ${gtsam_soversion})
+	if(WIN32)
+		set_target_properties(gtsam PROPERTIES
+			PREFIX ""
+			DEFINE_SYMBOL GTSAM_EXPORTS
+			RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+	endif()
+	if (APPLE)
+		set_target_properties(gtsam PROPERTIES
+			INSTALL_NAME_DIR
+			"${CMAKE_INSTALL_PREFIX}/lib")
+	endif()
+    install(TARGETS gtsam EXPORT GTSAM-exports LIBRARY DESTINATION lib ARCHIVE DESTINATION lib RUNTIME DESTINATION bin)
+    list(APPEND GTSAM_EXPORTED_TARGETS gtsam)
+    set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
+endif()
+
+# make sure that ccolamd compiles even in face of warnings
+if(WIN32)
+    set_source_files_properties(${3rdparty_srcs} PROPERTIES COMPILE_FLAGS "-w")
+else()
+    set_source_files_properties(${3rdparty_srcs} PROPERTIES COMPILE_FLAGS "-Wno-error")
+endif()
+
+# Special cases
+if(MSVC)
+	set_property(SOURCE
+		"${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/slam/serialization.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/nonlinear/ISAM2.cpp"
+		APPEND PROPERTY COMPILE_FLAGS "/bigobj")
+endif()
+
+
+# Create the matlab toolbox for the gtsam library
+if (GTSAM_INSTALL_MATLAB_TOOLBOX)
+    # Set up codegen
+    include(GtsamMatlabWrap)
+
+    # Generate, build and install toolbox
+    set(mexFlags "${GTSAM_BUILD_MEX_BINARY_FLAGS}")
+	if(GTSAM_BUILD_STATIC_LIBRARY)
+		list(APPEND mexFlags -DGTSAM_IMPORT_STATIC)
+	endif()
+
+    # Wrap
+    wrap_and_install_library(../gtsam.h "${GTSAM_ADDITIONAL_LIBRARIES}" "" "${mexFlags}")
+endif ()
+# ===== END OF EMBEDDED gtsam/gtsam =======
+
+# Build Tests  # Not needed for MOLA
 #add_subdirectory(gtsam/tests)
 
-# Build examples
+# Build examples  # Not needed for MOLA
 #add_subdirectory(gtsam/examples)
 
-# Build timing
+# Build timing  # Not needed for MOLA
 #add_subdirectory(gtsam/timing)
 
 # Build gtsam_unstable
 if (GTSAM_BUILD_UNSTABLE)
-    add_subdirectory(gtsam/gtsam_unstable)
+#    add_subdirectory(gtsam/gtsam_unstable)
+# ===== START OF EMBEDDED gtsam/gtsam_unstable =======
+# Build full gtsam_unstable library as a single library
+# and also build tests
+set (gtsam_unstable_subdirs
+    gtsam/gtsam_unstable/base
+    gtsam/gtsam_unstable/geometry
+    gtsam/gtsam_unstable/linear
+    gtsam/gtsam_unstable/discrete
+    gtsam/gtsam_unstable/dynamics
+    gtsam/gtsam_unstable/nonlinear
+    gtsam/gtsam_unstable/slam
+)
+
+if(GTSAM_BUILD_METIS) # Only build partition if metis is built
+    set (gtsam_unstable_subdirs ${gtsam_unstable_subdirs} partition)
+endif(GTSAM_BUILD_METIS)
+
+set(GTSAM_UNSTABLE_BOOST_LIBRARIES ${GTSAM_BOOST_LIBRARIES})
+
+add_custom_target(check.unstable COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure)
+
+# To exclude a source from the library build (in any subfolder)
+# Add the full name to this list, as in the following example
+# Sources to remove from builds
+set (excluded_sources # "")
+    "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam_unstable/slam/serialization.cpp"
+)
+
+set (excluded_headers # "")
+    "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam_unstable/slam/serialization.h"
+)
+
+# assemble core libraries
+set(gtsam_unstable_srcs "")
+foreach(subdir ${gtsam_unstable_subdirs})
+    # Build convenience libraries
+    file(GLOB subdir_srcs "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/*.cpp")
+	file(GLOB subdir_headers "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/*.h")
+    list(REMOVE_ITEM subdir_srcs ${excluded_sources})
+    list(REMOVE_ITEM subdir_headers ${excluded_headers})
+    set(${subdir}_srcs ${subdir_srcs} ${subdir_headers})
+    gtsam_assign_source_folders("${${subdir}_srcs}") # Create MSVC structure
+
+    # assemble gtsam_unstable components
+    list(APPEND gtsam_unstable_srcs ${subdir_srcs})
+
+    # Build local library and tests
+    message(STATUS "Building ${subdir}_unstable")
+    add_subdirectory(${subdir})
+endforeach(subdir)
+
+if(GTSAM_BUILD_METIS) # Only build partition if metis is built
+    set (gtsam_unstable_srcs ${gtsam_unstable_srcs} ${partition_srcs})
+endif(GTSAM_BUILD_METIS)
+
+# Versions - same as core gtsam library
+set(gtsam_unstable_version   ${GTSAM_VERSION_MAJOR}.${GTSAM_VERSION_MINOR}.${GTSAM_VERSION_PATCH})
+set(gtsam_unstable_soversion ${GTSAM_VERSION_MAJOR})
+message(STATUS "GTSAM_UNSTABLE Version: ${gtsam_unstable_version}")
+#message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
+
+# build shared or static versions of the library
+if (GTSAM_BUILD_STATIC_LIBRARY)
+	message(STATUS "Building GTSAM_UNSTABLE - static")
+	add_library(gtsam_unstable STATIC ${gtsam_unstable_srcs})
+	set_target_properties(gtsam_unstable PROPERTIES
+		OUTPUT_NAME         gtsam_unstable
+		CLEAN_DIRECT_OUTPUT 1
+		VERSION             ${gtsam_unstable_version}
+		SOVERSION           ${gtsam_unstable_soversion})
+	if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with shared library
+		set_target_properties(gtsam_unstable PROPERTIES
+			PREFIX "lib"
+			COMPILE_DEFINITIONS GTSAM_UNSTABLE_IMPORT_STATIC)
+	endif()
+	target_link_libraries(gtsam_unstable gtsam ${GTSAM_UNSTABLE_BOOST_LIBRARIES})
+	install(TARGETS gtsam_unstable EXPORT GTSAM-exports ARCHIVE DESTINATION lib)
+	list(APPEND GTSAM_EXPORTED_TARGETS gtsam_unstable)
+	set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
+else()
+    message(STATUS "Building GTSAM_UNSTABLE - shared")
+    add_library(gtsam_unstable SHARED ${gtsam_unstable_srcs})
+    set_target_properties(gtsam_unstable PROPERTIES
+        OUTPUT_NAME         gtsam_unstable
+        CLEAN_DIRECT_OUTPUT 1
+    	VERSION             ${gtsam_unstable_version}
+     	SOVERSION           ${gtsam_unstable_soversion})
+	if(WIN32)
+		set_target_properties(gtsam_unstable PROPERTIES
+			PREFIX ""
+			DEFINE_SYMBOL GTSAM_UNSTABLE_EXPORTS
+			RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+	endif()
+    target_link_libraries(gtsam_unstable gtsam ${GTSAM_UNSTABLE_BOOST_LIBRARIES})
+    install(TARGETS gtsam_unstable EXPORT GTSAM-exports LIBRARY DESTINATION lib ARCHIVE DESTINATION lib RUNTIME DESTINATION bin)
+    list(APPEND GTSAM_EXPORTED_TARGETS gtsam_unstable)
+    set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
+endif()
+# ===== END OF EMBEDDED gtsam/gtsam_unstable =======
 endif(GTSAM_BUILD_UNSTABLE)
 
+# Not needed for MOLA:
 # Matlab toolbox
-
 # Python wrap
-
 # Cython wrap
 
 # Install config and export files
