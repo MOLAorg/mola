@@ -120,7 +120,7 @@ function(mola_define_library TARGETNAME)
 
   # Project "folder":
   # -------------------
-  set_target_properties(${TARGETNAME} PROPERTIES FOLDER "modules")
+  set_target_properties(${TARGETNAME} PROPERTIES FOLDER "MOLA-modules")
 
   # Install lib:
   install(TARGETS ${TARGETNAME} EXPORT ${TARGETNAME}-config
