@@ -15,6 +15,8 @@
 
 namespace mola
 {
+/** Virtual base for raw-observation consumers
+ * \ingroup mola_kernel_grp */
 class RawDataConsumer
 {
    public:

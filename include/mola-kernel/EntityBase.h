@@ -4,19 +4,27 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   KeyFrame.h
- * @brief  Information keep for each keyframe (except its "global" pose)
+ * @file   EntityBase.h
+ * @brief  Virtual base class for all optimizable entities in the world model
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018
  */
+#pragma once
 
 #include <mola-kernel/Keyframe.h>
+#include <map>
 
-using namespace mola;
-
-mrpt::Clock::time_point Keyframe::timestamp() const
+namespace mola
 {
-	ASSERT_(raw_observations_);
-	ASSERT_(!raw_observations_->empty());
-	return (*raw_observations_->begin())->timestamp;
-}
+/** Virtual base class for all optimizable entities in the world model
+ *
+ * \ingroup mola_kernel_grp
+ */
+class EntityBase
+{
+   public:
+	EntityBase()          = default;
+	virtual ~EntityBase() = default;
+};
+
+}  // namespace mola

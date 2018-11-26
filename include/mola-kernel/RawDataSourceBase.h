@@ -18,6 +18,8 @@
 
 namespace mola
 {
+/** Virtual base for raw-observation data sources
+ * \ingroup mola_kernel_grp */
 class RawDataSourceBase : public mrpt::system::COutputLogger
 {
    public:

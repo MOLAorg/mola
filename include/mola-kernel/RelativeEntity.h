@@ -4,19 +4,25 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   KeyFrame.h
- * @brief  Information keep for each keyframe (except its "global" pose)
+ * @file   RelativeEntity.h
+ * @brief  World optimizable entities which are relative to some keyframe.
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018
  */
+#pragma once
 
-#include <mola-kernel/Keyframe.h>
+#include <mola-kernel/EntityBase.h>
+#include <map>
 
-using namespace mola;
-
-mrpt::Clock::time_point Keyframe::timestamp() const
+namespace mola
 {
-	ASSERT_(raw_observations_);
-	ASSERT_(!raw_observations_->empty());
-	return (*raw_observations_->begin())->timestamp;
-}
+/** World optimizable entities which are relative to some keyframe.
+ *
+ * \ingroup mola_kernel_grp
+ */
+class RelativeEntity : public EntityBase
+{
+   public:
+};
+
+}  // namespace mola

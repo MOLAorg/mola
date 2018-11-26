@@ -4,19 +4,15 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   KeyFrame.h
- * @brief  Information keep for each keyframe (except its "global" pose)
+ * @file   WorldModel.h
+ * @brief  The main class for a "map" or "world model".
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018
  */
 
-#include <mola-kernel/Keyframe.h>
+/** \defgroup mola_kernel_grp mola-kernel: MOLA data types and interfaces
+ */
+
+#include <mola-kernel/WorldModel.h>
 
 using namespace mola;
-
-mrpt::Clock::time_point Keyframe::timestamp() const
-{
-	ASSERT_(raw_observations_);
-	ASSERT_(!raw_observations_->empty());
-	return (*raw_observations_->begin())->timestamp;
-}
