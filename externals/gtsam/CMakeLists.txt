@@ -1,8 +1,4 @@
-
-# GTSAM: Georgia Tech Smoothing and Mapping library
-# See: https://bitbucket.org/gtborg/gtsam
-# BSD License
-
+# MOLA:
 # In the beginning, gtsam was added as a CMake ExternalProject.
 # But this has some strong drawbacks: it's not easy to set cache variables
 # for missing dependencies (especially for Windows users), the projects
@@ -11,6 +7,10 @@
 # and adding the lib as a git submodule.
 # Yes, I know... it might require some maintainance over time, but I think
 # this is worth the benefits.
+
+# GTSAM: Georgia Tech Smoothing and Mapping library
+# See: https://bitbucket.org/gtborg/gtsam
+# BSD License
 
 # Start of stripped version of gtsam/CMakeLists.txt
 # =================================================================
@@ -531,12 +531,12 @@ else()
 endif()
 
 # Special cases
-if(MSVC)
-	set_property(SOURCE
-		"${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/slam/serialization.cpp"
-		"${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/nonlinear/ISAM2.cpp"
-		APPEND PROPERTY COMPILE_FLAGS "/bigobj")
-endif()
+#if(MSVC)
+#	set_property(SOURCE
+#		"${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/slam/serialization.cpp"
+#		"${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/nonlinear/ISAM2.cpp"
+#		APPEND PROPERTY COMPILE_FLAGS " /bigobj")
+#endif()
 
 # ===== END OF EMBEDDED gtsam/gtsam =======
 
