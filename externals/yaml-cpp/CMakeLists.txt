@@ -16,6 +16,7 @@ if (NOT MOLA_BUILD_YAML_CPP)
 ")
   endif()
 else()
+  mark_as_advanced(yaml-cpp_DIR)
   project(EP_yamlcpp)
   set(YAML_CPP_SOURCE_DIR ${EP_yamlcpp_SOURCE_DIR}/yaml-cpp)
 
