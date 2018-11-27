@@ -21,7 +21,7 @@ add_library(${PROJECT_NAME} SHARED
 
 # Define common flags:
 mola_set_target_build_options(${PROJECT_NAME})
-mola_define_library(${PROJECT_NAME})
+mola_configure_library(${PROJECT_NAME})
 
 # find dependencies:
 find_package(mrpt-graphs)
