@@ -1,6 +1,8 @@
-build* 
+build*
 CMakeCache.txt
 CMakeFiles
+ # for qtcreator
+CMakeLists.txt.user
 CMakeScripts
 Testing
 Makefile
@@ -9,4 +11,3 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 doc/html
-
