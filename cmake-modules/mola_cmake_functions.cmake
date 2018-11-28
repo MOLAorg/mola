@@ -62,14 +62,14 @@ function(mola_set_target_build_options TARGETNAME)
   target_compile_features(${TARGETNAME} INTERFACE cxx_std_17)
   if (MSVC)
     # this seems to be required in addition to the cxx_std_17 above (?)
-    add_compile_options(${TARGETNAME} INTERFACE /std:c++latest)
+    target_compile_options(${TARGETNAME} INTERFACE /std:c++latest)
   endif()
 
   # Warning level:
   # -------------------------
   if (MSVC)
     # msvc:
-    add_compile_options(${TARGETNAME} PRIVATE /W3)
+    target_compile_options(${TARGETNAME} PRIVATE /W3)
     target_compile_definitions(${TARGETNAME} PRIVATE
       _CRT_SECURE_NO_DEPRECATE
       _CRT_NONSTDC_NO_DEPRECATE
@@ -87,7 +87,7 @@ function(mola_set_target_build_options TARGETNAME)
   # Optimization:
   # -------------------------
   if((NOT MSVC) AND ((NOT CMAKE_CROSSCOMPILING) AND (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")))
-    add_compile_options(${TARGETNAME} PRIVATE -O3 -mtune=native)
+    target_compile_options(${TARGETNAME} PRIVATE -O3 -mtune=native)
   endif()
 
 endfunction()
@@ -153,6 +153,10 @@ endfunction()
 function(mola_configure_app TARGETNAME)
   # Project "folder":
   set_target_properties(${TARGETNAME} PROPERTIES FOLDER "MOLA-apps")
+
+  set_target_properties(${TARGETNAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+  )
 
   #TODO: install?
 
