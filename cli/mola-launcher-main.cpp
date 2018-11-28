@@ -23,6 +23,10 @@ TCLAP::ValueArg<std::string> arg_yaml_cfg(
     "c", "config", "Input YAML config file (required) (*.yml)", true, "",
     "demo.yml", cmd);
 
+TCLAP::ValueArg<std::string> arg_verbosity_level(
+    "v", "verbosity", "Verbosity level: ERROR|WARN|INFO|DEBUG (Default: INFO)",
+    false, "", "INFO", cmd);
+
 int main(int argc, char** argv)
 {
     try
@@ -35,7 +39,14 @@ int main(int argc, char** argv)
 
         YAML::Node cfg = YAML::LoadFile(file_yml);
 
-        MolaLauncherApp app;
+        mola::MolaLauncherApp app;
+
+        if (arg_verbosity_level.isSet())
+        {
+            using vl = mrpt::typemeta::TEnumType<mrpt::system::VerbosityLevel>;
+            const auto v = vl::name2value(arg_verbosity_level.getValue());
+            app.setVerbosityLevel(v);
+        }
         app.setup(cfg);
         app.spin();
 

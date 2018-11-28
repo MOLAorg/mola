@@ -23,6 +23,11 @@ using namespace mola;
 #define ENSURE_CFG_SECTION_EXIST(_c, _name) \
     ASSERTMSG_(_c[_name], "YAML file: Missing required entry: `" _name "`");
 
+MolaLauncherApp::MolaLauncherApp()
+    : mrpt::system::COutputLogger("MolaLauncherApp")
+{
+}
+
 void MolaLauncherApp::setup(const YAML::Node& cfg)
 {
     MRPT_TRY_START

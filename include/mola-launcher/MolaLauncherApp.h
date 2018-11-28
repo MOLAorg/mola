@@ -12,15 +12,16 @@
 #pragma once
 
 #include <yaml-cpp/yaml.h>
+#include <mrpt/system/COutputLogger.h>
 
 namespace mola
 {
 /** Main launcher for a MOLA system. See mola-cli for a ready-to-use program.
  * \ingroup mola_launcher_grp */
-class MolaLauncherApp
+class MolaLauncherApp : public mrpt::system::COutputLogger
 {
    public:
-    MolaLauncherApp()  = default;
+    MolaLauncherApp();
     ~MolaLauncherApp() = default;
 
     void setup(const YAML::Node& cfg);

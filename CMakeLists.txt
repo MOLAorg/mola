@@ -55,5 +55,5 @@ target_link_libraries(mola-cli
     mrpt-core
     mrpt-tclap
     yaml-cpp
-    mola-launcher
+    ${PROJECT_NAME}
 )
