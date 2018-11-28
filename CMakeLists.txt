@@ -34,7 +34,6 @@ target_link_libraries(${PROJECT_NAME}
     mrpt-graphs
     mrpt-maps
     mrpt-obs
-    yaml-cpp
 )
 
 # Private lib Dependencies:

@@ -11,27 +11,59 @@
  */
 
 #include <mola-kernel/RawDataSourceBase.h>
+#include <yaml-cpp/node/node.h>
 #include <iostream>
 
 using namespace mola;
 
-RawDataSourceBase::RawDataSourceBase(RawDataConsumer& rdc)
-    : mrpt::system::COutputLogger("RawDataSourceBase"), rdc_(rdc)
+// Class factory:
+static std::map<std::string, std::function<RawDataSourceBase*(void)>> registry;
+
+RawDataSourceBase::RawDataSourceBase()
+    : mrpt::system::COutputLogger("RawDataSourceBase")
 {
 }
 
+RawDataSourceBase::Ptr RawDataSourceBase::Factory(const std::string& name)
+{
+    const auto f = registry.find(name);
+    if (f == registry.end())
+        THROW_EXCEPTION_FMT(
+            "[RawDataSourceBase::Factory] Request for unregistered class: `%s`",
+            name.c_str());
+    return Ptr((f->second)());
+}
+
+void RawDataSourceBase::registerClass(
+    const std::string_view&                 classname,
+    std::function<RawDataSourceBase*(void)> func)
+{
+    registry.emplace(classname, func);
+}
+
 /** This should be reimplemented to read all the required parameters */
-void RawDataSourceBase::initialize(const YAML::Node& cfg)
+void RawDataSourceBase::initialize(const std::string& cfg_block)
 {
     MRPT_LOG_WARN_STREAM(
         "`initialize()` not reimplemented by derived class. "
-        "Ignoring YAML config block: "
-        << cfg);
+        "Ignoring YAML config block:\n"
+        << cfg_block);
 }
 
 void RawDataSourceBase::sendObservationsToFrontEnds(
     mrpt::obs::CObservation::ConstPtr& obs)
 {
     // Just forward the data to my associated consumer:
-    rdc_.onNewObservation(obs);
+    if (rdc_) { rdc_->onNewObservation(obs); }
+    else
+    {
+        MRPT_LOG_WARN(
+            "[sendObservationsToFrontEnds] Dropping observation: no consumer "
+            "is attached.");
+    }
+}
+
+void RawDataSourceBase::attachToDataConsumer(RawDataConsumer& rdc)
+{
+    rdc_ = rdc.getAsPtr();
 }

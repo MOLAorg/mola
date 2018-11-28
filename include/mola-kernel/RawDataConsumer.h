@@ -12,16 +12,19 @@
 #pragma once
 
 #include <mrpt/obs/CObservation.h>
+#include <memory>
 
 namespace mola
 {
 /** Virtual base for raw-observation consumers
  * \ingroup mola_kernel_grp */
-class RawDataConsumer
+class RawDataConsumer : public std::enable_shared_from_this<RawDataConsumer>
 {
    public:
     RawDataConsumer()          = default;
     virtual ~RawDataConsumer() = default;
+
+    using Ptr = std::shared_ptr<RawDataConsumer>;
 
     /** @name Virtual interface of any RawDataConsumer
      *{ */
@@ -31,6 +34,9 @@ class RawDataConsumer
      */
     virtual void onNewObservation(mrpt::obs::CObservation::ConstPtr& o) = 0;
     /** @} */
+
+    /** Get as shared_ptr via enable_shared_from_this<> */
+    Ptr getAsPtr() { return shared_from_this(); }
 };
 
 }  // namespace mola
