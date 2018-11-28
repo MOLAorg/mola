@@ -23,8 +23,8 @@ namespace mola
 class EntityBase
 {
    public:
-	EntityBase()          = default;
-	virtual ~EntityBase() = default;
+    EntityBase()          = default;
+    virtual ~EntityBase() = default;
 };
 
 }  // namespace mola

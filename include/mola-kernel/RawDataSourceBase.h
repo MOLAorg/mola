@@ -11,10 +11,10 @@
  */
 #pragma once
 
+#include <mola-kernel/RawDataConsumer.h>
 #include <mrpt/obs/CObservation.h>
 #include <mrpt/system/COutputLogger.h>
 #include <yaml-cpp/node/node.h>
-#include <mola-kernel/RawDataConsumer.h>
 
 namespace mola
 {

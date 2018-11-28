@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include <mola-kernel/Keyframe.h>
 #include <mola-kernel/EntityBase.h>
+#include <mola-kernel/Keyframe.h>
 #include <map>
 
 namespace mola
@@ -27,7 +27,7 @@ class WorldModel
     /** @name Main data fields
      * @{ */
 
-	std::map<keyframe_id_t, Keyframe> keyframes_;
+    std::map<keyframe_id_t, Keyframe> keyframes_;
 
     /** @} */
 };

@@ -16,7 +16,7 @@ using namespace mola;
 
 mrpt::Clock::time_point Keyframe::timestamp() const
 {
-	ASSERT_(raw_observations_);
-	ASSERT_(!raw_observations_->empty());
-	return (*raw_observations_->begin())->timestamp;
+    ASSERT_(raw_observations_);
+    ASSERT_(!raw_observations_->empty());
+    return (*raw_observations_->begin())->timestamp;
 }
