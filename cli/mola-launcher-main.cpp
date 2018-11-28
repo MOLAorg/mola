@@ -11,11 +11,11 @@
  * @date   Nov 28, 2018
  */
 
+#include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/otherlibs/tclap/CmdLine.h>
-#include <mola-launcher/MolaLauncherApp.h>
-#include <string>
 #include <iostream>
+#include <string>
 
 // Declare supported cli switches ===========
 TCLAP::CmdLine               cmd("mola-launcher");
