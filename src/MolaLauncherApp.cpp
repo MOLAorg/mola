@@ -16,6 +16,7 @@
 
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
+#include <mrpt/system/CRateTimer.h>
 #include <iostream>
 #include <map>
 #include <sstream>
@@ -25,6 +26,14 @@ using namespace mola;
 MolaLauncherApp::MolaLauncherApp()
     : mrpt::system::COutputLogger("MolaLauncherApp")
 {
+}
+
+MolaLauncherApp::~MolaLauncherApp()
+{
+    // End all threads:
+    threads_must_end_ = true;
+    for (auto& ds : data_sources_)
+        if (ds.second.executor.joinable()) ds.second.executor.join();
 }
 
 void MolaLauncherApp::setup(const YAML::Node& cfg)
@@ -65,7 +74,7 @@ void MolaLauncherApp::setup(const YAML::Node& cfg)
         const auto ds_classname = ds["type"].as<std::string>();
         ASSERTMSG_(!ds_classname.empty(), "`type` cannot be empty!");
 
-        InfoPerRawDataSource info;
+        InfoPerRawDataSource& info = data_sources_[ds_label];
         {
             // Make a copy of the YAML config block:
             std::stringstream ss;
@@ -73,8 +82,7 @@ void MolaLauncherApp::setup(const YAML::Node& cfg)
             info.yaml_cfg_block = ss.str();
         }
         info.impl = mola::RawDataSourceBase::Factory(ds_classname);
-
-        data_sources_[ds_label] = std::move(info);
+        info.name = ds_label;
     }
 
     MRPT_TRY_END
@@ -83,6 +91,38 @@ void MolaLauncherApp::setup(const YAML::Node& cfg)
 void MolaLauncherApp::spin()
 {
     MRPT_TRY_START
-    // ...
+
+    // Launch working threads:
+    // ---------------------------------
+    for (auto& ds : data_sources_)
+    {
+        ds.second.executor = std::thread(
+            &MolaLauncherApp::executor_datasource, this, std::ref(ds.second));
+    }
+
+    // Main SLAM/Localization infinite loop
+    // -------------------------------------------
+
+    MRPT_TRY_END
+}
+
+void MolaLauncherApp::executor_datasource(InfoPerRawDataSource& rds)
+{
+    MRPT_TRY_START
+
+    const double             rate = 10.0;
+    mrpt::system::CRateTimer timer(rate);
+
+    while (!threads_must_end_)
+    {
+        // Done, cycle:
+        const bool ontime = timer.sleep();
+        if (!ontime)
+            MRPT_LOG_THROTTLE_WARN_STREAM(
+                1.0, "Could not achieve desired real-time execution rate ("
+                         << rate
+                         << " Hz) on thread for sensor named: " << rds.name);
+    };
+
     MRPT_TRY_END
 }

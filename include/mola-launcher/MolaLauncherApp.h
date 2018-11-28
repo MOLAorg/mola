@@ -14,6 +14,7 @@
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mrpt/system/COutputLogger.h>
 #include <yaml-cpp/yaml.h>
+#include <atomic>
 #include <map>
 #include <thread>
 
@@ -25,7 +26,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
 {
    public:
     MolaLauncherApp();
-    virtual ~MolaLauncherApp() = default;
+    virtual ~MolaLauncherApp();
 
     /** @name SLAM system setup
      * @{ */
@@ -34,7 +35,8 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      * See [mola]/demos/ for example YAML files. */
     void setup(const YAML::Node& cfg);
 
-    /** Enters into an infinite loop executing the SLAM system. */
+    /** Launches sensor and worker threads and enters into an infinite
+     * loop executing the SLAM system. */
     void spin();
     /** @} */
 
@@ -51,8 +53,15 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
         std::string            yaml_cfg_block;
         RawDataSourceBase::Ptr impl;
         std::thread            executor;
+        std::string            name;
     };
+    /** Indexed by `name` */
     std::map<std::string, InfoPerRawDataSource> data_sources_;
+
+    void executor_datasource(InfoPerRawDataSource& rds);  //!< Thread func.
+
+    /** Set to true to command all running threads to exit */
+    std::atomic_bool threads_must_end_{false};
 };
 
 #define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
