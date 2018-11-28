@@ -93,11 +93,11 @@ function(mola_set_target_build_options TARGETNAME)
 endfunction()
 
 # -----------------------------------------------------------------------------
-# mola_define_library(target)
+# mola_configure_library(target)
 #
 # Define a consistent install behavior for cmake-based library project:
 # -----------------------------------------------------------------------------
-function(mola_define_library TARGETNAME)
+function(mola_configure_library TARGETNAME)
   # Public hdrs interface:
   target_include_directories(${TARGETNAME} PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -142,5 +142,18 @@ function(mola_define_library TARGETNAME)
     TARGETS ${TARGETNAME}
     FILE ${TARGETNAME}-config.cmake
   )
+
+endfunction()
+
+# -----------------------------------------------------------------------------
+# mola_configure_app(target)
+#
+# Define common properties of cmake-based executable projects:
+# -----------------------------------------------------------------------------
+function(mola_configure_app TARGETNAME)
+  # Project "folder":
+  set_target_properties(${TARGETNAME} PROPERTIES FOLDER "MOLA-apps")
+
+  #TODO: install?
 
 endfunction()

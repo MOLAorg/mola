@@ -7,3 +7,6 @@
 [submodule "externals/gtsam/gtsam"]
 	path = externals/gtsam/gtsam
 	url = https://bitbucket.org/gtborg/gtsam.git
+[submodule "modules/mola-launcher"]
+	path = modules/mola-launcher
+	url = git@github.com:jlblancoc/mola-launcher.git
