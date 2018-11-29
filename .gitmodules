@@ -10,3 +10,6 @@
 [submodule "modules/mola-launcher"]
 	path = modules/mola-launcher
 	url = git@github.com:jlblancoc/mola-launcher.git
+[submodule "modules/mola-sensor-kitti-dataset"]
+	path = modules/mola-sensor-kitti-dataset
+	url = git@github.com:jlblancoc/mola-sensor-kitti-dataset.git

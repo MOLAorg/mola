@@ -29,12 +29,14 @@ front_ends:
   - name: lidar_fe
     type: FE_Lidar3D_SimpleICP
     raw_data_source: kitti_input
-    raw_sensor_label: "lidar"
+    raw_sensor_label: lidar
 
 # Offline or online sensory data sources =====================
 raw_data_sources:
   - name: kitti_input
     type: KittiOdometryDataset
     params:
-      base_dir: ${KITTI_BASE_DIR}
-      sequence: "00"
+      base_dir: $env{KITTI_BASE_DIR}
+      sequence: 00
+      publish_lidar: true
+      publish_stereo: false
