@@ -18,14 +18,15 @@
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/CRateTimer.h>
 #include <iostream>
-#include <map>
 #include <sstream>
+#include "MolaDLL_Loader.h"
 
 using namespace mola;
 
 MolaLauncherApp::MolaLauncherApp()
     : mrpt::system::COutputLogger("MolaLauncherApp")
 {
+    lib_search_paths_.emplace_back(MOLA_MODULES_DIR);
 }
 
 MolaLauncherApp::~MolaLauncherApp()
@@ -36,9 +37,17 @@ MolaLauncherApp::~MolaLauncherApp()
         if (ds.second.executor.joinable()) ds.second.executor.join();
 }
 
+void MolaLauncherApp::addModulesDirectory(const std::string& path)
+{
+    lib_search_paths_.push_back(path);
+}
+
 void MolaLauncherApp::setup(const YAML::Node& cfg)
 {
     MRPT_TRY_START
+
+    // make sure all available modules are loaded and classes are registered.
+    internal_load_lib_modules(*this, lib_search_paths_);
 
     MRPT_LOG_INFO(
         "Setting up system from YAML config... (set DEBUG verbosity level to "
@@ -81,8 +90,14 @@ void MolaLauncherApp::setup(const YAML::Node& cfg)
             ss << ds;
             info.yaml_cfg_block = ss.str();
         }
-        info.impl = mola::RawDataSourceBase::Factory(ds_classname);
         info.name = ds_label;
+        MRPT_LOG_INFO_STREAM(
+            "Instantiating module `" << ds_label << "` of type `"
+                                     << ds_classname << "`");
+        // Create object (needs to be registered):
+        info.impl = mola::RawDataSourceBase::Factory(ds_classname);
+        // Inherit verbosity level:
+        info.impl->setMinLoggingLevel(this->getMinLoggingLevel());
     }
 
     MRPT_TRY_END
@@ -109,6 +124,9 @@ void MolaLauncherApp::spin()
 void MolaLauncherApp::executor_datasource(InfoPerRawDataSource& rds)
 {
     MRPT_TRY_START
+
+    // Initilize:
+    rds.impl->initialize(rds.yaml_cfg_block);
 
     const double             rate = 10.0;
     mrpt::system::CRateTimer timer(rate);

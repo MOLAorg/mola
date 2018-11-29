@@ -35,7 +35,15 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # Private lib Dependencies:
-# none
+if(UNIX)
+    # To be able to load DLLs/.so's:
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+    -DMOLA_MODULES_DIR="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+    )
 
 # ----------------------
 # define app target:
