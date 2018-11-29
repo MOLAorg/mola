@@ -5,6 +5,10 @@
 
 project(all_modules LANGUAGES CXX)
 
-# Process subdirectories:
+# System kernel:
 add_subdirectory(mola-kernel)
+# Launcher app:
 add_subdirectory(mola-launcher)
+
+# Modules:
+add_subdirectory(mola-sensor-kitti-dataset)
