@@ -20,7 +20,11 @@ sudo apt update
 sudo apt install libmrpt-dev mrpt-apps
 
 # Boost, yaml-cpp, etc:
-sudo apt install libyaml-cpp-dev libboost-dev
+sudo apt install libboost-serialization-dev libboost-system-dev \
+  libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev \
+  libboost-date-time-dev libboost-timer-dev libboost-chrono-dev \
+  libboost-regex-dev
+sudo apt install libyaml-cpp-dev
 ```
 
 ### Build
