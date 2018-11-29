@@ -29,12 +29,14 @@ front_ends:
   - name: stereo_visual_fe
     type: FE_Stereo_ORB
     raw_data_source: kitti_input
-    raw_sensor_label: "stereo"
+    raw_sensor_label: stereo
 
 # Offline or online sensory data sources =====================
 raw_data_sources:
   - name: kitti_input
     type: KittiOdometryDataset
     params:
-      base_dir: ${KITTI_BASE_DIR}
-      sequence: "00"
+      base_dir: $env{KITTI_BASE_DIR}
+      sequence: 00
+      publish_lidar: false
+      publish_stereo: true

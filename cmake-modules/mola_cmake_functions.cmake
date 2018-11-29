@@ -12,6 +12,11 @@ else()
   set(MOLA_WORD_SIZE 32)
 endif()
 
+# Default output dirs for libs:
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/lib/")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
+
 # Compiler ID:
 if (MSVC)
   # 1700 = VC 11.0 (2012)
@@ -78,7 +83,7 @@ function(mola_set_target_build_options TARGETNAME)
   else()
     # gcc & clang:
     target_compile_options(${TARGETNAME} PRIVATE
-      -Wall -Wextra -Wshadow -Wreturn-type -Wabi
+      -Wall -Wextra -Wshadow -Wreturn-type -Wabi=11
       -Wtype-limits -Wcast-align -Wparentheses
       -fPIC
     )
@@ -111,9 +116,6 @@ function(mola_configure_library TARGETNAME)
     OUTPUT_NAME "${TARGETNAME}${MOLA_DLL_VERSION_POSTFIX}"
     COMPILE_PDB_NAME "${TARGETNAME}${MOLA_DLL_VERSION_POSTFIX}"
     COMPILE_PDB_NAME_DEBUG "${TARGETNAME}${MOLA_DLL_VERSION_POSTFIX}${CMAKE_DEBUG_POSTFIX}"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/"
-    LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/lib/"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
     VERSION "${MOLA_VERSION_NUMBER_MAJOR}.${MOLA_VERSION_NUMBER_MINOR}.${MOLA_VERSION_NUMBER_PATCH}"
     SOVERSION ${MOLA_VERSION_NUMBER_MAJOR}.${MOLA_VERSION_NUMBER_MINOR}
     )
@@ -153,10 +155,6 @@ endfunction()
 function(mola_configure_app TARGETNAME)
   # Project "folder":
   set_target_properties(${TARGETNAME} PROPERTIES FOLDER "MOLA-apps")
-
-  set_target_properties(${TARGETNAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
-  )
 
   #TODO: install?
 
