@@ -35,8 +35,10 @@ front_ends:
 raw_data_sources:
   - name: kitti_input
     type: KittiOdometryDataset
+    execution_rate: 20 # Hz
     params:
-      base_dir: $env{KITTI_BASE_DIR}
+      base_dir: ${KITTI_BASE_DIR}
       sequence: 00
+      time_warp_scale: 1.0
       publish_lidar: true
       publish_stereo: false
