@@ -12,6 +12,7 @@
 #pragma once
 
 #include <mola-kernel/RawDataSourceBase.h>
+#include <mrpt/core/Clock.h>
 
 namespace mola
 {
@@ -25,9 +26,16 @@ class KittiOdometryDataset : public RawDataSourceBase
 
     // See docs in base class
     void initialize(const std::string& cfg_block) override;
-    void spin() override;
+    void spinOnce() override;
 
    private:
+    std::string             kitti_basedir_;  //!< base dir for "sequences/*".
+    std::string             replay_selected_seq_;  //!< "00", "01", ...
+    mrpt::Clock::time_point replay_begin_time_{};
+    bool                    replay_started_{false};
+    double                  time_warp_scale_{1.0};
+    bool                    publish_lidar_{true};
+    bool                    publish_stereo_{true};
 };
 
 }  // namespace mola
