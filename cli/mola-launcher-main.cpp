@@ -14,8 +14,16 @@
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/otherlibs/tclap/CmdLine.h>
+#include <csignal>  // sigaction
+#include <cstdlib>
 #include <iostream>
 #include <string>
+#if defined(__unix__)
+//#include <unistd.h> //
+#else
+#include <windows.h>  // SetConsoleCtrlHandler
+MRPT_TODO("win32: add SetConsoleCtrlHandler");
+#endif
 
 // Declare supported cli switches ===========
 TCLAP::CmdLine               cmd("mola-launcher");
@@ -27,6 +35,11 @@ TCLAP::ValueArg<std::string> arg_verbosity_level(
     "v", "verbosity", "Verbosity level: ERROR|WARN|INFO|DEBUG (Default: INFO)",
     false, "", "INFO", cmd);
 
+void mola_signal_handler(int s);
+void mola_install_signal_handler();
+
+mola::MolaLauncherApp app;
+
 int main(int argc, char** argv)
 {
     try
@@ -34,12 +47,12 @@ int main(int argc, char** argv)
         // Parse arguments:
         if (!cmd.parse(argc, argv)) return 1;  // should exit.
 
+        mola_install_signal_handler();
+
         // Load YAML config file:
         const auto file_yml = arg_yaml_cfg.getValue();
 
         YAML::Node cfg = YAML::LoadFile(file_yml);
-
-        mola::MolaLauncherApp app;
 
         if (arg_verbosity_level.isSet())
         {
@@ -58,4 +71,22 @@ int main(int argc, char** argv)
                   << mrpt::exception_to_str(e) << std::endl;
         return 1;
     }
+}
+
+void mola_signal_handler(int s)
+{
+    std::cerr << "Caught signal " << s << ". Shutting down..." << std::endl;
+    app.shutdown();
+    exit(1);
+}
+
+void mola_install_signal_handler()
+{
+    struct sigaction sigIntHandler;
+
+    sigIntHandler.sa_handler = &mola_signal_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+
+    sigaction(SIGINT, &sigIntHandler, nullptr);
 }

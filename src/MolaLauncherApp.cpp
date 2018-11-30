@@ -14,11 +14,14 @@
  * systems
  */
 
+#include <mola-kernel/env_vars.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/CRateTimer.h>
+#include <chrono>
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include "MolaDLL_Loader.h"
 
 using namespace mola;
@@ -29,12 +32,25 @@ MolaLauncherApp::MolaLauncherApp()
     lib_search_paths_.emplace_back(MOLA_MODULES_DIR);
 }
 
-MolaLauncherApp::~MolaLauncherApp()
+MolaLauncherApp::~MolaLauncherApp() { this->shutdown(); }
+
+void MolaLauncherApp::shutdown()
 {
     // End all threads:
     threads_must_end_ = true;
-    for (auto& ds : data_sources_)
-        if (ds.second.executor.joinable()) ds.second.executor.join();
+    if (!data_sources_.empty())
+    {
+        MRPT_LOG_INFO_STREAM(
+            "Shutting down " << data_sources_.size()
+                             << " raw-data-source worker threads...");
+        for (auto& ds : data_sources_)
+            if (ds.second.executor.joinable()) ds.second.executor.join();
+        MRPT_LOG_INFO("Done.");
+        data_sources_.clear();
+    }
+
+    using namespace std::chrono_literals;
+    std::this_thread::sleep_for(100ms);
 }
 
 void MolaLauncherApp::addModulesDirectory(const std::string& path)
@@ -42,7 +58,7 @@ void MolaLauncherApp::addModulesDirectory(const std::string& path)
     lib_search_paths_.push_back(path);
 }
 
-void MolaLauncherApp::setup(const YAML::Node& cfg)
+void MolaLauncherApp::setup(const YAML::Node& cfg_in)
 {
     MRPT_TRY_START
 
@@ -52,6 +68,14 @@ void MolaLauncherApp::setup(const YAML::Node& cfg)
     MRPT_LOG_INFO(
         "Setting up system from YAML config... (set DEBUG verbosity level to "
         "see full config)");
+
+    // Parse YAML env variables:
+    YAML::Node cfg;
+    {
+        std::stringstream ss;
+        ss << cfg_in;
+        cfg = YAML::Load(mola::parseEnvVars(ss.str()));
+    }
 
     MRPT_LOG_DEBUG_STREAM(
         "Using the following configuration:\n"
@@ -98,6 +122,7 @@ void MolaLauncherApp::setup(const YAML::Node& cfg)
         info.impl = mola::RawDataSourceBase::Factory(ds_classname);
         // Inherit verbosity level:
         info.impl->setMinLoggingLevel(this->getMinLoggingLevel());
+        info.execution_rate = ds["execution_rate"].as<double>();
     }
 
     MRPT_TRY_END
@@ -117,30 +142,48 @@ void MolaLauncherApp::spin()
 
     // Main SLAM/Localization infinite loop
     // -------------------------------------------
+    MRPT_LOG_INFO(
+        "Entering main SLAM/localization loop..."
+        "(CTRL+C from mola-cli to stop)");
+    while (!threads_must_end_)
+    {
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(200ms);
+    }
+    MRPT_LOG_INFO("Main SLAM/localization loop ended.");
 
     MRPT_TRY_END
 }
 
 void MolaLauncherApp::executor_datasource(InfoPerRawDataSource& rds)
 {
-    MRPT_TRY_START
-
-    // Initilize:
-    rds.impl->initialize(rds.yaml_cfg_block);
-
-    const double             rate = 10.0;
-    mrpt::system::CRateTimer timer(rate);
-
-    while (!threads_must_end_)
+    try
     {
-        // Done, cycle:
-        const bool ontime = timer.sleep();
-        if (!ontime)
-            MRPT_LOG_THROTTLE_WARN_STREAM(
-                1.0, "Could not achieve desired real-time execution rate ("
-                         << rate
-                         << " Hz) on thread for sensor named: " << rds.name);
-    };
+        if (threads_must_end_) return;
 
-    MRPT_TRY_END
+        // Initilize:
+        rds.impl->initialize(rds.yaml_cfg_block);
+
+        mrpt::system::CRateTimer timer(rds.execution_rate);
+
+        while (!threads_must_end_)
+        {
+            // Done, cycle:
+            const bool ontime = timer.sleep();
+            if (!ontime)
+                MRPT_LOG_THROTTLE_WARN_STREAM(
+                    1.0,
+                    "Could not achieve desired real-time execution rate ("
+                        << rds.execution_rate
+                        << " Hz) on thread for sensor named: " << rds.name);
+        };
+    }
+    catch (const std::exception& e)
+    {
+        MRPT_LOG_ERROR_STREAM(
+            "Error: Will shutdown since thread for sensor named `"
+            << rds.name << "` ended due to an exception:\n"
+            << mrpt::exception_to_str(e));
+        threads_must_end_ = true;
+    }
 }

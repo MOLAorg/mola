@@ -47,9 +47,15 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      */
     void setup(const YAML::Node& cfg);
 
-    /** Launches sensor and worker threads and enters into an infinite
-     * loop executing the SLAM system. */
+    /** (Blocking call) Launch sensor and worker threads and enters into an
+     * infinite loop executing the SLAM system, until shutdown() is called
+     * (e.g. from another thread or a signal handler). */
     void spin();
+
+    /** Attempts to do a clean shutdown of the system, giving all threads an
+     * opportunity to end and save any pending data, etc. \sa spin() */
+    void shutdown();
+
     /** @} */
 
     /** @name SLAM system control & monitoring
@@ -66,6 +72,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
         RawDataSourceBase::Ptr impl;
         std::thread            executor;
         std::string            name;
+        double                 execution_rate{10.0};  //!< (Hz)
     };
     /** Indexed by `name` */
     std::map<std::string, InfoPerRawDataSource> data_sources_;
@@ -78,8 +85,5 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** Used in setup(), can be added to via addModulesDirectory() */
     std::vector<std::string> lib_search_paths_{};
 };
-
-#define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
-    ASSERTMSG_(_c[_name], "Missing YAML required entry: `" _name "`");
 
 }  // namespace mola
