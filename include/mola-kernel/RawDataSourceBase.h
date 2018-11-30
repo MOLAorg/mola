@@ -43,7 +43,7 @@ class RawDataSourceBase : public mrpt::system::COutputLogger
      * rate. New observations should be sent to the associated MOLA
      * front-end by calling \a sendObservationsToFrontEnds().
      */
-    virtual void spin() = 0;
+    virtual void spinOnce() = 0;
     /** @} */
 
     static void registerClass(
@@ -69,5 +69,8 @@ class RawDataSourceBase : public mrpt::system::COutputLogger
         mola::RawDataSourceBase::registerClass(              \
             #_classname, []() { return new _classname(); }); \
     }
+
+#define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
+    ASSERTMSG_(_c[_name], "Missing YAML required entry: `" _name "`")
 
 }  // namespace mola
