@@ -13,6 +13,7 @@
 
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
+#include <array>
 
 namespace mola
 {
@@ -22,7 +23,7 @@ class KittiOdometryDataset : public RawDataSourceBase
 {
    public:
     KittiOdometryDataset();
-    ~KittiOdometryDataset() = default;
+    ~KittiOdometryDataset() override = default;
 
     // See docs in base class
     void initialize(const std::string& cfg_block) override;
@@ -33,9 +34,14 @@ class KittiOdometryDataset : public RawDataSourceBase
     std::string             replay_selected_seq_;  //!< "00", "01", ...
     mrpt::Clock::time_point replay_begin_time_{};
     bool                    replay_started_{false};
-    double                  time_warp_scale_{1.0};
     bool                    publish_lidar_{true};
-    bool                    publish_stereo_{true};
+    double                  time_warp_scale_{1.0};
+    std::array<bool, 4>     publish_image_{{true, true, true, true}};
+
+    std::array<std::vector<std::string>, 4> lst_image_;
+    std::vector<std::string>                lst_velodyne_;
+    std::vector<double>                     lst_timestamps_;
+    double                                  replay_time_{.0};
 };
 
 }  // namespace mola
