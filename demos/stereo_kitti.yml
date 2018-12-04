@@ -39,4 +39,5 @@ raw_data_sources:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
       publish_lidar: false
-      publish_stereo: true
+      publish_image_0: true
+      publish_image_1: true
