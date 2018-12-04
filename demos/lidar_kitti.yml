@@ -41,4 +41,5 @@ raw_data_sources:
       sequence: 00
       time_warp_scale: 1.0
       publish_lidar: true
-      publish_stereo: false
+      publish_image_0: false
+      publish_image_1: false
