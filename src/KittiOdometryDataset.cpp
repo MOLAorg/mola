@@ -15,7 +15,10 @@
  */
 
 #include <mola-sensor-kitti-dataset/KittiOdometryDataset.h>
+#include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/math/CMatrixTemplateNumeric.h>
+#include <mrpt/obs/CObservationImage.h>
+#include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 #include <yaml-cpp/yaml.h>
@@ -118,7 +121,13 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
         MRPT_LOG_INFO_STREAM(
             "Camera channel `image_"
             << i << "`: " << (!lst_image_[i].empty() ? "Found" : "Not found"));
+
+        // Override user choice if not possible to publish images:
+        if (lst_image_[i].empty()) publish_image_[i] = false;
     }
+
+    // Load sensors calibration:
+    MRPT_TODO("Load calib & sensor pose");
 
     MRPT_END
 }
@@ -126,10 +135,103 @@ void KittiOdometryDataset::spinOnce()
 {
     MRPT_START
 
+    // Starting time:
     if (!replay_started_)
     {
         replay_begin_time_ = mrpt::Clock::now();
         replay_started_    = true;
+    }
+
+    // get current replay time:
+    const double t =
+        mrpt::system::timeDifference(replay_begin_time_, mrpt::Clock::now()) *
+        time_warp_scale_;
+
+    if (replay_next_tim_index_ >= lst_timestamps_.size())
+    {
+        MRPT_LOG_THROTTLE_INFO(
+            2.0, "End of dataset reached! Nothing else to publish...");
+        return;
+    }
+
+    const std::string seq_dir =
+        kitti_basedir_ + "/sequences/" + replay_selected_seq_;
+
+    // We have to publish all observations until "t":
+    while (replay_next_tim_index_ < lst_timestamps_.size() &&
+           t >= lst_timestamps_[replay_next_tim_index_])
+    {
+        MRPT_LOG_DEBUG_STREAM(
+            "Sending observations for replay time: "
+            << mrpt::system::formatTimeInterval(t));
+
+        // Save one single timestamp for all observations, since they are in
+        // theory shynchronized in the Kitti datasets:
+        const auto obs_tim = mrpt::Clock::now();
+
+        if (publish_lidar_)
+        {
+            // Load velodyne pointcloud:
+            const auto f = seq_dir + std::string("/velodyne/") +
+                           lst_velodyne_[replay_next_tim_index_];
+
+            // Kitti dataset doesn't contain raw ranges, but point clouds.
+            // Load as a PC and convert into a MRPT's observation, leaving empty
+            // the fields for raw LiDAR ranges, etc.
+            mrpt::maps::CPointsMapXYZI pc;
+            if (!pc.loadFromKittiVelodyneFile(f))
+                THROW_EXCEPTION_FMT(
+                    "Error loading Kitti pointcloud file: `%s`", f.c_str());
+
+            auto obs         = mrpt::obs::CObservationVelodyneScan::Create();
+            obs->sensorLabel = "lidar";
+            obs->timestamp   = obs_tim;
+            const auto N     = pc.getPointsBufferRef_x().size();
+            obs->point_cloud.x.resize(N);
+            obs->point_cloud.y.resize(N);
+            obs->point_cloud.z.resize(N);
+            obs->point_cloud.intensity.resize(N);
+
+            // We cannot std::move PC -> obs, due to different std::vector
+            // allocators.. (sigh)
+            std::memcpy(
+                &obs->point_cloud.x[0], &pc.getPointsBufferRef_x()[0],
+                sizeof(float) * N);
+            std::memcpy(
+                &obs->point_cloud.y[0], &pc.getPointsBufferRef_y()[0],
+                sizeof(float) * N);
+            std::memcpy(
+                &obs->point_cloud.z[0], &pc.getPointsBufferRef_z()[0],
+                sizeof(float) * N);
+
+            MRPT_TODO("Load calib & sensor pose");
+            auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
+            this->sendObservationsToFrontEnds(o);
+        }
+
+        for (unsigned int i = 0; i < 4; i++)
+        {
+            if (!publish_image_[i]) continue;
+
+            auto obs         = mrpt::obs::CObservationImage::Create();
+            obs->sensorLabel = std::string("image_") + std::to_string(i);
+            obs->timestamp   = obs_tim;
+
+            ASSERTMSG_(
+                lst_image_[i].size() > replay_next_tim_index_,
+                mrpt::format("Missing image files for image_%u", i));
+            const auto f = seq_dir + std::string("/image_") +
+                           std::to_string(i) + std::string("/") +
+                           lst_image_[i][replay_next_tim_index_];
+
+            obs->image.setExternalStorage(f);
+
+            MRPT_TODO("Load calib & sensor pose");
+            auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
+            this->sendObservationsToFrontEnds(o);
+        }
+
+        replay_next_tim_index_++;
     }
 
     MRPT_END
