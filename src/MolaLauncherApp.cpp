@@ -168,6 +168,8 @@ void MolaLauncherApp::executor_datasource(InfoPerRawDataSource& rds)
 
         while (!threads_must_end_)
         {
+            rds.impl->spinOnce();
+
             // Done, cycle:
             const bool ontime = timer.sleep();
             if (!ontime)
