@@ -51,7 +51,7 @@ void RawDataSourceBase::initialize(const std::string& cfg_block)
 }
 
 void RawDataSourceBase::sendObservationsToFrontEnds(
-    mrpt::obs::CObservation::ConstPtr& obs)
+    mrpt::obs::CObservation::Ptr& obs)
 {
     // Just forward the data to my associated consumer:
     if (rdc_) { rdc_->onNewObservation(obs); }

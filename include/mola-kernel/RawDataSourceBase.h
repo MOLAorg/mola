@@ -56,7 +56,7 @@ class RawDataSourceBase : public mrpt::system::COutputLogger
 
    protected:
     /** Send an observation to the associated target front-ends */
-    void sendObservationsToFrontEnds(mrpt::obs::CObservation::ConstPtr& obs);
+    void sendObservationsToFrontEnds(mrpt::obs::CObservation::Ptr& obs);
 
    private:
     /** Target of captured data */
