@@ -13,6 +13,7 @@
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
+#include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
@@ -164,6 +165,10 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                             o_velo->point_cloud.intensity[i]);
                     }
                 }
+
+                auto o_img =
+                    mrpt::ptr_cast<mrpt::obs::CObservationImage>::from(obs);
+                if (o_img) { sv->win->setImageView(o_img->image); }
                 // temp code ----
 
                 // Force repaint:
