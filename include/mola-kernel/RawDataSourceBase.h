@@ -13,6 +13,7 @@
 
 #include <mola-kernel/RawDataConsumer.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/core/pimpl.h>
 #include <mrpt/obs/CObservation.h>
 #include <mrpt/system/COutputLogger.h>
 #include <functional>
@@ -54,6 +55,10 @@ class RawDataSourceBase : public mrpt::system::COutputLogger
      * reference to the object. */
     void attachToDataConsumer(RawDataConsumer& rdc);
 
+    /** Loads common parameters for all RDS. Called by launcher just before
+     * initialize(). */
+    void initialize_common(const std::string& cfg_block);
+
    protected:
     /** Send an observation to the associated target front-ends */
     void sendObservationsToFrontEnds(mrpt::obs::CObservation::Ptr& obs);
@@ -61,6 +66,11 @@ class RawDataSourceBase : public mrpt::system::COutputLogger
    private:
     /** Target of captured data */
     std::shared_ptr<RawDataConsumer> rdc_;
+
+    struct SensorViewerImpl;
+    /** Optional real-time GUI view of sensor data. Viewers indexed by
+     * sensor_label */
+    std::map<std::string, mrpt::pimpl<SensorViewerImpl>> sensor_preview_gui_;
 };
 
 #define MOLA_REGISTER_RAWDATASOURCE(_classname)              \

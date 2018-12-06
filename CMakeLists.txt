@@ -25,6 +25,7 @@ mola_configure_library(${PROJECT_NAME})
 
 # find dependencies:
 find_package(mrpt-graphs)
+find_package(mrpt-gui)
 find_package(mrpt-maps)
 find_package(mrpt-obs)
 
@@ -40,4 +41,5 @@ target_link_libraries(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     gtsam
+    mrpt-gui
 )
