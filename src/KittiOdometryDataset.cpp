@@ -203,6 +203,9 @@ void KittiOdometryDataset::spinOnce()
             std::memcpy(
                 &obs->point_cloud.z[0], &pc.getPointsBufferRef_z()[0],
                 sizeof(float) * N);
+            for (std::size_t i = 0; i < N; i++)
+                obs->point_cloud.intensity[i] =
+                    static_cast<uint8_t>(255.f * pc.getPointIntensity_fast(i));
 
             MRPT_TODO("Load calib & sensor pose");
             auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
