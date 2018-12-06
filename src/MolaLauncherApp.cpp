@@ -162,6 +162,7 @@ void MolaLauncherApp::executor_datasource(InfoPerRawDataSource& rds)
         if (threads_must_end_) return;
 
         // Initilize:
+        rds.impl->initialize_common(rds.yaml_cfg_block);
         rds.impl->initialize(rds.yaml_cfg_block);
 
         mrpt::system::CRateTimer timer(rds.execution_rate);
