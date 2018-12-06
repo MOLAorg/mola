@@ -149,6 +149,7 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
         const std::string fil_calib = seq_dir + std::string("/calib.txt");
         ASSERT_FILE_EXISTS_(fil_calib);
 
+        // Load projection matrices:
         auto calib = YAML::LoadFile(fil_calib);
         ENSURE_YAML_ENTRY_EXISTS(calib, "P0");
         ENSURE_YAML_ENTRY_EXISTS(calib, "P1");
@@ -156,20 +157,40 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
         ENSURE_YAML_ENTRY_EXISTS(calib, "P3");
         ENSURE_YAML_ENTRY_EXISTS(calib, "Tr");
 
-        Eigen::Matrix<double, 3, 4> P0, P1, P2, P3, Tr;
-        parse_calib_line(calib["P0"].as<std::string>(), P0);
-        parse_calib_line(calib["P1"].as<std::string>(), P1);
-        parse_calib_line(calib["P2"].as<std::string>(), P2);
-        parse_calib_line(calib["P3"].as<std::string>(), P3);
+        Eigen::Matrix<double, 3, 4> P[4], Tr;
         parse_calib_line(calib["Tr"].as<std::string>(), Tr);
-
-        MRPT_LOG_DEBUG_STREAM("P0:\n" << P0);
-        MRPT_LOG_DEBUG_STREAM("P1:\n" << P1);
-        MRPT_LOG_DEBUG_STREAM("P2:\n" << P2);
-        MRPT_LOG_DEBUG_STREAM("P3:\n" << P3);
         MRPT_LOG_DEBUG_STREAM("Tr:\n" << Tr);
+        for (unsigned int i = 0; i < 4; i++)
+        {
+            parse_calib_line(
+                calib["P" + std::to_string(i)].as<std::string>(), P[i]);
+            MRPT_LOG_DEBUG_STREAM("P" << i << " :\n" << P[i]);
+        }
 
-        MRPT_TODO("End calib & sensor pose load");
+        // Camera intrinsics:
+        for (unsigned int i = 0; i < 4; i++)
+        {
+            const double fx = P[i](0, 0), fy = P[i](1, 1), cx = P[i](0, 2),
+                         cy = P[i](1, 2);
+            cam_intrinsics_[i].setIntrinsicParamsFromValues(fx, fy, cx, cy);
+
+            // Resolution: try loading the first image:
+            if (!lst_image_[i].empty())
+            {
+                mrpt::img::CImage im;
+                if (im.loadFromFile(lst_image_[i][0]))
+                {
+                    cam_intrinsics_[i].ncols = im.getWidth();
+                    cam_intrinsics_[i].nrows = im.getHeight();
+                }
+            }
+
+            // Camera extrinsic params/ pose wrt vehicle origin:
+            // cam_poses_[i]
+            MRPT_TODO("End calib & sensor pose load");
+        }
+
+        MRPT_TODO("Velodyne calib");
     }
 
     MRPT_END

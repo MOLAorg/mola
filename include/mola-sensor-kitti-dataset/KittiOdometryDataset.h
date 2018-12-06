@@ -13,6 +13,8 @@
 
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
+#include <mrpt/img/TCamera.h>
+#include <mrpt/math/lightweight_geom_data.h>
 #include <array>
 
 namespace mola
@@ -44,6 +46,8 @@ class KittiOdometryDataset : public RawDataSourceBase
     bool                    publish_lidar_{true};
     double                  time_warp_scale_{1.0};
     std::array<bool, 4>     publish_image_{{true, true, true, true}};
+    std::array<mrpt::img::TCamera, 4>  cam_intrinsics_;
+    std::array<mrpt::math::TPose3D, 4> cam_poses_;  //!< wrt vehicle origin
 
     std::array<std::vector<std::string>, 4> lst_image_;
     std::vector<std::string>                lst_velodyne_;
