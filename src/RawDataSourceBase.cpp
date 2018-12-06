@@ -14,7 +14,7 @@
 #include <mola-kernel/WorkerThreadsPool.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
 #include <mrpt/obs/CObservationImage.h>
-#include <mrpt/obs/CObservationVelodyneScan.h>
+#include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/stock_objects.h>
@@ -33,6 +33,7 @@ struct RawDataSourceBase::SensorViewerImpl
 {
     unsigned int          decimation{1}, decim_counter{0};
     std::string           sensor_label;
+    std::string           win_pos;  //!< "[x,y,width,height]"
     CDisplayWindow3D::Ptr win;
 };
 
@@ -79,8 +80,9 @@ void RawDataSourceBase::initialize_common(const std::string& cfg_block)
         for (auto sensor : ds_preview)
         {
             ENSURE_YAML_ENTRY_EXISTS(sensor, "raw_sensor_label");
-            const auto label = sensor["raw_sensor_label"].as<std::string>();
-            const auto decim = sensor["decimation"].as<unsigned int>(1);
+            const auto label   = sensor["raw_sensor_label"].as<std::string>();
+            const auto decim   = sensor["decimation"].as<unsigned int>(1);
+            const auto win_pos = sensor["win_pos"].as<std::string>();
 
             ASSERTMSG_(
                 sensor_preview_gui_.find(label) == sensor_preview_gui_.end(),
@@ -92,6 +94,7 @@ void RawDataSourceBase::initialize_common(const std::string& cfg_block)
 
             sv->decimation   = decim;
             sv->sensor_label = label;
+            sv->win_pos      = win_pos;
             // sv->win: Create a window when the sensor actually publishes.
         }
     }
@@ -124,11 +127,30 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
             try
             {
                 using namespace mrpt::opengl;
+
+                // GUI update decimation:
+                if (++sv->decim_counter < sv->decimation) return;
+                sv->decim_counter = 0;
+
                 // Create GUI upon first call:
                 COpenGLScene::Ptr scene;
                 if (!sv->win)
                 {
                     sv->win = CDisplayWindow3D::Create(sv->sensor_label);
+
+                    // Replace and resize, if user provided "win_pos":
+                    if (!sv->win_pos.empty())
+                    {
+                        int                x = 0, y = 0, w = 400, h = 300;
+                        std::istringstream ss(sv->win_pos);
+                        // parse: "x y w h"
+                        if ((ss >> x) && (ss >> y) && (ss >> w) && (ss >> h))
+                        {
+                            sv->win->setPos(x, y);
+                            sv->win->resize(w, h);
+                        }
+                    }
+
                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
                     scene->insert(stock_objects::CornerXYZSimple(1.0f, 4.0f));
                     scene->insert(CGridPlaneXY::Create());
@@ -142,28 +164,16 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
                 // temp code ----
                 auto o_velo =
-                    mrpt::ptr_cast<mrpt::obs::CObservationVelodyneScan>::from(
+                    mrpt::ptr_cast<mrpt::obs::CObservationPointCloud>::from(
                         obs);
-                if (o_velo)
+                if (o_velo && o_velo->pointcloud)
                 {
                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
                     auto o     = scene->getByName("pointcloud");
                     auto gl_pt = mrpt::ptr_cast<CPointCloudColoured>::from(o);
 
                     // o_velo
-                    gl_pt->clear();
-                    const auto N = o_velo->point_cloud.size();
-                    gl_pt->reserve(N);
-                    for (std::size_t i = 0; i < N; i++)
-                    {
-                        // XYZ-RGB:
-                        gl_pt->push_back(
-                            o_velo->point_cloud.x[i], o_velo->point_cloud.y[i],
-                            o_velo->point_cloud.z[i],
-                            o_velo->point_cloud.intensity[i],
-                            o_velo->point_cloud.intensity[i],
-                            o_velo->point_cloud.intensity[i]);
-                    }
+                    gl_pt->loadFromPointsMap(o_velo->pointcloud.get());
                 }
 
                 auto o_img =
