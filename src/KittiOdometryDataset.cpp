@@ -145,52 +145,73 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     }
 
     // Load sensors calibration:
+    const std::string fil_calib = seq_dir + std::string("/calib.txt");
+    ASSERT_FILE_EXISTS_(fil_calib);
+
+    // Load projection matrices:
+    auto calib = YAML::LoadFile(fil_calib);
+    ENSURE_YAML_ENTRY_EXISTS(calib, "P0");
+    ENSURE_YAML_ENTRY_EXISTS(calib, "P1");
+    ENSURE_YAML_ENTRY_EXISTS(calib, "P2");
+    ENSURE_YAML_ENTRY_EXISTS(calib, "P3");
+    ENSURE_YAML_ENTRY_EXISTS(calib, "Tr");
+
+    Eigen::Matrix<double, 3, 4> P[4], Tr;
+    parse_calib_line(calib["Tr"].as<std::string>(), Tr);
+    for (unsigned int i = 0; i < 4; i++)
     {
-        const std::string fil_calib = seq_dir + std::string("/calib.txt");
-        ASSERT_FILE_EXISTS_(fil_calib);
+        parse_calib_line(
+            calib["P" + std::to_string(i)].as<std::string>(), P[i]);
+    }
 
-        // Load projection matrices:
-        auto calib = YAML::LoadFile(fil_calib);
-        ENSURE_YAML_ENTRY_EXISTS(calib, "P0");
-        ENSURE_YAML_ENTRY_EXISTS(calib, "P1");
-        ENSURE_YAML_ENTRY_EXISTS(calib, "P2");
-        ENSURE_YAML_ENTRY_EXISTS(calib, "P3");
-        ENSURE_YAML_ENTRY_EXISTS(calib, "Tr");
+    // Camera intrinsics:
+    for (unsigned int i = 0; i < 4; i++)
+    {
+        const double fx = P[i](0, 0), fy = P[i](1, 1), cx = P[i](0, 2),
+                     cy = P[i](1, 2);
+        cam_intrinsics_[i].setIntrinsicParamsFromValues(fx, fy, cx, cy);
 
-        Eigen::Matrix<double, 3, 4> P[4], Tr;
-        parse_calib_line(calib["Tr"].as<std::string>(), Tr);
-        MRPT_LOG_DEBUG_STREAM("Tr:\n" << Tr);
-        for (unsigned int i = 0; i < 4; i++)
+        // Resolution: try loading the first image:
+        if (!lst_image_[i].empty())
         {
-            parse_calib_line(
-                calib["P" + std::to_string(i)].as<std::string>(), P[i]);
-            MRPT_LOG_DEBUG_STREAM("P" << i << " :\n" << P[i]);
-        }
-
-        // Camera intrinsics:
-        for (unsigned int i = 0; i < 4; i++)
-        {
-            const double fx = P[i](0, 0), fy = P[i](1, 1), cx = P[i](0, 2),
-                         cy = P[i](1, 2);
-            cam_intrinsics_[i].setIntrinsicParamsFromValues(fx, fy, cx, cy);
-
-            // Resolution: try loading the first image:
-            if (!lst_image_[i].empty())
+            mrpt::img::CImage im;
+            if (im.loadFromFile(lst_image_[i][0]))
             {
-                mrpt::img::CImage im;
-                if (im.loadFromFile(lst_image_[i][0]))
-                {
-                    cam_intrinsics_[i].ncols = im.getWidth();
-                    cam_intrinsics_[i].nrows = im.getHeight();
-                }
+                cam_intrinsics_[i].ncols = static_cast<uint32_t>(im.getWidth());
+                cam_intrinsics_[i].nrows =
+                    static_cast<uint32_t>(im.getHeight());
+                MRPT_LOG_DEBUG_STREAM(
+                    "image_"
+                    << i << ": detected image size=" << cam_intrinsics_[i].ncols
+                    << "x" << cam_intrinsics_[i].nrows);
             }
-
-            // Camera extrinsic params/ pose wrt vehicle origin:
-            // cam_poses_[i]
-            MRPT_TODO("End calib & sensor pose load");
         }
 
-        MRPT_TODO("Velodyne calib");
+        // Camera extrinsic params/ pose wrt vehicle origin:
+        cam_poses_[i]   = mrpt::math::TPose3D::Identity();
+        cam_poses_[i].x = P[i](0, 3) / P[i](0, 0);
+    }
+
+    // Velodyne is the (0,0,0) of the vehicle.
+    // image_0 pose wrt velo is "Tr":
+    mrpt::math::CMatrixDouble44 Trh = Eigen::Matrix4d::Identity();
+    Trh.block<3, 4>(0, 0)           = Tr;
+    // Camera 0:
+    cam_poses_[0] = mrpt::poses::CPose3D(Trh).asTPose();
+    // Cameras 1-3:
+    for (unsigned int i = 1; i < 4; i++)
+        cam_poses_[i].composePose(cam_poses_[0], cam_poses_[i]);
+
+    // Debug: dump poses.
+    for (unsigned int i = 0; i < 4; i++)
+    {
+        mrpt::poses::CPose3D        p(cam_poses_[i]);
+        mrpt::math::CMatrixDouble44 T;
+        p.getHomogeneousMatrix(T);
+        MRPT_LOG_DEBUG_STREAM(
+            "image_" << i << " pose on vehicle: " << cam_poses_[i]
+                     << "\nTransf. matrix:\n"
+                     << T);
     }
 
     MRPT_END
@@ -271,7 +292,9 @@ void KittiOdometryDataset::spinOnce()
                 obs->point_cloud.intensity[i] =
                     static_cast<uint8_t>(255.f * pc.getPointIntensity_fast(i));
 
-            MRPT_TODO("Load calib & sensor pose");
+            // Pose: velodyne is at the origin of the vehicle coordinates:
+            obs->sensorPose = mrpt::poses::CPose3D();
+
             auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
             this->sendObservationsToFrontEnds(o);
         }
@@ -293,7 +316,9 @@ void KittiOdometryDataset::spinOnce()
 
             obs->image.setExternalStorage(f);
 
-            MRPT_TODO("Load calib & sensor pose");
+            obs->cameraParams = cam_intrinsics_[i];
+            obs->setSensorPose(mrpt::poses::CPose3D(cam_poses_[i]));
+
             auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
             this->sendObservationsToFrontEnds(o);
         }
