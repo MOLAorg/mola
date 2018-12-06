@@ -18,6 +18,12 @@
 namespace mola
 {
 /** RawDataSource from Kitti odometry/SLAM datasets.
+ * Each "sequence" directory contains these sensor streams:
+ * - `image_0` & `image_1`: A grayscale stereo camera pair
+ * - `image_2` & `image_3`: An RGB stereo camera pair
+ * - `lidar`: Velodyne 3D LIDAR
+ * - Ground truth poses
+ *
  * \ingroup mola_sensor_kitti_dataset_grp */
 class KittiOdometryDataset : public RawDataSourceBase
 {

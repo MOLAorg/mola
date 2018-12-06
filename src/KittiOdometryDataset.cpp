@@ -50,6 +50,24 @@ static void build_list_files(
         [](auto& fil) { return fil.name; });
 }
 
+static void parse_calib_line(
+    const std::string& line, Eigen::Matrix<double, 3, 4>& M)
+{
+    MRPT_TRY_START
+
+    std::istringstream ss(line);
+    for (Eigen::Index r = 0; r < M.rows(); r++)
+        for (Eigen::Index c = 0; c < M.cols(); c++)
+        {
+            if (!(ss >> M(r, c)))
+            {
+                THROW_EXCEPTION_FMT(
+                    "Error parsing calib line: `%s`", line.c_str());
+            }
+        }
+    MRPT_TRY_END
+}
+
 void KittiOdometryDataset::initialize(const std::string& cfg_block)
 {
     MRPT_START
@@ -127,7 +145,32 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     }
 
     // Load sensors calibration:
-    MRPT_TODO("Load calib & sensor pose");
+    {
+        const std::string fil_calib = seq_dir + std::string("/calib.txt");
+        ASSERT_FILE_EXISTS_(fil_calib);
+
+        auto calib = YAML::LoadFile(fil_calib);
+        ENSURE_YAML_ENTRY_EXISTS(calib, "P0");
+        ENSURE_YAML_ENTRY_EXISTS(calib, "P1");
+        ENSURE_YAML_ENTRY_EXISTS(calib, "P2");
+        ENSURE_YAML_ENTRY_EXISTS(calib, "P3");
+        ENSURE_YAML_ENTRY_EXISTS(calib, "Tr");
+
+        Eigen::Matrix<double, 3, 4> P0, P1, P2, P3, Tr;
+        parse_calib_line(calib["P0"].as<std::string>(), P0);
+        parse_calib_line(calib["P1"].as<std::string>(), P1);
+        parse_calib_line(calib["P2"].as<std::string>(), P2);
+        parse_calib_line(calib["P3"].as<std::string>(), P3);
+        parse_calib_line(calib["Tr"].as<std::string>(), Tr);
+
+        MRPT_LOG_DEBUG_STREAM("P0:\n" << P0);
+        MRPT_LOG_DEBUG_STREAM("P1:\n" << P1);
+        MRPT_LOG_DEBUG_STREAM("P2:\n" << P2);
+        MRPT_LOG_DEBUG_STREAM("P3:\n" << P3);
+        MRPT_LOG_DEBUG_STREAM("Tr:\n" << Tr);
+
+        MRPT_TODO("End calib & sensor pose load");
+    }
 
     MRPT_END
 }
