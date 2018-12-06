@@ -39,7 +39,7 @@ raw_data_sources:
     execution_rate: 100 # Hz
     gui_preview_sensors:
       - raw_sensor_label: image_0
-        decimation: 1
+        decimation: 1 
       - raw_sensor_label: image_1
         decimation: 1
     params:
