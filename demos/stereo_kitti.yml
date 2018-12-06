@@ -37,6 +37,11 @@ raw_data_sources:
   - name: kitti_input
     type: KittiOdometryDataset
     execution_rate: 100 # Hz
+    gui_preview_sensors:
+      - raw_sensor_label: image_0
+        decimation: 1
+      - raw_sensor_label: image_1
+        decimation: 1
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
