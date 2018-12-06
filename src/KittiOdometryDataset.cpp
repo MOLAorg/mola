@@ -10,15 +10,17 @@
  * @date   Nov 29, 2018
  */
 
-/** \defgroup mola_sensor_kitti_dataset_grp RawDataSource from Kitti
- * odometry/SLAM datasets
+/** \defgroup mola_sensor_kitti_dataset_grp mola-sensor-kitti-dataset.
+ * RawDataSource from Kitti odometry/SLAM datasets.
+ *
+ *
  */
 
 #include <mola-sensor-kitti-dataset/KittiOdometryDataset.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/math/CMatrixTemplateNumeric.h>
 #include <mrpt/obs/CObservationImage.h>
-#include <mrpt/obs/CObservationVelodyneScan.h>
+#include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 #include <yaml-cpp/yaml.h>
@@ -263,35 +265,15 @@ void KittiOdometryDataset::spinOnce()
             // Kitti dataset doesn't contain raw ranges, but point clouds.
             // Load as a PC and convert into a MRPT's observation, leaving empty
             // the fields for raw LiDAR ranges, etc.
-            mrpt::maps::CPointsMapXYZI pc;
-            if (!pc.loadFromKittiVelodyneFile(f))
+            auto pc = mrpt::maps::CPointsMapXYZI::Create();
+            if (!pc->loadFromKittiVelodyneFile(f))
                 THROW_EXCEPTION_FMT(
                     "Error loading Kitti pointcloud file: `%s`", f.c_str());
 
-            auto obs         = mrpt::obs::CObservationVelodyneScan::Create();
+            auto obs         = mrpt::obs::CObservationPointCloud::Create();
             obs->sensorLabel = "lidar";
             obs->timestamp   = obs_tim;
-            const auto N     = pc.getPointsBufferRef_x().size();
-            obs->point_cloud.x.resize(N);
-            obs->point_cloud.y.resize(N);
-            obs->point_cloud.z.resize(N);
-            obs->point_cloud.intensity.resize(N);
-
-            // We cannot std::move PC -> obs, due to different std::vector
-            // allocators.. (sigh)
-            std::memcpy(
-                &obs->point_cloud.x[0], &pc.getPointsBufferRef_x()[0],
-                sizeof(float) * N);
-            std::memcpy(
-                &obs->point_cloud.y[0], &pc.getPointsBufferRef_y()[0],
-                sizeof(float) * N);
-            std::memcpy(
-                &obs->point_cloud.z[0], &pc.getPointsBufferRef_z()[0],
-                sizeof(float) * N);
-            for (std::size_t i = 0; i < N; i++)
-                obs->point_cloud.intensity[i] =
-                    static_cast<uint8_t>(255.f * pc.getPointIntensity_fast(i));
-
+            obs->pointcloud  = std::move(pc);
             // Pose: velodyne is at the origin of the vehicle coordinates:
             obs->sensorPose = mrpt::poses::CPose3D();
 
