@@ -21,7 +21,7 @@
 
 namespace mola
 {
-/** Virtual base for raw-observation data sources
+/** Virtual base for raw-observation data sources (sensors, dataset parsers,...)
  * \ingroup mola_kernel_grp */
 class RawDataSourceBase : public mrpt::system::COutputLogger
 {
@@ -61,7 +61,7 @@ class RawDataSourceBase : public mrpt::system::COutputLogger
 
    protected:
     /** Send an observation to the associated target front-ends */
-    void sendObservationsToFrontEnds(mrpt::obs::CObservation::Ptr& obs);
+    void sendObservationsToFrontEnds(CObservation::Ptr& obs);
 
    private:
     /** Target of captured data */

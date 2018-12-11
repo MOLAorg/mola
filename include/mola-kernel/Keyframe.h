@@ -27,10 +27,10 @@ using keyframe_id_t = std::uint64_t;
  */
 class Keyframe
 {
+public:
     Keyframe() = default;
     Keyframe(keyframe_id_t id) : kf_id_(id) {}
 
-   public:
     /** @name Keyframe data fields
      * @{ */
     keyframe_id_t                 kf_id_{0};

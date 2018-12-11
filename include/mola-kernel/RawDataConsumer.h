@@ -16,6 +16,8 @@
 
 namespace mola
 {
+using CObservation = mrpt::obs::CObservation;
+
 /** Virtual base for raw-observation consumers
  * \ingroup mola_kernel_grp */
 class RawDataConsumer : public std::enable_shared_from_this<RawDataConsumer>
@@ -32,7 +34,7 @@ class RawDataConsumer : public std::enable_shared_from_this<RawDataConsumer>
     /** To be called whenever a new observation arrives. It should return as
      * fast as possible, enqueuing the data for processing in another thread.
      */
-    virtual void onNewObservation(mrpt::obs::CObservation::Ptr& o) = 0;
+    virtual void onNewObservation(CObservation::Ptr& o) = 0;
     /** @} */
 
     /** Get as shared_ptr via enable_shared_from_this<> */
