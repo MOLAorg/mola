@@ -11,11 +11,11 @@
  */
 #pragma once
 
+#include <mola-kernel/ExecutableBase.h>
 #include <mola-kernel/RawDataConsumer.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/pimpl.h>
 #include <mrpt/obs/CObservation.h>
-#include <mrpt/system/COutputLogger.h>
 #include <functional>
 #include <memory>
 
@@ -23,7 +23,7 @@ namespace mola
 {
 /** Virtual base for raw-observation data sources (sensors, dataset parsers,...)
  * \ingroup mola_kernel_grp */
-class RawDataSourceBase : public mrpt::system::COutputLogger
+class RawDataSourceBase : public mola::ExecutableBase
 {
    public:
     RawDataSourceBase();
@@ -33,19 +33,6 @@ class RawDataSourceBase : public mrpt::system::COutputLogger
 
     /** Class factory. Register using MOLA_REGISTER_RAWDATASOURCE() */
     static Ptr Factory(const std::string& classname);
-
-    /** @name Virtual interface of any RawDataSource
-     *{ */
-
-    /** This should be reimplemented to read all the required parameters */
-    virtual void initialize(const std::string& cfg_block);
-
-    /** This will be called in an infinite loop at the sensor execution
-     * rate. New observations should be sent to the associated MOLA
-     * front-end by calling \a sendObservationsToFrontEnds().
-     */
-    virtual void spinOnce() = 0;
-    /** @} */
 
     static void registerClass(
         const std::string_view&                 classname,

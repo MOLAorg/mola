@@ -20,7 +20,7 @@ using namespace mola;
 // Class factory:
 static std::map<std::string, std::function<FrontEndBase*(void)>> registry;
 
-FrontEndBase::FrontEndBase() : mrpt::system::COutputLogger("FrontEndBase") {}
+FrontEndBase::FrontEndBase() = default;
 
 FrontEndBase::Ptr FrontEndBase::Factory(const std::string& name)
 {
@@ -36,14 +36,6 @@ void FrontEndBase::registerClass(
     const std::string_view& classname, std::function<FrontEndBase*(void)> func)
 {
     registry.emplace(classname, func);
-}
-
-void FrontEndBase::initialize(const std::string& cfg_block)
-{
-    MRPT_LOG_WARN_STREAM(
-        "`initialize()` not reimplemented by derived class. "
-        "Ignoring YAML config block:\n"
-        << cfg_block);
 }
 
 void FrontEndBase::initialize_common(const std::string& cfg_block)

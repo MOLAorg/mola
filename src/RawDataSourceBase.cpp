@@ -37,10 +37,7 @@ struct RawDataSourceBase::SensorViewerImpl
     CDisplayWindow3D::Ptr win;
 };
 
-RawDataSourceBase::RawDataSourceBase()
-    : mrpt::system::COutputLogger("RawDataSourceBase")
-{
-}
+RawDataSourceBase::RawDataSourceBase() = default;
 
 RawDataSourceBase::Ptr RawDataSourceBase::Factory(const std::string& name)
 {
@@ -57,15 +54,6 @@ void RawDataSourceBase::registerClass(
     std::function<RawDataSourceBase*(void)> func)
 {
     registry.emplace(classname, func);
-}
-
-/** This should be reimplemented to read all the required parameters */
-void RawDataSourceBase::initialize(const std::string& cfg_block)
-{
-    MRPT_LOG_WARN_STREAM(
-        "`initialize()` not reimplemented by derived class. "
-        "Ignoring YAML config block:\n"
-        << cfg_block);
 }
 
 void RawDataSourceBase::initialize_common(const std::string& cfg_block)
