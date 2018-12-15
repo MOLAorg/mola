@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/RawDataSourceBase.h>
+#include <mola-kernel/ExecutableBase.h>
 #include <mrpt/system/COutputLogger.h>
 #include <yaml-cpp/yaml.h>
 #include <atomic>
@@ -66,18 +66,18 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** @} */
 
    private:
-    struct InfoPerRawDataSource
+    struct InfoPerRunningThread
     {
-        std::string            yaml_cfg_block;
-        RawDataSourceBase::Ptr impl;
-        std::thread            executor;
-        std::string            name;
-        double                 execution_rate{10.0};  //!< (Hz)
+        std::string         yaml_cfg_block;
+        ExecutableBase::Ptr impl;
+        std::thread         executor;
+        std::string         name;
+        double              execution_rate{10.0};  //!< (Hz)
     };
     /** Indexed by `name` */
-    std::map<std::string, InfoPerRawDataSource> data_sources_;
+    std::map<std::string, InfoPerRunningThread> running_threads_;
 
-    void executor_datasource(InfoPerRawDataSource& rds);  //!< Thread func.
+    void executor_thread(InfoPerRunningThread& rds);  //!< Thread func.
 
     /** Set to true to command all running threads to exit */
     std::atomic_bool threads_must_end_{false};

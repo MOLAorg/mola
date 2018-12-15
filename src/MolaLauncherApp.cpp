@@ -14,6 +14,7 @@
  * systems
  */
 
+#include <mola-kernel/RawDataSourceBase.h>
 #include <mola-kernel/env_vars.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
@@ -38,15 +39,15 @@ void MolaLauncherApp::shutdown()
 {
     // End all threads:
     threads_must_end_ = true;
-    if (!data_sources_.empty())
+    if (!running_threads_.empty())
     {
         MRPT_LOG_INFO_STREAM(
-            "Shutting down " << data_sources_.size()
-                             << " raw-data-source worker threads...");
-        for (auto& ds : data_sources_)
+            "Shutting down " << running_threads_.size()
+                             << " worker threads...");
+        for (auto& ds : running_threads_)
             if (ds.second.executor.joinable()) ds.second.executor.join();
         MRPT_LOG_INFO("Done.");
-        data_sources_.clear();
+        running_threads_.clear();
     }
 
     using namespace std::chrono_literals;
@@ -101,13 +102,13 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
 
         const auto ds_label = ds["name"].as<std::string>();
         ASSERTMSG_(!ds_label.empty(), "`name` cannot be empty!");
-        if (data_sources_.count(ds_label) != 0)
+        if (running_threads_.count(ds_label) != 0)
             THROW_EXCEPTION_FMT("Duplicated `name`: %s", ds_label.c_str());
 
         const auto ds_classname = ds["type"].as<std::string>();
         ASSERTMSG_(!ds_classname.empty(), "`type` cannot be empty!");
 
-        InfoPerRawDataSource& info = data_sources_[ds_label];
+        InfoPerRunningThread& info = running_threads_[ds_label];
         {
             // Make a copy of the YAML config block:
             std::stringstream ss;
@@ -119,9 +120,19 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             "Instantiating module `" << ds_label << "` of type `"
                                      << ds_classname << "`");
         // Create object (needs to be registered):
-        info.impl = mola::RawDataSourceBase::Factory(ds_classname);
+        auto obj  = mola::RawDataSourceBase::Factory(ds_classname);
+        info.impl = std::dynamic_pointer_cast<ExecutableBase>(obj);
+        ASSERTMSG_(
+            info.impl,
+            mrpt::format(
+                "Error: object for module `%s` of type `%s` couldn't be "
+                "dynamic_cast'd to ExecutableBase",
+                ds_label.c_str(), ds_classname.c_str()));
+
         // Inherit verbosity level:
         info.impl->setMinLoggingLevel(this->getMinLoggingLevel());
+        // Default logger name, can be change in initilize()
+        info.impl->setLoggerName(ds_classname + std::string(":") + ds_label);
         info.execution_rate = ds["execution_rate"].as<double>();
     }
 
@@ -134,10 +145,10 @@ void MolaLauncherApp::spin()
 
     // Launch working threads:
     // ---------------------------------
-    for (auto& ds : data_sources_)
+    for (auto& ds : running_threads_)
     {
         ds.second.executor = std::thread(
-            &MolaLauncherApp::executor_datasource, this, std::ref(ds.second));
+            &MolaLauncherApp::executor_thread, this, std::ref(ds.second));
     }
 
     // Main SLAM/Localization infinite loop
@@ -155,7 +166,7 @@ void MolaLauncherApp::spin()
     MRPT_TRY_END
 }
 
-void MolaLauncherApp::executor_datasource(InfoPerRawDataSource& rds)
+void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
 {
     try
     {
@@ -184,7 +195,7 @@ void MolaLauncherApp::executor_datasource(InfoPerRawDataSource& rds)
     catch (const std::exception& e)
     {
         MRPT_LOG_ERROR_STREAM(
-            "Error: Will shutdown since thread for sensor named `"
+            "Error: Will shutdown since thread for module named `"
             << rds.name << "` ended due to an exception:\n"
             << mrpt::exception_to_str(e));
         threads_must_end_ = true;
