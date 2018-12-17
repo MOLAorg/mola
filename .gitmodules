@@ -13,3 +13,6 @@
 [submodule "modules/mola-sensor-kitti-dataset"]
 	path = modules/mola-sensor-kitti-dataset
 	url = git@github.com:jlblancoc/mola-sensor-kitti-dataset.git
+[submodule "modules/mola-fe-lidar-icp"]
+	path = modules/mola-fe-lidar-icp
+	url = git@github.com:jlblancoc/mola-fe-lidar-icp.git
