@@ -14,6 +14,7 @@
  * systems
  */
 
+#include <mola-kernel/FrontEndBase.h>
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mola-kernel/env_vars.h>
 #include <mola-launcher/MolaLauncherApp.h>
@@ -84,57 +85,85 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
         << cfg << std::endl
         << "==================================================\n");
 
-    ENSURE_YAML_ENTRY_EXISTS(cfg, "slam_backend");
-    const auto& cfg_sb = cfg["slam_backend"];
+    // clang-format off
+    const std::vector<
+        std::pair<std::string, std::function<ExecutableBase::Ptr(const std::string &)>>>
+        lstSections = {
+            /* raw_data_sources */
+            {
+              "raw_data_sources", [](const std::string &type)
+              {
+               auto obj = mola::RawDataSourceBase::Factory(type);
+               return std::dynamic_pointer_cast<ExecutableBase>(obj);
+              }
+            },
+            /* front-ends */
+            {
+              "front_ends", [](const std::string &type)
+              {
+               auto obj = mola::FrontEndBase::Factory(type);
+               return std::dynamic_pointer_cast<ExecutableBase>(obj);
+              }
+            }
+    };
+    // clang-format on
 
-    ENSURE_YAML_ENTRY_EXISTS(cfg, "front_ends");
-    const auto& cfg_fe = cfg["front_ends"];
-
-    ENSURE_YAML_ENTRY_EXISTS(cfg, "raw_data_sources");
-    const auto& cfg_rds = cfg["raw_data_sources"];
-
-    // Create raw data source objects:
-    for (const auto& ds : cfg_rds)
+    // for each YAML file section type:
+    for (const auto& section : lstSections)
     {
-        ENSURE_YAML_ENTRY_EXISTS(ds, "type");
-        ENSURE_YAML_ENTRY_EXISTS(ds, "name");
-        ENSURE_YAML_ENTRY_EXISTS(ds, "params");
+        const auto& sectName      = section.first;
+        const auto& sectGenerator = section.second;
 
-        const auto ds_label = ds["name"].as<std::string>();
-        ASSERTMSG_(!ds_label.empty(), "`name` cannot be empty!");
-        if (running_threads_.count(ds_label) != 0)
-            THROW_EXCEPTION_FMT("Duplicated `name`: %s", ds_label.c_str());
-
-        const auto ds_classname = ds["type"].as<std::string>();
-        ASSERTMSG_(!ds_classname.empty(), "`type` cannot be empty!");
-
-        InfoPerRunningThread& info = running_threads_[ds_label];
-        {
-            // Make a copy of the YAML config block:
-            std::stringstream ss;
-            ss << ds;
-            info.yaml_cfg_block = ss.str();
-        }
-        info.name = ds_label;
-        MRPT_LOG_INFO_STREAM(
-            "Instantiating module `" << ds_label << "` of type `"
-                                     << ds_classname << "`");
-        // Create object (needs to be registered):
-        auto obj  = mola::RawDataSourceBase::Factory(ds_classname);
-        info.impl = std::dynamic_pointer_cast<ExecutableBase>(obj);
         ASSERTMSG_(
-            info.impl,
-            mrpt::format(
-                "Error: object for module `%s` of type `%s` couldn't be "
-                "dynamic_cast'd to ExecutableBase",
-                ds_label.c_str(), ds_classname.c_str()));
+            cfg[sectName], "Missing YAML required entry: `" + sectName + "`");
+        const auto& cfg_blk = cfg[sectName];
 
-        // Inherit verbosity level:
-        info.impl->setMinLoggingLevel(this->getMinLoggingLevel());
-        // Default logger name, can be change in initilize()
-        info.impl->setLoggerName(ds_classname + std::string(":") + ds_label);
-        info.execution_rate = ds["execution_rate"].as<double>();
+        // Create each module instance in this section:
+        for (const auto& ds : cfg_blk)
+        {
+            ENSURE_YAML_ENTRY_EXISTS(ds, "type");
+            ENSURE_YAML_ENTRY_EXISTS(ds, "name");
+            ENSURE_YAML_ENTRY_EXISTS(ds, "params");
+
+            const auto ds_label = ds["name"].as<std::string>();
+            ASSERTMSG_(!ds_label.empty(), "`name` cannot be empty!");
+            if (running_threads_.count(ds_label) != 0)
+                THROW_EXCEPTION_FMT("Duplicated `name`: %s", ds_label.c_str());
+
+            const auto ds_classname = ds["type"].as<std::string>();
+            ASSERTMSG_(!ds_classname.empty(), "`type` cannot be empty!");
+
+            InfoPerRunningThread& info = running_threads_[ds_label];
+            {
+                // Make a copy of the YAML config block:
+                std::stringstream ss;
+                ss << ds;
+                info.yaml_cfg_block = ss.str();
+            }
+            info.name = ds_label;
+            MRPT_LOG_INFO_STREAM(
+                "Instantiating module `" << ds_label << "` of type `"
+                                         << ds_classname << "`");
+            // Create object (needs to be registered):
+            info.impl = sectGenerator(ds_classname);
+            ASSERTMSG_(
+                info.impl,
+                mrpt::format(
+                    "Error: object for module `%s` of type `%s` couldn't be "
+                    "constructed from the Factory. Check class type spelling, "
+                    "and whether the corresponding MOLA module is loaded.",
+                    ds_label.c_str(), ds_classname.c_str()));
+
+            // Inherit verbosity level:
+            info.impl->setMinLoggingLevel(this->getMinLoggingLevel());
+            // Default logger name, can be change in initilize()
+            info.impl->setLoggerName(
+                ds_classname + std::string(":") + ds_label);
+            info.execution_rate = ds["execution_rate"].as<double>(1.0);
+        }
     }
+
+    MRPT_LOG_DEBUG_STREAM("All modules have been created");
 
     MRPT_TRY_END
 }
