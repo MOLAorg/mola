@@ -35,8 +35,7 @@ class RawDataSourceBase : public mola::ExecutableBase
     static Ptr Factory(const std::string& classname);
 
     static void registerClass(
-        const std::string_view&                 classname,
-        std::function<RawDataSourceBase*(void)> func);
+        const std::string_view& classname, std::function<Ptr(void)> func);
 
     /** Attach this object to a consumer. A shared_ptr is created to keep a
      * reference to the object. */
@@ -52,7 +51,8 @@ class RawDataSourceBase : public mola::ExecutableBase
 
    private:
     /** Target of captured data */
-    std::shared_ptr<RawDataConsumer> rdc_;
+    // std::shared_ptr<RawDataConsumer> rdc_;
+    RawDataConsumer* rdc_{nullptr};
 
     struct SensorViewerImpl;
     /** Optional real-time GUI view of sensor data. Viewers indexed by
@@ -60,11 +60,11 @@ class RawDataSourceBase : public mola::ExecutableBase
     std::map<std::string, mrpt::pimpl<SensorViewerImpl>> sensor_preview_gui_;
 };
 
-#define MOLA_REGISTER_RAWDATASOURCE(_classname)              \
-    MRPT_INITIALIZER(do_register_class)                      \
-    {                                                        \
-        mola::RawDataSourceBase::registerClass(              \
-            #_classname, []() { return new _classname(); }); \
+#define MOLA_REGISTER_RAWDATASOURCE(_classname)                            \
+    MRPT_INITIALIZER(do_register_class)                                    \
+    {                                                                      \
+        mola::RawDataSourceBase::registerClass(                            \
+            #_classname, []() { return std::make_shared<_classname>(); }); \
     }
 
 #define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \

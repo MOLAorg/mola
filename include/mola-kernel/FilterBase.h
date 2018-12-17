@@ -50,18 +50,17 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     void onNewObservation(CObservation::Ptr& o) override;
 
     static void registerClass(
-        const std::string_view&          classname,
-        std::function<FilterBase*(void)> func);
+        const std::string_view& classname, std::function<Ptr(void)> func);
 
    private:
     WorkerThreadsPool thread_pool_;
 };
 
-#define MOLA_REGISTER_FILTER(_classname)                     \
-    MRPT_INITIALIZER(do_register_class)                      \
-    {                                                        \
-        mola::FilterBase::registerClass(                     \
-            #_classname, []() { return new _classname(); }); \
+#define MOLA_REGISTER_FILTER(_classname)                                   \
+    MRPT_INITIALIZER(do_register_class)                                    \
+    {                                                                      \
+        mola::FilterBase::registerClass(                                   \
+            #_classname, []() { return std::make_shared<_classname>(); }); \
     }
 
 }  // namespace mola

@@ -41,21 +41,23 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
     static Ptr Factory(const std::string& classname);
 
     static void registerClass(
-        const std::string_view&            classname,
-        std::function<FrontEndBase*(void)> func);
+        const std::string_view& classname, std::function<Ptr(void)> func);
 
     /** Loads common parameters for all front-ends. Called by launcher just
      * before initialize(). */
     void initialize_common(const std::string& cfg_block);
 
-   private:
+   protected:
+    /** The name of the sensor to subscribe to, from the YAML config file
+     * parameter `raw_sensor_label` */
+    std::string raw_sensor_label_{"uninitialized"};
 };
 
-#define MOLA_REGISTER_FRONTEND(_classname)                   \
-    MRPT_INITIALIZER(do_register_class)                      \
-    {                                                        \
-        mola::FrontEndBase::registerClass(                   \
-            #_classname, []() { return new _classname(); }); \
+#define MOLA_REGISTER_FRONTEND(_classname)                                 \
+    MRPT_INITIALIZER(do_register_class)                                    \
+    {                                                                      \
+        mola::FrontEndBase::registerClass(                                 \
+            #_classname, []() { return std::make_shared<_classname>(); }); \
     }
 
 }  // namespace mola

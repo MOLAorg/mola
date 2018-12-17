@@ -12,6 +12,7 @@
 #pragma once
 
 #include <mrpt/system/COutputLogger.h>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -19,7 +20,8 @@ namespace mola
 {
 /**
  * \ingroup mola_kernel_grp */
-class ExecutableBase : public mrpt::system::COutputLogger
+class ExecutableBase : public mrpt::system::COutputLogger,
+                       std::enable_shared_from_this<ExecutableBase>
 {
    public:
     ExecutableBase();
@@ -27,12 +29,20 @@ class ExecutableBase : public mrpt::system::COutputLogger
 
     using Ptr = std::shared_ptr<ExecutableBase>;
 
+    /** Get as shared_ptr via enable_shared_from_this<> */
+    Ptr getAsPtr() { return shared_from_this(); }
+
     /** @name Virtual interface of any ExecutableBase
      *{ */
     virtual void initialize_common(const std::string& cfg_block) = 0;
     virtual void initialize(const std::string& cfg_block);
     virtual void spinOnce() = 0;
     /** @} */
+
+    /** A name server function to search for other ExecutableBase objects in my
+     * running system. Empty during ctor, should be usable from
+     * initialize_common() and initialize() */
+    std::function<Ptr(const std::string&)> nameServer_;
 };
 
 }  // namespace mola

@@ -25,7 +25,8 @@ using namespace mola;
 using mrpt::gui::CDisplayWindow3D;
 
 // Class factory:
-static std::map<std::string, std::function<RawDataSourceBase*(void)>> registry;
+static std::map<std::string, std::function<RawDataSourceBase::Ptr(void)>>
+    registry;
 
 static WorkerThreadsPool gui_updater_threadpool(1 /* 1 thread */);
 
@@ -46,12 +47,11 @@ RawDataSourceBase::Ptr RawDataSourceBase::Factory(const std::string& name)
         THROW_EXCEPTION_FMT(
             "[RawDataSourceBase::Factory] Request for unregistered class: `%s`",
             name.c_str());
-    return Ptr((f->second)());
+    return (f->second)();
 }
 
 void RawDataSourceBase::registerClass(
-    const std::string_view&                 classname,
-    std::function<RawDataSourceBase*(void)> func)
+    const std::string_view& classname, std::function<Ptr(void)> func)
 {
     registry.emplace(classname, func);
 }
@@ -188,5 +188,6 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
 void RawDataSourceBase::attachToDataConsumer(RawDataConsumer& rdc)
 {
-    rdc_ = rdc.getAsPtr();
+    MRPT_TODO("fix shared_from_this()");
+    rdc_ = &rdc;  // rdc.getAsPtr();
 }
