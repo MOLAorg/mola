@@ -84,6 +84,9 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
 
     /** Used in setup(), can be added to via addModulesDirectory() */
     std::vector<std::string> lib_search_paths_{};
+
+    /** Implementation for nameServer in the ExecutableBase interface */
+    ExecutableBase::Ptr nameServerImpl(const std::string& name);
 };
 
 }  // namespace mola

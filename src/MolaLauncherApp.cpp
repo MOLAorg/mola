@@ -160,6 +160,11 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             info.impl->setLoggerName(
                 ds_classname + std::string(":") + ds_label);
             info.execution_rate = ds["execution_rate"].as<double>(1.0);
+
+            MRPT_TODO("Inherit profiler options");
+
+            info.impl->nameServer_ = std::bind(
+                &MolaLauncherApp::nameServerImpl, this, std::placeholders::_1);
         }
     }
 
@@ -229,4 +234,13 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
             << mrpt::exception_to_str(e));
         threads_must_end_ = true;
     }
+}
+
+ExecutableBase::Ptr MolaLauncherApp::nameServerImpl(const std::string& name)
+{
+    const auto it_th = running_threads_.find(name);
+    if (it_th == running_threads_.end())
+        return ExecutableBase::Ptr();
+    else
+        return it_th->second.impl;
 }
