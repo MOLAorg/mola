@@ -43,5 +43,14 @@ void FrontEndBase::initialize_common(const std::string& cfg_block)
     MRPT_TRY_START
     auto cfg = YAML::Load(cfg_block);
 
+    auto ds_source = cfg["raw_data_source"];
+    ASSERTMSG_(ds_source, "Missing parameter `raw_data_source`");
+
+    // To-do: think: Really need to limit to only one sensor per front-end?
+    auto ds_sensor_label = cfg["raw_sensor_label"];
+    ASSERTMSG_(ds_sensor_label, "Missing parameter `raw_sensor_label`");
+
+    MRPT_TODO("Attach to data source");
+
     MRPT_TRY_END
 }

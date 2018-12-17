@@ -13,6 +13,7 @@
 
 #include <mola-kernel/ExecutableBase.h>
 #include <mola-kernel/RawDataConsumer.h>
+#include <mrpt/core/initializer.h>  // MRPT_INITIALIZER()
 
 namespace mola
 {

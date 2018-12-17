@@ -70,7 +70,7 @@ void RawDataSourceBase::initialize_common(const std::string& cfg_block)
             ENSURE_YAML_ENTRY_EXISTS(sensor, "raw_sensor_label");
             const auto label   = sensor["raw_sensor_label"].as<std::string>();
             const auto decim   = sensor["decimation"].as<unsigned int>(1);
-            const auto win_pos = sensor["win_pos"].as<std::string>();
+            const auto win_pos = sensor["win_pos"].as<std::string>("");
 
             ASSERTMSG_(
                 sensor_preview_gui_.find(label) == sensor_preview_gui_.end(),

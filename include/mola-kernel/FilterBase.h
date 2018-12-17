@@ -14,7 +14,7 @@
 #include <mola-kernel/RawDataConsumer.h>
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
-#include <mrpt/core/initializer.h>
+#include <mrpt/core/initializer.h>  // MRPT_INITIALIZER()
 #include <mrpt/system/COutputLogger.h>
 
 namespace mola
