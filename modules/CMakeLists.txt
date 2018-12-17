@@ -11,4 +11,5 @@ add_subdirectory(mola-kernel)
 add_subdirectory(mola-launcher)
 
 # Modules:
+add_subdirectory(mola-fe-lidar-icp)
 add_subdirectory(mola-sensor-kitti-dataset)
