@@ -73,6 +73,8 @@ static void parse_calib_line(
 void KittiOdometryDataset::initialize(const std::string& cfg_block)
 {
     MRPT_START
+    ProfilerEntry tle(profiler_, "initialize");
+
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg_block);
 
     // Mandatory parameters:
@@ -222,6 +224,8 @@ void KittiOdometryDataset::spinOnce()
 {
     MRPT_START
 
+    ProfilerEntry tleg(profiler_, "spinOnce");
+
     // Starting time:
     if (!replay_started_)
     {
@@ -258,6 +262,8 @@ void KittiOdometryDataset::spinOnce()
 
         if (publish_lidar_)
         {
+            ProfilerEntry tle(profiler_, "spinOnce.publishLidar");
+
             // Load velodyne pointcloud:
             const auto f = seq_dir + std::string("/velodyne/") +
                            lst_velodyne_[replay_next_tim_index_];
@@ -284,6 +290,7 @@ void KittiOdometryDataset::spinOnce()
         for (unsigned int i = 0; i < 4; i++)
         {
             if (!publish_image_[i]) continue;
+            ProfilerEntry tle(profiler_, "spinOnce.publishImage");
 
             auto obs         = mrpt::obs::CObservationImage::Create();
             obs->sensorLabel = std::string("image_") + std::to_string(i);
