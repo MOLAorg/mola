@@ -155,13 +155,24 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
                     ds_label.c_str(), ds_classname.c_str()));
 
             // Inherit verbosity level:
-            info.impl->setMinLoggingLevel(this->getMinLoggingLevel());
-            // Default logger name, can be change in initilize()
-            info.impl->setLoggerName(
-                ds_classname + std::string(":") + ds_label);
+            auto verb_level = this->getMinLoggingLevel();
+            // override it if present:
+            const auto verbLvl = ds["verbosity_level"].as<std::string>("");
+            if (!verbLvl.empty())
+            {
+                verb_level = mrpt::typemeta::TEnumType<
+                    mrpt::system::VerbosityLevel>::name2value(verbLvl);
+            }
+            info.impl->setMinLoggingLevel(verb_level);
+
+            // Default logger name, can be changed in initilize() if desired
+            const auto logName = ds_classname + std::string(":") + ds_label;
+            info.impl->setLoggerName(logName);
             info.execution_rate = ds["execution_rate"].as<double>(1.0);
 
+            info.impl->profiler_.setName(logName);
             MRPT_TODO("Inherit profiler options");
+            info.impl->profiler_.enable(true);
 
             info.impl->nameServer_ = std::bind(
                 &MolaLauncherApp::nameServerImpl, this, std::placeholders::_1);
