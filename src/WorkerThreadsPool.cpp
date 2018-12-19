@@ -11,6 +11,8 @@
  */
 
 #include <mola-kernel/WorkerThreadsPool.h>
+#include <mrpt/core/exceptions.h>
+#include <iostream>
 
 using namespace mola;
 
@@ -21,9 +23,20 @@ void WorkerThreadsPool::clear()
         do_stop_ = true;
     }
     condition_.notify_all();
+
+    if (!tasks_.empty())
+        std::cerr << "[threadPool] Warning: clear() called (probably from a "
+                     "dtor) while having "
+                  << tasks_.size() << " pending tasks. Aborting them.\n";
+
     for (auto& t : threads_)
         if (t.joinable()) t.join();
     threads_.clear();
+}
+
+std::size_t WorkerThreadsPool::pendingTasks() const noexcept
+{
+    return tasks_.size();
 }
 
 void WorkerThreadsPool::resize(std::size_t num_threads)
@@ -32,17 +45,26 @@ void WorkerThreadsPool::resize(std::size_t num_threads)
         threads_.emplace_back([this] {
             for (;;)
             {
-                std::function<void()> task;
+                try
                 {
-                    std::unique_lock<std::mutex> lock(queue_mutex_);
-                    condition_.wait(
-                        lock, [this] { return do_stop_ || !tasks_.empty(); });
-                    if (do_stop_ && tasks_.empty()) return;
-                    task = std::move(tasks_.front());
-                    tasks_.pop();
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(queue_mutex_);
+                        condition_.wait(lock, [this] {
+                            return do_stop_ || !tasks_.empty();
+                        });
+                        if (do_stop_) return;
+                        task = std::move(tasks_.front());
+                        tasks_.pop();
+                    }
+                    // Execute:
+                    task();
                 }
-                // Execute:
-                task();
+                catch (std::exception& e)
+                {
+                    std::cerr << "[thread-pool] Exception:\n"
+                              << mrpt::exception_to_str(e) << "\n";
+                }
             }
         });
 }

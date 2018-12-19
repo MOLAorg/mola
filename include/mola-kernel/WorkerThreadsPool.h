@@ -43,6 +43,10 @@ class WorkerThreadsPool
     auto enqueue(F&& f, Args&&... args)
         -> std::future<typename std::result_of<F(Args...)>::type>;
 
+    /** Returns the number of enqueued tasks, currently waiting for a free
+     * working thread to process them.  */
+    std::size_t pendingTasks() const noexcept;
+
    private:
     std::vector<std::thread>          threads_;
     std::atomic_bool                  do_stop_{false};
