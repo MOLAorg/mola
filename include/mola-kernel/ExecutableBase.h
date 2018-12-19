@@ -12,12 +12,16 @@
 #pragma once
 
 #include <mrpt/system/COutputLogger.h>
+#include <mrpt/system/CTimeLogger.h>
 #include <functional>
 #include <memory>
 #include <string>
 
 namespace mola
 {
+using Profiler      = mrpt::system::CTimeLogger;
+using ProfilerEntry = mrpt::system::CTimeLoggerEntry;
+
 /**
  * \ingroup mola_kernel_grp */
 class ExecutableBase : public mrpt::system::COutputLogger,
@@ -43,6 +47,10 @@ class ExecutableBase : public mrpt::system::COutputLogger,
      * running system. Empty during ctor, should be usable from
      * initialize_common() and initialize() */
     std::function<Ptr(const std::string&)> nameServer_;
+
+    /** Time profiler (disabled by default). All profilers can be globally
+     * enabled from MolaLauncherApp. */
+    Profiler profiler_{false};
 };
 
 }  // namespace mola
