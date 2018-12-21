@@ -17,6 +17,7 @@
  */
 
 #include <mola-sensor-kitti-dataset/KittiOdometryDataset.h>
+#include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/math/CMatrixTemplateNumeric.h>
 #include <mrpt/obs/CObservationImage.h>
@@ -27,7 +28,7 @@
 
 using namespace mola;
 
-MOLA_REGISTER_RAWDATASOURCE(KittiOdometryDataset)
+MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(KittiOdometryDataset)}
 
 KittiOdometryDataset::KittiOdometryDataset()
 {
