@@ -34,11 +34,13 @@ modules:
     raw_data_source: kitti_input
     raw_sensor_label_left : image_0
     raw_sensor_label_right: image_1
+    params:
+      # ...
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
     type: KittiOdometryDataset
-    execution_rate: 100 # Hz
+    execution_rate: 50 # Hz
     gui_preview_sensors:
       - raw_sensor_label: image_0
         decimation: 1

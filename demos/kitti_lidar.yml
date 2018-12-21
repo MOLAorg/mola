@@ -38,7 +38,7 @@ modules:
 # TODO: Create a YAML !include
   - name: kitti_input
     type: KittiOdometryDataset
-    execution_rate: 100 # Hz
+    execution_rate: 50 # Hz
     verbosity_level: INFO
     gui_preview_sensors:
       - raw_sensor_label: lidar

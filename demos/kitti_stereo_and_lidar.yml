@@ -33,20 +33,24 @@ modules:
           type: RelativePose3D
           input_front_end: lidar_fe
 # Setup of SLAM front-ends ====================================
-  - name: stereo_visual_fe
-    type: FE_Stereo_ORB
-    raw_data_source: kitti_input
-    raw_sensor_label_left : image_0
-    raw_sensor_label_right: image_1
+#  - name: stereo_visual_fe
+#    type: FE_Stereo_ORB
+#    raw_data_source: kitti_input
+#    raw_sensor_label_left : image_0
+#    raw_sensor_label_right: image_1
+#    params:
+#      # ...
   - name: lidar_fe
-    type: FE_Lidar3D_SimpleICP
+    type: LidarICP
     raw_data_source: kitti_input
     raw_sensor_label: lidar
+    params:
+      # ...
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
     type: KittiOdometryDataset
-    execution_rate: 100 # Hz
+    execution_rate: 50 # Hz
     gui_preview_sensors:
       - raw_sensor_label: image_0
         decimation: 1
