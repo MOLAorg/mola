@@ -14,9 +14,7 @@
  * systems
  */
 
-#include <mola-kernel/FrontEndBase.h>
-#include <mola-kernel/RawDataSourceBase.h>
-#include <mola-kernel/env_vars.h>
+#include <mola-kernel/yaml_helpers.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/CRateTimer.h>
@@ -89,20 +87,11 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
     const std::vector<
         std::pair<std::string, std::function<ExecutableBase::Ptr(const std::string &)>>>
         lstSections = {
-            /* raw_data_sources */
+            /* modules */
             {
-              "raw_data_sources", [](const std::string &type)
+              "modules", [](const std::string &type)
               {
-               auto obj = mola::RawDataSourceBase::Factory(type);
-               return std::dynamic_pointer_cast<ExecutableBase>(obj);
-              }
-            },
-            /* front-ends */
-            {
-              "front_ends", [](const std::string &type)
-              {
-               auto obj = mola::FrontEndBase::Factory(type);
-               return std::dynamic_pointer_cast<ExecutableBase>(obj);
+               return mola::ExecutableBase::Factory(type);
               }
             }
     };
