@@ -16,3 +16,6 @@
 [submodule "modules/mola-fe-lidar-icp"]
 	path = modules/mola-fe-lidar-icp
 	url = git@github.com:jlblancoc/mola-fe-lidar-icp.git
+[submodule "modules/mola-slam-gtsam"]
+	path = modules/mola-slam-gtsam
+	url = git@github.com:jlblancoc/mola-slam-gtsam.git
