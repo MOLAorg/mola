@@ -18,27 +18,30 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
-#if defined(__unix__)
-//#include <unistd.h> //
-#else
+
+#if defined(WIN32)
 #include <windows.h>  // SetConsoleCtrlHandler
-MRPT_TODO("win32: add SetConsoleCtrlHandler");
 #endif
+MRPT_TODO("win32: add SetConsoleCtrlHandler");
 
 // Declare supported cli switches ===========
-TCLAP::CmdLine               cmd("mola-launcher");
-TCLAP::ValueArg<std::string> arg_yaml_cfg(
+static TCLAP::CmdLine               cmd("mola-launcher");
+static TCLAP::ValueArg<std::string> arg_yaml_cfg(
     "c", "config", "Input YAML config file (required) (*.yml)", true, "",
     "demo.yml", cmd);
 
-TCLAP::ValueArg<std::string> arg_verbosity_level(
+static TCLAP::ValueArg<std::string> arg_verbosity_level(
     "v", "verbosity", "Verbosity level: ERROR|WARN|INFO|DEBUG (Default: INFO)",
     false, "", "INFO", cmd);
+
+static TCLAP::SwitchArg arg_enable_profiler(
+    "p", "profiler",
+    "Enable time profiler by default in all modules (Default: NO)", cmd);
 
 void mola_signal_handler(int s);
 void mola_install_signal_handler();
 
-mola::MolaLauncherApp app;
+static mola::MolaLauncherApp app;
 
 int main(int argc, char** argv)
 {
@@ -60,7 +63,12 @@ int main(int argc, char** argv)
             const auto v = vl::name2value(arg_verbosity_level.getValue());
             app.setVerbosityLevel(v);
         }
+        app.profiler_.enable(arg_enable_profiler.isSet());
+
+        // Create SLAM system:
         app.setup(cfg);
+
+        // Run it:
         app.spin();
 
         return 0;

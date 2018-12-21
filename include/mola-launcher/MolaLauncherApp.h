@@ -13,6 +13,7 @@
 
 #include <mola-kernel/ExecutableBase.h>
 #include <mrpt/system/COutputLogger.h>
+#include <mrpt/system/CTimeLogger.h>
 #include <yaml-cpp/yaml.h>
 #include <atomic>
 #include <map>
@@ -64,6 +65,11 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     // TODO: set SLAM / localization mode
 
     /** @} */
+
+    /** Time profiler. It's enabled/disabled status will be inherited (by
+     * default, unless set otherwise in their YAML config files) by all modules
+     * created upon the call to setup() */
+    mrpt::system::CTimeLogger profiler_;
 
    private:
     struct InfoPerRunningThread

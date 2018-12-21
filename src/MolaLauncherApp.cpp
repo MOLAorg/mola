@@ -171,8 +171,7 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             info.execution_rate = ds["execution_rate"].as<double>(1.0);
 
             info.impl->profiler_.setName(logName);
-            MRPT_TODO("Inherit profiler options");
-            info.impl->profiler_.enable(true);
+            info.impl->profiler_.enable(profiler_.isEnabled());
 
             info.impl->nameServer_ = std::bind(
                 &MolaLauncherApp::nameServerImpl, this, std::placeholders::_1);
@@ -249,6 +248,21 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
 
 ExecutableBase::Ptr MolaLauncherApp::nameServerImpl(const std::string& name)
 {
+    // Special syntax to sequentially access all existing modules:
+    // If the requested name has the format: "[" + <i>, return the i-th
+    // module, or nullptr if out of range.
+    // This is used by ExecutableBase::findService()
+    if (name.size() >= 2 && name[0] == '[')
+    {
+        const auto idx = std::stoul(name.substr(1));
+        if (idx >= running_threads_.size()) { return ExecutableBase::Ptr(); }
+        else
+        {
+            auto it = running_threads_.begin();
+            std::advance(it, idx);
+            return it->second.impl;
+        }
+    }  // Regular name request:
     const auto it_th = running_threads_.find(name);
     if (it_th == running_threads_.end())
         return ExecutableBase::Ptr();
