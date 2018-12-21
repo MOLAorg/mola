@@ -159,6 +159,8 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             info.impl->setLoggerName(logName);
             info.execution_rate = ds["execution_rate"].as<double>(1.0);
 
+            info.impl->setModuleInstanceName(logName);
+
             info.impl->profiler_.setName(logName);
             info.impl->profiler_.enable(profiler_.isEnabled());
 
