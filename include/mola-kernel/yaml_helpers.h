@@ -4,8 +4,8 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   env_vars.h
- * @brief  Parse environment variables in config text blocks
+ * @file   yaml_helpers.h
+ * @brief  YAML processing helper utilities
  * @author Jose Luis Blanco Claraco
  * @date   Nov 30, 2018
  */
@@ -19,5 +19,8 @@ namespace mola
  * \ingroup mola_kernel_grp
  */
 std::string parseEnvVars(const std::string& text);
+
+#define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
+    ASSERTMSG_(_c[_name], "Missing YAML required entry: `" _name "`")
 
 }  // namespace mola

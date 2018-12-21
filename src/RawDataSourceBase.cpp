@@ -12,6 +12,7 @@
 
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
+#include <mola-kernel/yaml_helpers.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>

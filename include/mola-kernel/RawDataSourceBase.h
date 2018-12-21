@@ -54,7 +54,4 @@ class RawDataSourceBase : public mola::ExecutableBase
     std::map<std::string, mrpt::pimpl<SensorViewerImpl>> sensor_preview_gui_;
 };
 
-#define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
-    ASSERTMSG_(_c[_name], "Missing YAML required entry: `" _name "`")
-
 }  // namespace mola

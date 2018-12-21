@@ -4,13 +4,13 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   env_vars.cpp
- * @brief  Parse environment variables in config text blocks
+ * @file   yaml_helpers.cpp
+ * @brief  YAML processing helper utilities
  * @author Jose Luis Blanco Claraco
  * @date   Nov 30, 2018
  */
 
-#include <mola-kernel/env_vars.h>
+#include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/exceptions.h>
 #include <cstdlib>
 
