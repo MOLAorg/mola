@@ -14,6 +14,8 @@
 #include <mrpt/core/exceptions.h>
 #include <cstdlib>
 
+MRPT_TODO("Add a more generic YAML file parser: includes, etc.");
+
 std::string mola::parseEnvVars(const std::string& text)
 {
     MRPT_TRY_START
