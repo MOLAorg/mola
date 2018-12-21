@@ -47,3 +47,12 @@ void ExecutableBase::initialize(const std::string& cfg_block)
             << cfg_block);
     }
 }
+
+void ExecutableBase::setModuleInstanceName(const std::string& s)
+{
+    module_instance_name = s;
+}
+std::string ExecutableBase::getModuleInstanceName() const
+{
+    return module_instance_name;
+}

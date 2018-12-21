@@ -67,11 +67,17 @@ class ExecutableBase : public mrpt::system::COutputLogger,
      * \sa nameServer_ */
     template <class Interface>
     std::vector<Ptr> findService() const;
+
+    void        setModuleInstanceName(const std::string& s);
+    std::string getModuleInstanceName() const;
     /** @} */
 
     /** Time profiler (disabled by default). All profilers can be globally
      * enabled from MolaLauncherApp. */
     Profiler profiler_{false};
+
+   private:
+    std::string module_instance_name{"unnamed"};
 };
 
 // Impl:

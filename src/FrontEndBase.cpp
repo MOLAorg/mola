@@ -49,5 +49,23 @@ void FrontEndBase::initialize_common(const std::string& cfg_block)
     // Subscribe:
     rdsb->attachToDataConsumer(*this);
 
+    // Search for SLAM backend:
+    auto fnd_bckends = ExecutableBase::findService<BackEndBase>();
+    if (fnd_bckends.empty())
+    { MRPT_LOG_WARN("No SLAM back-end found in the system."); } else
+    {
+        if (fnd_bckends.size() > 1)
+        {
+            MRPT_LOG_WARN(
+                "More than one SLAM back-end found in the system! Attaching to "
+                "first one.");
+        }
+        slam_backend_ = std::dynamic_pointer_cast<BackEndBase>(fnd_bckends[0]);
+        ASSERT_(slam_backend_);
+        MRPT_LOG_INFO_FMT(
+            "Attached to SLAM backend module `%s`",
+            slam_backend_->getModuleInstanceName().c_str());
+    }
+
     MRPT_TRY_END
 }

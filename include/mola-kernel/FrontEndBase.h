@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola-kernel/BackEndBase.h>
 #include <mola-kernel/ExecutableBase.h>
 #include <mola-kernel/RawDataConsumer.h>
 
@@ -44,6 +45,10 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
     /** The name of the sensor to subscribe to, from the YAML config file
      * parameter `raw_sensor_label` */
     std::string raw_sensor_label_{"uninitialized"};
+
+    /** A reference to my associated SLAM backend.
+     * Populated by initialize_common() */
+    BackEndBase::Ptr slam_backend_;
 };
 
 }  // namespace mola
