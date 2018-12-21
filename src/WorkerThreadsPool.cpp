@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   WorkerThreadsPool.h
+ * @file   WorkerThreadsPool.cpp
  * @brief  Simple thread pool
  * @author Jose Luis Blanco Claraco
  * @date   Dec 6, 2018

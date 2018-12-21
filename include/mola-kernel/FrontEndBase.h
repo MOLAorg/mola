@@ -13,7 +13,6 @@
 
 #include <mola-kernel/ExecutableBase.h>
 #include <mola-kernel/RawDataConsumer.h>
-#include <mrpt/core/initializer.h>  // MRPT_INITIALIZER()
 
 namespace mola
 {
@@ -37,12 +36,6 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
 
     using Ptr = std::shared_ptr<FrontEndBase>;
 
-    /** Class factory. Register using MOLA_REGISTER_FRONTEND() */
-    static Ptr Factory(const std::string& classname);
-
-    static void registerClass(
-        const std::string_view& classname, std::function<Ptr(void)> func);
-
     /** Loads common parameters for all front-ends. Called by launcher just
      * before initialize(). */
     void initialize_common(const std::string& cfg_block);
@@ -52,12 +45,5 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
      * parameter `raw_sensor_label` */
     std::string raw_sensor_label_{"uninitialized"};
 };
-
-#define MOLA_REGISTER_FRONTEND(_classname)                                 \
-    MRPT_INITIALIZER(do_register_class)                                    \
-    {                                                                      \
-        mola::FrontEndBase::registerClass(                                 \
-            #_classname, []() { return std::make_shared<_classname>(); }); \
-    }
 
 }  // namespace mola

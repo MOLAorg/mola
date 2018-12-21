@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   WorldModel.h
+ * @file   WorldModel.cpp
  * @brief  The main class for a "map" or "world model".
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018

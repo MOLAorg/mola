@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   FilterBase.h
+ * @file   FilterBase.cpp
  * @brief  Virtual base class for sensor pipeline filters
  * @author Jose Luis Blanco Claraco
  * @date   Dec 11, 2018
@@ -15,34 +15,18 @@
 
 using namespace mola;
 
-// Class factory:
-static std::map<std::string, std::function<FilterBase::Ptr(void)>> registry;
-
 FilterBase::FilterBase() = default;
-
-FilterBase::Ptr FilterBase::Factory(const std::string& name)
-{
-    const auto f = registry.find(name);
-    if (f == registry.end())
-        THROW_EXCEPTION_FMT(
-            "[FilterBase::Factory] Request for unregistered class: `%s`",
-            name.c_str());
-    return (f->second)();
-}
-
-void FilterBase::registerClass(
-    const std::string_view& classname, std::function<Ptr(void)> func)
-{
-    registry.emplace(classname, func);
-}
 
 // Virtual interface of any RawDataSource
 void FilterBase::initialize(const std::string& cfg_block)
 {
-    MRPT_LOG_WARN_STREAM(
-        "`initialize()` not reimplemented by derived class. "
-        "Ignoring YAML config block:\n"
-        << cfg_block);
+    if (!cfg_block.empty())
+    {
+        MRPT_LOG_WARN_STREAM(
+            "`initialize()` not reimplemented by derived class. "
+            "Ignoring YAML config block:\n"
+            << cfg_block);
+    }
 }
 
 void FilterBase::spinOnce()

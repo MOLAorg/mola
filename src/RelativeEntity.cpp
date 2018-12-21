@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RelativeEntity.h
+ * @file   RelativeEntity.cpp
  * @brief  World optimizable entities which are relative to some keyframe.
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018

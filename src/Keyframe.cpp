@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   KeyFrame.h
+ * @file   KeyFrame.cpp
  * @brief  Information keep for each keyframe (except its "global" pose)
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018

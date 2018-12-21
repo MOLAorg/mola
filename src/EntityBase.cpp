@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   EntityBase.h
+ * @file   EntityBase.cpp
  * @brief  Virtual base class for all optimizable entities in the world model
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018

@@ -14,7 +14,6 @@
 #include <mola-kernel/RawDataConsumer.h>
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
-#include <mrpt/core/initializer.h>  // MRPT_INITIALIZER()
 #include <mrpt/system/COutputLogger.h>
 
 namespace mola
@@ -29,9 +28,6 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     FilterBase();
 
     using Ptr = std::shared_ptr<FilterBase>;
-
-    /** Class factory. Register using MOLA_REGISTER_FILTER() */
-    static Ptr Factory(const std::string& classname);
 
     /** @name Virtual interface of any Filter
      *{ */
@@ -49,18 +45,8 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     // Virtual interface of any RawDataConsumer
     void onNewObservation(CObservation::Ptr& o) override;
 
-    static void registerClass(
-        const std::string_view& classname, std::function<Ptr(void)> func);
-
    private:
     WorkerThreadsPool thread_pool_;
 };
-
-#define MOLA_REGISTER_FILTER(_classname)                                   \
-    MRPT_INITIALIZER(do_register_class)                                    \
-    {                                                                      \
-        mola::FilterBase::registerClass(                                   \
-            #_classname, []() { return std::make_shared<_classname>(); }); \
-    }
 
 }  // namespace mola

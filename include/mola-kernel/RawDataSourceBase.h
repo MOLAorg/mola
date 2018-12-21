@@ -31,12 +31,6 @@ class RawDataSourceBase : public mola::ExecutableBase
 
     using Ptr = std::shared_ptr<RawDataSourceBase>;
 
-    /** Class factory. Register using MOLA_REGISTER_RAWDATASOURCE() */
-    static Ptr Factory(const std::string& classname);
-
-    static void registerClass(
-        const std::string_view& classname, std::function<Ptr(void)> func);
-
     /** Attach this object to a consumer. A shared_ptr is created to keep a
      * reference to the object. */
     void attachToDataConsumer(RawDataConsumer& rdc);
@@ -59,13 +53,6 @@ class RawDataSourceBase : public mola::ExecutableBase
      * sensor_label */
     std::map<std::string, mrpt::pimpl<SensorViewerImpl>> sensor_preview_gui_;
 };
-
-#define MOLA_REGISTER_RAWDATASOURCE(_classname)                            \
-    MRPT_INITIALIZER(do_register_class)                                    \
-    {                                                                      \
-        mola::RawDataSourceBase::registerClass(                            \
-            #_classname, []() { return std::make_shared<_classname>(); }); \
-    }
 
 #define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
     ASSERTMSG_(_c[_name], "Missing YAML required entry: `" _name "`")

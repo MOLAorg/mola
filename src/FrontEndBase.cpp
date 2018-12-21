@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   FrontEndBase.h
+ * @file   FrontEndBase.cpp
  * @brief  Virtual interface for SLAM front-ends
  * @author Jose Luis Blanco Claraco
  * @date   Dec 11, 2018
@@ -17,26 +17,7 @@
 
 using namespace mola;
 
-// Class factory:
-static std::map<std::string, std::function<FrontEndBase::Ptr(void)>> registry;
-
 FrontEndBase::FrontEndBase() = default;
-
-FrontEndBase::Ptr FrontEndBase::Factory(const std::string& name)
-{
-    const auto f = registry.find(name);
-    if (f == registry.end())
-        THROW_EXCEPTION_FMT(
-            "[FrontEndBase::Factory] Request for unregistered class: `%s`",
-            name.c_str());
-    return (f->second)();
-}
-
-void FrontEndBase::registerClass(
-    const std::string_view& classname, std::function<Ptr(void)> func)
-{
-    registry.emplace(classname, func);
-}
 
 void FrontEndBase::initialize_common(const std::string& cfg_block)
 {

@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   env_vars.h
+ * @file   env_vars.cpp
  * @brief  Parse environment variables in config text blocks
  * @author Jose Luis Blanco Claraco
  * @date   Nov 30, 2018

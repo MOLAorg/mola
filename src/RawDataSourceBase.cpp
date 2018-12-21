@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RawDataSourceBase.h
+ * @file   RawDataSourceBase.cpp
  * @brief  Virtual interface for data sources, either real sensors or datasets
  * @author Jose Luis Blanco Claraco
  * @date   Nov 21, 2018
@@ -24,10 +24,6 @@
 using namespace mola;
 using mrpt::gui::CDisplayWindow3D;
 
-// Class factory:
-static std::map<std::string, std::function<RawDataSourceBase::Ptr(void)>>
-    registry;
-
 static WorkerThreadsPool gui_updater_threadpool(1 /* 1 thread */);
 
 struct RawDataSourceBase::SensorViewerImpl
@@ -39,22 +35,6 @@ struct RawDataSourceBase::SensorViewerImpl
 };
 
 RawDataSourceBase::RawDataSourceBase() = default;
-
-RawDataSourceBase::Ptr RawDataSourceBase::Factory(const std::string& name)
-{
-    const auto f = registry.find(name);
-    if (f == registry.end())
-        THROW_EXCEPTION_FMT(
-            "[RawDataSourceBase::Factory] Request for unregistered class: `%s`",
-            name.c_str());
-    return (f->second)();
-}
-
-void RawDataSourceBase::registerClass(
-    const std::string_view& classname, std::function<Ptr(void)> func)
-{
-    registry.emplace(classname, func);
-}
 
 void RawDataSourceBase::initialize_common(const std::string& cfg_block)
 {

@@ -35,6 +35,12 @@ class ExecutableBase : public mrpt::system::COutputLogger,
 
     using Ptr = std::shared_ptr<ExecutableBase>;
 
+    /** Class factory. Register using MOLA_REGISTER_MODULE() */
+    static Ptr Factory(const std::string& classname);
+
+    static void registerClass(
+        const std::string_view& classname, std::function<Ptr(void)> func);
+
     /** Get as shared_ptr via enable_shared_from_this<> */
     Ptr getAsPtr() { return shared_from_this(); }
 
@@ -85,5 +91,9 @@ std::vector<ExecutableBase::Ptr> ExecutableBase::findService() const
     }
     return ret;
 }
+
+#define MOLA_REGISTER_MODULE(_classname) \
+    mola::ExecutableBase::registerClass( \
+        #_classname, []() { return std::make_shared<_classname>(); });
 
 }  // namespace mola
