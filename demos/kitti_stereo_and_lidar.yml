@@ -40,6 +40,12 @@ modules:
 #    raw_sensor_label_right: image_1
 #    params:
 #      # ...
+  - name: mono_visual_fe
+    type: VisualORB_Mono
+    raw_data_source: kitti_input
+    raw_sensor_label : image_0
+    params:
+      # ...
   - name: lidar_fe
     type: LidarICP
     raw_data_source: kitti_input
