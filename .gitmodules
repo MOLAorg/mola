@@ -19,3 +19,6 @@
 [submodule "modules/mola-slam-gtsam"]
 	path = modules/mola-slam-gtsam
 	url = git@github.com:jlblancoc/mola-slam-gtsam.git
+[submodule "modules/mola-fe-visual-orb"]
+	path = modules/mola-fe-visual-orb
+	url = git@github.com:jlblancoc/mola-fe-visual-orb.git
