@@ -12,6 +12,10 @@
 #pragma once
 
 #include <mola-kernel/ExecutableBase.h>
+#include <mola-kernel/WorldModel.h>
+#include <mrpt/core/Clock.h>
+#include <mrpt/obs/CSensoryFrame.h>
+#include <optional>
 
 namespace mola
 {
@@ -29,6 +33,35 @@ class BackEndBase : public ExecutableBase
     /** Loads common parameters for all back-ends. Called by launcher just
      * before initialize(). */
     void initialize_common(const std::string& cfg_block);
+
+    /** @name Virtual interface of any SLAM back-end
+     *{ */
+
+    struct ProposeKF_Input
+    {
+        /** The timestamp associated to the new Key-Frame. Must be valid. */
+        mrpt::Clock::time_point timestamp{};
+
+        /** Optional set of raw observations seen from this KF. */
+        std::optional<mrpt::obs::CSensoryFrame> observations{};
+    };
+
+    struct ProposeKF_Output
+    {
+        bool                       success{false};
+        std::optional<mola::id_t>  new_kf_id{};
+        std::optional<std::string> error_msg{};
+    };
+
+    /** Call to propose a new KeyFrame to be inserted into the world model.
+     */
+    virtual void onProposeNewKeyFrame(
+        const ProposeKF_Input& i, ProposeKF_Output& o) = 0;
+
+    /** @} */
+
+   protected:
+    WorldModel::Ptr worldmodel_;
 };
 
 }  // namespace mola

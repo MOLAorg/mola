@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include <mola-kernel/Keyframe.h>
-#include <map>
+//#include <mola-kernel/Keyframe.h>
+#include <memory>
 
 namespace mola
 {
@@ -25,6 +25,8 @@ class EntityBase
    public:
     EntityBase()          = default;
     virtual ~EntityBase() = default;
+
+    using Ptr = std::shared_ptr<EntityBase>;
 };
 
 }  // namespace mola

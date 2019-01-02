@@ -12,10 +12,13 @@
 
 #include <mola-kernel/BackEndBase.h>
 #include <mola-kernel/RawDataSourceBase.h>
+#include <mola-kernel/WorldModel.h>
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 
 using namespace mola;
+
+MRPT_TODO("Split onXXX() as worker threads to virtual doXXX()");
 
 BackEndBase::BackEndBase() = default;
 
@@ -23,7 +26,17 @@ void BackEndBase::initialize_common([[maybe_unused]] const std::string& cfg)
 {
     MRPT_TRY_START
 
-    MRPT_TODO("Attach to world model?");
+    // attach to world model:
+    auto wms = findService<WorldModel>();
+    ASSERTMSG_(!wms.empty(), "No WorldModel found in the system!");
+    ASSERTMSG_(
+        wms.size() == 1, "Only one WorldModel can coexist in the system!");
+
+    worldmodel_ = std::dynamic_pointer_cast<WorldModel>(wms[0]);
+    ASSERT_(worldmodel_);
+    MRPT_LOG_INFO_FMT(
+        "Attached to WorldModel module `%s`",
+        worldmodel_->getModuleInstanceName().c_str());
 
     MRPT_TRY_END
 }
