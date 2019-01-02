@@ -28,6 +28,12 @@ modules:
         - name: RelPosesLidar
           type: RelativePose3D
           input_front_end: lidar_fe
+# Setup of World Model (the map) =====================================
+  - name: map
+    type: WorldModel
+    verbosity_level: INFO
+    params:
+      # None required
 # Setup of SLAM front-ends ====================================
   - name: lidar_fe
     type: LidarICP
