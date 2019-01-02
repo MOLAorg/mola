@@ -2,7 +2,7 @@ build*
 CMakeCache.txt
 CMakeFiles
  # for qtcreator
-CMakeLists.txt.user
+CMakeLists.txt.user*
 CMakeScripts
 Testing
 Makefile
