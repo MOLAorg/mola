@@ -35,6 +35,12 @@ modules:
     raw_sensor_label : image_0
     params:
       # ...
+# Setup of World Model (the map) =====================================
+  - name: map
+    type: WorldModel
+    verbosity_level: INFO
+    params:
+    # None required
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
