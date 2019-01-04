@@ -37,6 +37,8 @@ class WorldModel : public ExecutableBase
     void initialize(const std::string& cfg_block) override;
     void spinOnce() override {}
 
+    using Ptr = std::shared_ptr<WorldModel>;
+
     /** @name Main data fields
      * @{ */
 
