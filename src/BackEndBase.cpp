@@ -18,8 +18,6 @@
 
 using namespace mola;
 
-MRPT_TODO("Split onXXX() as worker threads to virtual doXXX()");
-
 BackEndBase::BackEndBase() = default;
 
 void BackEndBase::initialize_common([[maybe_unused]] const std::string& cfg)

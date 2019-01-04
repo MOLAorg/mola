@@ -12,14 +12,18 @@
 #pragma once
 
 #include <mola-kernel/ExecutableBase.h>
+#include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/WorldModel.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/obs/CSensoryFrame.h>
+#include <future>
 #include <optional>
 
 namespace mola
 {
 /** Virtual interface for SLAM back-ends.
+ * All calls to `onXXX()` methods are enqueued and executed in a separate
+ * thread.
  *
  * \ingroup mola_kernel_grp */
 class BackEndBase : public ExecutableBase
@@ -34,7 +38,7 @@ class BackEndBase : public ExecutableBase
      * before initialize(). */
     void initialize_common(const std::string& cfg_block);
 
-    /** @name Virtual interface of any SLAM back-end
+    /** @name User interface for a SLAM back-end
      *{ */
 
     struct ProposeKF_Input
@@ -53,15 +57,27 @@ class BackEndBase : public ExecutableBase
         std::optional<std::string> error_msg{};
     };
 
-    /** Call to propose a new KeyFrame to be inserted into the world model.
+    /** Propose a new KeyFrame to be inserted into the world model.
      */
-    virtual void onProposeNewKeyFrame(
-        const ProposeKF_Input& i, ProposeKF_Output& o) = 0;
+    std::future<ProposeKF_Output> onProposeNewKeyFrame(const ProposeKF_Input& i)
+    {
+        return slam_be_threadpool_.enqueue(
+            &BackEndBase::doProposeNewKeyFrame, this, i);
+    }
 
     /** @} */
 
    protected:
     WorldModel::Ptr worldmodel_;
+
+    WorkerThreadsPool slam_be_threadpool_{1};
+
+    /** @name Virtual methods to be implemented by SLAM back-end
+     *{ */
+
+    virtual ProposeKF_Output doProposeNewKeyFrame(const ProposeKF_Input& i) = 0;
+
+    /** @} */
 };
 
 }  // namespace mola
