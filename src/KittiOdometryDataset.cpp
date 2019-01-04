@@ -307,6 +307,10 @@ void KittiOdometryDataset::spinOnce()
 
             obs->image.setExternalStorage(f);
 
+            // Use this thread time to load images from disk, instead of
+            // delegating it to the first use of the image in the consumer:
+            obs->image.forceLoad();
+
             obs->cameraParams = cam_intrinsics_[i];
             obs->setSensorPose(mrpt::poses::CPose3D(cam_poses_[i]));
 
