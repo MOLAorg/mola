@@ -56,7 +56,7 @@ modules:
 # TODO: Create a YAML !include
   - name: kitti_input
     type: KittiOdometryDataset
-    execution_rate: 50 # Hz
+    execution_rate: 25 # Hz
     gui_preview_sensors:
       - raw_sensor_label: image_0
         decimation: 1
