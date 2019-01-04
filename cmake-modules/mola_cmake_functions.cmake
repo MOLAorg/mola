@@ -50,11 +50,7 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeTargets")
 set(CMAKE_SHARED_LIBRARY_PREFIX "lib")
 set(CMAKE_IMPORT_LIBRARY_PREFIX "lib")
 set(CMAKE_STATIC_LIBRARY_PREFIX "lib")
-if(MSVC)
-  set(CMAKE_DEBUG_POSTFIX "-dbg")
-else()
-  set(CMAKE_DEBUG_POSTFIX "")
-endif()
+set(CMAKE_DEBUG_POSTFIX "-dbg")
 
 # -----------------------------------------------------------------------------
 # mola_set_target_build_options(target)
