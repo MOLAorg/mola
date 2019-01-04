@@ -40,6 +40,21 @@ modules:
     raw_data_source: kitti_input
     raw_sensor_label: lidar
     params:
+      # Minimum time (seconds) between scans for being attempted to be
+      # aligned. Scans faster than this rate will be just silently ignored.
+      min_time_between_scans: 0.2    # [seconds]
+      # Minimum Euclidean distance (x,y,z) between keyframes inserted into
+      # the map
+      min_dist_xyz_between_keyframes: 1.0   # [meters]
+      # If !=0, decimate point clouds so they do not have more than this number of points
+      decimate_to_point_count: 1000
+      # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
+      min_icp_goodness: 0.6        # range [0,1]
+      # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
+      mrpt_icp.maxIterations: 50
+      mrpt_icp.thresholdDist: 1.25  # [meters]
+      mrpt_icp.thresholdAng: 1.0    # [deg]
+      # -----------------------------------------------------
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
