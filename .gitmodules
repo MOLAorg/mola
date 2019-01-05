@@ -22,3 +22,6 @@
 [submodule "modules/mola-fe-visual-orb"]
 	path = modules/mola-fe-visual-orb
 	url = git@github.com:jlblancoc/mola-fe-visual-orb.git
+[submodule "modules/mola-sensor-euroc-dataset"]
+	path = modules/mola-sensor-euroc-dataset
+	url = git@github.com:jlblancoc/mola-sensor-euroc-dataset.git
