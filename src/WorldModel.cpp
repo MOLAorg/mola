@@ -13,10 +13,12 @@
 /** \defgroup mola_kernel_grp mola-kernel: MOLA data types and interfaces
  */
 
+#include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/WorldModel.h>
 #include <mrpt/core/initializer.h>
 #include <yaml-cpp/yaml.h>
 #include <deque>
+#include <map>
 
 using namespace mola;
 
@@ -26,10 +28,12 @@ EntitiesContainer::~EntitiesContainer()
 {
 }
 
-/** Map container interface for Entities inside a WorldModel
- * \ingroup mola_kernel_grp */
 namespace mola
 {
+/** Implementation of EntitiesContainer using a std::deque.
+ * Avoids pool allocation for each entry, but poorly supports discontinuous ID
+ * numbers.
+ * \ingroup mola_kernel_grp */
 struct EntitiesContainerDeque : public mola::EntitiesContainer
 {
     std::deque<EntityBase::Ptr> data_;
@@ -53,6 +57,37 @@ struct EntitiesContainerDeque : public mola::EntitiesContainer
 
 EntitiesContainerDeque::~EntitiesContainerDeque() = default;
 
+/** Implementation of EntitiesContainer using a std::map<> with
+ * mola::FastAllocator.
+ *
+ * \ingroup mola_kernel_grp */
+struct EntitiesContainerFastMap : public mola::EntitiesContainer
+{
+    using T = EntityBase::Ptr;
+    std::map<
+        id_t, T, std::less<id_t>, mola::FastAllocator<std::pair<const id_t, T>>>
+        data_;
+
+    EntitiesContainerFastMap() = default;
+    ~EntitiesContainerFastMap() override;
+
+    std::size_t size() const override { return data_.size(); }
+    id_t        emplace_back(const T& e) override
+    {
+        const auto n = data_.size();
+        data_[n]     = e;
+        return n;
+    }
+    T getByID(const id_t id) const override
+    {
+        const auto it = data_.find(id);
+        ASSERTMSG_(it != data_.end(), "Attempt to access non-existing entity");
+        return it->second;
+    }
+};
+
+EntitiesContainerFastMap::~EntitiesContainerFastMap() = default;
+
 }  // namespace mola
 
 void WorldModel::initialize(const std::string& cfg_block)
@@ -61,6 +96,8 @@ void WorldModel::initialize(const std::string& cfg_block)
     auto cfg = YAML::Load(cfg_block);
 
     // Create map container:
+    MRPT_TODO("Switch between container type per cfg");
+
     auto c    = std::make_shared<EntitiesContainerDeque>();
     entities_ = std::dynamic_pointer_cast<EntitiesContainer>(c);
     ASSERT_(entities_);

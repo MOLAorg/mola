@@ -29,6 +29,14 @@ find_package(mrpt-gui)
 find_package(mrpt-maps)
 find_package(mrpt-obs)
 
+find_package(TBB)
+
+if (TARGET tbb)
+    message("mola-kernel: Using TBB")
+    target_link_libraries(${PROJECT_NAME} PRIVATE tbb)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC MOLA_KERNEL_HAS_TBB)
+endif()
+
 # Public lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
