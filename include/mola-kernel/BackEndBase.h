@@ -47,14 +47,14 @@ class BackEndBase : public ExecutableBase
         mrpt::Clock::time_point timestamp{};
 
         /** Optional set of raw observations seen from this KF. */
-        std::optional<mrpt::obs::CSensoryFrame> observations{};
+        std::optional<mrpt::obs::CSensoryFrame> observations{std::nullopt};
     };
 
     struct ProposeKF_Output
     {
         bool                       success{false};
-        std::optional<mola::id_t>  new_kf_id{};
-        std::optional<std::string> error_msg{};
+        std::optional<mola::id_t>  new_kf_id{std::nullopt};
+        std::optional<std::string> error_msg{std::nullopt};
     };
 
     /** Propose a new KeyFrame to be inserted into the world model.
