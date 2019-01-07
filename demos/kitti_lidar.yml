@@ -7,9 +7,10 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: RSLAM_gtsam
-    execution_rate: 100 # Hz
-    verbosity_level: INFO
+    #type: RSLAM_gtsam
+    type: ASLAM_gtsam
+    execution_rate: 1 # Rate to update the SLAM solution [Hz]
+    #verbosity_level: INFO
     params:
       # Built-up of the state vector of the system
       state_vector:
