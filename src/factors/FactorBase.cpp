@@ -4,24 +4,16 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RelPose3.h
- * @brief
+ * @file   FactorBase.cpp
+ * @brief  Base class for all "factors" in the world model
  * @author Jose Luis Blanco Claraco
  * @date   Jan 08, 2019
  */
-#pragma once
 
-#include <mola-kernel/entities/EntityRelativeBase.h>
+#include <mola-kernel/factors/FactorBase.h>
 
-namespace mola
-{
-/** A relative SE(3) pose (e.g. a sensor pose wrt the vehicle)
- *
- * \ingroup mola_kernel_grp
- */
-class RelPose3 : public EntityRelativeBase
-{
-   public:
-};
+// TODO: make serializable
 
-}  // namespace mola
+using namespace mola;
+
+FactorBase::~FactorBase() = default;

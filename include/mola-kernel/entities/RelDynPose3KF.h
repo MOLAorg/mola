@@ -4,23 +4,26 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   Entity.h
- * @brief  Variant type for "entities" in the world model
+ * @file   RelDynPose3KF.h
+ * @brief
  * @author Jose Luis Blanco Claraco
- * @date   Nov 26, 2018
+ * @date   Jan 08, 2019
  */
 #pragma once
 
-#include <mola-kernel/entities/entities-common.h>
-#include <variant>
+#include <mola-kernel/entities/EntityRelativeBase.h>
+#include <mola-kernel/entities/KeyFrameBase.h>
 
 namespace mola
 {
-/** Variant type for "entities" in the world model.
- *
+/** A relative "dynamic" pose: SE(3) pose + velocity vector.
+ * Both the pose and the velocity vector are given in the frame of the base KF.
+ * This entity is always a key-frame.
  * \ingroup mola_kernel_grp
  */
-using Entity =
-    std::variant<RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
+class RelDynPose3KF : public EntityRelativeBase, public KeyFrameBase
+{
+   public:
+};
 
 }  // namespace mola

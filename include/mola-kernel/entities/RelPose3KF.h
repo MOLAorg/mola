@@ -4,23 +4,25 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   Entity.h
- * @brief  Variant type for "entities" in the world model
+ * @file   RelPose3KF.h
+ * @brief
  * @author Jose Luis Blanco Claraco
- * @date   Nov 26, 2018
+ * @date   Jan 08, 2019
  */
 #pragma once
 
-#include <mola-kernel/entities/entities-common.h>
-#include <variant>
+#include <mola-kernel/entities/EntityRelativeBase.h>
+#include <mola-kernel/entities/KeyFrameBase.h>
 
 namespace mola
 {
-/** Variant type for "entities" in the world model.
+/** A relative SE(3) keyframe.
  *
  * \ingroup mola_kernel_grp
  */
-using Entity =
-    std::variant<RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
+class RelPose3KF : public EntityRelativeBase, public KeyFrameBase
+{
+   public:
+};
 
 }  // namespace mola

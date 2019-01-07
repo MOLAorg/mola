@@ -4,23 +4,22 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   Entity.h
- * @brief  Variant type for "entities" in the world model
+ * @file   Factor.h
+ * @brief  Variant type for "factors" in the world model
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018
  */
 #pragma once
 
-#include <mola-kernel/entities/entities-common.h>
+#include <mola-kernel/factors/factors-common.h>
 #include <variant>
 
 namespace mola
 {
-/** Variant type for "entities" in the world model.
+/** Variant type for "factors" in the world model.
  *
  * \ingroup mola_kernel_grp
  */
-using Entity =
-    std::variant<RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
+using Factor = std::variant<FactorRelativePose3, FactorOther>;
 
 }  // namespace mola

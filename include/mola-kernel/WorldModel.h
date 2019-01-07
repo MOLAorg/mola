@@ -13,12 +13,14 @@
 
 #include <mola-kernel/Entity.h>
 #include <mola-kernel/ExecutableBase.h>
+#include <mola-kernel/Factor.h>
 #include <mola-kernel/id.h>
 #include <map>
 
 namespace mola
 {
 struct EntitiesContainer;
+struct FactorsContainer;
 
 /** The main class for a "map" or "world model".
  *
@@ -42,6 +44,10 @@ class WorldModel : public ExecutableBase
      * Indexed by a unique id_t; */
     std::shared_ptr<EntitiesContainer> entities_;
 
+    /** All observations, constraints, etc. as generic "factors".
+     * Indexed by a unique fid_t; */
+    std::shared_ptr<FactorsContainer> factors_;
+
     /** @} */
 };
 
@@ -56,6 +62,19 @@ struct EntitiesContainer
     virtual const Entity& getByID(const id_t id) const = 0;
     virtual Entity&       getByID(const id_t id)       = 0;
     virtual id_t          emplace_back(Entity&& e)     = 0;
+};
+
+/** Map container interface for Factors inside a WorldModel
+ * \ingroup mola_kernel_grp */
+struct FactorsContainer
+{
+    FactorsContainer() = default;
+    virtual ~FactorsContainer();
+
+    virtual std::size_t   size() const                 = 0;
+    virtual const Factor& getByID(const id_t id) const = 0;
+    virtual Factor&       getByID(const id_t id)       = 0;
+    virtual id_t          emplace_back(Factor&& e)     = 0;
 };
 
 }  // namespace mola

@@ -4,24 +4,20 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RelDynPose3.h
- * @brief
+ * @file   factors-common.h
+ * @brief  Includes all headers for common types of world-model factors
  * @author Jose Luis Blanco Claraco
  * @date   Jan 08, 2019
  */
 #pragma once
 
-#include <mola-kernel/entities/EntityRelativeBase.h>
+#include <memory>
+
+#include <mola-kernel/factors/FactorRelativePose3.h>
 
 namespace mola
 {
-/** A relative "dynamic" pose: SE(3) pose + velocity vector.
- * Both the pose and the velocity vector are given in the
- * \ingroup mola_kernel_grp
- */
-class RelDynPose3 : public EntityRelativeBase
-{
-   public:
-};
+/** Placeholder for generic entity of user-defined types */
+using FactorOther = std::shared_ptr<FactorBase>;
 
 }  // namespace mola

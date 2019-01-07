@@ -18,7 +18,14 @@ namespace mola
 {
 /** Unique ID for each Entity in a WorldModel. \ingroup mola_kernel_grp */
 using id_t = std::uint64_t;
+
+/** Unique ID for each Factor in a WorldModel. \ingroup mola_kernel_grp */
+using fid_t = std::uint64_t;
+
 /** A numeric value for invalid IDs. \ingroup mola_kernel_grp */
 constexpr id_t INVALID_ID = std::numeric_limits<id_t>::max();
+
+/** A numeric value for invalid IDs. \ingroup mola_kernel_grp */
+constexpr fid_t INVALID_FID = std::numeric_limits<fid_t>::max();
 
 }  // namespace mola

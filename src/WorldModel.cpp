@@ -19,6 +19,7 @@
 #include <yaml-cpp/yaml.h>
 #include <deque>
 #include <map>
+#include <type_traits>
 
 using namespace mola;
 
@@ -28,76 +29,99 @@ EntitiesContainer::~EntitiesContainer()
 {
 }
 
+template <class... Ts>
+struct overloaded : Ts...
+{
+    using Ts::operator()...;
+};
+template <class... Ts>
+overloaded(Ts...)->overloaded<Ts...>;
+
 namespace mola
 {
-/** Implementation of EntitiesContainer using a std::deque.
- * Avoids pool allocation for each entry, but poorly supports discontinuous ID
- * numbers.
- * \ingroup mola_kernel_grp */
-struct EntitiesContainerDeque : public mola::EntitiesContainer
+template <class T, class BASE, class Tbase, class Tother, typename ID>
+struct ContainerDeque : public BASE
 {
-    std::deque<Entity> data_;
+    std::deque<T> data_;
 
-    EntitiesContainerDeque() = default;
-    ~EntitiesContainerDeque() override;
+    ContainerDeque()           = default;
+    ~ContainerDeque() override = default;
 
     std::size_t size() const override { return data_.size(); }
-    id_t        emplace_back(Entity&& e) override
+    ID          emplace_back(T&& e) override
     {
-        const auto n = data_.size();
+        const auto new_id = data_.size();
+        std::visit(
+            overloaded{[new_id](Tbase& b) { b.my_id_ = new_id; },
+                       [new_id](Tother& o) { o->my_id_ = new_id; }},
+            e);
         data_.emplace_back(e);
-        return n;
+        return new_id;
     }
-    const Entity& getByID(const id_t id) const override
+    const T& getByID(const ID id) const override
     {
         if (id >= data_.size()) THROW_EXCEPTION("getByID(): id out of range");
         return data_[id];
     }
-    Entity& getByID(const id_t id) override
+    T& getByID(const ID id) override
     {
         if (id >= data_.size()) THROW_EXCEPTION("getByID(): id out of range");
         return data_[id];
     }
 };
 
-EntitiesContainerDeque::~EntitiesContainerDeque() = default;
+template <class T, class BASE, class Tbase, class Tother, typename ID>
+struct ContainerFastMap : public BASE
+{
+    std::map<ID, T, std::less<ID>, mola::FastAllocator<std::pair<const ID, T>>>
+        data_;
+
+    ContainerFastMap()           = default;
+    ~ContainerFastMap() override = default;
+
+    std::size_t size() const override { return data_.size(); }
+    ID          emplace_back(T&& e) override
+    {
+        const auto new_id = data_.size();
+        std::visit(
+            overloaded{[new_id](Tbase& b) { b.my_id_ = new_id; },
+                       [new_id](Tother& o) { o->my_id_ = new_id; }},
+            e);
+        data_[new_id] = e;
+        return new_id;
+    }
+    const T& getByID(const ID id) const override
+    {
+        const auto it = data_.find(id);
+        ASSERTMSG_(it != data_.end(), "Attempt to access non-existing entity");
+        return it->second;
+    }
+    T& getByID(const ID id) override
+    {
+        const auto it = data_.find(id);
+        ASSERTMSG_(it != data_.end(), "Attempt to access non-existing entity");
+        return it->second;
+    }
+};
+
+/** Implementation of EntitiesContainer using a std::deque.
+ * Avoids pool allocation for each entry, but poorly supports discontinuous ID
+ * numbers.
+ * \ingroup mola_kernel_grp */
+using EntitiesContainerDeque =
+    ContainerDeque<Entity, EntitiesContainer, EntityBase, EntityOther, id_t>;
+using FactorsContainerDeque =
+    ContainerDeque<Factor, FactorsContainer, FactorBase, FactorOther, fid_t>;
 
 /** Implementation of EntitiesContainer using a std::map<> with
  * mola::FastAllocator.
  *
  * \ingroup mola_kernel_grp */
-struct EntitiesContainerFastMap : public mola::EntitiesContainer
-{
-    std::map<
-        id_t, Entity, std::less<id_t>,
-        mola::FastAllocator<std::pair<const id_t, Entity>>>
-        data_;
+using EntitiesContainerFastMap =
+    ContainerFastMap<Entity, EntitiesContainer, EntityBase, EntityOther, id_t>;
 
-    EntitiesContainerFastMap() = default;
-    ~EntitiesContainerFastMap() override;
-
-    std::size_t size() const override { return data_.size(); }
-    id_t        emplace_back(Entity&& e) override
-    {
-        const auto n = data_.size();
-        data_[n]     = e;
-        return n;
-    }
-    const Entity& getByID(const id_t id) const override
-    {
-        const auto it = data_.find(id);
-        ASSERTMSG_(it != data_.end(), "Attempt to access non-existing entity");
-        return it->second;
-    }
-    Entity& getByID(const id_t id) override
-    {
-        const auto it = data_.find(id);
-        ASSERTMSG_(it != data_.end(), "Attempt to access non-existing entity");
-        return it->second;
-    }
-};
-
-EntitiesContainerFastMap::~EntitiesContainerFastMap() = default;
+using FactorsContainerFastMap =
+    ContainerFastMap<Factor, FactorsContainer, FactorBase, FactorOther, fid_t>;
 
 }  // namespace mola
 

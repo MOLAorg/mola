@@ -57,12 +57,27 @@ class BackEndBase : public ExecutableBase
         std::optional<std::string> error_msg{std::nullopt};
     };
 
-    /** Propose a new KeyFrame to be inserted into the world model.
-     */
-    std::future<ProposeKF_Output> onProposeNewKeyFrame(const ProposeKF_Input& i)
+    /** Creates a new KeyFrame in the world model. */
+    std::future<ProposeKF_Output> addKeyFrame(const ProposeKF_Input& i)
     {
         return slam_be_threadpool_.enqueue(
-            &BackEndBase::doProposeNewKeyFrame, this, i);
+            &BackEndBase::doAddKeyFrame, this, i);
+    }
+
+    struct AddFactor_Output
+    {
+        bool                       success{false};
+        std::optional<mola::fid_t> new_factor_id{std::nullopt};
+        std::optional<std::string> error_msg{std::nullopt};
+    };
+
+    /** Adds a new constraint factor to the world model.
+     * Note that the object is **moved**, so it will not hold a valid value upon
+     * return.
+     */
+    std::future<AddFactor_Output> addFactor(Factor& f)
+    {
+        return slam_be_threadpool_.enqueue(&BackEndBase::doAddFactor, this, f);
     }
 
     /** @} */
@@ -75,7 +90,8 @@ class BackEndBase : public ExecutableBase
     /** @name Virtual methods to be implemented by SLAM back-end
      *{ */
 
-    virtual ProposeKF_Output doProposeNewKeyFrame(const ProposeKF_Input& i) = 0;
+    virtual ProposeKF_Output doAddKeyFrame(const ProposeKF_Input& i) = 0;
+    virtual AddFactor_Output doAddFactor(Factor& f)                  = 0;
 
     /** @} */
 };

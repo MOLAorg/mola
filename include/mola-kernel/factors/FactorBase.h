@@ -4,10 +4,10 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   EntityBase.h
- * @brief  Base class for all "entities" in the world model
+ * @file   FactorBase.h
+ * @brief  Base class for all "factors" in the world model
  * @author Jose Luis Blanco Claraco
- * @date   Nov 26, 2018
+ * @date   Jan 08, 2019
  */
 #pragma once
 
@@ -15,21 +15,21 @@
 
 namespace mola
 {
-/** Base class for all "entities" in the world model
+/** Base class for all "factors" in the world model
  *
  * \ingroup mola_kernel_grp
  */
-class EntityBase
+class FactorBase
 {
    public:
-    EntityBase() = default;
-    virtual ~EntityBase();
+    FactorBase() = default;
+    virtual ~FactorBase();
 
-    /** The unique ID of this entity in the world model.
+    /** The unique ID of this factor in the world model.
      * Stored here for convenience, notice that it is redundant since entities
      * are already stored in the WorldModel indexed by ID.
      */
-    mola::id_t my_id_{mola::INVALID_ID};
+    mola::fid_t my_id_{mola::INVALID_FID};
 };
 
 }  // namespace mola

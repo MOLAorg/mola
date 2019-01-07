@@ -15,11 +15,10 @@
 
 //#include <mola-kernel/entities/FeatPlane.h>
 //#include <mola-kernel/entities/FeatPoint3.h>
-//#include <mola-kernel/entities/RelDynPose2.h>
-#include <mola-kernel/entities/RelDynPose3.h>
-//#include <mola-kernel/entities/RelPose2.h>
 #include <mola-kernel/entities/RefPose3.h>
+#include <mola-kernel/entities/RelDynPose3KF.h>
 #include <mola-kernel/entities/RelPose3.h>
+#include <mola-kernel/entities/RelPose3KF.h>
 
 namespace mola
 {
