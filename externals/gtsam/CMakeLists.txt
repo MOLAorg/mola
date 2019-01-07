@@ -169,24 +169,14 @@ endif()
 
 ###############################################################################
 # Find TBB
-find_package(TBB)
+find_package(TBB COMPONENTS tbb tbbmalloc)
 
 # Set up variables if we're using TBB
 if(TBB_FOUND AND GTSAM_WITH_TBB)
 	set(GTSAM_USE_TBB 1)  # This will go into config.h
-	include_directories(BEFORE ${TBB_INCLUDE_DIRS})
-	set(GTSAM_TBB_LIBRARIES "")
-	if(TBB_DEBUG_LIBRARIES)
-		foreach(lib ${TBB_LIBRARIES})
-			list(APPEND GTSAM_TBB_LIBRARIES optimized "${lib}")
-		endforeach()
-		foreach(lib ${TBB_DEBUG_LIBRARIES})
-			list(APPEND GTSAM_TBB_LIBRARIES debug "${lib}")
-		endforeach()
-	else()
-		set(GTSAM_TBB_LIBRARIES ${TBB_LIBRARIES})
-	endif()
-	list(APPEND GTSAM_ADDITIONAL_LIBRARIES ${GTSAM_TBB_LIBRARIES})
+  # all definitions and link requisites will go via imported targets:
+  # tbb & tbbmalloc
+  list(APPEND GTSAM_ADDITIONAL_LIBRARIES tbb tbbmalloc)
 else()
 	set(GTSAM_USE_TBB 0)  # This will go into config.h
 endif()
@@ -479,47 +469,48 @@ message(STATUS "GTSAM Version: ${gtsam_version}")
 #message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 
 # build shared and static versions of the library
-if (GTSAM_BUILD_STATIC_LIBRARY)
-    message(STATUS "Building GTSAM - static")
-    add_library(gtsam STATIC ${gtsam_srcs})
-	target_link_libraries(gtsam ${GTSAM_BOOST_LIBRARIES} ${GTSAM_ADDITIONAL_LIBRARIES})
-    set_target_properties(gtsam PROPERTIES
-        OUTPUT_NAME         gtsam
-        CLEAN_DIRECT_OUTPUT 1
-    	VERSION             ${gtsam_version}
-     	SOVERSION           ${gtsam_soversion})
-	if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with shared library
+message(STATUS "Building GTSAM - shared: ${BUILD_SHARED_LIBS}")
+
+# BUILD_SHARED_LIBS automatically defines static/shared libs:
+add_library(gtsam ${gtsam_srcs})
+target_link_libraries(gtsam
+    PUBLIC
+    ${GTSAM_BOOST_LIBRARIES} ${GTSAM_ADDITIONAL_LIBRARIES})
+set_target_properties(gtsam PROPERTIES
+    OUTPUT_NAME         gtsam
+    CLEAN_DIRECT_OUTPUT 1
+    VERSION             ${gtsam_version}
+    SOVERSION           ${gtsam_soversion})
+
+if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with shared library
+	if (NOT BUILD_SHARED_LIBS)
 		set_target_properties(gtsam PROPERTIES
 			PREFIX "lib"
 			COMPILE_DEFINITIONS GTSAM_IMPORT_STATIC)
-	endif()
-    install(TARGETS gtsam EXPORT GTSAM-exports ARCHIVE DESTINATION lib)
-    list(APPEND GTSAM_EXPORTED_TARGETS gtsam)
-    set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
-else()
-    message(STATUS "Building GTSAM - shared")
-    add_library(gtsam SHARED ${gtsam_srcs})
-    target_link_libraries(gtsam ${GTSAM_BOOST_LIBRARIES} ${GTSAM_ADDITIONAL_LIBRARIES})
-    set_target_properties(gtsam PROPERTIES
-        OUTPUT_NAME         gtsam
-        CLEAN_DIRECT_OUTPUT 1
-    	VERSION             ${gtsam_version}
-     	SOVERSION           ${gtsam_soversion})
-	if(WIN32)
+	else()
 		set_target_properties(gtsam PROPERTIES
 			PREFIX ""
 			DEFINE_SYMBOL GTSAM_EXPORTS
 			RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 	endif()
-	if (APPLE)
-		set_target_properties(gtsam PROPERTIES
-			INSTALL_NAME_DIR
-			"${CMAKE_INSTALL_PREFIX}/lib")
-	endif()
-    install(TARGETS gtsam EXPORT GTSAM-exports LIBRARY DESTINATION lib ARCHIVE DESTINATION lib RUNTIME DESTINATION bin)
-    list(APPEND GTSAM_EXPORTED_TARGETS gtsam)
-    set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
 endif()
+
+if (APPLE AND BUILD_SHARED_LIBS)
+	set_target_properties(gtsam PROPERTIES
+		INSTALL_NAME_DIR
+		"${CMAKE_INSTALL_PREFIX}/lib")
+endif()
+
+install(
+	TARGETS gtsam
+	EXPORT GTSAM-exports
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
+	RUNTIME DESTINATION bin)
+
+list(APPEND GTSAM_EXPORTED_TARGETS gtsam)
+set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
+
 
 SET_TARGET_PROPERTIES(gtsam PROPERTIES FOLDER "ExternalProjectTargets")
 
@@ -613,43 +604,40 @@ set(gtsam_unstable_soversion ${GTSAM_VERSION_MAJOR})
 message(STATUS "GTSAM_UNSTABLE Version: ${gtsam_unstable_version}")
 #message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 
-# build shared or static versions of the library
-if (GTSAM_BUILD_STATIC_LIBRARY)
-	message(STATUS "Building GTSAM_UNSTABLE - static")
-	add_library(gtsam_unstable STATIC ${gtsam_unstable_srcs})
-	set_target_properties(gtsam_unstable PROPERTIES
-		OUTPUT_NAME         gtsam_unstable
-		CLEAN_DIRECT_OUTPUT 1
-		VERSION             ${gtsam_unstable_version}
-		SOVERSION           ${gtsam_unstable_soversion})
-	if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with shared library
+# BUILD_SHARED_LIBS automatically defines static/shared libs:
+add_library(gtsam_unstable ${gtsam_unstable_srcs})
+set_target_properties(gtsam_unstable PROPERTIES
+  OUTPUT_NAME         gtsam_unstable
+  CLEAN_DIRECT_OUTPUT 1
+  VERSION             ${gtsam_unstable_version}
+  SOVERSION           ${gtsam_unstable_soversion})
+target_link_libraries(gtsam_unstable
+    PUBLIC
+    gtsam
+    ${GTSAM_UNSTABLE_BOOST_LIBRARIES})
+
+if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with shared library
+	if (NOT BUILD_SHARED_LIBS)
 		set_target_properties(gtsam_unstable PROPERTIES
 			PREFIX "lib"
 			COMPILE_DEFINITIONS GTSAM_UNSTABLE_IMPORT_STATIC)
-	endif()
-	target_link_libraries(gtsam_unstable gtsam ${GTSAM_UNSTABLE_BOOST_LIBRARIES})
-	install(TARGETS gtsam_unstable EXPORT GTSAM-exports ARCHIVE DESTINATION lib)
-	list(APPEND GTSAM_EXPORTED_TARGETS gtsam_unstable)
-	set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
-else()
-    message(STATUS "Building GTSAM_UNSTABLE - shared")
-    add_library(gtsam_unstable SHARED ${gtsam_unstable_srcs})
-    set_target_properties(gtsam_unstable PROPERTIES
-        OUTPUT_NAME         gtsam_unstable
-        CLEAN_DIRECT_OUTPUT 1
-    	VERSION             ${gtsam_unstable_version}
-     	SOVERSION           ${gtsam_unstable_soversion})
-	if(WIN32)
+	else()
 		set_target_properties(gtsam_unstable PROPERTIES
 			PREFIX ""
 			DEFINE_SYMBOL GTSAM_UNSTABLE_EXPORTS
 			RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 	endif()
-    target_link_libraries(gtsam_unstable gtsam ${GTSAM_UNSTABLE_BOOST_LIBRARIES})
-    install(TARGETS gtsam_unstable EXPORT GTSAM-exports LIBRARY DESTINATION lib ARCHIVE DESTINATION lib RUNTIME DESTINATION bin)
-    list(APPEND GTSAM_EXPORTED_TARGETS gtsam_unstable)
-    set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
 endif()
+
+install(
+	TARGETS gtsam_unstable
+	EXPORT GTSAM-exports
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
+	RUNTIME DESTINATION bin)
+list(APPEND GTSAM_EXPORTED_TARGETS gtsam_unstable)
+set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
+
 # ===== END OF EMBEDDED gtsam/gtsam_unstable =======
 SET_TARGET_PROPERTIES(gtsam_unstable PROPERTIES FOLDER "ExternalProjectTargets") # For MOLA
 endif(GTSAM_BUILD_UNSTABLE)

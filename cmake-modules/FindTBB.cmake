@@ -271,26 +271,37 @@ if(NOT TBB_FOUND)
   ##################################
 
   if(NOT CMAKE_VERSION VERSION_LESS 3.0 AND TBB_FOUND)
-    add_library(tbb SHARED IMPORTED)
-    set_target_properties(tbb PROPERTIES
-          INTERFACE_INCLUDE_DIRECTORIES  ${TBB_INCLUDE_DIRS}
-          IMPORTED_LOCATION              ${TBB_LIBRARIES})
-    if(TBB_LIBRARIES_RELEASE AND TBB_LIBRARIES_DEBUG)
-      set_target_properties(tbb PROPERTIES
-          INTERFACE_COMPILE_DEFINITIONS "$<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:TBB_USE_DEBUG=1>"
-          IMPORTED_LOCATION_DEBUG          ${TBB_LIBRARIES_DEBUG}
-          IMPORTED_LOCATION_RELWITHDEBINFO ${TBB_LIBRARIES_DEBUG}
-          IMPORTED_LOCATION_RELEASE        ${TBB_LIBRARIES_RELEASE}
-          IMPORTED_LOCATION_MINSIZEREL     ${TBB_LIBRARIES_RELEASE}
-          )
-    elseif(TBB_LIBRARIES_RELEASE)
-      set_target_properties(tbb PROPERTIES IMPORTED_LOCATION ${TBB_LIBRARIES_RELEASE})
-    else()
-      set_target_properties(tbb PROPERTIES
-          INTERFACE_COMPILE_DEFINITIONS "${TBB_DEFINITIONS_DEBUG}"
-          IMPORTED_LOCATION              ${TBB_LIBRARIES_DEBUG}
-          )
-    endif()
+    # Start fix to support different targets for tbb, tbbmalloc, etc.
+    # (Jose Luis Blanco, Jan 2019)
+    # Iterate over tbb, tbbmalloc, etc.
+    foreach(libname ${TBB_SEARCH_COMPOMPONENTS})
+      if ((NOT TBB_${libname}_LIBRARY_RELEASE) AND (NOT TBB_${libname}_LIBRARY_DEBUG))
+        continue()
+      endif()
+
+      add_library(${libname} SHARED IMPORTED)
+
+      set_target_properties(${libname} PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES  ${TBB_INCLUDE_DIRS}
+            IMPORTED_LOCATION              ${TBB_${libname}_LIBRARY_RELEASE})
+      if(TBB_${libname}_LIBRARY_RELEASE AND TBB_${libname}_LIBRARY_DEBUG)
+        set_target_properties(${libname} PROPERTIES
+            INTERFACE_COMPILE_DEFINITIONS "$<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:TBB_USE_DEBUG=1>"
+            IMPORTED_LOCATION_DEBUG          ${TBB_${libname}_LIBRARY_DEBUG}
+            IMPORTED_LOCATION_RELWITHDEBINFO ${TBB_${libname}_LIBRARY_DEBUG}
+            IMPORTED_LOCATION_RELEASE        ${TBB_${libname}_LIBRARY_RELEASE}
+            IMPORTED_LOCATION_MINSIZEREL     ${TBB_${libname}_LIBRARY_RELEASE}
+            )
+      elseif(TBB_${libname}_LIBRARY_RELEASE)
+        set_target_properties(${libname} PROPERTIES IMPORTED_LOCATION ${TBB_${libname}_LIBRARY_RELEASE})
+      else()
+        set_target_properties(${libname} PROPERTIES
+            INTERFACE_COMPILE_DEFINITIONS "${TBB_DEFINITIONS_DEBUG}"
+            IMPORTED_LOCATION              ${TBB_${libname}_LIBRARY_DEBUG}
+            )
+      endif()
+    endforeach()
+    # End of fix to support different targets
   endif()
 
   mark_as_advanced(TBB_INCLUDE_DIRS TBB_LIBRARIES)
