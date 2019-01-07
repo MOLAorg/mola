@@ -4,29 +4,26 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   EntityBase.h
- * @brief  Virtual base class for all optimizable entities in the world model
+ * @file   EntityRelativeBase.h
+ * @brief  World optimizable entities which are relative to some keyframe.
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018
  */
 #pragma once
 
-//#include <mola-kernel/Keyframe.h>
-#include <memory>
+#include <mola-kernel/entities/EntityBase.h>
 
 namespace mola
 {
-/** Virtual base class for all optimizable entities in the world model
+/** World optimizable entities which are relative to some keyframe.
  *
  * \ingroup mola_kernel_grp
  */
-class EntityBase
+class EntityRelativeBase : public EntityBase
 {
    public:
-    EntityBase()          = default;
-    virtual ~EntityBase() = default;
-
-    using Ptr = std::shared_ptr<EntityBase>;
+    /** The ID of the base keyframe (entity) */
+    mola::id_t base_id_{mola::INVALID_ID};
 };
 
 }  // namespace mola

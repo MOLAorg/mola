@@ -4,19 +4,24 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   KeyFrame.cpp
- * @brief  Information keep for each keyframe (except its "global" pose)
+ * @file   RelPose3.h
+ * @brief
  * @author Jose Luis Blanco Claraco
- * @date   Nov 26, 2018
+ * @date   Jan 08, 2019
  */
+#pragma once
 
-#include <mola-kernel/Keyframe.h>
+#include <mola-kernel/entities/EntityRelativeBase.h>
 
-using namespace mola;
-
-mrpt::Clock::time_point Keyframe::timestamp() const
+namespace mola
 {
-    ASSERT_(raw_observations_);
-    ASSERT_(!raw_observations_->empty());
-    return (*raw_observations_->begin())->timestamp;
-}
+/** A relative SE(3) pose.
+ *
+ * \ingroup mola_kernel_grp
+ */
+class RelPose3 : public EntityRelativeBase
+{
+   public:
+};
+
+}  // namespace mola

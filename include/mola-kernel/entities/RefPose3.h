@@ -4,14 +4,25 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   EntityBase.cpp
- * @brief  Virtual base class for all optimizable entities in the world model
+ * @file   RefPose3.h
+ * @brief
  * @author Jose Luis Blanco Claraco
- * @date   Nov 26, 2018
+ * @date   Jan 08, 2019
  */
+#pragma once
 
-#include <mola-kernel/EntityBase.h>
+#include <mola-kernel/entities/EntityBase.h>
 
-// TODO: make serializable
+namespace mola
+{
+/** A Reference SE(3) keyframe.
+ * Does not hold raw observations, it is
+ *
+ * \ingroup mola_kernel_grp
+ */
+class RefPose3 : public EntityBase
+{
+   public:
+};
 
-using namespace mola;
+}  // namespace mola

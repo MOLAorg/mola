@@ -4,25 +4,22 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RelativeEntity.h
- * @brief  World optimizable entities which are relative to some keyframe.
+ * @file   Entity.h
+ * @brief  Variant type for "entities" in the world model
  * @author Jose Luis Blanco Claraco
  * @date   Nov 26, 2018
  */
 #pragma once
 
-#include <mola-kernel/EntityBase.h>
-#include <map>
+#include <mola-kernel/entities/entities-common.h>
+#include <variant>
 
 namespace mola
 {
-/** World optimizable entities which are relative to some keyframe.
+/** Variant type for "entities" in the world model.
  *
  * \ingroup mola_kernel_grp
  */
-class RelativeEntity : public EntityBase
-{
-   public:
-};
+using Entity = std::variant<RefPose3, RelPose3, RelDynPose3, EntityOther>;
 
 }  // namespace mola

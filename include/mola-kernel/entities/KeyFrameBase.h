@@ -16,29 +16,20 @@
 
 namespace mola
 {
-/** Numeric, unique, ID for each mola::Keyframe. \ingroup mola_kernel_grp */
-using keyframe_id_t = std::uint64_t;
-
-/** Keyframes (KFs) are the lowest-level entities in a World Model (a "map").
- * We keep raw observations as they were originally observed in each KF,
- * ideally, more than observations only if they were collected exactly at the
- * same timestamp.
+/** Keyframes (KFs) are the lowest-level entities in a World Model (a "map")
+ * holding raw observation data. We keep raw observations as they were
+ * originally observed in each KF, ideally, more than observations only if they
+ * were collected exactly at the same timestamp.
+ *
+ * This class is used as a base class for all world-model entities that can be
+ * used as robot/vehicle keyframes.
+ *
  * \ingroup mola_kernel_grp
  */
-class Keyframe
+class KeyFrameBase
 {
-public:
-    Keyframe() = default;
-    Keyframe(keyframe_id_t id) : kf_id_(id) {}
-
-    /** @name Keyframe data fields
-     * @{ */
-    keyframe_id_t                 kf_id_{0};
+   public:
     mrpt::obs::CSensoryFrame::Ptr raw_observations_;
-    /** @} */
-
-    /** Returns the timestamp of the first observation */
-    mrpt::Clock::time_point timestamp() const;
 };
 
 }  // namespace mola

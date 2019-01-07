@@ -11,18 +11,13 @@
  */
 #pragma once
 
-#include <mola-kernel/EntityBase.h>
+#include <mola-kernel/Entity.h>
 #include <mola-kernel/ExecutableBase.h>
-#include <mola-kernel/Keyframe.h>
+#include <mola-kernel/id.h>
 #include <map>
 
 namespace mola
 {
-/** Unique ID for each Entity in a WorldModel. \ingroup mola_kernel_grp */
-using id_t = std::uint64_t;
-/** A numeric value for invalid IDs. \ingroup mola_kernel_grp */
-constexpr id_t INVALID_ID = std::numeric_limits<id_t>::max();
-
 struct EntitiesContainer;
 
 /** The main class for a "map" or "world model".
@@ -57,9 +52,10 @@ struct EntitiesContainer
     EntitiesContainer() = default;
     virtual ~EntitiesContainer();
 
-    virtual std::size_t     size() const                           = 0;
-    virtual EntityBase::Ptr getByID(const id_t id) const           = 0;
-    virtual id_t            emplace_back(const EntityBase::Ptr& e) = 0;
+    virtual std::size_t   size() const                 = 0;
+    virtual const Entity& getByID(const id_t id) const = 0;
+    virtual Entity&       getByID(const id_t id)       = 0;
+    virtual id_t          emplace_back(Entity&& e)     = 0;
 };
 
 }  // namespace mola

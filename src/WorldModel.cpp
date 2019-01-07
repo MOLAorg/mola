@@ -36,19 +36,24 @@ namespace mola
  * \ingroup mola_kernel_grp */
 struct EntitiesContainerDeque : public mola::EntitiesContainer
 {
-    std::deque<EntityBase::Ptr> data_;
+    std::deque<Entity> data_;
 
     EntitiesContainerDeque() = default;
     ~EntitiesContainerDeque() override;
 
     std::size_t size() const override { return data_.size(); }
-    id_t        emplace_back(const EntityBase::Ptr& e) override
+    id_t        emplace_back(Entity&& e) override
     {
         const auto n = data_.size();
         data_.emplace_back(e);
         return n;
     }
-    EntityBase::Ptr getByID(const id_t id) const override
+    const Entity& getByID(const id_t id) const override
+    {
+        if (id >= data_.size()) THROW_EXCEPTION("getByID(): id out of range");
+        return data_[id];
+    }
+    Entity& getByID(const id_t id) override
     {
         if (id >= data_.size()) THROW_EXCEPTION("getByID(): id out of range");
         return data_[id];
@@ -63,22 +68,28 @@ EntitiesContainerDeque::~EntitiesContainerDeque() = default;
  * \ingroup mola_kernel_grp */
 struct EntitiesContainerFastMap : public mola::EntitiesContainer
 {
-    using T = EntityBase::Ptr;
     std::map<
-        id_t, T, std::less<id_t>, mola::FastAllocator<std::pair<const id_t, T>>>
+        id_t, Entity, std::less<id_t>,
+        mola::FastAllocator<std::pair<const id_t, Entity>>>
         data_;
 
     EntitiesContainerFastMap() = default;
     ~EntitiesContainerFastMap() override;
 
     std::size_t size() const override { return data_.size(); }
-    id_t        emplace_back(const T& e) override
+    id_t        emplace_back(Entity&& e) override
     {
         const auto n = data_.size();
         data_[n]     = e;
         return n;
     }
-    T getByID(const id_t id) const override
+    const Entity& getByID(const id_t id) const override
+    {
+        const auto it = data_.find(id);
+        ASSERTMSG_(it != data_.end(), "Attempt to access non-existing entity");
+        return it->second;
+    }
+    Entity& getByID(const id_t id) override
     {
         const auto it = data_.find(id);
         ASSERTMSG_(it != data_.end(), "Attempt to access non-existing entity");
