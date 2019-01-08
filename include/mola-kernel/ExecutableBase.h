@@ -49,6 +49,13 @@ class ExecutableBase : public mrpt::system::COutputLogger,
     virtual void initialize_common(const std::string& cfg_block) = 0;
     virtual void initialize(const std::string& cfg_block);
     virtual void spinOnce() = 0;
+
+    /** Modules will be initialized in the order determined by:
+     * - First: the "oder priority", which is the number returned here.
+     * - Second: modules with the same "priority", will be sorted by ascending
+     * lexicographical order or their "instance names".
+     */
+    virtual int launchOrderPriority() const { return 50; }
     /** @} */
 
     /** @name Directory services

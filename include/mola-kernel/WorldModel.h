@@ -34,6 +34,9 @@ class WorldModel : public ExecutableBase
     void initialize(const std::string& cfg_block) override;
     void spinOnce() override {}
 
+    /** The WorldModel is launched first, before most other modules. */
+    int launchOrderPriority() const override { return 10; }
+
     using Ptr = std::shared_ptr<WorldModel>;
 
     /** @name Main data fields
