@@ -19,6 +19,7 @@ set(MOLA_VERSION_NUMBER_MAJOR 0)
 set(MOLA_VERSION_NUMBER_MINOR 1)
 set(MOLA_VERSION_NUMBER_PATCH 0)
 
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 # Include std cmake scripts:
 include(CheckCXXCompilerFlag) # for check_cxx_compiler_flag()
