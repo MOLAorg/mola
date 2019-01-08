@@ -157,7 +157,8 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             // Default logger name, can be changed in initilize() if desired
             const auto logName = ds_classname + std::string(":") + ds_label;
             info.impl->setLoggerName(logName);
-            info.execution_rate = ds["execution_rate"].as<double>(1.0);
+            info.execution_rate  = ds["execution_rate"].as<double>(1.0);
+            info.launch_priority = info.impl->launchOrderPriority();
 
             info.impl->setModuleInstanceName(logName);
 
@@ -180,10 +181,30 @@ void MolaLauncherApp::spin()
 
     // Launch working threads:
     // ---------------------------------
-    for (auto& ds : running_threads_)
+    // Sort by launch priority:
     {
-        ds.second.executor = std::thread(
-            &MolaLauncherApp::executor_thread, this, std::ref(ds.second));
+        std::multimap<int, std::string> lst;
+        std::transform(
+            running_threads_.begin(), running_threads_.end(),
+            std::inserter(lst, lst.begin()), [](auto& ds) {
+                return std::make_pair(
+                    ds.second.launch_priority, ds.second.name);
+            });
+
+        for (auto& name : lst)
+        {
+            auto& ds    = running_threads_[name.second];
+            ds.executor = std::thread(
+                &MolaLauncherApp::executor_thread, this, std::ref(ds));
+
+            // Wait until the new thread is done with its initialization():
+            {
+                std::unique_lock<std::mutex> lock(thread_launch_init_mtx_);
+                thread_launch_condition_.wait(lock, [&ds, this] {
+                    return !threads_must_end_ && ds.initialization_done;
+                });
+            }
+        }
     }
 
     // Main SLAM/Localization infinite loop
@@ -208,8 +229,20 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
         if (threads_must_end_) return;
 
         // Initilize:
-        rds.impl->initialize_common(rds.yaml_cfg_block);
-        rds.impl->initialize(rds.yaml_cfg_block);
+        MRPT_LOG_DEBUG_STREAM(
+            "Thread started for module named `"
+            << rds.name << "` (launch priority=" << rds.launch_priority << ")");
+
+        {
+            std::unique_lock<std::mutex> lock(thread_launch_init_mtx_);
+
+            rds.impl->initialize_common(rds.yaml_cfg_block);
+            rds.impl->initialize(rds.yaml_cfg_block);
+
+            // Notify that we are done with initialization:
+            rds.initialization_done = true;
+            thread_launch_condition_.notify_one();
+        }
 
         mrpt::system::CRateTimer timer(rds.execution_rate);
 
@@ -221,7 +254,7 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
             const bool ontime = timer.sleep();
             if (!ontime)
                 MRPT_LOG_THROTTLE_WARN_STREAM(
-                    1.0,
+                    5.0,
                     "Could not achieve desired real-time execution rate ("
                         << rds.execution_rate
                         << " Hz) on thread for sensor named: " << rds.name);

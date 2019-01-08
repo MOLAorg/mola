@@ -16,6 +16,7 @@
 #include <mrpt/system/CTimeLogger.h>
 #include <yaml-cpp/yaml.h>
 #include <atomic>
+#include <condition_variable>
 #include <map>
 #include <thread>
 #include <vector>
@@ -79,9 +80,16 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
         std::thread         executor;
         std::string         name;
         double              execution_rate{10.0};  //!< (Hz)
+        int                 launch_priority{0};
+        bool                initialization_done{false};
     };
     /** Indexed by `name` */
     std::map<std::string, InfoPerRunningThread> running_threads_;
+
+    /** Used to enforce a one-by-one module initialization, if so desired */
+    std::condition_variable thread_launch_condition_;
+    /** Used together with thread_launch_condition_ */
+    std::mutex thread_launch_init_mtx_;
 
     void executor_thread(InfoPerRunningThread& rds);  //!< Thread func.
 
