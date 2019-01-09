@@ -44,15 +44,23 @@ class KittiOdometryDataset : public RawDataSourceBase
     std::size_t             replay_next_tim_index_{0};
     bool                    replay_started_{false};
     bool                    publish_lidar_{true};
-    double                  time_warp_scale_{1.0};
     std::array<bool, 4>     publish_image_{{true, true, true, true}};
+    double                  time_warp_scale_{1.0};
     std::array<mrpt::img::TCamera, 4>  cam_intrinsics_;
     std::array<mrpt::math::TPose3D, 4> cam_poses_;  //!< wrt vehicle origin
 
-    std::array<std::vector<std::string>, 4> lst_image_;
-    std::vector<std::string>                lst_velodyne_;
-    std::vector<double>                     lst_timestamps_;
-    double                                  replay_time_{.0};
+    std::array<std::vector<std::string>, 4>             lst_image_;
+    std::vector<std::string>                            lst_velodyne_;
+    std::map<std::size_t, mrpt::obs::CObservation::Ptr> read_ahead_lidar_obs_;
+    std::map<std::size_t, std::array<mrpt::obs::CObservation::Ptr, 4>>
+        read_ahead_image_obs_;
+
+    std::vector<double> lst_timestamps_;
+    double              replay_time_{.0};
+    std::string         seq_dir_;
+
+    void load_img(const unsigned int cam_idx, const std::size_t step);
+    void load_lidar(std::size_t step);
 };
 
 }  // namespace mola

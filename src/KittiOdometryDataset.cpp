@@ -91,9 +91,8 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
 
     ENSURE_YAML_ENTRY_EXISTS(params, "sequence");
     replay_selected_seq_ = params["sequence"].as<std::string>();
-    const std::string seq_dir =
-        kitti_basedir_ + "/sequences/" + replay_selected_seq_;
-    ASSERT_DIRECTORY_EXISTS_(seq_dir);
+    seq_dir_ = kitti_basedir_ + "/sequences/" + replay_selected_seq_;
+    ASSERT_DIRECTORY_EXISTS_(seq_dir_);
 
     // Optional params with default values:
     time_warp_scale_ = params["time_warp_scale"].as<double>(time_warp_scale_);
@@ -105,12 +104,12 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
 
     // Make list of all existing files and preload everything we may need later
     // to quickly replay the dataset in realtime:
-    MRPT_LOG_INFO_STREAM("Loading kitti dataset from: " << seq_dir);
+    MRPT_LOG_INFO_STREAM("Loading kitti dataset from: " << seq_dir_);
     // Load timestamps:
     {
         Eigen::VectorXd mtimes;
         // Use MRPT load function:
-        mtimes.loadFromTextFile(seq_dir + std::string("/times.txt"));
+        mtimes.loadFromTextFile(seq_dir_ + std::string("/times.txt"));
         // Convert to std::vector:
         lst_timestamps_.resize(static_cast<std::size_t>(mtimes.size()));
         Eigen::VectorXd::Map(&lst_timestamps_[0], mtimes.size()) = mtimes;
@@ -125,7 +124,7 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     // Velodyne: "0000000000.bin"
     // Images  : "0000000000.png"
     // Non-uniform format. Solution: make a list of files and sort them.
-    build_list_files(seq_dir + "/velodyne", "bin", lst_velodyne_);
+    build_list_files(seq_dir_ + "/velodyne", "bin", lst_velodyne_);
     if (!lst_velodyne_.empty())
         ASSERTMSG_(lst_velodyne_.size() == N, "Velodyne: invalid file count");
 
@@ -136,7 +135,7 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     for (unsigned int i = 0; i < 4; i++)
     {
         build_list_files(
-            seq_dir + "/image_" + std::to_string(i), "png", lst_image_[i]);
+            seq_dir_ + "/image_" + std::to_string(i), "png", lst_image_[i]);
         if (!lst_image_[i].empty())
             ASSERTMSG_(
                 lst_image_[i].size() == N,
@@ -151,7 +150,7 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     }
 
     // Load sensors calibration:
-    const std::string fil_calib = seq_dir + std::string("/calib.txt");
+    const std::string fil_calib = seq_dir_ + std::string("/calib.txt");
     ASSERT_FILE_EXISTS_(fil_calib);
 
     // Load projection matrices:
@@ -181,7 +180,9 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
         if (!lst_image_[i].empty())
         {
             mrpt::img::CImage im;
-            if (im.loadFromFile(lst_image_[i][0]))
+            if (im.loadFromFile(
+                    seq_dir_ + std::string("/image_") + std::to_string(i) +
+                    std::string("/") + lst_image_[i][0]))
             {
                 cam_intrinsics_[i].ncols = static_cast<uint32_t>(im.getWidth());
                 cam_intrinsics_[i].nrows =
@@ -221,7 +222,8 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     }
 
     MRPT_END
-}
+}  // end initialize()
+
 void KittiOdometryDataset::spinOnce()
 {
     MRPT_START
@@ -247,9 +249,6 @@ void KittiOdometryDataset::spinOnce()
         return;
     }
 
-    const std::string seq_dir =
-        kitti_basedir_ + "/sequences/" + replay_selected_seq_;
-
     // We have to publish all observations until "t":
     while (replay_next_tim_index_ < lst_timestamps_.size() &&
            t >= lst_timestamps_[replay_next_tim_index_])
@@ -265,27 +264,9 @@ void KittiOdometryDataset::spinOnce()
         if (publish_lidar_)
         {
             ProfilerEntry tle(profiler_, "spinOnce.publishLidar");
-
-            // Load velodyne pointcloud:
-            const auto f = seq_dir + std::string("/velodyne/") +
-                           lst_velodyne_[replay_next_tim_index_];
-
-            // Kitti dataset doesn't contain raw ranges, but point clouds.
-            // Load as a PC and convert into a MRPT's observation, leaving empty
-            // the fields for raw LiDAR ranges, etc.
-            auto pc = mrpt::maps::CPointsMapXYZI::Create();
-            if (!pc->loadFromKittiVelodyneFile(f))
-                THROW_EXCEPTION_FMT(
-                    "Error loading Kitti pointcloud file: `%s`", f.c_str());
-
-            auto obs         = mrpt::obs::CObservationPointCloud::Create();
-            obs->sensorLabel = "lidar";
-            obs->timestamp   = obs_tim;
-            obs->pointcloud  = std::move(pc);
-            // Pose: velodyne is at the origin of the vehicle coordinates:
-            obs->sensorPose = mrpt::poses::CPose3D();
-
-            auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
+            load_lidar(replay_next_tim_index_);
+            auto o       = read_ahead_lidar_obs_[replay_next_tim_index_];
+            o->timestamp = obs_tim;
             this->sendObservationsToFrontEnds(o);
         }
 
@@ -293,33 +274,101 @@ void KittiOdometryDataset::spinOnce()
         {
             if (!publish_image_[i]) continue;
             ProfilerEntry tle(profiler_, "spinOnce.publishImage");
-
-            auto obs         = mrpt::obs::CObservationImage::Create();
-            obs->sensorLabel = std::string("image_") + std::to_string(i);
-            obs->timestamp   = obs_tim;
-
-            ASSERTMSG_(
-                lst_image_[i].size() > replay_next_tim_index_,
-                mrpt::format("Missing image files for image_%u", i));
-            const auto f = seq_dir + std::string("/image_") +
-                           std::to_string(i) + std::string("/") +
-                           lst_image_[i][replay_next_tim_index_];
-
-            obs->image.setExternalStorage(f);
-
-            // Use this thread time to load images from disk, instead of
-            // delegating it to the first use of the image in the consumer:
-            obs->image.forceLoad();
-
-            obs->cameraParams = cam_intrinsics_[i];
-            obs->setSensorPose(mrpt::poses::CPose3D(cam_poses_[i]));
-
-            auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
+            load_img(i, replay_next_tim_index_);
+            auto o       = read_ahead_image_obs_[replay_next_tim_index_][i];
+            o->timestamp = obs_tim;
             this->sendObservationsToFrontEnds(o);
         }
 
+        // Free memory in read-ahead buffers:
+        read_ahead_lidar_obs_.erase(replay_next_tim_index_);
+        read_ahead_image_obs_.erase(replay_next_tim_index_);
+
         replay_next_tim_index_++;
     }
+
+    // Read ahead to save delays in the next iteration:
+    if (replay_next_tim_index_ < lst_timestamps_.size())
+    {
+        if (0 == read_ahead_image_obs_.count(replay_next_tim_index_))
+        {
+            for (unsigned int i = 0; i < 4; i++)
+            {
+                if (!publish_image_[i]) continue;
+                load_img(i, replay_next_tim_index_);
+            }
+        }
+        if (0 == read_ahead_lidar_obs_.count(replay_next_tim_index_))
+        {
+            if (publish_lidar_) load_lidar(replay_next_tim_index_);
+        }
+    }
+
+    MRPT_END
+}
+
+void KittiOdometryDataset::load_img(
+    const unsigned int cam_idx, const std::size_t step)
+{
+    MRPT_START
+
+    // Already loaded?
+    if (read_ahead_image_obs_[step][cam_idx]) return;
+
+    ProfilerEntry tleg(profiler_, "load_img");
+
+    auto obs         = mrpt::obs::CObservationImage::Create();
+    obs->sensorLabel = std::string("image_") + std::to_string(cam_idx);
+
+    ASSERTMSG_(
+        lst_image_[cam_idx].size() > replay_next_tim_index_,
+        mrpt::format("Missing image files for image_%u", cam_idx));
+    const auto f = seq_dir_ + std::string("/image_") + std::to_string(cam_idx) +
+                   std::string("/") + lst_image_[cam_idx][step];
+
+    obs->image.setExternalStorage(f);
+
+    // Use this thread time to load images from disk, instead of
+    // delegating it to the first use of the image in the consumer:
+    obs->image.forceLoad();
+
+    obs->cameraParams = cam_intrinsics_[cam_idx];
+    obs->setSensorPose(mrpt::poses::CPose3D(cam_poses_[cam_idx]));
+
+    auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
+    read_ahead_image_obs_[step][cam_idx] = std::move(o);
+
+    MRPT_END
+}
+
+void KittiOdometryDataset::load_lidar(const std::size_t step)
+{
+    MRPT_START
+    // Already loaded?
+    if (read_ahead_lidar_obs_[step]) return;
+
+    ProfilerEntry tleg(profiler_, "load_lidar");
+
+    // Load velodyne pointcloud:
+    const auto f = seq_dir_ + std::string("/velodyne/") + lst_velodyne_[step];
+
+    // Kitti dataset doesn't contain raw ranges, but point clouds.
+    // Load as a PC and convert into a MRPT's observation, leaving empty
+    // the fields for raw LiDAR ranges, etc.
+    auto pc = mrpt::maps::CPointsMapXYZI::Create();
+    if (!pc->loadFromKittiVelodyneFile(f))
+        THROW_EXCEPTION_FMT(
+            "Error loading Kitti pointcloud file: `%s`", f.c_str());
+
+    auto obs         = mrpt::obs::CObservationPointCloud::Create();
+    obs->sensorLabel = "lidar";
+    obs->pointcloud  = std::move(pc);
+    // Pose: velodyne is at the origin of the vehicle coordinates in Kitti
+    // datasets.
+    obs->sensorPose = mrpt::poses::CPose3D();
+
+    auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
+    read_ahead_lidar_obs_[step] = std::move(o);
 
     MRPT_END
 }
