@@ -15,6 +15,7 @@
 
 #include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/WorldModel.h>
+#include <mola-kernel/variant_helper.h>
 #include <mrpt/core/initializer.h>
 #include <yaml-cpp/yaml.h>
 #include <deque>
@@ -28,14 +29,6 @@ MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(WorldModel)}
 EntitiesContainer::~EntitiesContainer()
 {
 }
-
-template <class... Ts>
-struct overloaded : Ts...
-{
-    using Ts::operator()...;
-};
-template <class... Ts>
-overloaded(Ts...)->overloaded<Ts...>;
 
 namespace mola
 {
