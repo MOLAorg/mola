@@ -13,6 +13,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <mutex>
@@ -30,8 +31,20 @@ namespace mola
 class WorkerThreadsPool
 {
    public:
+    enum queue_policy_t : uint8_t
+    {
+        /** Default policy: all tasks are executed in FIFO order */
+        POLICY_FIFO,
+        /** When a task arrives, any previous pending one is dropped */
+        POLICY_ONLY_LATEST
+    };
+
     WorkerThreadsPool() = default;
-    WorkerThreadsPool(std::size_t num_threads) { resize(num_threads); }
+    WorkerThreadsPool(std::size_t num_threads, queue_policy_t p = POLICY_FIFO)
+        : policy_(p)
+    {
+        resize(num_threads);
+    }
     ~WorkerThreadsPool() { clear(); }
     void resize(std::size_t num_threads);
     /** Stops and deletes all worker threads */
@@ -53,6 +66,7 @@ class WorkerThreadsPool
     std::mutex                        queue_mutex_;
     std::condition_variable           condition_;
     std::queue<std::function<void()>> tasks_;
+    queue_policy_t                    policy_{POLICY_FIFO};
 };
 
 template <class F, class... Args>
@@ -67,8 +81,14 @@ auto WorkerThreadsPool::enqueue(F&& f, Args&&... args)
     std::future<return_type> res = task->get_future();
     {
         std::unique_lock<std::mutex> lock(queue_mutex_);
+
         // don't allow enqueueing after stopping the pool
         if (do_stop_) throw std::runtime_error("enqueue on stopped ThreadPool");
+
+        // policy check: drop all pending tasks and only attend the new one:
+        if (policy_ == POLICY_ONLY_LATEST) decltype(tasks_)().swap(tasks_);
+
+        // Enqeue the new task:
         tasks_.emplace([task]() { (*task)(); });
     }
     condition_.notify_one();
