@@ -290,6 +290,7 @@ void KittiOdometryDataset::spinOnce()
     // Read ahead to save delays in the next iteration:
     if (replay_next_tim_index_ < lst_timestamps_.size())
     {
+        ProfilerEntry tle(profiler_, "spinOnce.read_ahead");
         if (0 == read_ahead_image_obs_.count(replay_next_tim_index_))
         {
             for (unsigned int i = 0; i < 4; i++)
