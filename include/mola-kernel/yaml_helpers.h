@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include "macro_helpers.h"
 
 namespace mola
 {
@@ -25,25 +26,37 @@ std::string parseEnvVars(const std::string& text);
 
 /** Loads (optional) variable named "_varname" from the YAML config named `cfg`
  * into the variable `_param_str._varname` */
-#define YAML_LOAD_OPT(_param_str, _varname, _type) \
+#define YAML_LOAD_OPT3(_param_str, _varname, _type) \
     _param_str._varname = cfg[#_varname].as<_type>(_param_str._varname)
+
+#define YAML_LOAD_OPT2(_varname, _type) \
+    _varname = cfg[#_varname].as<_type>(_varname)
 
 /** Loads (required) variable named "_varname" from the YAML config named `cfg`
  * into the variable `_param_str._varname` */
-#define YAML_LOAD_REQ(_param_str, _varname, _type) \
-    ENSURE_YAML_ENTRY_EXISTS(cfg, #_varname);      \
-    YAML_LOAD_OPT(_param_str, _varname, _type)
+#define YAML_LOAD_REQ3(_param_str, _varname, _type) \
+    ENSURE_YAML_ENTRY_EXISTS(cfg, #_varname);       \
+    YAML_LOAD_OPT3(_param_str, _varname, _type)
+
+#define YAML_LOAD_REQ2(_varname, _type)       \
+    ENSURE_YAML_ENTRY_EXISTS(cfg, #_varname); \
+    YAML_LOAD_OPT2(_varname, _type)
 
 /** like YAML_LOAD_OPT, values in the YAML file in "degrees" stored in rads */
-#define YAML_LOAD_OPT_DEG(_param_str, _varname, _type)        \
+#define YAML_LOAD_OPT_DEG3(_param_str, _varname, _type)       \
     _param_str._varname = mrpt::RAD2DEG(_param_str._varname); \
-    YAML_LOAD_OPT(_param_str, _varname, _type);               \
+    YAML_LOAD_OPT3(_param_str, _varname, _type);              \
     _param_str._varname = mrpt::DEG2RAD(_param_str._varname)
 
 /** like YAML_LOAD_REQ, values in the YAML file in "degrees" stored in rads */
-#define YAML_LOAD_REQ_DEG(_param_str, _varname, _type)        \
+#define YAML_LOAD_REQ_DEG3(_param_str, _varname, _type)       \
     _param_str._varname = mrpt::RAD2DEG(_param_str._varname); \
     YAML_LOAD_REQ(_param_str, _varname, _type);               \
     _param_str._varname = mrpt::DEG2RAD(_param_str._varname)
+
+#define YAML_LOAD_OPT(...) VFUNC(YAML_LOAD_OPT, __VA_ARGS__)
+#define YAML_LOAD_REQ(...) VFUNC(YAML_LOAD_REQ, __VA_ARGS__)
+#define YAML_LOAD_OPT_DEG(...) VFUNC(YAML_LOAD_OPT_DEG, __VA_ARGS__)
+#define YAML_LOAD_REQ_DEG(...) VFUNC(YAML_LOAD_REQ_DEG, __VA_ARGS__)
 
 }  // namespace mola
