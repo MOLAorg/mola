@@ -32,17 +32,14 @@ MolaLauncherApp::MolaLauncherApp()
     lib_search_paths_.emplace_back(MOLA_MODULES_DIR);
 }
 
-MolaLauncherApp::~MolaLauncherApp() { this->shutdown(); }
-
-void MolaLauncherApp::shutdown()
+MolaLauncherApp::~MolaLauncherApp()
 {
-    // End all threads:
-    threads_must_end_ = true;
+    this->shutdown();
     if (!running_threads_.empty())
     {
         MRPT_LOG_INFO_STREAM(
             "Shutting down " << running_threads_.size()
-                             << " worker threads...");
+                             << " module threads...");
         for (auto& ds : running_threads_)
             if (ds.second.executor.joinable()) ds.second.executor.join();
         MRPT_LOG_INFO("Done.");
@@ -51,6 +48,12 @@ void MolaLauncherApp::shutdown()
 
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(100ms);
+}
+
+void MolaLauncherApp::shutdown()
+{
+    // End all threads:
+    threads_must_end_ = true;
 }
 
 void MolaLauncherApp::addModulesDirectory(const std::string& path)
@@ -200,9 +203,10 @@ void MolaLauncherApp::spin()
             // Wait until the new thread is done with its initialization():
             {
                 std::unique_lock<std::mutex> lock(thread_launch_init_mtx_);
-                thread_launch_condition_.wait(lock, [&ds, this] {
-                    return !threads_must_end_ && ds.initialization_done;
-                });
+                thread_launch_condition_.wait_for(
+                    lock, std::chrono::milliseconds(5), [&ds, this] {
+                        return !threads_must_end_ && ds.initialization_done;
+                    });
             }
         }
     }
