@@ -4,7 +4,7 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   KittiOdometryDataset.h
+ * @file   KittiOdometryDataset.cpp
  * @brief  RawDataSource from Kitti odometry/SLAM datasets
  * @author Jose Luis Blanco Claraco
  * @date   Nov 29, 2018
@@ -31,10 +31,7 @@ using namespace mola;
 
 MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(KittiOdometryDataset)}
 
-KittiOdometryDataset::KittiOdometryDataset()
-{
-    this->setLoggerName("KittiOdometryDataset");
-}
+KittiOdometryDataset::KittiOdometryDataset() = default;
 
 static void build_list_files(
     const std::string& dir, const std::string& file_extension,
@@ -80,27 +77,23 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg_block);
 
     // Mandatory parameters:
-    auto cfg = YAML::Load(cfg_block);
+    auto c = YAML::Load(cfg_block);
 
-    ENSURE_YAML_ENTRY_EXISTS(cfg, "params");
-    auto params = cfg["params"];
+    ENSURE_YAML_ENTRY_EXISTS(c, "params");
+    auto cfg = c["params"];
 
-    ENSURE_YAML_ENTRY_EXISTS(params, "base_dir");
-    kitti_basedir_ = params["base_dir"].as<std::string>();
-    ASSERT_DIRECTORY_EXISTS_(kitti_basedir_);
+    YAML_LOAD_MEMBER_REQ(base_dir, std::string);
+    YAML_LOAD_MEMBER_REQ(sequence, std::string);
 
-    ENSURE_YAML_ENTRY_EXISTS(params, "sequence");
-    replay_selected_seq_ = params["sequence"].as<std::string>();
-    seq_dir_ = kitti_basedir_ + "/sequences/" + replay_selected_seq_;
+    seq_dir_ = base_dir_ + "/sequences/" + sequence_;
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
 
     // Optional params with default values:
-    time_warp_scale_ = params["time_warp_scale"].as<double>(time_warp_scale_);
-    publish_lidar_   = params["publish_lidar"].as<bool>(publish_lidar_);
+    time_warp_scale_ = cfg["time_warp_scale"].as<double>(time_warp_scale_);
+    publish_lidar_   = cfg["publish_lidar"].as<bool>(publish_lidar_);
     for (unsigned int i = 0; i < 4; i++)
-        publish_image_[i] =
-            params[mrpt::format("publish_image_%u", i)].as<bool>(
-                publish_image_[i]);
+        publish_image_[i] = cfg[mrpt::format("publish_image_%u", i)].as<bool>(
+            publish_image_[i]);
 
     // Make list of all existing files and preload everything we may need later
     // to quickly replay the dataset in realtime:

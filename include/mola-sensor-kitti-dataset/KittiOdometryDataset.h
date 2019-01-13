@@ -38,8 +38,8 @@ class KittiOdometryDataset : public RawDataSourceBase
     void spinOnce() override;
 
    private:
-    std::string             kitti_basedir_;  //!< base dir for "sequences/*".
-    std::string             replay_selected_seq_;  //!< "00", "01", ...
+    std::string             base_dir_;  //!< base dir for "sequences/*".
+    std::string             sequence_;  //!< "00", "01", ...
     mrpt::Clock::time_point replay_begin_time_{};
     std::size_t             replay_next_tim_index_{0};
     bool                    replay_started_{false};

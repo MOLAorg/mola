@@ -25,7 +25,7 @@ mola_set_target_build_options(${PROJECT_NAME})
 mola_configure_library(${PROJECT_NAME})
 
 # find dependencies:
-find_package(mrpt-math)
+find_package(mrpt-math) # for MRPT Eigen utilities
 find_package(mrpt-maps)
 
 # Public lib Dependencies:
