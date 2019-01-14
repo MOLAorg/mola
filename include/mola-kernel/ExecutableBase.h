@@ -15,17 +15,18 @@
 #include <mrpt/system/CTimeLogger.h>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace mola
 {
-using Profiler      = mrpt::system::CTimeLogger;
-using ProfilerEntry = mrpt::system::CTimeLoggerEntry;
+using Profiler            = mrpt::system::CTimeLogger;
+using ProfilerEntry       = mrpt::system::CTimeLoggerEntry;
+using ProfilerSaverAtDtor = mrpt::system::CTimeLoggerSaveAtDtor;
 
-/** Base virtual class for all executable (nodelets-like) units inside a SLAM
- * system.
- * \ingroup mola_kernel_grp */
+/** Base virtual class for all executable (nodelets-like) units inside a
+ * SLAM system. \ingroup mola_kernel_grp */
 class ExecutableBase : public mrpt::system::COutputLogger,
                        std::enable_shared_from_this<ExecutableBase>
 {
@@ -78,6 +79,11 @@ class ExecutableBase : public mrpt::system::COutputLogger,
     void        setModuleInstanceName(const std::string& s);
     std::string getModuleInstanceName() const;
     /** @} */
+
+    /** Enabled from mola-cli with `--profiler-whole` to save full profile stats
+     * to CSV files at program end.
+     */
+    std::optional<ProfilerSaverAtDtor> profiler_dtor_save_stats_;
 
     /** Time profiler (disabled by default). All profilers can be globally
      * enabled from MolaLauncherApp. */

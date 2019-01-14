@@ -34,7 +34,12 @@ void ExecutableBase::registerClass(
 
 ExecutableBase::ExecutableBase() = default;
 
-ExecutableBase::~ExecutableBase() = default;
+ExecutableBase::~ExecutableBase()
+{
+    // Ensure profiler stats are saved now, if enabled, before
+    // members dtor's are called.
+    profiler_dtor_save_stats_.reset();
+}
 
 /** This should be reimplemented to read all the required parameters */
 void ExecutableBase::initialize(const std::string& cfg_block)
