@@ -39,6 +39,9 @@ ExecutableBase::~ExecutableBase()
     // Ensure profiler stats are saved now, if enabled, before
     // members dtor's are called.
     profiler_dtor_save_stats_.reset();
+    MRPT_LOG_DEBUG_STREAM(
+        "ExecutableBase dtor called for module: `" << module_instance_name
+                                                   << "`");
 }
 
 /** This should be reimplemented to read all the required parameters */
