@@ -29,11 +29,10 @@ modules:
           type: StereoImage
           input_front_end: stereo_visual_fe
 # Setup of SLAM front-ends ====================================
-  - name: stereo_visual_fe
-    type: VisualORB_Stereo
+  - name: mono_visual_fe
+    type: VisualORB_Mono
     raw_data_source: kitti_input
-    raw_sensor_label_left: image_0
-    raw_sensor_label_right: image_1
+    raw_sensor_label: image_0
     params:
       # Pyramids:
       pyramid_layers: 3
@@ -71,7 +70,7 @@ modules:
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
-      time_warp_scale: 2.0 #1.0
+      time_warp_scale: 1.0
       publish_lidar: true
       publish_image_0: true
       publish_image_1: true
