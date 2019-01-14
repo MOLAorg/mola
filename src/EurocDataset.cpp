@@ -80,7 +80,7 @@ void EurocDataset::initialize(const std::string& cfg_block)
     YAML_LOAD_MEMBER_REQ(base_dir, std::string);
     YAML_LOAD_MEMBER_REQ(sequence, std::string);
 
-    seq_dir_ = base_dir_ + sequence_ + "/mav0"s;
+    seq_dir_ = base_dir_ + "/"s + sequence_ + "/mav0"s;
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
     ASSERT_DIRECTORY_EXISTS_(seq_dir_ + "/cam0"s);
     ASSERT_DIRECTORY_EXISTS_(seq_dir_ + "/cam1"s);
