@@ -167,6 +167,13 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
 
             info.impl->profiler_.setName(logName);
             info.impl->profiler_.enable(profiler_.isEnabled());
+            if (profiler_.isEnabledKeepWholeHistory())
+            {
+                info.impl->profiler_.enableKeepWholeHistory(true);
+                // Enable save to CSV at dtor:
+                info.impl->profiler_dtor_save_stats_.emplace(
+                    info.impl->profiler_);
+            }
 
             info.impl->nameServer_ = std::bind(
                 &MolaLauncherApp::nameServerImpl, this, std::placeholders::_1);

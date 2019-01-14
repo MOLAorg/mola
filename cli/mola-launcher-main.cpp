@@ -38,6 +38,13 @@ static TCLAP::SwitchArg arg_enable_profiler(
     "p", "profiler",
     "Enable time profiler by default in all modules (Default: NO)", cmd);
 
+static TCLAP::SwitchArg arg_enable_profiler_whole(
+    "", "profiler-whole",
+    "Enable whole-history time profiler in all modules (Default: NO). **DO "
+    "NOT** use in production, only to benchmark short runs (unbounded memory "
+    "usage)",
+    cmd);
+
 void mola_signal_handler(int s);
 void mola_install_signal_handler();
 
@@ -63,7 +70,9 @@ int main(int argc, char** argv)
             const auto v = vl::name2value(arg_verbosity_level.getValue());
             app.setVerbosityLevel(v);
         }
-        app.profiler_.enable(arg_enable_profiler.isSet());
+        app.profiler_.enable(
+            arg_enable_profiler.isSet() || arg_enable_profiler_whole.isSet());
+        app.profiler_.enableKeepWholeHistory(arg_enable_profiler_whole.isSet());
 
         // Create SLAM system:
         app.setup(cfg);
