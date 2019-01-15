@@ -12,23 +12,7 @@ modules:
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     #verbosity_level: INFO
     params:
-      # Built-up of the state vector of the system
-      state_vector:
-        # Keyframe dynamic state:
-        keyframe_state_type: Pose3D
-        # Other dynamic variables (one per timestep)
-        dynamic:
-          # None
-        # Static/Global variables (one value for all timesteps)
-        static:
-          # None
-          # camera intrinsics?
-      # List of sensor models:
-      sensors:
-        # Relative poses from 3D Lidar Sensor
-        - name: RelPosesLidar
-          type: RelativePose3D
-          input_front_end: lidar_fe
+      # ...
 # Setup of World Model (the map) =====================================
   - name: map
     type: WorldModel

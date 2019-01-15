@@ -25,3 +25,6 @@
 [submodule "modules/mola-sensor-euroc-dataset"]
 	path = modules/mola-sensor-euroc-dataset
 	url = git@github.com:jlblancoc/mola-sensor-euroc-dataset.git
+[submodule "modules/mola-fe-g2o-dataset"]
+	path = modules/mola-fe-g2o-dataset
+	url = git@github.com:jlblancoc/mola-fe-g2o-dataset.git
