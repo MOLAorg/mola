@@ -35,8 +35,9 @@ class WorkerThreadsPool
     {
         /** Default policy: all tasks are executed in FIFO order */
         POLICY_FIFO,
-        /** When a task arrives, any previous pending one is dropped */
-        POLICY_ONLY_LATEST
+        /** If a task arrives and there are more pending tasks than worker
+           threads, drop previous tasks. */
+        POLICY_DROP_OLD
     };
 
     WorkerThreadsPool() = default;
@@ -85,8 +86,11 @@ auto WorkerThreadsPool::enqueue(F&& f, Args&&... args)
         // don't allow enqueueing after stopping the pool
         if (do_stop_) throw std::runtime_error("enqueue on stopped ThreadPool");
 
-        // policy check: drop all pending tasks and only attend the new one:
-        if (policy_ == POLICY_ONLY_LATEST) decltype(tasks_)().swap(tasks_);
+        // policy check: drop pending tasks if we have more tasks than threads
+        if (policy_ == POLICY_DROP_OLD)
+        {
+            while (tasks_.size() >= threads_.size()) { tasks_.pop(); }
+        }
 
         // Enqeue the new task:
         tasks_.emplace([task]() { (*task)(); });
