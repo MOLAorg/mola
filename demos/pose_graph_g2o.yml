@@ -21,7 +21,7 @@ modules:
     # The execution rate for this module is the rate at which observations
     # will be sent to the SLAM back-end. Change to modify the speed at which
     # the map is being built.
-    execution_rate: 1 # Hz
+    execution_rate: 20 # Hz
     params:
       # Dataset file to load:
       g2o_file: ${HOME}/datasets-slam/parking-garage.g2o.txt
