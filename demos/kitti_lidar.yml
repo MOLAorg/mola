@@ -30,9 +30,9 @@ modules:
       min_time_between_scans: 0.2    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 1.0   # [meters]
+      min_dist_xyz_between_keyframes: 2.0   # [meters]
       # If !=0, decimate point clouds so they do not have more than this number of points
-      decimate_to_point_count: 1000
+      decimate_to_point_count: 2000
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
       min_icp_goodness: 0.6        # range [0,1]
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
