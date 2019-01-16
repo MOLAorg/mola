@@ -32,6 +32,6 @@ find_package(mrpt-math)  # for MRPT Eigen utilities
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     mola-kernel
-    mrpt-obs
-    mrpt-math
+    mrpt::obs
+    mrpt::math
 )
