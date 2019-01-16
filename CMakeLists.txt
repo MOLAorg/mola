@@ -37,6 +37,6 @@ target_link_libraries(${PROJECT_NAME}
 # Private lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
-    mrpt-maps
-    mrpt-math
+    mrpt::maps
+    mrpt::math
 )
