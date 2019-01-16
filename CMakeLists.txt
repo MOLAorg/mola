@@ -30,7 +30,7 @@ find_package(mrpt-core)
 # Public lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
-    mrpt-core
+    mrpt::core
     mola-kernel
 )
 
@@ -60,8 +60,8 @@ find_package(mrpt-tclap) # tclap wrapper, useful for Windows, etc.
 
 # Dependencies:
 target_link_libraries(mola-cli
-    mrpt-core
-    mrpt-tclap
+    mrpt::core
+    mrpt::tclap
     yaml-cpp
     ${PROJECT_NAME}
 )
