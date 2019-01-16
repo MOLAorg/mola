@@ -24,11 +24,7 @@ mola_set_target_build_options(${PROJECT_NAME})
 mola_configure_library(${PROJECT_NAME})
 
 # find dependencies:
-find_package(mrpt-graphs)
-find_package(mrpt-gui)
-find_package(mrpt-maps)
-find_package(mrpt-obs)
-
+find_package(MRPT 1.9.9 REQUIRED COMPONENTS gui obs maps)
 find_package(TBB COMPONENTS tbb tbbmalloc)
 
 if (TARGET tbb)
@@ -40,14 +36,13 @@ endif()
 # Public lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
-    mrpt-graphs
-    mrpt-maps
-    mrpt-obs
+    mrpt::obs
 )
 
 # Private lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     gtsam
-    mrpt-gui
+    mrpt::gui   #TODO: remove after mapviz!
+    mrpt::maps  #TODO: remove after mapviz!
 )
