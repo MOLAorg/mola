@@ -20,7 +20,7 @@ namespace mola
  *
  * \ingroup mola_kernel_grp
  */
-using Entity =
-    std::variant<RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
+using Entity = std::variant<
+    std::monostate, RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
 
 }  // namespace mola

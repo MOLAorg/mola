@@ -80,6 +80,12 @@ class BackEndBase : public ExecutableBase
         return slam_be_threadpool_.enqueue(&BackEndBase::doAddFactor, this, f);
     }
 
+    std::future<bool> factorExistsBetween(id_t a, id_t b)
+    {
+        return slam_be_threadpool_.enqueue(
+            &BackEndBase::doFactorExistsBetween, this, a, b);
+    }
+
     /** @} */
 
    protected:
@@ -92,6 +98,7 @@ class BackEndBase : public ExecutableBase
 
     virtual ProposeKF_Output doAddKeyFrame(const ProposeKF_Input& i) = 0;
     virtual AddFactor_Output doAddFactor(Factor& f)                  = 0;
+    virtual bool             doFactorExistsBetween(id_t a, id_t b)   = 0;
 
     /** @} */
 };

@@ -11,7 +11,9 @@
  */
 #pragma once
 
+#include <map>
 #include <memory>  // std::allocator
+#include <set>
 #if MOLA_KERNEL_HAS_TBB
 #include <tbb/tbb_allocator.h>
 #endif
@@ -25,5 +27,12 @@ using FastAllocator = tbb::tbb_allocator<T>;
 template <typename T>
 using FastAllocator = std::allocator<T>;
 #endif
+
+template <class T, class Compare = std::less<T>>
+using fast_set = std::set<T, Compare, FastAllocator<T>>;
+
+template <class Key, class T, class Compare = std::less<Key>>
+using fast_map =
+    std::map<Key, T, Compare, FastAllocator<std::pair<const Key, T>>>;
 
 }  // namespace mola

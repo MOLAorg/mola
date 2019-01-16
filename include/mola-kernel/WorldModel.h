@@ -14,14 +14,13 @@
 #include <mola-kernel/Entity.h>
 #include <mola-kernel/ExecutableBase.h>
 #include <mola-kernel/Factor.h>
+#include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/id.h>
 #include <map>
+#include <mutex>
 
 namespace mola
 {
-struct EntitiesContainer;
-struct FactorsContainer;
-
 /** The main class for a "map" or "world model".
  *
  * \ingroup mola_kernel_grp
@@ -39,45 +38,49 @@ class WorldModel : public ExecutableBase
 
     using Ptr = std::shared_ptr<WorldModel>;
 
-    /** @name Main data fields
-     * @{ */
+    using entity_connected_factors_t =
+        mola::fast_map<id_t, mola::fast_set<fid_t>>;
 
+    /** @name Main API
+     * @{ */
+    void entities_lock() { entities_mtx_.lock(); }
+    void entities_unlock() { entities_mtx_.unlock(); }
+
+    void factors_lock() { factors_mtx_.lock(); }
+    void factors_unlock() { factors_mtx_.unlock(); }
+
+    const Entity& entity_by_id(const id_t id) const;
+    Entity&       entity_by_id(const id_t id);
+
+    id_t  entity_emplace_back(Entity&& e);
+    fid_t factor_emplace_back(Factor&& f);
+    id_t  entity_push_back(const Entity& e);
+    fid_t factor_push_back(const Factor& f);
+
+    /** Returns all entities that are connected to a given one by any common
+     * factor.
+     */
+    std::set<id_t> entity_neighbors(const id_t id) const;
+
+    /** @} */
+
+    struct EntitiesContainer;
+    struct FactorsContainer;
+
+   private:
     /** All keyframes, relative and absolute poses, calibration parameter sets,
      * etc. that can be stored in a world model.
      * Indexed by a unique id_t; */
-    std::shared_ptr<EntitiesContainer> entities_;
+    std::unique_ptr<EntitiesContainer> entities_;
+    entity_connected_factors_t         entity_connected_factors_;
+    std::recursive_timed_mutex         entities_mtx_;
 
     /** All observations, constraints, etc. as generic "factors".
      * Indexed by a unique fid_t; */
-    std::shared_ptr<FactorsContainer> factors_;
+    std::unique_ptr<FactorsContainer> factors_;
+    std::recursive_timed_mutex        factors_mtx_;
 
-    /** @} */
-};
-
-/** Map container interface for Entities inside a WorldModel
- * \ingroup mola_kernel_grp */
-struct EntitiesContainer
-{
-    EntitiesContainer() = default;
-    virtual ~EntitiesContainer();
-
-    virtual std::size_t   size() const                 = 0;
-    virtual const Entity& getByID(const id_t id) const = 0;
-    virtual Entity&       getByID(const id_t id)       = 0;
-    virtual id_t          emplace_back(Entity&& e)     = 0;
-};
-
-/** Map container interface for Factors inside a WorldModel
- * \ingroup mola_kernel_grp */
-struct FactorsContainer
-{
-    FactorsContainer() = default;
-    virtual ~FactorsContainer();
-
-    virtual std::size_t   size() const                 = 0;
-    virtual const Factor& getByID(const id_t id) const = 0;
-    virtual Factor&       getByID(const id_t id)       = 0;
-    virtual id_t          emplace_back(Factor&& e)     = 0;
+    void internal_update_neighbors(const FactorBase& f);
 };
 
 }  // namespace mola

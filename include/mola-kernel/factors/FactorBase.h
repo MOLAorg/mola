@@ -25,6 +25,12 @@ class FactorBase
     FactorBase() = default;
     virtual ~FactorBase();
 
+    /** Number of entities involved in this factor: 1 for unary factors, 2 for
+     * binary, etc. */
+    virtual std::size_t edge_count() const = 0;
+    /** Access entity indices involved in this factor */
+    virtual std::size_t edge_indices(const std::size_t i) const = 0;
+
     /** The unique ID of this factor in the world model.
      * Stored here for convenience, notice that it is redundant since entities
      * are already stored in the WorldModel indexed by ID.

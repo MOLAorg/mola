@@ -33,6 +33,20 @@ class FactorRelativePose3 : public FactorBase
 
     id_t                from_kf_{INVALID_ID}, to_kf_{INVALID_ID};
     mrpt::math::TPose3D rel_pose_;
+
+    std::size_t edge_count() const override { return 2; }
+    std::size_t edge_indices(const std::size_t i) const override
+    {
+        switch (i)
+        {
+            case 0:
+                return from_kf_;
+            case 1:
+                return to_kf_;
+            default:
+                THROW_EXCEPTION("Out of bounds");
+        }
+    }
 };
 
 }  // namespace mola
