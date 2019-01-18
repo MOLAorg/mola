@@ -30,19 +30,19 @@ modules:
       min_time_between_scans: 0.2    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 2.0   # [meters]
+      min_dist_xyz_between_keyframes: 3.0   # [meters]
       # If !=0, decimate point clouds so they do not have more than this number of points
-      decimate_to_point_count: 3000
+      decimate_to_point_count: 200
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
-      min_icp_goodness: 0.5        # range [0,1]
+      min_icp_goodness: 0.35        # range [0,1]
       # Size (resolution) of the voxel filter
-      voxel_filter_resolution: 0.5  # [meters]
-      voxel_filter_max_e2_e0: 20
-      voxel_filter_max_e1_e0: 10000
+      voxel_filter_resolution: 2.0  # [meters]
+      voxel_filter_max_e2_e0: 10
+      voxel_filter_max_e1_e0: 10
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      mrpt_icp_with_vel.maxIterations: 50
-      mrpt_icp_with_vel.thresholdDist: 0.15  # [meters]
+      mrpt_icp_with_vel.maxIterations: 100
+      mrpt_icp_with_vel.thresholdDist: 0.3  # [meters]
       mrpt_icp_with_vel.thresholdAng: 0.001   # [deg]
       mrpt_icp_with_vel.ALFA: 0.00001
       # Case: WITHOUT a good twist (velocity) model:
@@ -53,7 +53,7 @@ modules:
       mrpt_icp_without_vel.smallestThresholdDist: 0.10
       # -----------------------------------------------------
       # DEBUG: Save all ICP pairings as 3Dscene files, for visual inspection
-      debug_save_all_icp_results: true
+      #debug_save_all_icp_results: true
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
