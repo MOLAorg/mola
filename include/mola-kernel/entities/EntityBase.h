@@ -11,10 +11,18 @@
  */
 #pragma once
 
+#include <mola-kernel/LazyLoadResource.h>
 #include <mola-kernel/id.h>
+#include <map>
 
 namespace mola
 {
+/** Arbitrary annotated data, indexed by "label" or "variable name" and
+ *capable of offline storage on disk when not used.
+ * \ingroup mola_kernel_grp
+ */
+using annotations_data_t = std::map<std::string, LazyLoadResource>;
+
 /** Base class for all "entities" in the world model
  *
  * \ingroup mola_kernel_grp
@@ -30,6 +38,9 @@ class EntityBase
      * are already stored in the WorldModel indexed by ID.
      */
     mola::id_t my_id_{mola::INVALID_ID};
+
+    /** See annotations_data_t */
+    annotations_data_t annotations_;
 };
 
 }  // namespace mola

@@ -263,3 +263,33 @@ std::set<mola::id_t> WorldModel::entity_neighbors(const mola::id_t id) const
 
     MRPT_END
 }
+
+annotations_data_t& WorldModel::entity_annotations_by_id(const id_t id)
+{
+    return const_cast<annotations_data_t&>(
+        const_cast<const WorldModel*>(this)->entity_annotations_by_id(id));
+}
+const annotations_data_t& WorldModel::entity_annotations_by_id(
+    const id_t id) const
+{
+    MRPT_START
+
+    const annotations_data_t* ret = nullptr;
+    auto&                     e   = entities_->by_id(id);
+    std::visit(
+        overloaded{[&ret](const EntityBase& b) { ret = &b.annotations_; },
+                   [&ret](const EntityOther& o) {
+                       ASSERT_(o);
+                       ret = &o->annotations_;
+                   },
+                   [](std::monostate) {}},
+        e);
+
+    if (!ret) { THROW_EXCEPTION("Empty variant!"); }
+    else
+    {
+        return *ret;
+    }
+
+    MRPT_END
+}

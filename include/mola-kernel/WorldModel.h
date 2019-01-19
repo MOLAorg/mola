@@ -57,6 +57,9 @@ class WorldModel : public ExecutableBase
     id_t  entity_push_back(const Entity& e);
     fid_t factor_push_back(const Factor& f);
 
+    annotations_data_t&       entity_annotations_by_id(const id_t id);
+    const annotations_data_t& entity_annotations_by_id(const id_t id) const;
+
     /** Returns all entities that are connected to a given one by any common
      * factor.
      */

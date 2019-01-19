@@ -17,6 +17,15 @@
 namespace mola
 {
 /** Variant type for "entities" in the world model.
+ * It's guaranteed that the type is either:
+ * - `std::monostate`: Not initialized, or
+ * - A class derived from `EntityBase` (stored by value), or
+ * - `EntityOther`, which is a wrapper around `EntityBase::Ptr` (an object
+ * allocated in the heap).
+ *
+ * In this way, `Entity` can be handled as a polymorphic class, without the cost
+ * of dynamic memory allocation for the most-common classes, while still
+ * allowing using any user-derived class via dynamic memory.
  *
  * \ingroup mola_kernel_grp
  */
