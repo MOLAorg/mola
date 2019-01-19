@@ -122,7 +122,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
                     scene->insert(stock_objects::CornerXYZSimple(1.0f, 4.0f));
-                    scene->insert(CGridPlaneXY::Create());
+                    // scene->insert(CGridPlaneXY::Create());
                     auto o = CPointCloudColoured::Create();
                     o->setName("pointcloud");
                     scene->insert(o);
