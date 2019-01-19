@@ -13,6 +13,7 @@
 #include <mola-kernel/LazyLoadResource.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/io/CFileGZInputStream.h>
+#include <mrpt/obs/CObservation.h>
 #include <mrpt/serialization/CArchive.h>
 
 using namespace mola;
@@ -38,6 +39,14 @@ void LazyLoadResource::load() const
 
     auto a = mrpt::serialization::archiveFrom(f);
     data_  = a.ReadObject();
+    ASSERTMSG_(data_, "Could not load resource from external storage");
+
+    if (auto obj = dynamic_cast<mrpt::obs::CObservation*>(data_.get());
+        obj != nullptr)
+    {
+        // Recursive load from external storage:
+        obj->load();
+    }
 
     MRPT_END
 }
@@ -48,6 +57,13 @@ void LazyLoadResource::unload() const
         THROW_EXCEPTION(
             "Trying to unload() a resource without associated external file! "
             "Aborting, it would imply losing data.");
+
+    if (auto obj = dynamic_cast<mrpt::obs::CObservation*>(data_.get());
+        obj != nullptr)
+    {
+        // Recursive unload from external storage:
+        obj->unload();
+    }
 
     data_.reset();
 }
