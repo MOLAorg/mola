@@ -32,21 +32,23 @@ modules:
       # the map
       min_dist_xyz_between_keyframes: 3.0   # [meters]
       # If !=0, decimate point clouds so they do not have more than this number of points
-      decimate_to_point_count: 200
+      decimate_to_point_count: 900
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
-      min_icp_goodness: 0.35        # range [0,1]
+      min_icp_goodness: 0.60        # range [0,1]
+      # ditto, for loop-closures attempts to align
+      min_icp_goodness_lc: 0.70     # range [0,1]
       # Size (resolution) of the voxel filter
       voxel_filter_resolution: 2.0  # [meters]
       voxel_filter_max_e2_e0: 10
       voxel_filter_max_e1_e0: 10
       # min/max distance to check for match/loop closure between KFs:
       min_dist_to_matching: 6.0
-      max_dist_to_matching: 13.0
+      max_dist_to_matching: 20.0
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
       mrpt_icp_with_vel.maxIterations: 100
-      mrpt_icp_with_vel.thresholdDist: 0.3  # [meters]
-      mrpt_icp_with_vel.thresholdAng: 0.001   # [deg]
+      mrpt_icp_with_vel.thresholdDist: 0.5   # [meters]
+      mrpt_icp_with_vel.thresholdAng: 0.05   # [deg]
       mrpt_icp_with_vel.ALFA: 0.00001
       # Case: WITHOUT a good twist (velocity) model:
       mrpt_icp_without_vel.maxIterations: 100
@@ -54,12 +56,18 @@ modules:
       mrpt_icp_without_vel.thresholdAng: 2.0   # [deg]
       mrpt_icp_without_vel.ALFA: 0.1
       mrpt_icp_without_vel.smallestThresholdDist: 0.10
+      # Case: WITHOUT a good twist (velocity) model:
+      mrpt_icp_loopclosure.maxIterations: 150
+      mrpt_icp_loopclosure.thresholdDist: 30.0  # [meters]
+      mrpt_icp_loopclosure.thresholdAng: 10.0   # [deg]
+      mrpt_icp_loopclosure.ALFA: 0.01
+      mrpt_icp_loopclosure.smallestThresholdDist: 0.10
       # -----------------------------------------------------
       # DEBUG: Save all ICP pairings as 3Dscene files, for visual inspection
       # Warning: this can consume a *huge* disk space
       #debug_save_lidar_odometry: true
       #debug_save_extra_edges: true
-      #debug_save_loop_closures: true
+      debug_save_loop_closures: true
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
@@ -71,7 +79,7 @@ modules:
         decimation: 1
     params:
       base_dir: ${KITTI_BASE_DIR}
-      sequence: 00
+      sequence: 13 # 00
       time_warp_scale: 1.5
       publish_lidar: true
       publish_image_0: false
