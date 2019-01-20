@@ -86,6 +86,24 @@ class BackEndBase : public ExecutableBase
             &BackEndBase::doFactorExistsBetween, this, a, b);
     }
 
+    struct AdvertiseUpdatedLocalization_Input
+    {
+        /** The timestamp associated to the new Key-Frame. Must be valid. */
+        mrpt::Clock::time_point timestamp{};
+
+        /** Coordinates are given wrt this frame of reference */
+        mola::id_t reference_kf;
+
+        mrpt::math::TPose3D                        pose;
+        std::optional<Eigen::Matrix<double, 6, 6>> cov{std::nullopt};
+    };
+    std::future<void> advertiseUpdatedLocalization(
+        const AdvertiseUpdatedLocalization_Input& l)
+    {
+        return slam_be_threadpool_.enqueue(
+            &BackEndBase::doAdvertiseUpdatedLocalization, this, l);
+    }
+
     /** @} */
 
    protected:
@@ -99,7 +117,8 @@ class BackEndBase : public ExecutableBase
     virtual ProposeKF_Output doAddKeyFrame(const ProposeKF_Input& i) = 0;
     virtual AddFactor_Output doAddFactor(Factor& f)                  = 0;
     virtual bool             doFactorExistsBetween(id_t a, id_t b)   = 0;
-
+    virtual void             doAdvertiseUpdatedLocalization(
+                    const AdvertiseUpdatedLocalization_Input& l) = 0;
     /** @} */
 };
 
