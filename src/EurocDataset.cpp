@@ -130,15 +130,49 @@ void EurocDataset::initialize(const std::string& cfg_block)
             seq_dir_ + "/cam"s + std::to_string(cam_id) + "/sensor.yaml"s;
         ASSERT_FILE_EXISTS_(fil_calib);
         auto cal = YAML::LoadFile(fil_calib);
+
+        // Camera pose:
         ENSURE_YAML_ENTRY_EXISTS(cal, "T_BS");
         auto T_BS = cal["T_BS"];
         ENSURE_YAML_ENTRY_EXISTS(T_BS, "data");
         auto cam_pose = T_BS["data"];
 
-        MRPT_TODO("Load camera poses / intrinsics");
+        mrpt::math::CMatrixDouble44 HM;
 
-        // cam_poses_
-        // cam_intrinsics_
+        auto itN = cam_pose.begin();
+        for (int r = 0; r < 4; r++)
+            for (int c = 0; c < 4; c++, ++itN) HM(r, c) = itN->as<double>();
+
+        cam_poses_[cam_id].fromHomogeneousMatrix(HM);
+
+        // Camera intrinsics:
+        auto intrinsics = cal["intrinsics"];
+        auto itI        = intrinsics.begin();
+
+        const double fx = (itI++)->as<double>();
+        const double fy = (itI++)->as<double>();
+        const double cx = (itI++)->as<double>();
+        const double cy = (itI++)->as<double>();
+        cam_intrinsics_[cam_id].setIntrinsicParamsFromValues(fx, fy, cx, cy);
+
+        // Camera distortion model:
+        ASSERT_(
+            cal["distortion_model"].as<std::string>() == "radial-tangential");
+
+        auto dists = cal["distortion_coefficients"];
+        auto itD   = dists.begin();
+        // k1 k2 p1 p1
+        const double k1 = (itD++)->as<double>();
+        const double k2 = (itD++)->as<double>();
+        const double p1 = (itD++)->as<double>();
+        const double p2 = (itD++)->as<double>();
+
+        cam_intrinsics_[cam_id].dist[0] = k1;
+        cam_intrinsics_[cam_id].dist[1] = k2;
+        cam_intrinsics_[cam_id].dist[2] = p1;
+        cam_intrinsics_[cam_id].dist[3] = p2;
+        cam_intrinsics_[cam_id].dist[4] = 0;  // k3
+
     }  // end for each camera
 
     // IMU:
