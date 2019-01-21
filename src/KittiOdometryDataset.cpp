@@ -189,18 +189,24 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
 
         // Camera extrinsic params/ pose wrt vehicle origin:
         cam_poses_[i]   = mrpt::math::TPose3D::Identity();
-        cam_poses_[i].x = P[i](0, 3) / P[i](0, 0);
+        cam_poses_[i].x = -P[i](0, 3) / P[i](0, 0);
     }
 
     // Velodyne is the (0,0,0) of the vehicle.
     // image_0 pose wrt velo is "Tr":
     mrpt::math::CMatrixDouble44 Trh = Eigen::Matrix4d::Identity();
     Trh.block<3, 4>(0, 0)           = Tr;
+    MRPT_LOG_DEBUG_STREAM("Original Trh= (velo wrt cam_0) \n" << Trh);
+    // Inverse:
+    Trh = Trh.inverse();
+    MRPT_LOG_DEBUG_STREAM("Inverted Trh= (cam_0 wrt velo) \n" << Trh);
+
     // Camera 0:
     cam_poses_[0] = mrpt::poses::CPose3D(Trh).asTPose();
+
     // Cameras 1-3:
     for (unsigned int i = 1; i < 4; i++)
-        cam_poses_[i].composePose(cam_poses_[0], cam_poses_[i]);
+        cam_poses_[0].composePose(cam_poses_[i], cam_poses_[i]);
 
     // Debug: dump poses.
     for (unsigned int i = 0; i < 4; i++)
