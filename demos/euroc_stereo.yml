@@ -32,6 +32,8 @@ modules:
       # Distribute features evenly using image sectors:
       orb_options.image_sectors_x: 6
       orb_options.image_sectors_y: 4
+      # Stereo params:
+      stereo_rectify_alpha: 0.5
       # ----------
 # Setup of World Model (the map) =====================================
   - name: map
@@ -54,4 +56,4 @@ modules:
     params:
       base_dir: ${EUROC_BASE_DIR}
       sequence: machine_hall/MH_03_medium/
-      time_warp_scale: 1.0 #2.0
+      time_warp_scale: 0.1 # 1.0 #2.0
