@@ -22,6 +22,8 @@ namespace mola
 class RelPose3 : public EntityRelativeBase
 {
    public:
+    /** The up-to-date value of this entity. */
+    mrpt::math::TPose3D relpose_value;
 };
 
 }  // namespace mola
