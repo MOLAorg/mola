@@ -29,6 +29,8 @@ namespace mola
  *
  * \ingroup mola_kernel_grp
  */
-using Factor = std::variant<std::monostate, FactorRelativePose3, FactorOther>;
+using Factor = std::variant<
+    std::monostate, FactorRelativePose3, FactorRelativePose3ConstVel,
+    FactorOther>;
 
 }  // namespace mola

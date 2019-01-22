@@ -80,12 +80,6 @@ class BackEndBase : public ExecutableBase
         return slam_be_threadpool_.enqueue(&BackEndBase::doAddFactor, this, f);
     }
 
-    std::future<bool> factorExistsBetween(id_t a, id_t b)
-    {
-        return slam_be_threadpool_.enqueue(
-            &BackEndBase::doFactorExistsBetween, this, a, b);
-    }
-
     struct AdvertiseUpdatedLocalization_Input
     {
         /** The timestamp associated to the new Key-Frame. Must be valid. */
@@ -116,7 +110,6 @@ class BackEndBase : public ExecutableBase
 
     virtual ProposeKF_Output doAddKeyFrame(const ProposeKF_Input& i) = 0;
     virtual AddFactor_Output doAddFactor(Factor& f)                  = 0;
-    virtual bool             doFactorExistsBetween(id_t a, id_t b)   = 0;
     virtual void             doAdvertiseUpdatedLocalization(
                     const AdvertiseUpdatedLocalization_Input& l) = 0;
     /** @} */
