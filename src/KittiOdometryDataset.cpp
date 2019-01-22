@@ -198,7 +198,7 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     Trh.block<3, 4>(0, 0)           = Tr;
     MRPT_LOG_DEBUG_STREAM("Original Trh= (velo wrt cam_0) \n" << Trh);
     // Inverse:
-    Trh = Trh.inverse();
+    Trh = Trh.inverse().eval();
     MRPT_LOG_DEBUG_STREAM("Inverted Trh= (cam_0 wrt velo) \n" << Trh);
 
     // Camera 0:
