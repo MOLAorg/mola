@@ -13,14 +13,14 @@ modules:
     params:
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
-      state_vector: SE3
+      #state_vector: SE3
       #state_vector: DynSE2
-      #state_vector: DynSE3
+      state_vector: DynSE3
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
     type: WorldModel
-    verbosity_level: INFO
+    verbosity_level: DEBUG
     params:
       # None required
 # Setup of SLAM front-ends ====================================
