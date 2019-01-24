@@ -11,11 +11,14 @@ modules:
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     verbosity_level: INFO
     params:
+      # true: use iSAM2
+      # false: use global levmarquartd
+      use_incremental_solver: true
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
-      #state_vector: SE3
+      state_vector: SE3
       #state_vector: DynSE2
-      state_vector: DynSE3
+      #state_vector: DynSE3
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
@@ -31,42 +34,46 @@ modules:
     params:
       # Minimum time (seconds) between scans for being attempted to be
       # aligned. Scans faster than this rate will be just silently ignored.
-      min_time_between_scans: 0.0    # [seconds]
+      min_time_between_scans: 0.1    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
       min_dist_xyz_between_keyframes: 3.0   # [meters]
       # If !=0, decimate point clouds so they do not have more than this number of points
-      decimate_to_point_count: 100
+      decimate_to_point_count: 1000
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
       min_icp_goodness: 0.50        # range [0,1]
       # ditto, for loop-closures attempts to align
       min_icp_goodness_lc: 0.75     # range [0,1]
       # Size (resolution) of the voxel filter
-      voxel_filter_resolution: 2.0  # [meters]
+      voxel_filter_resolution: 1.0  # [meters]
+      # decimate as we filter by voxels (1=no decimation)
+      voxel_filter_decimation: 3
       voxel_filter_max_e2_e0: 10
       voxel_filter_max_e1_e0: 10
+      voxel_filter_min_e2_e0: 40
+      voxel_filter_min_e1_e0: 40
       # min/max distance to check for match/loop closure between KFs:
       min_dist_to_matching: 6.0
       max_dist_to_matching: 20.0
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      icp_params_with_vel.maxIterations:  5  50
-      icp_params_with_vel.thresholdDist: 1.0  0.5      # [meters]
-      icp_params_with_vel.thresholdAng:  2.0  0.1     # [deg]
+      icp_params_with_vel.maxIterations:  10    90
+      icp_params_with_vel.thresholdDist:   1.0   0.50      # [meters]
+      icp_params_with_vel.thresholdAng:    2.0   0.01     # [deg]
       # Case: WITHOUT a good twist (velocity) model:
-      icp_params_without_vel.maxIterations:   5     50
+      icp_params_without_vel.maxIterations:   5     90
       icp_params_without_vel.thresholdDist:   3.0   0.50  # [meters]
-      icp_params_without_vel.thresholdAng:    2.0   0.10  # [deg]
+      icp_params_without_vel.thresholdAng:    2.0   0.01  # [deg]
       # Case: Loop closure
-      icp_params_loopclosure.maxIterations: 10    30    40
-      icp_params_loopclosure.thresholdDist: 30.0   1.0   0.30  # [meters]
-      icp_params_loopclosure.thresholdAng:   5.0   1.0   0.01  # [deg]
+      icp_params_loopclosure.maxIterations: 50     90
+      icp_params_loopclosure.thresholdDist: 30.0   0.50  # [meters]
+      icp_params_loopclosure.thresholdAng:   5.0   0.01  # [deg]
       # -----------------------------------------------------
       # DEBUG: Save all ICP pairings as 3Dscene files, for visual inspection
       # Warning: this can consume a *huge* disk space
       #debug_save_lidar_odometry: true
       #debug_save_extra_edges: true
-      debug_save_loop_closures: true
+      #debug_save_loop_closures: true
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
@@ -81,7 +88,7 @@ modules:
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
-      time_warp_scale: 1 
+      time_warp_scale: 1.8
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
