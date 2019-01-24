@@ -97,8 +97,8 @@ class ExecutableBase : public mrpt::system::COutputLogger,
 template <class Interface>
 std::vector<ExecutableBase::Ptr> ExecutableBase::findService() const
 {
-    ASSERT_(nameServer_);
     std::vector<ExecutableBase::Ptr> ret;
+    if (!nameServer_) return ret;
     for (size_t idx = 0;; ++idx)
     {
         using namespace std::string_literals;
