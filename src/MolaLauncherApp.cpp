@@ -270,6 +270,10 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
                         << rds.execution_rate
                         << " Hz) on thread for sensor named: " << rds.name);
         };
+
+        // Give the module an opportunity to do any extra household tasks before
+        // the actual dtors are invoked:
+        rds.impl->onQuit();
     }
     catch (const std::exception& e)
     {
