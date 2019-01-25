@@ -103,7 +103,7 @@ class BackEndBase : public ExecutableBase
    protected:
     WorldModel::Ptr worldmodel_;
 
-    WorkerThreadsPool slam_be_threadpool_{1};
+    WorkerThreadsPool slam_be_threadpool_{2};
 
     /** @name Virtual methods to be implemented by SLAM back-end
      *{ */
@@ -111,7 +111,7 @@ class BackEndBase : public ExecutableBase
     virtual ProposeKF_Output doAddKeyFrame(const ProposeKF_Input& i) = 0;
     virtual AddFactor_Output doAddFactor(Factor& f)                  = 0;
     virtual void             doAdvertiseUpdatedLocalization(
-                    const AdvertiseUpdatedLocalization_Input& l) = 0;
+                    AdvertiseUpdatedLocalization_Input l) = 0;
     /** @} */
 };
 

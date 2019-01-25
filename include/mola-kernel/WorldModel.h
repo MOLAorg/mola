@@ -17,7 +17,7 @@
 #include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/id.h>
 #include <map>
-#include <mutex>
+#include <shared_mutex>
 
 namespace mola
 {
@@ -43,19 +43,27 @@ class WorldModel : public ExecutableBase
 
     /** @name Main API
      * @{ */
-    void entities_lock() { entities_mtx_.lock(); }
-    void entities_unlock() { entities_mtx_.unlock(); }
+    void entities_lock_for_read() { entities_mtx_.lock_shared(); }
+    void entities_unlock_for_read() { entities_mtx_.unlock_shared(); }
+    void entities_lock_for_write() { entities_mtx_.lock(); }
+    void entities_unlock_for_write() { entities_mtx_.unlock(); }
 
-    void factors_lock() { factors_mtx_.lock(); }
-    void factors_unlock() { factors_mtx_.unlock(); }
+    void factors_lock_for_read() { factors_mtx_.lock_shared(); }
+    void factors_unlock_for_read() { factors_mtx_.unlock_shared(); }
+    void factors_lock_for_write() { factors_mtx_.lock(); }
+    void factors_unlock_for_write() { factors_mtx_.unlock(); }
 
     const Entity& entity_by_id(const id_t id) const;
     Entity&       entity_by_id(const id_t id);
 
     id_t  entity_emplace_back(Entity&& e);
     fid_t factor_emplace_back(Factor&& f);
+
     id_t  entity_push_back(const Entity& e);
     fid_t factor_push_back(const Factor& f);
+
+    std::vector<id_t>  entity_all_ids() const;
+    std::vector<fid_t> factor_all_ids() const;
 
     annotations_data_t&       entity_annotations_by_id(const id_t id);
     const annotations_data_t& entity_annotations_by_id(const id_t id) const;
@@ -76,12 +84,12 @@ class WorldModel : public ExecutableBase
      * Indexed by a unique id_t; */
     std::unique_ptr<EntitiesContainer> entities_;
     entity_connected_factors_t         entity_connected_factors_;
-    std::recursive_timed_mutex         entities_mtx_;
+    std::shared_mutex                  entities_mtx_;
 
     /** All observations, constraints, etc. as generic "factors".
      * Indexed by a unique fid_t; */
     std::unique_ptr<FactorsContainer> factors_;
-    std::recursive_timed_mutex        factors_mtx_;
+    std::shared_mutex                 factors_mtx_;
 
     void internal_update_neighbors(const FactorBase& f);
 };

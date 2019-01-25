@@ -57,6 +57,12 @@ class ExecutableBase : public mrpt::system::COutputLogger,
      * lexicographical order or their "instance names".
      */
     virtual int launchOrderPriority() const { return 50; }
+
+    /** Called while destroying the SLAM system. A perfect placeholder for
+     * saving data to filesystem, clean up, etc. before any module destructor
+     * has been actually beeing invoked.
+     */
+    virtual void onQuit() {}
     /** @} */
 
     /** @name Directory services

@@ -20,6 +20,7 @@
 #include <yaml-cpp/yaml.h>
 #include <deque>
 #include <map>
+#include <numeric>  // iota()
 #include <type_traits>
 
 using namespace mola;
@@ -37,6 +38,7 @@ struct WorldModel::EntitiesContainer
     virtual const Entity&            by_id(const id_t id) const = 0;
     virtual Entity&                  by_id(const id_t id)       = 0;
     virtual std::pair<id_t, Entity*> emplace_back(Entity&& e)   = 0;
+    virtual std::vector<id_t>        all_ids() const            = 0;
 };
 
 WorldModel::EntitiesContainer::~EntitiesContainer() = default;
@@ -52,6 +54,7 @@ struct WorldModel::FactorsContainer
     virtual const Factor&             by_id(const fid_t id) const = 0;
     virtual Factor&                   by_id(const fid_t id)       = 0;
     virtual std::pair<fid_t, Factor*> emplace_back(Factor&& e)    = 0;
+    virtual std::vector<fid_t>        all_ids() const             = 0;
 };
 WorldModel::FactorsContainer::~FactorsContainer() = default;
 
@@ -87,6 +90,13 @@ struct ContainerDeque : public BASE
     {
         if (id >= data_.size()) THROW_EXCEPTION("by_id(): id out of range");
         return data_[id];
+    }
+    std::vector<ID> all_ids() const override
+    {
+        MRPT_TODO("Keep a separate list of *actually* existing IDs?");
+        std::vector<ID> ret(this->size());
+        std::iota(ret.begin(), ret.end(), 1);
+        return ret;
     }
 };
 
@@ -137,6 +147,13 @@ struct ContainerFastMap : public BASE
         }
         return it->second;
     }
+    std::vector<ID> all_ids() const override
+    {
+        std::vector<ID> ret;
+        ret.reserve(data_.size());
+        for (const auto& e : data_) ret.push_back(e.first);
+        return ret;
+    }
 };
 
 /** Implementation of EntitiesContainer using a std::deque.
@@ -186,10 +203,15 @@ const Entity& WorldModel::entity_by_id(const id_t id) const
     return entities_->by_id(id);
 }
 
-Entity& WorldModel::entity_by_id(const id_t id)
+Entity& WorldModel::entity_by_id(const id_t id) { return entities_->by_id(id); }
+std::vector<mola::id_t> WorldModel::entity_all_ids() const
 {
-    //
-    return entities_->by_id(id);
+    return entities_->all_ids();
+}
+
+std::vector<mola::fid_t> WorldModel::factor_all_ids() const
+{
+    return factors_->all_ids();
 }
 
 mola::id_t WorldModel::entity_emplace_back(Entity&& e)
