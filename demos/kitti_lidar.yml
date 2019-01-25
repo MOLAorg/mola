@@ -14,11 +14,18 @@ modules:
       # true: use iSAM2
       # false: use global levmarquartd
       use_incremental_solver: true
+      # ------
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
       state_vector: SE3
       #state_vector: DynSE2
       #state_vector: DynSE3
+      # --- constant velocity model params (see papers) ---
+      const_vel_model_std_pos: 0.2  # [m]
+      const_vel_model_std_vel: 1  # [m/s]
+      # ------
+      # Save trajectory to file at end? useful for plots, error evaluation,...
+      save_trajectory_file_prefix: kitti_result_09
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
@@ -34,10 +41,10 @@ modules:
     params:
       # Minimum time (seconds) between scans for being attempted to be
       # aligned. Scans faster than this rate will be just silently ignored.
-      min_time_between_scans: 0.1    # [seconds]
+      min_time_between_scans: 0.01    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 2.0   # [meters]
+      min_dist_xyz_between_keyframes: 2   # [meters]
       # If !=0, decimate point clouds so they do not have more than this number of points
       decimate_to_point_count: 1000
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
@@ -55,7 +62,8 @@ modules:
       # min/max distance to check for match/loop closure between KFs:
       min_dist_to_matching: 5.0
       max_dist_to_matching: 16.0
-      min_topo_dist_to_consider_loopclosure: 50
+      max_nearby_align_checks: 2
+      min_topo_dist_to_consider_loopclosure: 30
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
       icp_params_with_vel.maxIterations:  10    90
@@ -88,8 +96,8 @@ modules:
         decimation: 5
     params:
       base_dir: ${KITTI_BASE_DIR}
-      sequence: 00
-      time_warp_scale: 1.25
+      sequence: 09
+      time_warp_scale: 1.0
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
