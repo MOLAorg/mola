@@ -258,7 +258,10 @@ void KittiOdometryDataset::spinOnce()
 
         // Save one single timestamp for all observations, since they are in
         // theory shynchronized in the Kitti datasets:
-        const auto obs_tim = mrpt::Clock::now();
+        const auto obs_tim =
+            replay_begin_time_ +
+            std::chrono::microseconds(static_cast<unsigned long>(
+                1e6 * lst_timestamps_[replay_next_tim_index_]));
 
         if (publish_lidar_)
         {
