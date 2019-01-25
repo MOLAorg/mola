@@ -2,7 +2,7 @@
 #        A Modular Optimization framework for Localization and mApping
 #                               (MOLA)
 #
-# Copyright (C) 2018-2019, José Luis Blanco-Claraco, contributors (AUTHORS.md)
+# Copyright (C) 2018-2019, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
 # All rights reserved.
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
@@ -23,6 +23,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 # Include std cmake scripts:
 include(CheckCXXCompilerFlag) # for check_cxx_compiler_flag()
+include(CMakeDetermineCXXCompiler)
 include(GNUInstallDirs) # for install dirs in multilib
 
 # Include our aux cmake scripts:
@@ -33,3 +34,11 @@ include(mola_cmake_functions)
 enable_testing()
 add_subdirectory(externals)
 add_subdirectory(modules)
+
+message(STATUS "==== MOLA configuration ====")
+message(STATUS "C++ compiler              : ${CMAKE_CXX_COMPILER}")
+message(STATUS "CMake generator           : "  ${CMAKE_GENERATOR})
+message(STATUS "CMake build tool          : " ${CMAKE_BUILD_TOOL})
+message(STATUS "Compiler                  : ${CMAKE_CXX_COMPILER} Version: ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "============================")
+
