@@ -30,7 +30,6 @@ namespace mola
  * \ingroup mola_kernel_grp
  */
 using Factor = std::variant<
-    std::monostate, FactorRelativePose3, FactorRelativePose3ConstVel,
-    FactorOther>;
+    std::monostate, FactorRelativePose3, FactorDynamicsConstVel, FactorOther>;
 
 }  // namespace mola

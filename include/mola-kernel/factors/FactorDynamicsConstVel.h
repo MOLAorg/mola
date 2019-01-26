@@ -4,19 +4,15 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   FactorRelativePose3.h
- * @brief
+ * @file   FactorDynamicsConstVel.h
+ * @brief  Constant-velocity model factor
  * @author Jose Luis Blanco Claraco
  * @date   Jan 08, 2019
  */
 #pragma once
 
 #include <mola-kernel/factors/FactorBase.h>
-#include <mrpt/math/lightweight_geom_data.h>
-#include <optional>
-
-// Eigen includes after mrpt's ones:
-#include <Eigen/Dense>
+#include <mrpt/core/exceptions.h>
 
 namespace mola
 {
@@ -24,29 +20,16 @@ namespace mola
  *
  * \ingroup mola_kernel_grp
  */
-class FactorRelativePose3 : public FactorBase
+class FactorDynamicsConstVel : public FactorBase
 {
    public:
     /** Creates relative pose constraint of KF `to` as seem from `from`. */
-    FactorRelativePose3(
-        id_t kf_from, id_t kf_to, const mrpt::math::TPose3D& rel_pose)
-        : from_kf_(kf_from), to_kf_{kf_to}, rel_pose_{rel_pose}
+    FactorDynamicsConstVel(id_t kf_from, id_t kf_to)
+        : from_kf_(kf_from), to_kf_{kf_to}
     {
     }
 
-    id_t                from_kf_{INVALID_ID}, to_kf_{INVALID_ID};
-    mrpt::math::TPose3D rel_pose_;
-
-    /** If provided, it models the covariance of the observation. Order of
-     * variables is: rotx roty rotz tx ty tz */
-    std::optional<Eigen::Matrix<double, 6, 6>> noise_model_;
-
-    /** Standard deviation of the measurement, in X Y Z. Ignored if noise_model_
-     * is provided. */
-    double noise_model_diag_xyz_{0.01};
-    /** Standard deviation of the measurement, in each rotation angle. Ignored
-     * if noise_model_ is provided. */
-    double noise_model_diag_rot_{mrpt::DEG2RAD(0.5)};
+    id_t from_kf_{INVALID_ID}, to_kf_{INVALID_ID};
 
     std::size_t edge_count() const override { return 2; }
     std::size_t edge_indices(const std::size_t i) const override

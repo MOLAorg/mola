@@ -13,6 +13,7 @@
 
 #include <memory>
 
+#include <mola-kernel/factors/FactorDynamicsConstVel.h>
 #include <mola-kernel/factors/FactorRelativePose3.h>
 
 namespace mola
