@@ -38,6 +38,13 @@ class WorldModel : public ExecutableBase
 
     using Ptr = std::shared_ptr<WorldModel>;
 
+    struct Parameters
+    {
+        double age_to_unload_keyframes{15.0};  //!< [s]
+    };
+
+    Parameters params_;
+
     using entity_connected_factors_t =
         mola::fast_map<id_t, mola::fast_set<fid_t>>;
 

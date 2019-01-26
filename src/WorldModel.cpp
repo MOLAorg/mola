@@ -18,6 +18,7 @@
 #include <mola-kernel/entities/KeyFrameBase.h>
 #include <mola-kernel/lock_helper.h>
 #include <mola-kernel/variant_helper.h>
+#include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/initializer.h>
 #include <yaml-cpp/yaml.h>
 #include <deque>
@@ -185,11 +186,16 @@ using FactorsContainerFastMap = ContainerFastMap<
 void WorldModel::initialize(const std::string& cfg_block)
 {
     MRPT_TRY_START
-    auto cfg = YAML::Load(cfg_block);
+
+    // Load params:
+    auto c   = YAML::Load(cfg_block);
+    auto cfg = c["params"];
+    MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
+
+    YAML_LOAD_OPT(params_, age_to_unload_keyframes, double);
 
     // Create map container:
     MRPT_TODO("Switch between container type per cfg");
-
     entities_ =
         std::unique_ptr<EntitiesContainer>(new EntitiesContainerFastMap);
     ASSERT_(entities_);
@@ -218,14 +224,16 @@ std::vector<mola::fid_t> WorldModel::factor_all_ids() const
 
 mola::id_t WorldModel::entity_emplace_back(Entity&& e)
 {
+    // For KeyFrames: keep track of their last usage time:
+    const bool is_kf =
+        dynamic_cast<KeyFrameBase*>(&mola::entity_get_base(e)) != nullptr;
+
     const auto [id, eptr] = entities_->emplace_back(std::move(e));
     (void)eptr;
 
     entity_connected_factors_[id];  // Create empty entry
 
-    // For KeyFrames: keep track of their last usage time:
-    if (auto kf = dynamic_cast<KeyFrameBase*>(&mola::entity_get_base(e));
-        kf != nullptr && kf->raw_observations_)
+    if (is_kf)
     {
         entity_last_access_mtx_.lock();
         entity_last_access_[id] = mrpt::Clock::now();
@@ -336,8 +344,6 @@ void WorldModel::spinOnce()
     // Unload KeyFrames that have not been used in a while:
     auto lk = lockHelper(entity_last_access_mtx_);
 
-    const double MIN_KEYFRAMES_AGE_TO_UNLOAD = 15.0;  // [s]
-
     const auto t_now = mrpt::Clock::now();
 
     unsigned int nUnloads = 0;
@@ -345,8 +351,9 @@ void WorldModel::spinOnce()
     for (auto it_ent = entity_last_access_.begin();
          it_ent != entity_last_access_.end();)
     {
-        if (mrpt::system::timeDifference(it_ent->second, t_now) >
-            MIN_KEYFRAMES_AGE_TO_UNLOAD)
+        const double age = mrpt::system::timeDifference(it_ent->second, t_now);
+
+        if (age > params_.age_to_unload_keyframes)
         {
             const auto id = it_ent->first;
             // Remove from list:
