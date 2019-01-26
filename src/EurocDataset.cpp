@@ -254,7 +254,8 @@ void EurocDataset::spinOnce()
     if (dataset_next_ == dataset_.end())
     {
         MRPT_LOG_THROTTLE_INFO(
-            2.0, "End of dataset reached! Nothing else to publish...");
+            10.0,
+            "End of dataset reached! Nothing else to publish (CTRL+C to quit)");
         return;
     }
 
