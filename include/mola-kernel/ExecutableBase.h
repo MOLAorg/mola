@@ -87,7 +87,7 @@ class ExecutableBase : public mrpt::system::COutputLogger,
     /** @} */
 
     /** Enabled from mola-cli with `--profiler-whole` to save full profile stats
-     * to CSV files at program end.
+     * to .m files at program end.
      */
     std::optional<ProfilerSaverAtDtor> profiler_dtor_save_stats_;
 
