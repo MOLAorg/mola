@@ -31,7 +31,7 @@ class WorldModel : public ExecutableBase
     // Virtual interface of any ExecutableBase. See base docs:
     void initialize_common(const std::string&) override {}
     void initialize(const std::string& cfg_block) override;
-    void spinOnce() override {}
+    void spinOnce() override;
 
     /** The WorldModel is launched first, before most other modules. */
     int launchOrderPriority() const override { return 10; }
@@ -90,6 +90,9 @@ class WorldModel : public ExecutableBase
      * Indexed by a unique fid_t; */
     std::unique_ptr<FactorsContainer> factors_;
     std::shared_mutex                 factors_mtx_;
+
+    mola::fast_map<id_t, mrpt::Clock::time_point> entity_last_access_;
+    std::shared_mutex                             entity_last_access_mtx_;
 
     void internal_update_neighbors(const FactorBase& f);
 };

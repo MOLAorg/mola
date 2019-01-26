@@ -16,6 +16,7 @@
 #include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/WorldModel.h>
 #include <mola-kernel/entities/KeyFrameBase.h>
+#include <mola-kernel/lock_helper.h>
 #include <mola-kernel/variant_helper.h>
 #include <mrpt/core/initializer.h>
 #include <yaml-cpp/yaml.h>
@@ -217,19 +218,21 @@ std::vector<mola::fid_t> WorldModel::factor_all_ids() const
 
 mola::id_t WorldModel::entity_emplace_back(Entity&& e)
 {
-    MRPT_TODO(
-        "Make the unload() to happen in a parallel thread after some time");
-    if (auto kf = dynamic_cast<KeyFrameBase*>(&mola::entity_get_base(e));
-        kf != nullptr && kf->raw_observations_)
-    {
-        // Unload heavy observation data back to disk:
-        for (auto& obs : *kf->raw_observations_) obs->unload();
-    }
-
     const auto [id, eptr] = entities_->emplace_back(std::move(e));
     (void)eptr;
 
     entity_connected_factors_[id];  // Create empty entry
+
+    // For KeyFrames: keep track of their last usage time:
+    if (auto kf = dynamic_cast<KeyFrameBase*>(&mola::entity_get_base(e));
+        kf != nullptr && kf->raw_observations_)
+    {
+        entity_last_access_mtx_.lock();
+        entity_last_access_[id] = mrpt::Clock::now();
+        entity_last_access_mtx_.unlock();
+    }
+    MRPT_TODO("Update entity_last_access_ upon getters() & setters()");
+
     return id;
 }
 mola::fid_t WorldModel::factor_emplace_back(Factor&& f)
@@ -322,6 +325,51 @@ const annotations_data_t& WorldModel::entity_annotations_by_id(
     if (!ret) { THROW_EXCEPTION("Empty variant!"); }
     else
         return *ret;
+
+    MRPT_END
+}
+
+void WorldModel::spinOnce()
+{
+    MRPT_START
+
+    // Unload KeyFrames that have not been used in a while:
+    auto lk = lockHelper(entity_last_access_mtx_);
+
+    const double MIN_KEYFRAMES_AGE_TO_UNLOAD = 15.0;  // [s]
+
+    const auto t_now = mrpt::Clock::now();
+
+    unsigned int nUnloads = 0;
+
+    for (auto it_ent = entity_last_access_.begin();
+         it_ent != entity_last_access_.end();)
+    {
+        if (mrpt::system::timeDifference(it_ent->second, t_now) >
+            MIN_KEYFRAMES_AGE_TO_UNLOAD)
+        {
+            const auto id = it_ent->first;
+            // Remove from list:
+            it_ent = entity_last_access_.erase(it_ent);
+
+            // and do unload()
+            if (auto kf = dynamic_cast<KeyFrameBase*>(
+                    &mola::entity_get_base(entities_->by_id(id)));
+                kf != nullptr)
+            {
+                // Unload heavy observation data back to disk:
+                if (kf->raw_observations_)
+                    for (auto& obs : *kf->raw_observations_) obs->unload();
+                nUnloads++;
+            }
+        }
+        else
+        {
+            ++it_ent;
+        }
+    }
+
+    profiler_.registerUserMeasure("unloaded_count", nUnloads);
 
     MRPT_END
 }
