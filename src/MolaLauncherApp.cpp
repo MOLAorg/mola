@@ -18,6 +18,7 @@
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/CRateTimer.h>
+#include <mrpt/system/memory.h>
 #include <chrono>
 #include <iostream>
 #include <sstream>
@@ -29,6 +30,7 @@ using namespace mola;
 MolaLauncherApp::MolaLauncherApp()
     : mrpt::system::COutputLogger("MolaLauncherApp")
 {
+    profiler_.setName("MolaLauncherApp");
     lib_search_paths_.emplace_back(MOLA_MODULES_DIR);
 }
 
@@ -71,6 +73,10 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
     MRPT_LOG_INFO(
         "Setting up system from YAML config... (set DEBUG verbosity level to "
         "see full config)");
+
+    // Enable save to stat files at dtor:
+    if (profiler_.isEnabledKeepWholeHistory())
+        profiler_dtor_save_stats_.emplace(profiler_);
 
     // Parse YAML env variables:
     YAML::Node cfg;
@@ -226,7 +232,9 @@ void MolaLauncherApp::spin()
     while (!threads_must_end_)
     {
         using namespace std::chrono_literals;
-        std::this_thread::sleep_for(200ms);
+        std::this_thread::sleep_for(500ms);
+
+        internal_spin_tasks();
     }
     MRPT_LOG_INFO("Main SLAM/localization loop ended.");
 
@@ -307,4 +315,17 @@ ExecutableBase::Ptr MolaLauncherApp::nameServerImpl(const std::string& name)
         return ExecutableBase::Ptr();
     else
         return it_th->second.impl;
+}
+
+void MolaLauncherApp::internal_spin_tasks()
+{
+    MRPT_START
+
+    // Collect memory stats:
+    {
+        const auto mem_used = mrpt::system::getMemoryUsage();
+        profiler_.registerUserMeasure("memory_used", mem_used);
+    }
+
+    MRPT_END
 }

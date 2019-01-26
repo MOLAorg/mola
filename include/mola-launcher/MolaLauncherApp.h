@@ -72,6 +72,11 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      * created upon the call to setup() */
     mrpt::system::CTimeLogger profiler_;
 
+    /** Enabled from mola-cli with `--profiler-whole` to save full profile stats
+     * to .m files at program end.
+     */
+    std::optional<ProfilerSaverAtDtor> profiler_dtor_save_stats_;
+
    private:
     struct InfoPerRunningThread
     {
@@ -101,6 +106,9 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
 
     /** Implementation for nameServer in the ExecutableBase interface */
     ExecutableBase::Ptr nameServerImpl(const std::string& name);
+
+    /** Household tasks to be done while in the infinite main loop. */
+    void internal_spin_tasks();
 };
 
 }  // namespace mola
