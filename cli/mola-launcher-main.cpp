@@ -94,7 +94,7 @@ void mola_signal_handler(int s)
 {
     std::cerr << "Caught signal " << s << ". Shutting down..." << std::endl;
     app.shutdown();
-    exit(1);
+    exit(0);
 }
 
 void mola_install_signal_handler()
