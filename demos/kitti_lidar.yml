@@ -25,7 +25,7 @@ modules:
       const_vel_model_std_vel: 1  # [m/s]
       # ------
       # Save trajectory to file at end? useful for plots, error evaluation,...
-      save_trajectory_file_prefix: kitti_result_09
+      save_trajectory_file_prefix: kitti_result_00
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
@@ -44,9 +44,9 @@ modules:
       min_time_between_scans: 0.01    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 2   # [meters]
+      min_dist_xyz_between_keyframes: 3   # [meters]
       # If !=0, decimate point clouds so they do not have more than this number of points
-      decimate_to_point_count: 1000
+      decimate_to_point_count: 400
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
       min_icp_goodness: 0.50        # range [0,1]
       # ditto, for loop-closures attempts to align
@@ -54,19 +54,20 @@ modules:
       # Size (resolution) of the voxel filter
       voxel_filter_resolution: 1.0  # [meters]
       # decimate as we filter by voxels (1=no decimation)
-      voxel_filter_decimation: 10
-      voxel_filter_max_e2_e0: 20 # 10
-      voxel_filter_max_e1_e0: 20 # 10
-      voxel_filter_min_e2_e0: 40
-      voxel_filter_min_e1_e0: 40
+      voxel_filter_decimation: 5
+      voxel_filter_max_e2_e0: 20
+      voxel_filter_max_e1_e0: 20
+      voxel_filter_min_e2_e0: 80
+      voxel_filter_min_e1_e0: 80
       # min/max distance to check for match/loop closure between KFs:
-      min_dist_to_matching: 5.0
-      max_dist_to_matching: 16.0
-      max_nearby_align_checks: 2
+      min_dist_to_matching: 5.0       # [m]
+      max_dist_to_matching: 20.0      # [m]
+      max_dist_to_loop_closure: 30.0  # [m]
+      max_nearby_align_checks: 3
       min_topo_dist_to_consider_loopclosure: 30
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      icp_params_with_vel.maxIterations:  10    90
+      icp_params_with_vel.maxIterations:  10    80
       icp_params_with_vel.thresholdDist:   1.0   0.50      # [meters]
       icp_params_with_vel.thresholdAng:    2.0   0.01     # [deg]
       # Case: WITHOUT a good twist (velocity) model:
@@ -74,9 +75,10 @@ modules:
       icp_params_without_vel.thresholdDist:   3.0   0.50  # [meters]
       icp_params_without_vel.thresholdAng:    2.0   0.01  # [deg]
       # Case: Loop closure
-      icp_params_loopclosure.maxIterations: 50     90
+      loop_closure_montecarlo_samples: 5
+      icp_params_loopclosure.maxIterations: 10     100
       icp_params_loopclosure.thresholdDist: 30.0   0.50  # [meters]
-      icp_params_loopclosure.thresholdAng:   5.0   0.01  # [deg]
+      icp_params_loopclosure.thresholdAng:   2.0   0.01  # [deg]
       # -----------------------------------------------------
       # DEBUG: Save all ICP pairings as 3Dscene files, for visual inspection
       # Warning: this can consume a *huge* disk space
@@ -93,10 +95,10 @@ modules:
       - raw_sensor_label: lidar
         decimation: 1
       - raw_sensor_label: image_0
-        decimation: 5
+        decimation: 1
     params:
       base_dir: ${KITTI_BASE_DIR}
-      sequence: 09
+      sequence: 00
       time_warp_scale: 1.0
       publish_lidar: true
       publish_image_0: true
