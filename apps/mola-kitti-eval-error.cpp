@@ -47,8 +47,9 @@ static TCLAP::ValueArg<std::string> arg_result_path(
 static TCLAP::ValueArg<int> arg_seq(
     "s", "sequence", "The path file to evaluate", true, 1, "01", cmd);
 
-std::string kitti_basedir;
-std::string result_path_file;  // points to CPose3D path from odometry/slam
+static std::string kitti_basedir;
+// points to CPose3D path from odometry/slam
+static std::string result_path_file;
 
 static bool eval();
 
@@ -74,7 +75,7 @@ static void do_kitti_eval_error()
     std::cout << "Using kitti datasets basedir: " << kitti_basedir << "\n";
 
     // ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "sequences"s);
-    ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "gt-poses"s);
+    ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "/gt-poses"s);
 
     result_path_file = arg_result_path.getValue();
 
@@ -532,7 +533,7 @@ void saveErrorPlots(
 
 void plotErrorPlots(string dir, char* prefix)
 {
-    char command[1024];
+    char command[4096];
 
     // for all four error plots do
     for (int32_t i = 0; i < 4; i++)
@@ -557,7 +558,7 @@ void plotErrorPlots(string dir, char* prefix)
 
         // gnuplot file name
         char file_name[1024];
-        char full_name[1024];
+        char full_name[2048];
         sprintf(file_name, "%s_%s.gp", prefix, suffix);
         sprintf(full_name, "%s/%s", dir.c_str(), file_name);
 

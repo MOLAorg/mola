@@ -356,17 +356,16 @@ void KittiOdometryDataset::load_lidar(const std::size_t step)
     // Load velodyne pointcloud:
     const auto f = seq_dir_ + std::string("/velodyne/") + lst_velodyne_[step];
 
-    // Kitti dataset doesn't contain raw ranges, but point clouds.
-    // Load as a PC and convert into a MRPT's observation, leaving empty
-    // the fields for raw LiDAR ranges, etc.
-    auto pc = mrpt::maps::CPointsMapXYZI::Create();
-    if (!pc->loadFromKittiVelodyneFile(f))
-        THROW_EXCEPTION_FMT(
-            "Error loading Kitti pointcloud file: `%s`", f.c_str());
-
     auto obs         = mrpt::obs::CObservationPointCloud::Create();
     obs->sensorLabel = "lidar";
-    obs->pointcloud  = std::move(pc);
+    obs->setAsExternalStorage(
+        f,
+        mrpt::obs::CObservationPointCloud::ExternalStorageFormat::KittiBinFile);
+    obs->load();  // force loading now from disk
+    ASSERTMSG_(
+        obs->pointcloud,
+        mrpt::format("Error loading kitti scan file: '%s'", f.c_str()));
+
     // Pose: velodyne is at the origin of the vehicle coordinates in Kitti
     // datasets.
     obs->sensorPose = mrpt::poses::CPose3D();
