@@ -32,4 +32,10 @@ namespace mola
 using Entity = std::variant<
     std::monostate, RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
 
+/** Return a reference to the EntityBase associated to the variant e.
+ * \ingroup mola_kernel_grp */
+EntityBase& entity_get_base(Entity& e);
+/** \overload */
+const EntityBase& entity_get_base(const Entity& e);
+
 }  // namespace mola

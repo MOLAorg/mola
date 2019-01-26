@@ -15,6 +15,7 @@
 
 #include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/WorldModel.h>
+#include <mola-kernel/entities/KeyFrameBase.h>
 #include <mola-kernel/variant_helper.h>
 #include <mrpt/core/initializer.h>
 #include <yaml-cpp/yaml.h>
@@ -216,7 +217,18 @@ std::vector<mola::fid_t> WorldModel::factor_all_ids() const
 
 mola::id_t WorldModel::entity_emplace_back(Entity&& e)
 {
+    MRPT_TODO(
+        "Make the unload() to happen in a parallel thread after some time");
+    if (auto kf = dynamic_cast<KeyFrameBase*>(&mola::entity_get_base(e));
+        kf != nullptr && kf->raw_observations_)
+    {
+        // Unload heavy observation data back to disk:
+        for (auto& obs : *kf->raw_observations_) obs->unload();
+    }
+
     const auto [id, eptr] = entities_->emplace_back(std::move(e));
+    (void)eptr;
+
     entity_connected_factors_[id];  // Create empty entry
     return id;
 }
@@ -309,9 +321,7 @@ const annotations_data_t& WorldModel::entity_annotations_by_id(
 
     if (!ret) { THROW_EXCEPTION("Empty variant!"); }
     else
-    {
         return *ret;
-    }
 
     MRPT_END
 }
