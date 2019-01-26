@@ -9,7 +9,7 @@ modules:
   - name: backend
     type: ASLAM_gtsam
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
-    verbosity_level: INFO
+    #verbosity_level: INFO
     params:
       # true: use iSAM2
       # false: use global levmarquartd
@@ -32,7 +32,8 @@ modules:
     type: WorldModel
     verbosity_level: DEBUG
     params:
-      # None required
+      # Age at which map keyframes will be unloaded from memory [s]
+      age_to_unload_keyframes: 1500000.0
 # Setup of SLAM front-ends ====================================
   - name: lidar_fe
     type: LidarICP
@@ -46,7 +47,7 @@ modules:
       # the map
       min_dist_xyz_between_keyframes: 3   # [meters]
       # If !=0, decimate point clouds so they do not have more than this number of points
-      decimate_to_point_count: 400
+      decimate_to_point_count: 350
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
       min_icp_goodness: 0.50        # range [0,1]
       # ditto, for loop-closures attempts to align
@@ -54,7 +55,7 @@ modules:
       # Size (resolution) of the voxel filter
       voxel_filter_resolution: 1.0  # [meters]
       # decimate as we filter by voxels (1=no decimation)
-      voxel_filter_decimation: 5
+      voxel_filter_decimation: 10
       voxel_filter_max_e2_e0: 20
       voxel_filter_max_e1_e0: 20
       voxel_filter_min_e2_e0: 80
@@ -67,16 +68,16 @@ modules:
       min_topo_dist_to_consider_loopclosure: 30
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      icp_params_with_vel.maxIterations:  10    80
-      icp_params_with_vel.thresholdDist:   1.0   0.50      # [meters]
-      icp_params_with_vel.thresholdAng:    2.0   0.01     # [deg]
+      icp_params_with_vel.maxIterations:  10    150
+      icp_params_with_vel.thresholdDist:   1.0   0.50   # [meters]
+      icp_params_with_vel.thresholdAng:    2.0   0.01   # [deg]
       # Case: WITHOUT a good twist (velocity) model:
-      icp_params_without_vel.maxIterations:   5     90
+      icp_params_without_vel.maxIterations:   5     200
       icp_params_without_vel.thresholdDist:   3.0   0.50  # [meters]
       icp_params_without_vel.thresholdAng:    2.0   0.01  # [deg]
       # Case: Loop closure
       loop_closure_montecarlo_samples: 5
-      icp_params_loopclosure.maxIterations: 10     100
+      icp_params_loopclosure.maxIterations: 10     240
       icp_params_loopclosure.thresholdDist: 30.0   0.50  # [meters]
       icp_params_loopclosure.thresholdAng:   2.0   0.01  # [deg]
       # -----------------------------------------------------
@@ -99,7 +100,7 @@ modules:
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
-      time_warp_scale: 1.0
+      time_warp_scale: 1.2
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
