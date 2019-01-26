@@ -248,6 +248,14 @@ void KittiOdometryDataset::spinOnce()
             "End of dataset reached! Nothing else to publish (CTRL+C to quit)");
         return;
     }
+    else if (!lst_timestamps_.empty())
+    {
+        MRPT_LOG_THROTTLE_INFO_FMT(
+            5.0, "Dataset replay progress: %lu / %lu  (%4.02f%%)",
+            static_cast<unsigned long>(replay_next_tim_index_),
+            static_cast<unsigned long>(lst_timestamps_.size()),
+            (100.0 * replay_next_tim_index_) / (lst_timestamps_.size()));
+    }
 
     // We have to publish all observations until "t":
     while (replay_next_tim_index_ < lst_timestamps_.size() &&
