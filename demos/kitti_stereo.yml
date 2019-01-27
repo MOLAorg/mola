@@ -7,11 +7,33 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: RSLAM_gtsam
-    execution_rate: 100 # Hz
-    verbosity_level: INFO
+    type: ASLAM_gtsam
+    execution_rate: 1 # Rate to update the SLAM solution [Hz]
+    #verbosity_level: INFO
     params:
-      # ...
+      # true: use iSAM2
+      # false: use global levmarquartd
+      use_incremental_solver: true
+      # ------
+      # Select state space representation for KeyFrame poses:
+      #state_vector: SE2
+      state_vector: SE3
+      #state_vector: DynSE2
+      #state_vector: DynSE3
+      # --- constant velocity model params (see papers) ---
+      const_vel_model_std_pos: 0.2  # [m]
+      const_vel_model_std_vel: 1  # [m/s]
+      # ------
+      # Save trajectory to file at end? useful for plots, error evaluation,...
+      save_trajectory_file_prefix: kitti_result_00
+      # ------------------------
+# Setup of World Model (the map) =====================================
+  - name: map
+    type: WorldModel
+    #verbosity_level: DEBUG
+    params:
+      # Age at which map keyframes will be unloaded from memory [s]
+      age_to_unload_keyframes: 1500000.0
 # Setup of SLAM front-ends ====================================
   - name: stereo_visual_fe
     type: VisualORB_Stereo
@@ -35,12 +57,6 @@ modules:
       # Stereo params:
       stereo_rectify_alpha: -1
       # ----------
-# Setup of World Model (the map) =====================================
-  - name: map
-    type: WorldModel
-    verbosity_level: INFO
-    params:
-    # None required
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
@@ -58,6 +74,6 @@ modules:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
       time_warp_scale: 1.0
-      publish_lidar: true
+      publish_lidar: false
       publish_image_0: true
       publish_image_1: true
