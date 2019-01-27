@@ -31,3 +31,6 @@
 [submodule "externals/DBoW2/DBoW2"]
 	path = externals/DBoW2/DBoW2
 	url = git@github.com:jlblancoc/DBoW2.git
+[submodule "externals/g2o/g2o"]
+	path = externals/g2o/g2o
+	url = git@github.com:RainerKuemmerle/g2o.git
