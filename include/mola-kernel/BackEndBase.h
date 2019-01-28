@@ -116,12 +116,12 @@ class BackEndBase : public ExecutableBase
         THROW_EXCEPTION("Not implemented in selected back-end!");
     }
 
-   protected:
-    WorldModel::Ptr worldmodel_;
+    virtual void lock_slam() {}
+    virtual void unlock_slam() {}
 
-    WorkerThreadsPool slam_be_threadpool_{2};
-
-    /** @name Virtual methods to be implemented by SLAM back-end
+    /** @name Virtual methods to be implemented by SLAM back-end.
+     * `doXXX()` run synchronously (blocking) in the same thread than the
+     *caller. `onXXX()` run asynch in another thread.
      *{ */
 
     virtual ProposeKF_Output doAddKeyFrame(const ProposeKF_Input& i) = 0;
@@ -129,6 +129,11 @@ class BackEndBase : public ExecutableBase
     virtual void             doAdvertiseUpdatedLocalization(
                     AdvertiseUpdatedLocalization_Input l) = 0;
     /** @} */
+
+   protected:
+    WorldModel::Ptr worldmodel_;
+
+    WorkerThreadsPool slam_be_threadpool_{2};
 };
 
 }  // namespace mola
