@@ -12,6 +12,8 @@
 #pragma once
 
 #include <mola-kernel/entities/entities-common.h>
+#include <mrpt/math/lightweight_geom_data.h>
+#include <array>
 #include <variant>
 
 namespace mola
@@ -32,10 +34,20 @@ namespace mola
 using Entity = std::variant<
     std::monostate, RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
 
-/** Return a reference to the EntityBase associated to the variant e.
- * \ingroup mola_kernel_grp */
+/** \addtogroup entity_utils Entity handling utilities
+ *  \ingroup mola_kernel_grp
+ *  @{ */
+
+/** Return a reference to the EntityBase associated to the variant e */
 EntityBase& entity_get_base(Entity& e);
 /** \overload */
 const EntityBase& entity_get_base(const Entity& e);
+
+mrpt::math::TPose3D entity_get_pose(const Entity& e);
+void                entity_update_pose(Entity& e, const mrpt::math::TPose3D& p);
+void entity_update_vel(Entity& e, const std::array<double, 3>& v);
+mrpt::Clock::time_point entity_get_timestamp(const Entity& e);
+
+/** @} */
 
 }  // namespace mola

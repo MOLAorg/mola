@@ -4,18 +4,13 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   EntityBase.cpp
- * @brief  Base class for all "entities" in the world model
+ * @file   Factor.cpp
+ * @brief  Utilities for factor variant types
  * @author Jose Luis Blanco Claraco
- * @date   Nov 26, 2018
+ * @date   Jan 28, 2019
  */
 
-#include <mola-kernel/Entity.h>
-#include <mola-kernel/entities/EntityBase.h>
+#include <mola-kernel/Factor.h>
 #include <mola-kernel/variant_helper.h>
 
-// TODO: make serializable
-
 using namespace mola;
-
-EntityBase::~EntityBase() = default;
