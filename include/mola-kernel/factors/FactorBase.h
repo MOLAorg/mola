@@ -29,7 +29,7 @@ class FactorBase
      * binary, etc. */
     virtual std::size_t edge_count() const = 0;
     /** Access entity indices involved in this factor */
-    virtual std::size_t edge_indices(const std::size_t i) const = 0;
+    virtual mola::id_t edge_indices(const std::size_t i) const = 0;
 
     /** The unique ID of this factor in the world model.
      * Stored here for convenience, notice that it is redundant since entities

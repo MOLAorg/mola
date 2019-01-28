@@ -15,6 +15,7 @@
 #include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/WorldModel.h>
 #include <mrpt/core/Clock.h>
+#include <mrpt/img/TCamera.h>  // TODO: Remove after unused below
 #include <mrpt/obs/CSensoryFrame.h>
 #include <future>
 #include <optional>
@@ -99,6 +100,21 @@ class BackEndBase : public ExecutableBase
     }
 
     /** @} */
+
+    virtual void onSmartFactorChanged(
+        [[maybe_unused]] mola::fid_t             id,
+        [[maybe_unused]] const mola::FactorBase* f)
+    {
+    }
+
+    /** TODO: Refactor this!! */
+    virtual mola::id_t temp_createStereoCamera(
+        [[maybe_unused]] const mrpt::img::TCamera& left,
+        [[maybe_unused]] const mrpt::img::TCamera& right,
+        [[maybe_unused]] const double              baseline)
+    {
+        THROW_EXCEPTION("Not implemented in selected back-end!");
+    }
 
    protected:
     WorldModel::Ptr worldmodel_;

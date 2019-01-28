@@ -32,7 +32,7 @@ class FactorDynamicsConstVel : public FactorBase
     id_t from_kf_{INVALID_ID}, to_kf_{INVALID_ID};
 
     std::size_t edge_count() const override { return 2; }
-    std::size_t edge_indices(const std::size_t i) const override
+    mola::id_t  edge_indices(const std::size_t i) const override
     {
         switch (i)
         {

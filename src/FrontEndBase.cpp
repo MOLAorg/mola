@@ -71,5 +71,18 @@ void FrontEndBase::initialize_common(const std::string& cfg_block)
             slam_backend_->getModuleInstanceName().c_str());
     }
 
+    // Search for world model:
+    {
+        auto wms = findService<WorldModel>();
+        if (wms.size() == 1)
+        {
+            worldmodel_ = std::dynamic_pointer_cast<WorldModel>(wms[0]);
+            ASSERT_(worldmodel_);
+            MRPT_LOG_INFO_FMT(
+                "Attached to WorldModel module `%s`",
+                worldmodel_->getModuleInstanceName().c_str());
+        }
+    }
+
     MRPT_TRY_END
 }

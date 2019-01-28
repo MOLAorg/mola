@@ -49,7 +49,7 @@ class FactorRelativePose3 : public FactorBase
     double noise_model_diag_rot_{mrpt::DEG2RAD(0.5)};
 
     std::size_t edge_count() const override { return 2; }
-    std::size_t edge_indices(const std::size_t i) const override
+    mola::id_t  edge_indices(const std::size_t i) const override
     {
         switch (i)
         {

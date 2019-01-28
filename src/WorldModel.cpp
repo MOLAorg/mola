@@ -212,6 +212,13 @@ const Entity& WorldModel::entity_by_id(const id_t id) const
 }
 
 Entity& WorldModel::entity_by_id(const id_t id) { return entities_->by_id(id); }
+
+const Factor& WorldModel::factor_by_id(const fid_t id) const
+{
+    return factors_->by_id(id);
+}
+Factor& WorldModel::factor_by_id(const fid_t id) { return factors_->by_id(id); }
+
 std::vector<mola::id_t> WorldModel::entity_all_ids() const
 {
     return entities_->all_ids();

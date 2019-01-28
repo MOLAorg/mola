@@ -63,6 +63,9 @@ class WorldModel : public ExecutableBase
     const Entity& entity_by_id(const id_t id) const;
     Entity&       entity_by_id(const id_t id);
 
+    const Factor& factor_by_id(const fid_t id) const;
+    Factor&       factor_by_id(const fid_t id);
+
     id_t  entity_emplace_back(Entity&& e);
     fid_t factor_emplace_back(Factor&& f);
 

@@ -49,6 +49,7 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
     /** A reference to my associated SLAM backend.
      * Populated by initialize_common() */
     BackEndBase::Ptr slam_backend_;
+    WorldModel::Ptr  worldmodel_;
 };
 
 }  // namespace mola
