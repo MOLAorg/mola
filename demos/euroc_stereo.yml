@@ -7,24 +7,46 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: RSLAM_gtsam
-    execution_rate: 100 # Hz
-    verbosity_level: INFO
+    type: ASLAM_gtsam
+    execution_rate: 1 # Rate to update the SLAM solution [Hz]
+    #verbosity_level: INFO
     params:
-      # ...
+      # true: use iSAM2
+      # false: use global levmarquartd
+      use_incremental_solver: true
+      # ------
+      # Select state space representation for KeyFrame poses:
+      #state_vector: SE2
+      state_vector: SE3
+      #state_vector: DynSE2
+      #state_vector: DynSE3
+      # --- constant velocity model params (see papers) ---
+      const_vel_model_std_pos: 0.2  # [m]
+      const_vel_model_std_vel: 1  # [m/s]
+      # ------
+      # Save trajectory to file at end? useful for plots, error evaluation,...
+      save_trajectory_file_prefix: kitti_result_00
+      # ------------------------
+# Setup of World Model (the map) =====================================
+  - name: map
+    type: WorldModel
+    #verbosity_level: DEBUG
+    params:
+      # Age at which map keyframes will be unloaded from memory [s]
+      age_to_unload_keyframes: 1500000.0
 # Setup of SLAM front-ends ====================================
   - name: stereo_visual_fe
     type: VisualORB_Stereo
     raw_data_source: euroc_input
-    raw_sensor_label_left: cam0
-    raw_sensor_label_right: cam1
+    raw_sensor_label_left: image_0
+    raw_sensor_label_right: image_1
     params:
       # Pyramids:
       pyramid_layers: 3
       pyramid_smooth: true
       # ORB detector options
       orb_options.raw_FAST_num_features: 3000
-      orb_options.final_num_features: 500
+      orb_options.final_num_features: 800 #500
       orb_options.FAST_version: 9
       orb_options.use_KLT_response: false
       orb_options.KLT_response_half_win: 4
@@ -33,14 +55,8 @@ modules:
       orb_options.image_sectors_x: 6
       orb_options.image_sectors_y: 4
       # Stereo params:
-      stereo_rectify_alpha: 0.5
+      stereo_rectify_alpha: -1
       # ----------
-# Setup of World Model (the map) =====================================
-  - name: map
-    type: WorldModel
-    verbosity_level: INFO
-    params:
-    # None required
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: euroc_input
