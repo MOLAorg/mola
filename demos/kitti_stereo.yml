@@ -13,7 +13,7 @@ modules:
     params:
       # true: use iSAM2
       # false: use global levmarquartd
-      use_incremental_solver: true 
+      use_incremental_solver: true
       # ------
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
@@ -41,8 +41,8 @@ modules:
     raw_sensor_label_left: image_0
     raw_sensor_label_right: image_1
     params:
-      # Pyramids:
       pyramid_layers: 3
+      # Pyramids:
       pyramid_smooth: true
       # ORB detector options
       orb_options.raw_FAST_num_features: 3000
@@ -73,7 +73,7 @@ modules:
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
-      time_warp_scale: 1 
+      time_warp_scale: 0.2
       publish_lidar: false
       publish_image_0: true
       publish_image_1: true
