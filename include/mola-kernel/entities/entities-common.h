@@ -22,6 +22,10 @@
 
 namespace mola
 {
+struct LandmarkPoint3 : public EntityBase
+{
+};
+
 /** Placeholder for generic entity of user-defined types */
 using EntityOther = std::shared_ptr<EntityBase>;
 

@@ -32,7 +32,8 @@ namespace mola
  * \ingroup mola_kernel_grp
  */
 using Entity = std::variant<
-    std::monostate, RefPose3, RelPose3, RelPose3KF, RelDynPose3KF, EntityOther>;
+    std::monostate, RefPose3, RelPose3, RelPose3KF, RelDynPose3KF,
+    LandmarkPoint3, EntityOther>;
 
 /** \addtogroup entity_utils Entity handling utilities
  *  \ingroup mola_kernel_grp

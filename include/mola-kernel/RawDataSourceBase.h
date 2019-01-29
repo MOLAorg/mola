@@ -45,8 +45,7 @@ class RawDataSourceBase : public mola::ExecutableBase
 
    private:
     /** Target of captured data */
-    // std::shared_ptr<RawDataConsumer> rdc_;
-    RawDataConsumer* rdc_{nullptr};
+    std::vector<RawDataConsumer*> rdc_;
 
     struct SensorViewerImpl;
     /** Optional real-time GUI view of sensor data. Viewers indexed by

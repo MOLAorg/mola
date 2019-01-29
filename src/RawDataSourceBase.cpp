@@ -77,7 +77,10 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
     ASSERT_(obs);
     // Just forward the data to my associated consumer:
-    if (rdc_) { rdc_->onNewObservation(obs); }
+    if (!rdc_.empty())
+    {
+        for (auto& subscriber : rdc_) subscriber->onNewObservation(obs);
+    }
     else
     {
         MRPT_LOG_WARN(
@@ -170,5 +173,5 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 void RawDataSourceBase::attachToDataConsumer(RawDataConsumer& rdc)
 {
     MRPT_TODO("fix shared_from_this()");
-    rdc_ = &rdc;  // rdc.getAsPtr();
+    rdc_.push_back(&rdc);  // rdc.getAsPtr();
 }

@@ -116,6 +116,13 @@ class BackEndBase : public ExecutableBase
         THROW_EXCEPTION("Not implemented in selected back-end!");
     }
 
+    virtual mola::id_t temp_createLandmark(
+        [[maybe_unused]]  //
+        const mrpt::math::TPoint3D& init_value)
+    {
+        THROW_EXCEPTION("Not implemented in selected back-end!");
+    }
+
     virtual void lock_slam() {}
     virtual void unlock_slam() {}
 

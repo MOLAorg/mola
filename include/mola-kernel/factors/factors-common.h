@@ -16,6 +16,7 @@
 #include <mola-kernel/factors/FactorDynamicsConstVel.h>
 #include <mola-kernel/factors/FactorRelativePose3.h>
 #include <mola-kernel/factors/FactorStereoProjectionPose.h>
+#include <mola-kernel/factors/SmartFactorStereoProjectionPose.h>
 
 namespace mola
 {
