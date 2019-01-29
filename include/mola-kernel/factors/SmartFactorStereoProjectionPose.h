@@ -13,6 +13,7 @@
 
 #include <mola-kernel/factors/FactorBase.h>
 #include <mrpt/img/TPixelCoord.h>
+#include <mrpt/math/lightweight_geom_data.h>
 #include <deque>
 
 namespace mola
@@ -33,13 +34,15 @@ class SmartFactorStereoProjectionPose : public FactorBase
 
     SmartFactorStereoProjectionPose(
         double sigma_xleft, double sigma_xright, double sigma_y,
-        BackEndBase* slam_backend);
+        BackEndBase*               slam_backend,
+        const mrpt::math::TPose3D& cameraPoseOnRobot = mrpt::math::TPose3D());
 
     /** Noise model */
     double sigma_xleft_, sigma_xright_, sigma_y_;
 
-    std::size_t edge_count() const override;
-    mola::id_t  edge_indices(const std::size_t i) const override;
+    std::size_t         edge_count() const override;
+    mola::id_t          edge_indices(const std::size_t i) const override;
+    mrpt::math::TPose3D cameraPoseOnRobot_;
 
     void addObservation(
         const StereoObservation& st, const id_t observing_kf,

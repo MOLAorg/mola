@@ -20,11 +20,12 @@ using namespace mola;
 
 SmartFactorStereoProjectionPose::SmartFactorStereoProjectionPose(
     double sigma_xleft, double sigma_xright, double sigma_y,
-    BackEndBase* slam_backend)
+    BackEndBase* slam_backend, const mrpt::math::TPose3D& cameraPoseOnRobot)
     : sigma_xleft_(sigma_xleft),
       sigma_xright_(sigma_xright),
       sigma_y_(sigma_y),
-      slam_backend_(slam_backend)
+      slam_backend_(slam_backend),
+      cameraPoseOnRobot_(cameraPoseOnRobot)
 {
 }
 
