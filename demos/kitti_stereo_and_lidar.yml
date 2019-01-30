@@ -25,7 +25,7 @@ modules:
       const_vel_model_std_vel: 1  # [m/s]
       # ------
       # Save trajectory to file at end? useful for plots, error evaluation,...
-      save_trajectory_file_prefix: kitti_result_00
+      save_trajectory_file_prefix: kitti_result_01
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
@@ -121,7 +121,7 @@ modules:
         decimation: 1
     params:
       base_dir: ${KITTI_BASE_DIR}
-      sequence: 00
+      sequence: 01
       time_warp_scale: 0.75
       publish_lidar: true
       publish_image_0: true
