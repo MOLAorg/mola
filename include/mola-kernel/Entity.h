@@ -44,8 +44,9 @@ EntityBase& entity_get_base(Entity& e);
 /** \overload */
 const EntityBase& entity_get_base(const Entity& e);
 
-mrpt::math::TPose3D entity_get_pose(const Entity& e);
-void                entity_update_pose(Entity& e, const mrpt::math::TPose3D& p);
+mrpt::math::TPose3D  entity_get_pose(const Entity& e);
+mrpt::math::TTwist3D entity_get_twist(const mola::Entity& e);
+void entity_update_pose(Entity& e, const mrpt::math::TPose3D& p);
 void entity_update_vel(Entity& e, const std::array<double, 3>& v);
 mrpt::Clock::time_point entity_get_timestamp(const Entity& e);
 

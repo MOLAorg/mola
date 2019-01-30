@@ -96,6 +96,27 @@ void mola::entity_update_vel(mola::Entity& e, const std::array<double, 3>& v)
     MRPT_TRY_END
 }
 
+mrpt::math::TTwist3D mola::entity_get_twist(const mola::Entity& e)
+{
+    MRPT_TRY_START
+
+    mrpt::math::TTwist3D ret;
+    std::visit(
+        overloaded{
+            [&](const RefPose3&) {},
+            [&](const RelDynPose3KF& ee) { ret = ee.twist_value; },
+            [&](const RelPose3&) {},
+            [&](const RelPose3KF&) {},
+            []([[maybe_unused]] auto ee) {
+                throw std::runtime_error(
+                    mrpt::format("[updateEntityPose] Unknown Entity type!"));
+            },
+        },
+        e);
+    return ret;
+    MRPT_TRY_END
+}
+
 mrpt::math::TPose3D mola::entity_get_pose(const mola::Entity& e)
 {
     MRPT_TRY_START
