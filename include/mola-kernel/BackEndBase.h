@@ -87,7 +87,7 @@ class BackEndBase : public ExecutableBase
         mrpt::Clock::time_point timestamp{};
 
         /** Coordinates are given wrt this frame of reference */
-        mola::id_t reference_kf;
+        mola::id_t reference_kf{mola::INVALID_ID};
 
         mrpt::math::TPose3D                        pose;
         std::optional<Eigen::Matrix<double, 6, 6>> cov{std::nullopt};
