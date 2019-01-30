@@ -137,13 +137,22 @@ void EurocDataset::initialize(const std::string& cfg_block)
         ENSURE_YAML_ENTRY_EXISTS(T_BS, "data");
         auto cam_pose = T_BS["data"];
 
+        const mrpt::poses::CPose3D imu2veh(
+            0, 0, 0, mrpt::DEG2RAD(180.0), mrpt::DEG2RAD(-90.0),
+            mrpt::DEG2RAD(0.0));
+
         mrpt::math::CMatrixDouble44 HM;
 
         auto itN = cam_pose.begin();
         for (int r = 0; r < 4; r++)
             for (int c = 0; c < 4; c++, ++itN) HM(r, c) = itN->as<double>();
 
-        cam_poses_[cam_id].fromHomogeneousMatrix(HM);
+        // EUROC uses as body frame the IMU coordinates,
+        // with +X pointing UP, +Y pointing left.
+        // Let's transform cameras to match our uniform convention for cameras:
+        // +X & +Y in the right/down image plane, as seen from a vehicle frame
+        // with +Z up, +X forward.
+        cam_poses_[cam_id] = (imu2veh + mrpt::poses::CPose3D(HM)).asTPose();
 
         // Camera intrinsics:
         auto intrinsics = cal["intrinsics"];
