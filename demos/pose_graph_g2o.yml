@@ -12,13 +12,24 @@ modules:
     # RSLAM_gtsam for SLAM in relative coordinates
     type: ASLAM_gtsam
     # The rate at which the SLAM solution will be recomputed
-    execution_rate: 1 # Hz
+    execution_rate: 10 # Hz
     params:
+      # true: use iSAM2
+      # false: use global levmarquartd
+      use_incremental_solver: true
+      # ------
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
       state_vector: SE3
       #state_vector: DynSE2
       #state_vector: DynSE3
+      # --- constant velocity model params (see papers) ---
+      const_vel_model_std_pos:   # [m]
+      const_vel_model_std_vel: 0.1  # [m/s]
+      # ------
+      # Save trajectory to file at end? useful for plots, error evaluation,...
+      save_trajectory_file_prefix: pose_graph_slam_result
+      # ------------------------
       # ------------------------
 # Setup of SLAM front-ends ====================================
   - name: g2o_dataset_fe
@@ -36,4 +47,4 @@ modules:
     type: WorldModel
     verbosity_level: INFO
     params:
-    # None required
+      age_to_unload_keyframes: 1500000.0
