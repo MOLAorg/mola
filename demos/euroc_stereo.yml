@@ -25,7 +25,7 @@ modules:
       const_vel_model_std_vel: 1  # [m/s]
       # ------
       # Save trajectory to file at end? useful for plots, error evaluation,...
-      save_trajectory_file_prefix: kitti_result_00
+      save_trajectory_file_prefix: kitti_result_01
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
@@ -41,8 +41,8 @@ modules:
     raw_sensor_label_left: image_0
     raw_sensor_label_right: image_1
     params:
-      # Pyramids:
       pyramid_layers: 3
+      # Pyramids:
       pyramid_smooth: true
       # ORB detector options
       orb_options.raw_FAST_num_features: 3000
@@ -72,4 +72,4 @@ modules:
     params:
       base_dir: ${EUROC_BASE_DIR}
       sequence: machine_hall/MH_03_medium/
-      time_warp_scale: 0.1 # 1.0 #2.0
+      time_warp_scale: 0.2
