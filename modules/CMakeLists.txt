@@ -12,6 +12,7 @@ add_subdirectory(mola-launcher)
 
 # Modules:
 add_subdirectory(mola-fe-g2o-dataset)
+add_subdirectory(mola-fe-imu-preintegration)
 add_subdirectory(mola-fe-lidar-icp)
 add_subdirectory(mola-fe-visual-orb)
 add_subdirectory(mola-sensor-kitti-dataset)
