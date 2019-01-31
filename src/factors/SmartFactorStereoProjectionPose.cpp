@@ -24,8 +24,8 @@ SmartFactorStereoProjectionPose::SmartFactorStereoProjectionPose(
     : sigma_xleft_(sigma_xleft),
       sigma_xright_(sigma_xright),
       sigma_y_(sigma_y),
-      slam_backend_(slam_backend),
-      cameraPoseOnRobot_(cameraPoseOnRobot)
+      cameraPoseOnRobot_(cameraPoseOnRobot),
+      slam_backend_(slam_backend)
 {
 }
 
