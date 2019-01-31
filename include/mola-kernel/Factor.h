@@ -31,6 +31,7 @@ namespace mola
  */
 using Factor = std::variant<
     std::monostate, FactorRelativePose3, FactorDynamicsConstVel,
-    FactorStereoProjectionPose, SmartFactorStereoProjectionPose, FactorOther>;
+    FactorStereoProjectionPose, SmartFactorStereoProjectionPose, SmartFactorIMU,
+    FactorOther>;
 
 }  // namespace mola
