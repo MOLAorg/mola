@@ -21,8 +21,8 @@ modules:
       #state_vector: DynSE2
       #state_vector: DynSE3
       # --- constant velocity model params (see papers) ---
-      const_vel_model_std_pos: 0.2  # [m]
-      const_vel_model_std_vel: 1  # [m/s]
+      const_vel_model_std_pos: 0.1  # [m]
+      const_vel_model_std_vel: 0.5  # [m/s]
       # ------
       # Save trajectory to file at end? useful for plots, error evaluation,...
       save_trajectory_file_prefix: kitti_result_01
@@ -38,8 +38,8 @@ modules:
   - name: stereo_visual_fe
     type: VisualORB_Stereo
     raw_data_source: euroc_input
-    raw_sensor_label_left: image_0
-    raw_sensor_label_right: image_1
+    raw_sensor_label_left: cam0
+    raw_sensor_label_right: cam1
     params:
       pyramid_layers: 3
       # Pyramids:
@@ -71,5 +71,5 @@ modules:
 #        win_pos: 510 0 500 200 # [x,y,width,height]
     params:
       base_dir: ${EUROC_BASE_DIR}
-      sequence: machine_hall/MH_03_medium/
-      time_warp_scale: 0.2
+      sequence: vicon_room1/V1_01_easy/
+      time_warp_scale: 0.4
