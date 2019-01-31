@@ -78,7 +78,11 @@ void mola::entity_update_vel(mola::Entity& e, const std::array<double, 3>& v)
     std::visit(
         overloaded{
             [&](RefPose3&) {
-                THROW_EXCEPTION("RefPose3 cannot be assigned a velocity");
+#if 0
+                if (v[0] * v[0] + v[1] * v[1] + v[2] * v[2] > 1e-10)
+                    THROW_EXCEPTION(
+                        "RefPose3 cannot be assigned a velocity!=0");
+#endif
             },
             [&](RelDynPose3KF& ee) {
                 ee.twist_value.vx = v[0];
