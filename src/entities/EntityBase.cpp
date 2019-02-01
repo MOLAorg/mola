@@ -66,3 +66,22 @@ void EntityBase::unload()
 
     MRPT_TRY_END
 }
+
+bool EntityBase::is_unloaded() const
+{
+    MRPT_TRY_START
+
+    bool is_unloaded = true;
+
+    // Always: unload annotations:
+    for (auto& a : annotations_)
+        is_unloaded = is_unloaded && a.second.is_unloaded();
+
+    /*    // If I am a KeyFrame: unload observations:
+        if (auto kf = dynamic_cast<const KeyFrameBase*>(this); kf != nullptr)
+            is_unloaded = is_unloaded && kf->raw_observations_.get() == nullptr;
+    */
+    return is_unloaded;
+
+    MRPT_TRY_END
+}

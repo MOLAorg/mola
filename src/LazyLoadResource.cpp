@@ -75,6 +75,8 @@ void LazyLoadResource::load() const
     MRPT_END
 }
 
+bool LazyLoadResource::is_unloaded() const { return !data_; }
+
 void LazyLoadResource::unload() const
 {
     const auto& fil = buildAbsoluteFilePath();

@@ -48,6 +48,7 @@ class EntityBase
 
     void load();
     void unload();
+    bool is_unloaded() const;
 };
 
 }  // namespace mola

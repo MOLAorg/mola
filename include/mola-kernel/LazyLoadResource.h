@@ -51,6 +51,7 @@ class LazyLoadResource
     void load() const;
     /** Unload data is loaded from disk */
     void unload() const;
+    bool is_unloaded() const;
 
     void reset() { data_.reset(); }
 
