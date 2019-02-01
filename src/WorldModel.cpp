@@ -208,10 +208,14 @@ void WorldModel::initialize(const std::string& cfg_block)
 
 const Entity& WorldModel::entity_by_id(const id_t id) const
 {
-    return entities_->by_id(id);
+    return const_cast<WorldModel&>(*this).entity_by_id(id);
 }
 
-Entity& WorldModel::entity_by_id(const id_t id) { return entities_->by_id(id); }
+Entity& WorldModel::entity_by_id(const id_t id)
+{
+    Entity& e = entities_->by_id(id);
+    return e;
+}
 
 const Factor& WorldModel::factor_by_id(const fid_t id) const
 {
@@ -231,22 +235,16 @@ std::vector<mola::fid_t> WorldModel::factor_all_ids() const
 
 mola::id_t WorldModel::entity_emplace_back(Entity&& e)
 {
-    // For KeyFrames: keep track of their last usage time:
-    const bool is_kf =
-        dynamic_cast<KeyFrameBase*>(&mola::entity_get_base(e)) != nullptr;
-
     const auto [id, eptr] = entities_->emplace_back(std::move(e));
     (void)eptr;
 
     entity_connected_factors_[id];  // Create empty entry
 
-    if (is_kf)
     {
-        entity_last_access_mtx_.lock();
+        auto lock = mola::lockHelper(entity_last_access_mtx_);
+
         entity_last_access_[id] = mrpt::Clock::now();
-        entity_last_access_mtx_.unlock();
     }
-    MRPT_TODO("Update entity_last_access_ upon getters() & setters()");
 
     return id;
 }
@@ -326,8 +324,17 @@ const annotations_data_t& WorldModel::entity_annotations_by_id(
 {
     MRPT_START
 
+    {
+        auto lock               = mola::lockHelper(entity_last_access_mtx_);
+        entity_last_access_[id] = mrpt::Clock::now();
+    }
+
     const annotations_data_t* ret = nullptr;
     auto&                     e   = entities_->by_id(id);
+
+    // Load on-the-fly if required:
+    entity_get_base(e).load();
+
     std::visit(
         overloaded{[&ret](const EntityBase& b) { ret = &b.annotations_; },
                    [&ret](const EntityOther& o) {
@@ -344,16 +351,15 @@ const annotations_data_t& WorldModel::entity_annotations_by_id(
     MRPT_END
 }
 
-void WorldModel::spinOnce()
+std::vector<mola::id_t> WorldModel::findEntitiesToSwapOff()
 {
     MRPT_START
+    ProfilerEntry tle(profiler_, "findEntitiesToSwapOff");
 
-    // Unload KeyFrames that have not been used in a while:
-    auto lk = lockHelper(entity_last_access_mtx_);
+    std::vector<id_t> aged_ids;
 
+    auto       lk    = lockHelper(entity_last_access_mtx_);
     const auto t_now = mrpt::Clock::now();
-
-    unsigned int nUnloads = 0;
 
     for (auto it_ent = entity_last_access_.begin();
          it_ent != entity_last_access_.end();)
@@ -365,17 +371,8 @@ void WorldModel::spinOnce()
             const auto id = it_ent->first;
             // Remove from list:
             it_ent = entity_last_access_.erase(it_ent);
-
-            // and do unload()
-            if (auto kf = dynamic_cast<KeyFrameBase*>(
-                    &mola::entity_get_base(entities_->by_id(id)));
-                kf != nullptr)
-            {
-                // Unload heavy observation data back to disk:
-                if (kf->raw_observations_)
-                    for (auto& obs : *kf->raw_observations_) obs->unload();
-                nUnloads++;
-            }
+            // and report:
+            aged_ids.push_back(id);
         }
         else
         {
@@ -383,7 +380,34 @@ void WorldModel::spinOnce()
         }
     }
 
-    profiler_.registerUserMeasure("unloaded_count", nUnloads);
+    return aged_ids;
+    MRPT_END
+}
+
+void WorldModel::spinOnce()
+{
+    MRPT_START
+
+    // Unload KeyFrames that have not been used in a while:
+    const std::vector<id_t> aged_ids = findEntitiesToSwapOff();
+
+    ProfilerEntry tle(profiler_, "unload_aged_entities");
+
+    // and do unload()
+    if (!aged_ids.empty())
+    {
+        entities_lock_for_write();
+
+        for (auto id : aged_ids)
+            mola::entity_get_base(entities_->by_id(id)).unload();
+
+        entities_unlock_for_write();
+
+        MRPT_LOG_DEBUG_STREAM(
+            "Swapped-off to disk: " << aged_ids.size() << " map entities.");
+    }
+
+    profiler_.registerUserMeasure("unloaded_count", aged_ids.size());
 
     MRPT_END
 }

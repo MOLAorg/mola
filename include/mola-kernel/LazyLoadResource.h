@@ -11,7 +11,8 @@
  */
 #pragma once
 
-#include <mrpt/rtti/CObject.h>
+#include <mola-kernel/id.h>
+#include <mrpt/serialization/CSerializable.h>
 #include <string>
 
 namespace mola
@@ -23,10 +24,13 @@ class LazyLoadResource
 {
    public:
     LazyLoadResource() = default;
-    /** Sets the external filename where this resource should be loaded from
-     * and/or stored to.
-     * Path is relative to the storage directory of the parent WorldModel.*/
-    void externalStorage(const std::string& f);
+
+    LazyLoadResource(
+        const mrpt::serialization::CSerializable::Ptr& source,
+        const std::string&                             f)
+        : data_(source), external_filename_(f)
+    {
+    }
 
     const std::string& externalStorage() const { return external_filename_; }
 
@@ -37,7 +41,7 @@ class LazyLoadResource
         return data_;
     }
     /** Casts as (a const-ref to) the underlying smart pointer to the object */
-    const mrpt::rtti::CObject::Ptr& operator()() const
+    const mrpt::serialization::CSerializable::Ptr& operator()() const
     {
         load_proxy();
         return data_;
@@ -50,6 +54,14 @@ class LazyLoadResource
 
     void reset() { data_.reset(); }
 
+    /** Sets the contents of this container, including the desired external file
+     * name */
+    void set(
+        const mrpt::serialization::CSerializable::Ptr& source,
+        const std::string&                             f);
+
+    void setParentEntityID(const mola::id_t id) { parent_entity_id_ = id; }
+
    private:
     void load_proxy() const
     {
@@ -57,7 +69,13 @@ class LazyLoadResource
         load();
     }
 
-    mutable mrpt::rtti::CObject::Ptr data_;
-    std::string                      external_filename_;
+    const std::string& buildAbsoluteFilePath() const;
+
+    mutable mrpt::serialization::CSerializable::Ptr data_;
+
+    std::string         external_filename_;
+    mola::id_t          parent_entity_id_{INVALID_ID};
+    mutable std::string cached_abs_fil;
+    mutable bool        cached_file_ok{false};
 };
 }  // namespace mola

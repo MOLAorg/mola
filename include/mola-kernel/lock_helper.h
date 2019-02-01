@@ -11,13 +11,17 @@
  */
 #pragma once
 
+#include <type_traits>
+
 namespace mola
 {
 template <class T>
 class LockHelper
 {
+    using Tnc = std::remove_const_t<T>;
+
    public:
-    LockHelper(T* l) : l_{l} { l_->lock(); }
+    LockHelper(const Tnc* l) : l_{const_cast<Tnc*>(l)} { l_->lock(); }
     ~LockHelper()
     {
         if (l_) l_->unlock();
@@ -35,7 +39,7 @@ class LockHelper
     }
 
    private:
-    T* l_{nullptr};
+    Tnc* l_{nullptr};
 };
 
 template <class T>

@@ -45,6 +45,9 @@ class EntityBase
 
     /** See annotations_data_t */
     annotations_data_t annotations_;
+
+    void load();
+    void unload();
 };
 
 }  // namespace mola

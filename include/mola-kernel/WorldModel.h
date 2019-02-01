@@ -101,8 +101,14 @@ class WorldModel : public ExecutableBase
     std::unique_ptr<FactorsContainer> factors_;
     std::shared_mutex                 factors_mtx_;
 
-    mola::fast_map<id_t, mrpt::Clock::time_point> entity_last_access_;
-    std::shared_mutex                             entity_last_access_mtx_;
+    mutable mola::fast_map<id_t, mrpt::Clock::time_point> entity_last_access_;
+    std::shared_mutex entity_last_access_mtx_;
+
+    /** Returns a list with all those entities that have not been accessed in
+     * `age_to_unload_keyframes`. Once an entity is reported as "aged", it's
+     * removed from the list of entities to watch, so it will be not reported
+     * again unless re-loaded. */
+    std::vector<id_t> findEntitiesToSwapOff();
 
     void internal_update_neighbors(const FactorBase& f);
 };
