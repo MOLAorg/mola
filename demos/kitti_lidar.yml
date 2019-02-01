@@ -17,9 +17,9 @@ modules:
       # ------
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
-      #state_vector: SE3
+      state_vector: SE3
       #state_vector: DynSE2
-      state_vector: DynSE3
+      #state_vector: DynSE3
       # --- constant velocity model params (see papers) ---
       const_vel_model_std_pos: 1.0  # [m]
       const_vel_model_std_vel: 5.0  # [m/s]
@@ -30,10 +30,10 @@ modules:
 # Setup of World Model (the map) =====================================
   - name: map
     type: WorldModel
-    verbosity_level: DEBUG
+    #verbosity_level: DEBUG
     params:
       # Age at which map keyframes will be unloaded from memory [s]
-      age_to_unload_keyframes: 1500000.0
+      age_to_unload_keyframes: 25.0
 # Setup of SLAM front-ends ====================================
   - name: lidar_fe
     type: LidarICP
