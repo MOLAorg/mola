@@ -20,6 +20,8 @@
 
 using namespace mola;
 
+static const int GZ_COMPRESS_LEVEL = 0;
+
 const std::string& LazyLoadResource::buildAbsoluteFilePath() const
 {
     MRPT_TODO("Handle the case when f is already absolute");
@@ -89,7 +91,7 @@ void LazyLoadResource::unload() const
     if (!mrpt::system::fileExists(fil))
     {
         mrpt::io::CFileGZOutputStream f;
-        if (!f.open(fil))
+        if (!f.open(fil, GZ_COMPRESS_LEVEL))
             THROW_EXCEPTION_FMT("Cannot write to file: `%s`", fil.c_str());
 
         auto a = mrpt::serialization::archiveFrom(f);

@@ -31,7 +31,7 @@ using annotations_data_t = std::map<std::string, LazyLoadResource>;
 class EntityBase
 {
    public:
-    EntityBase() = default;
+    EntityBase();
     virtual ~EntityBase();
 
     /** The unique ID of this entity in the world model.
