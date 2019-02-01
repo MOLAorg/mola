@@ -18,6 +18,7 @@
 
 using namespace mola;
 
+EntityBase::EntityBase()  = default;
 EntityBase::~EntityBase() = default;
 
 void EntityBase::load()
