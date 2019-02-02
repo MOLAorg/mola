@@ -273,7 +273,7 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
             const bool ontime = timer.sleep();
             if (!ontime)
                 MRPT_LOG_THROTTLE_WARN_STREAM(
-                    5.0,
+                    30.0,
                     "Could not achieve desired real-time execution rate ("
                         << rds.execution_rate
                         << " Hz) on thread for sensor named: " << rds.name);
