@@ -34,14 +34,14 @@ class LazyLoadResource
 
     const std::string& externalStorage() const { return external_filename_; }
 
-    /** Casts as (a copy of) the underlying smart pointer to the object */
-    mrpt::rtti::CObject::Ptr operator()()
+    /** Access (a copy of) the underlying smart pointer to the object */
+    mrpt::serialization::CSerializable::Ptr value()
     {
         load_proxy();
         return data_;
     }
-    /** Casts as (a const-ref to) the underlying smart pointer to the object */
-    const mrpt::serialization::CSerializable::Ptr& operator()() const
+    /** Access (a const-ref to) the underlying smart pointer to the object */
+    const mrpt::serialization::CSerializable::Ptr& value() const
     {
         load_proxy();
         return data_;
