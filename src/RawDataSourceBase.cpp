@@ -125,8 +125,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
                     scene->insert(stock_objects::CornerXYZSimple(1.0f, 4.0f));
-                    // scene->insert(CGridPlaneXY::Create());
-                    auto o = CPointCloudColoured::Create();
+                    auto o = CSetOfObjects::Create();
                     o->setName("pointcloud");
                     scene->insert(o);
                 }
@@ -142,10 +141,12 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                 {
                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
                     auto o     = scene->getByName("pointcloud");
-                    auto gl_pt = mrpt::ptr_cast<CPointCloudColoured>::from(o);
+                    auto gl_pt = mrpt::ptr_cast<CSetOfObjects>::from(o);
 
                     // o_velo
-                    gl_pt->loadFromPointsMap(o_velo->pointcloud.get());
+                    gl_pt->clear();
+                    o_velo->pointcloud->renderOptions.point_size = 1.0f;
+                    o_velo->pointcloud->getAs3DObject(gl_pt);
                 }
 
                 auto o_img =
