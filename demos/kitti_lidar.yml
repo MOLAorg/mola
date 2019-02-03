@@ -69,16 +69,16 @@ modules:
       min_topo_dist_to_consider_loopclosure: 30
       # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      icp_params_with_vel.maxIterations:  10    150
+      icp_params_with_vel.maxIterations:  10    90
       icp_params_with_vel.thresholdDist:   1.0   0.50   # [meters]
       icp_params_with_vel.thresholdAng:    2.0   0.01   # [deg]
       # Case: WITHOUT a good twist (velocity) model:
-      icp_params_without_vel.maxIterations:   5     200
+      icp_params_without_vel.maxIterations:   5     100
       icp_params_without_vel.thresholdDist:   3.0   0.50  # [meters]
       icp_params_without_vel.thresholdAng:    2.0   0.01  # [deg]
       # Case: Loop closure
       loop_closure_montecarlo_samples: 5
-      icp_params_loopclosure.maxIterations: 10    50    200
+      icp_params_loopclosure.maxIterations: 10    40    90
       icp_params_loopclosure.thresholdDist: 30.0  5.0  0.50  # [meters]
       icp_params_loopclosure.thresholdAng:   2.0  0.5  0.01  # [deg]
       # visualization:
@@ -106,7 +106,7 @@ modules:
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
-      time_warp_scale: 0.9
+      time_warp_scale: 1.0
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
