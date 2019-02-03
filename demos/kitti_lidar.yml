@@ -81,6 +81,9 @@ modules:
       icp_params_loopclosure.maxIterations: 10    50    200
       icp_params_loopclosure.thresholdDist: 30.0  5.0  0.50  # [meters]
       icp_params_loopclosure.thresholdAng:   2.0  0.5  0.01  # [deg]
+      # visualization:
+      viz_decor_decimation: 5
+      viz_decor_pointsize: 2.0
       # -----------------------------------------------------
       # DEBUG: Save all ICP pairings as 3Dscene files, for visual inspection
       # Warning: this can consume a *huge* disk space
@@ -91,17 +94,19 @@ modules:
 # TODO: Create a YAML !include
   - name: kitti_input
     type: KittiOdometryDataset
-    execution_rate: 50 # Hz
+    execution_rate: 20 # Hz
     verbosity_level: INFO
     gui_preview_sensors:
       - raw_sensor_label: lidar
         decimation: 1
+        win_pos: 5 5 400 400
       - raw_sensor_label: image_0
         decimation: 1
+        win_pos: 5 410 400 130
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: 00
-      time_warp_scale: 1.5
+      time_warp_scale: 0.9
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
