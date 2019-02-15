@@ -37,3 +37,9 @@
 [submodule "modules/mola-fe-imu-preintegration"]
 	path = modules/mola-fe-imu-preintegration
 	url = git@github.com:jlblancoc/mola-fe-imu-preintegration.git
+[submodule "modules/mola-sensor-rawlog"]
+	path = modules/mola-sensor-rawlog
+	url = git@github.com:jlblancoc/mola-sensor-rawlog.git
+[submodule "modules/mola-sensor-hwdrivers"]
+	path = modules/mola-sensor-hwdrivers
+	url = git@github.com:jlblancoc/mola-sensor-hwdrivers.git
