@@ -25,11 +25,11 @@ mola_set_target_build_options(${PROJECT_NAME})
 mola_configure_library(${PROJECT_NAME})
 
 # find dependencies:
-find_package(mrpt-hwdrivers)
+find_package(mrpt-obs)
 
 # Private lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     mola-kernel
-    mrpt::hwdrivers
+    mrpt::obs
 )

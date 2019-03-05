@@ -12,6 +12,8 @@
 #pragma once
 
 #include <mola-kernel/RawDataSourceBase.h>
+#include <mrpt/io/CFileGZInputStream.h>
+#include <mrpt/serialization/CArchive.h>
 
 namespace mola
 {
@@ -31,6 +33,16 @@ class RawlogDataset : public RawDataSourceBase
     void spinOnce() override;
 
    private:
+    std::string                  rawlog_filename_;
+    mrpt::io::CFileGZInputStream rawlog_in_;
+
+    mrpt::Clock::time_point replay_begin_time_{};
+    mrpt::Clock::time_point rawlog_begin_time_{INVALID_TIMESTAMP};
+    bool                    replay_started_{false};
+    double                  time_warp_scale_{1.0};
+
+    void doReadAhead();
+    std::map<mrpt::Clock::time_point, mrpt::obs::CObservation::Ptr> read_ahead_;
 };
 
 }  // namespace sensor_rawlog_dataset
