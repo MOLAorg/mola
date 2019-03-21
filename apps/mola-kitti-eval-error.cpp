@@ -25,6 +25,7 @@
 #include <mrpt/core/exceptions.h>
 #include <mrpt/math/CMatrixFixedNumeric.h>  // This includes Eigen, plus utilities
 #include <mrpt/otherlibs/tclap/CmdLine.h>
+#include <mrpt/poses/CPose3D.h>
 #include <mrpt/poses/CPose3DInterpolator.h>
 #include <mrpt/system/filesystem.h>
 #include <array>
