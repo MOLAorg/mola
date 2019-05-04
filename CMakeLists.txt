@@ -35,10 +35,16 @@ enable_testing()
 add_subdirectory(externals)
 add_subdirectory(modules)
 
+# Docs:
+find_program(SPHINX_EXECUTABLE NAMES sphinx-build HINTS $ENV{SPHINX_DIR} PATH_SUFFIXES bin DOC "Sphinx documentation generator")
+if(SPHINX_EXECUTABLE)
+  add_subdirectory(docs)
+endif()
+
 message(STATUS "==== MOLA configuration ====")
 message(STATUS "C++ compiler              : ${CMAKE_CXX_COMPILER}")
-message(STATUS "CMake generator           : "  ${CMAKE_GENERATOR})
-message(STATUS "CMake build tool          : " ${CMAKE_BUILD_TOOL})
+message(STATUS "CMake generator           : ${CMAKE_GENERATOR}")
+message(STATUS "CMake build tool          : ${CMAKE_BUILD_TOOL}")
 message(STATUS "Compiler                  : ${CMAKE_CXX_COMPILER} Version: ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "Sphinx (for docs)         : ${SPHINX_EXECUTABLE}")
 message(STATUS "============================")
-
