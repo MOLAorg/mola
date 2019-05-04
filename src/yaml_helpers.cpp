@@ -13,6 +13,7 @@
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/exceptions.h>
 #include <cstdlib>
+#include <iostream>
 
 MRPT_TODO("Add a more generic YAML file parser: includes, etc.");
 
@@ -37,7 +38,13 @@ std::string mola::parseEnvVars(const std::string& text)
     const auto  varname = post.substr(0, post_end);
     std::string varvalue;
     const char* v = ::getenv(varname.c_str());
-    if (v != nullptr) varvalue = std::string(v);
+    if (v != nullptr)
+        varvalue = std::string(v);
+    else
+    {
+        std::cerr << "**Warning** parseEnvVars(): Undefined variable found: ${"
+                  << varname << "}\n";
+    }
 
     return parseEnvVars(pre + varvalue + post.substr(post_end + 1));
     MRPT_TRY_END
