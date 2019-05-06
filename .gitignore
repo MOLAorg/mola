@@ -1,7 +1,7 @@
 build*
 CMakeCache.txt
 CMakeFiles
- # for qtcreator
+# for qtcreator
 CMakeLists.txt.user*
 CMakeScripts
 Testing
@@ -11,3 +11,4 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 doc/html
+*.pyc
