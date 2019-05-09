@@ -43,3 +43,6 @@
 [submodule "modules/mola-sensor-hwdrivers"]
 	path = modules/mola-sensor-hwdrivers
 	url = git@github.com:jlblancoc/mola-sensor-hwdrivers.git
+[submodule "modules/mola-sensor-kaist-dataset"]
+	path = modules/mola-sensor-kaist-dataset
+	url = git@github.com:jlblancoc/mola-sensor-kaist-dataset.git
