@@ -36,7 +36,7 @@ modules:
       age_to_unload_keyframes: 1500000.0
 # Setup of SLAM front-ends ====================================
   - name: lidar_fe
-    type: LidarICP
+    type: LidarOdometry3D
     raw_data_source: kitti_input
     raw_sensor_label: lidar
     params:
