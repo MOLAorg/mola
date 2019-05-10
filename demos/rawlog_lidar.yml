@@ -36,7 +36,7 @@ modules:
       age_to_unload_keyframes: 25.0
 # Setup of SLAM front-ends ====================================
   - name: lidar_fe
-    type: LidarICP
+    type: LidarOdometry3D
     raw_data_source: rawlog_input
     raw_sensor_label: Velodyne1_SCAN
     params:
