@@ -46,3 +46,6 @@
 [submodule "modules/mola-sensor-kaist-dataset"]
 	path = modules/mola-sensor-kaist-dataset
 	url = git@github.com:jlblancoc/mola-sensor-kaist-dataset.git
+[submodule "modules/mola-viz"]
+	path = modules/mola-viz
+	url = git@github.com:jlblancoc/mola-viz

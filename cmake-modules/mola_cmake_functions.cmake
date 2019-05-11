@@ -155,3 +155,72 @@ function(mola_configure_app TARGETNAME)
   #TODO: install?
 
 endfunction()
+
+
+# -----------------------------------------------------------------------------
+# mola_add_library(
+#	TARGET name
+#	SOURCES ${SRC_FILES}
+#	[PUBLIC_LINK_LIBRARIES lib1 lib2]
+#	[PRIVATE_LINK_LIBRARIES lib3 lib4]
+#	)
+#
+# Defines a MOLA library
+# -----------------------------------------------------------------------------
+function(mola_add_library)
+	set(options "")
+    set(oneValueArgs TARGET)
+    set(multiValueArgs SOURCES PUBLIC_LINK_LIBRARIES PRIVATE_LINK_LIBRARIES)
+    cmake_parse_arguments(MOLA_ADD_LIBRARY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+	add_library(${MOLA_ADD_LIBRARY_TARGET}
+		SHARED
+		${MOLA_ADD_LIBRARY_SOURCES}
+	)
+
+	# Define common flags:
+	mola_set_target_build_options(${MOLA_ADD_LIBRARY_TARGET})
+	mola_configure_library(${MOLA_ADD_LIBRARY_TARGET})
+
+	# lib Dependencies:
+	target_link_libraries(${MOLA_ADD_LIBRARY_TARGET}
+		PUBLIC
+		${MOLA_ADD_LIBRARY_PUBLIC_LINK_LIBRARIES}
+	)
+	target_link_libraries(${MOLA_ADD_LIBRARY_TARGET}
+		PRIVATE
+		${MOLA_ADD_LIBRARY_PRIVATE_LINK_LIBRARIES}
+	)
+endfunction()
+
+# -----------------------------------------------------------------------------
+# mola_add_executable(
+#	TARGET name
+#	SOURCES ${SRC_FILES}
+#	[LINK_LIBRARIES lib1 lib2]
+#	)
+#
+# Defines a MOLA executable
+# -----------------------------------------------------------------------------
+function(mola_add_executable)
+	set(options "")
+    set(oneValueArgs TARGET)
+    set(multiValueArgs SOURCES LINK_LIBRARIES)
+    cmake_parse_arguments(MOLA_ADD_EXECUTABLE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+	add_executable(${MOLA_ADD_EXECUTABLE_TARGET}
+		${MOLA_ADD_EXECUTABLE_SOURCES}
+	)
+
+	# Define common flags:
+	mola_set_target_build_options(${MOLA_ADD_EXECUTABLE_TARGET})
+	mola_configure_app(${MOLA_ADD_EXECUTABLE_TARGET})
+
+	# lib Dependencies:
+	if (MOLA_ADD_EXECUTABLE_LINK_LIBRARIES)
+		target_link_libraries(
+			${MOLA_ADD_EXECUTABLE_TARGET}
+			${MOLA_ADD_EXECUTABLE_LINK_LIBRARIES}
+		)
+	endif()
+endfunction()
