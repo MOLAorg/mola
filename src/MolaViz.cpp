@@ -36,3 +36,11 @@ void MolaViz::initialize(const std::string& cfg_block)
 
     MRPT_END
 }
+
+void MolaViz::spinOnce()
+{
+    MRPT_START
+    //
+
+    MRPT_END
+}
