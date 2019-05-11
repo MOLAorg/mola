@@ -80,10 +80,14 @@ void internal_load_lib_modules(
 #else
             HMODULE handle = LoadLibrary(lib.wholePath.c_str());
 #endif
-            ASSERTMSG_(
-                handle != nullptr,
-                mrpt::format(
-                    "Error loading module: %s", lib.wholePath.c_str()));
+            if (handle == nullptr)
+            {
+                const char* err = dlerror();
+                if (!err) err = "(error calling dlerror())";
+                THROW_EXCEPTION(mrpt::format(
+                    "Error loading module: `%s`\ndlerror(): `%s`",
+                    lib.wholePath.c_str(), err));
+            }
 
             app.logStr(
                 LVL_DEBUG, mrpt::format(
