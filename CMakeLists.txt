@@ -31,7 +31,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules)
 include(mola_cmake_functions)
 
 # Process subdirectories:
-enable_testing()
+option(MOLA_ENABLE_UNIT_TESTS "Build unit tests" ON)
+if(MOLA_ENABLE_UNIT_TESTS)
+    include(GoogleTest)
+    enable_testing()
+endif()
 add_subdirectory(externals)
 add_subdirectory(modules)
 
