@@ -79,7 +79,9 @@ function(mola_set_target_build_options TARGETNAME)
   else()
     # gcc & clang:
     target_compile_options(${TARGETNAME} PRIVATE
-      -Wall -Wextra -Wshadow -Wreturn-type -Wabi=11
+      -Wall -Wextra -Wshadow
+      -Werror=return-type # error on missing return();
+      -Wabi=11
       -Wtype-limits -Wcast-align -Wparentheses
       -fPIC
     )
