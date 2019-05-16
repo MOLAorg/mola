@@ -33,6 +33,9 @@ if (TARGET tbb)
     target_compile_definitions(${PROJECT_NAME} PUBLIC MOLA_KERNEL_HAS_TBB)
 endif()
 
+message("mola-kernel: Using MRPT version: ${MRPT_VERSION}")
+
+
 # Public lib Dependencies:
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
