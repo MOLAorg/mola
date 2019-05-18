@@ -34,6 +34,8 @@ const std::string& LazyLoadResource::buildAbsoluteFilePath() const
 
     cached_abs_fil = mrpt::system::fileNameStripInvalidChars(cached_abs_fil);
 
+    cached_abs_fil = std::string("/tmp/") + cached_abs_fil;
+
     cached_file_ok = true;
     return cached_abs_fil;
 }
