@@ -58,8 +58,8 @@ modules:
       # decimate as we filter by voxels (1=no decimation)
       full_pointcloud_decimation: 10
       voxel_filter_decimation: 10
-      voxel_filter_max_e2_e0: 20
-      voxel_filter_max_e1_e0: 20
+      voxel_filter_max_e2_e0: 30
+      voxel_filter_max_e1_e0: 30
       voxel_filter_min_e2_e0: 80
       voxel_filter_min_e1_e0: 80
       # min/max distance to check for match/loop closure between KFs:
