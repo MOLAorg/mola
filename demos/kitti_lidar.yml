@@ -45,7 +45,7 @@ modules:
       min_time_between_scans: 0.01    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 2   # [meters]
+      min_dist_xyz_between_keyframes: 3   # [meters]
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
       min_icp_goodness: 0.50       # range [0,1]
       # ditto, for loop-closures attempts to align
@@ -55,6 +55,7 @@ modules:
       #
       olae_relative_weight_planes_attitude: 0.1
       # Voxel filter: general params
+      full_pointcloud_decimation: 10
       voxel_filter_resolution: 1  # [meters]
       voxel_filter_min_point_count: 10 # min. points count/voxel to accept
       voxel_filter_min_point_spacing: 0.02   # [meters]
@@ -75,24 +76,24 @@ modules:
       min_topo_dist_to_consider_loopclosure: 40
       # Params for the ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      icp_params_with_vel.maxIterations:     8      50      10
+      icp_params_with_vel.maxIterations:     8      50      5
       icp_params_with_vel.thresholdDist:     1.0     0.75   0.50    # [meters]
       icp_params_with_vel.thresholdAng:      2.0     0.5    0.1   # [deg]
       icp_params_with_vel.useRobustKernel:   0       1      1
-      icp_params_with_vel.maxPairsPerLayer:  100     200    5000
+      icp_params_with_vel.maxPairsPerLayer:  100     200    20000
       # Case: WITHOUT a good twist (velocity) model:
-      icp_params_without_vel.maxIterations:   8      50   10
+      icp_params_without_vel.maxIterations:   8      50   5
       icp_params_without_vel.thresholdDist:   3.0    0.75 0.5  # [meters]
       icp_params_without_vel.thresholdAng:    3.0    0.5  0.5 # [deg]
       icp_params_without_vel.useRobustKernel:  0     1     1
-      icp_params_without_vel.maxPairsPerLayer: 100   200   5000
+      icp_params_without_vel.maxPairsPerLayer: 100   200   20000
       # Case: Loop closure
       loop_closure_montecarlo_samples: 5
-      icp_params_loopclosure.maxIterations:   10    50      20
+      icp_params_loopclosure.maxIterations:   10    40      5
       icp_params_loopclosure.thresholdDist:   30.0   1.0    0.75  # [meters]
       icp_params_loopclosure.thresholdAng:     5.0   1.0    0.5  # [deg]
-      icp_params_loopclosure.useRobustKernel:  0     1      1
-      icp_params_loopclosure.maxPairsPerLayer:  200  200    5000
+      icp_params_loopclosure.useRobustKernel:  0     0      1
+      icp_params_loopclosure.maxPairsPerLayer:  200  200   20000
       # visualization:
       viz_decor_decimation: 5
       viz_decor_pointsize: 2.0
