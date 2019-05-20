@@ -25,7 +25,7 @@ modules:
       const_vel_model_std_vel: 5.0  # [m/s]
       # ------
       # Save trajectory to file at end? useful for plots, error evaluation,...
-      save_trajectory_file_prefix: kitti_result_04
+      save_trajectory_file_prefix: kitti_result_${KITTI_SEQ}
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
@@ -47,16 +47,16 @@ modules:
       # the map
       min_dist_xyz_between_keyframes: 3   # [meters]
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
-      min_icp_goodness: 0.50       # range [0,1]
+      min_icp_goodness: 0.60       # range [0,1]
       # ditto, for loop-closures attempts to align
       min_icp_goodness_lc: 0.75     # range [0,1]
       # Relative weight of decimated full pc in ICP:
-      icp_full_decim_layer_weight: 0.1
+      icp_full_decim_layer_weight: 1.0
       #
-      olae_relative_weight_planes_attitude: 0.1
+      olae_relative_weight_planes_attitude: 1.0
       # Voxel filter: general params
-      full_pointcloud_decimation: 10
-      voxel_filter_resolution: 1  # [meters]
+      full_pointcloud_decimation: 10  # 0:disabled
+      voxel_filter_resolution: 2  # [meters]
       voxel_filter_min_point_count: 10 # min. points count/voxel to accept
       voxel_filter_min_point_spacing: 0.02   # [meters]
       # Voxel filer for edges:
@@ -76,13 +76,13 @@ modules:
       min_topo_dist_to_consider_loopclosure: 40
       # Params for the ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      icp_params_with_vel.maxIterations:     8      50      10
+      icp_params_with_vel.maxIterations:     8      50      4
       icp_params_with_vel.thresholdDist:     1.0     0.75   0.50    # [meters]
       icp_params_with_vel.thresholdAng:      2.0     0.5    0.1   # [deg]
       icp_params_with_vel.useRobustKernel:   0       1      1
       icp_params_with_vel.maxPairsPerLayer:  100     200    5000
       # Case: WITHOUT a good twist (velocity) model:
-      icp_params_without_vel.maxIterations:   8      50   10
+      icp_params_without_vel.maxIterations:   8      50   4
       icp_params_without_vel.thresholdDist:   3.0    0.75 0.5  # [meters]
       icp_params_without_vel.thresholdAng:    3.0    0.5  0.5 # [deg]
       icp_params_without_vel.useRobustKernel:  0     1     1
@@ -118,8 +118,8 @@ modules:
         win_pos: 5 410 400 130
     params:
       base_dir: ${KITTI_BASE_DIR}
-      sequence: 04
-      time_warp_scale: 1.2
+      sequence: ${KITTI_SEQ}
+      time_warp_scale: 1.25
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
