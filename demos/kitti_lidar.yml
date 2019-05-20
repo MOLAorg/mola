@@ -39,6 +39,7 @@ modules:
     type: LidarOdometry3D
     raw_data_source: kitti_input
     raw_sensor_label: lidar
+    #verbosity_level: DEBUG
     params:
       # Minimum time (seconds) between scans for being attempted to be
       # aligned. Scans faster than this rate will be just silently ignored.
@@ -46,54 +47,41 @@ modules:
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
       min_dist_xyz_between_keyframes: 3   # [meters]
+      # If !=0, decimate point clouds so they do not have more than this number of points
+      decimate_to_point_count: 450
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
-      min_icp_goodness: 0.60       # range [0,1]
+      min_icp_goodness: 0.50        # range [0,1]
       # ditto, for loop-closures attempts to align
       min_icp_goodness_lc: 0.75     # range [0,1]
-      # Relative weight of decimated full pc in ICP:
-      icp_full_decim_layer_weight: 1.0
-      #
-      olae_relative_weight_planes_attitude: 1.0
-      # Voxel filter: general params
-      full_pointcloud_decimation: 10  # 0:disabled
-      voxel_filter_resolution: 2  # [meters]
-      voxel_filter_min_point_count: 10 # min. points count/voxel to accept
-      voxel_filter_min_point_spacing: 0.02   # [meters]
-      # Voxel filer for edges:
-      voxel_filter4edges_decimation: 2
-      voxel_filter4edges_max_e1_e0: 40
-      voxel_filter4edges_min_e2_e1: 1
-      # Voxel filter for planes:
-      voxel_filter4planes_decimation: 5
-      voxel_filter4planes_min_e1_e0: 80
-      voxel_filter4planes_min_e2_e0: 80
-      #
+      # Size (resolution) of the voxel filter
+      voxel_filter_resolution: 1.0  # [meters]
+      # decimate as we filter by voxels (1=no decimation)
+      full_pointcloud_decimation: 10
+      voxel_filter_decimation: 10
+      voxel_filter_max_e2_e0: 20
+      voxel_filter_max_e1_e0: 20
+      voxel_filter_min_e2_e0: 80
+      voxel_filter_min_e1_e0: 80
       # min/max distance to check for match/loop closure between KFs:
-      min_dist_to_matching: 3.0       # [m]
-      max_dist_to_matching: 30.0      # [m]
+      min_dist_to_matching: 5.0       # [m]
+      max_dist_to_matching: 20.0      # [m]
       max_dist_to_loop_closure: 30.0  # [m]
-      max_nearby_align_checks: 7
-      min_topo_dist_to_consider_loopclosure: 40
-      # Params for the ICP algoritm: See mrpt::slam::CICP for documentation
+      max_nearby_align_checks: 3
+      min_topo_dist_to_consider_loopclosure: 30
+      # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
       # Case: WITH a good twist (velocity) model:
-      icp_params_with_vel.maxIterations:     8      50      4
-      icp_params_with_vel.thresholdDist:     1.0     0.75   0.50    # [meters]
-      icp_params_with_vel.thresholdAng:      2.0     0.5    0.1   # [deg]
-      icp_params_with_vel.useRobustKernel:   0       1      1
-      icp_params_with_vel.maxPairsPerLayer:  100     200    5000
+      icp_params_with_vel.maxIterations:  10    90
+      icp_params_with_vel.thresholdDist:   1.0   0.50   # [meters]
+      icp_params_with_vel.thresholdAng:    2.0   0.01   # [deg]
       # Case: WITHOUT a good twist (velocity) model:
-      icp_params_without_vel.maxIterations:   8      50   4
-      icp_params_without_vel.thresholdDist:   3.0    0.75 0.5  # [meters]
-      icp_params_without_vel.thresholdAng:    3.0    0.5  0.5 # [deg]
-      icp_params_without_vel.useRobustKernel:  0     1     1
-      icp_params_without_vel.maxPairsPerLayer: 100   200   5000
+      icp_params_without_vel.maxIterations:   5     100
+      icp_params_without_vel.thresholdDist:   3.0   0.50  # [meters]
+      icp_params_without_vel.thresholdAng:    2.0   0.01  # [deg]
       # Case: Loop closure
       loop_closure_montecarlo_samples: 5
-      icp_params_loopclosure.maxIterations:   10    40      10
-      icp_params_loopclosure.thresholdDist:   30.0   1.0    0.75  # [meters]
-      icp_params_loopclosure.thresholdAng:     5.0   1.0    0.5  # [deg]
-      icp_params_loopclosure.useRobustKernel:  0     0      0
-      icp_params_loopclosure.maxPairsPerLayer:  200  200   5000
+      icp_params_loopclosure.maxIterations: 10    40    90
+      icp_params_loopclosure.thresholdDist: 30.0  5.0  0.50  # [meters]
+      icp_params_loopclosure.thresholdAng:   2.0  0.5  0.01  # [deg]
       # visualization:
       viz_decor_decimation: 5
       viz_decor_pointsize: 2.0
@@ -108,7 +96,7 @@ modules:
   - name: kitti_input
     type: KittiOdometryDataset
     execution_rate: 20 # Hz
-    #verbosity_level: INFO
+    verbosity_level: INFO
     gui_preview_sensors:
       - raw_sensor_label: lidar
         decimation: 1
@@ -119,7 +107,7 @@ modules:
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: ${KITTI_SEQ}
-      time_warp_scale: 1.25
+      time_warp_scale: 1.5
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
