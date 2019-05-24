@@ -30,8 +30,7 @@ sudo apt install libyaml-cpp-dev
 ### Build
 Classic cmake stuff:
 ```
-mkdir build && cd build
-cmake ..
+cmake -H. -Bbuild
 cmake --build .
 ```
 
