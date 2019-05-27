@@ -6,7 +6,7 @@
 	url = https://github.com/jbeder/yaml-cpp.git
 [submodule "externals/gtsam/gtsam"]
 	path = externals/gtsam/gtsam
-	url = https://jlblancoc@bitbucket.org/jlblancoc/gtsam.git
+	url = https://github.com/jlblancoc/gtsam.git
 [submodule "modules/mola-launcher"]
 	path = modules/mola-launcher
 	url = git@github.com:jlblancoc/mola-launcher.git
