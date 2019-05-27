@@ -20,12 +20,12 @@
 #include <mola-sensor-kitti-dataset/KittiOdometryDataset.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
-#include <mrpt/math/CMatrixTemplateNumeric.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 #include <yaml-cpp/yaml.h>
+#include <Eigen/Dense>
 
 using namespace mola;
 
@@ -100,12 +100,13 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     MRPT_LOG_INFO_STREAM("Loading kitti dataset from: " << seq_dir_);
     // Load timestamps:
     {
-        Eigen::VectorXd mtimes;
+        mrpt::math::CVectorDynamic<double> mtimes;
         // Use MRPT load function:
         mtimes.loadFromTextFile(seq_dir_ + std::string("/times.txt"));
         // Convert to std::vector:
         lst_timestamps_.resize(static_cast<std::size_t>(mtimes.size()));
-        Eigen::VectorXd::Map(&lst_timestamps_[0], mtimes.size()) = mtimes;
+        Eigen::VectorXd::Map(&lst_timestamps_[0], mtimes.size()) =
+            mtimes.asEigen();
     }
     const auto N = lst_timestamps_.size();
     MRPT_LOG_DEBUG_STREAM("Dataset timesteps: " << N);
@@ -194,11 +195,11 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
 
     // Velodyne is the (0,0,0) of the vehicle.
     // image_0 pose wrt velo is "Tr":
-    mrpt::math::CMatrixDouble44 Trh = Eigen::Matrix4d::Identity();
-    Trh.block<3, 4>(0, 0)           = Tr;
+    auto Trh              = mrpt::math::CMatrixDouble44::Identity();
+    Trh.block<3, 4>(0, 0) = Tr;
     MRPT_LOG_DEBUG_STREAM("Original Trh= (velo wrt cam_0) \n" << Trh);
     // Inverse:
-    Trh = Trh.inverse().eval();
+    Trh = Trh.inverse();
     MRPT_LOG_DEBUG_STREAM("Inverted Trh= (cam_0 wrt velo) \n" << Trh);
 
     // Camera 0:

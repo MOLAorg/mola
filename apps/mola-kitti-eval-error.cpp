@@ -23,7 +23,7 @@
  */
 
 #include <mrpt/core/exceptions.h>
-#include <mrpt/math/CMatrixFixedNumeric.h>  // This includes Eigen, plus utilities
+#include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/otherlibs/tclap/CmdLine.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/poses/CPose3DInterpolator.h>
@@ -103,7 +103,7 @@ int main(int argc, char** argv)
     }
 }
 
-using Matrix = Eigen::Matrix4d;
+using Matrix = mrpt::math::CMatrixDouble44;
 
 std::vector<Matrix> loadPoses_mrpt(std::string file_name)
 {
@@ -125,16 +125,21 @@ std::vector<Matrix> loadPoses_mrpt(std::string file_name)
     // Velodyne is the (0,0,0) of the vehicle.
     // image_0 pose wrt velo is "Tr":
     // From calibration files:
-    mrpt::math::CMatrixDouble44 Trh =
-        (Eigen::Matrix4d() << 4.276802385584e-04, -9.999672484946e-01,
-         -8.084491683471e-03, -1.198459927713e-02, -7.210626507497e-03,
-         8.081198471645e-03, -9.999413164504e-01, -5.403984729748e-02,
-         9.999738645903e-01, 4.859485810390e-04, -7.206933692422e-03,
-         -2.921968648686e-01, 0, 0, 0, 1)
-            .finished();
+    MRPT_TODO("Load from calib file instead?");
+    // clang-format off
+    const double Trh_vals[16] = {
+        4.276802385584e-04, -9.999672484946e-01,
+        -8.084491683471e-03, -1.198459927713e-02, -7.210626507497e-03,
+        8.081198471645e-03, -9.999413164504e-01, -5.403984729748e-02,
+        9.999738645903e-01, 4.859485810390e-04, -7.206933692422e-03,
+        -2.921968648686e-01, 0, 0, 0, 1};
+    // clang-format on
+
+    auto Trh = mrpt::math::CMatrixDouble44(Trh_vals);
+
     std::cout << "Original Trh= (velo wrt cam_0) \n" << Trh << "\n";
     // Inverse:
-    Trh = Trh.inverse().eval();
+    Trh = Trh.inverse();
     std::cout << "Inverted Trh= (cam_0 wrt velo) \n" << Trh << "\n";
 
     // Camera 0:
@@ -645,14 +650,16 @@ void plotErrorPlots(string dir, char* prefix)
 
 void saveStats(vector<errors> err, string dir)
 {
-    float t_err = 0;
-    float r_err = 0;
+    float t_err           = 0;
+    float r_err           = 0;
+    float r_err_per_meter = 0;
 
     // for all errors do => compute sum of t_err, r_err
     for (vector<errors>::iterator it = err.begin(); it != err.end(); it++)
     {
         t_err += it->t_err;
         r_err += it->r_err;
+        r_err_per_meter += it->r_err / it->len;
     }
 
     // open file
@@ -661,8 +668,10 @@ void saveStats(vector<errors> err, string dir)
 
     // save errors
     float num = err.size();
-    fprintf(fp, "%% Overall error: trans_error (*100 = percent)  rot_error\n");
-    fprintf(fp, "%f %f\n", t_err / num, r_err / num);
+    fprintf(fp, "%% Overall error: trans_error (percent)  rot_error\n");
+    fprintf(
+        fp, "%f  %f\n", 100 * t_err / num, r_err / num,
+        (180.0f / 3.14159265359f) * r_err_per_meter / num);
 
     // close file
     fclose(fp);
