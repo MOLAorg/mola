@@ -20,11 +20,13 @@
 #include <mola-kernel/yaml_helpers.h>
 #include <mola-sensor-euroc-dataset/EurocDataset.h>
 #include <mrpt/core/initializer.h>
-#include <mrpt/math/CMatrixTemplateNumeric.h>
+//#include <mrpt/math/CMatrixTemplateNumeric.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 #include <yaml-cpp/yaml.h>
+#include <Eigen/Dense>
+#include <fstream>
 
 using namespace mola;
 using namespace mola::euroc_dataset;
@@ -37,6 +39,8 @@ EurocDataset::EurocDataset() = default;
 template <typename MATRIX>
 static void load_csv(const std::string& path, MATRIX& M)
 {
+    MRPT_TODO("Refactor to mrpt-math?");
+
     std::ifstream indata;
     indata.open(path);
     std::string                          line;
