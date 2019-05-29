@@ -43,6 +43,15 @@ include(GtsamMakeConfigFile)
 set(GTSAM_SOURCE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/gtsam/)
 message(STATUS "GTSAM_SOURCE_ROOT_DIR: [${GTSAM_SOURCE_ROOT_DIR}]")
 
+
+# Overrides GTSAM_BUILD_WITH_MARCH_NATIVE with MOLA_BUILD_MARCH_NATIVE,
+# before defining it inside "GtsamBuildTypes" below:
+set(GTSAM_BUILD_WITH_MARCH_NATIVE ${MOLA_BUILD_MARCH_NATIVE}
+  CACHE BOOL
+  "Enable/Disable building with all instructions supported by native architecture (binary may not be portable!)"
+  FORCE
+)
+
 # Load build type flags and default to Debug mode
 include(GtsamBuildTypes)
 
@@ -234,31 +243,57 @@ mark_as_advanced(GTSAM_USE_SYSTEM_EIGEN)
 # Switch for using system Eigen or GTSAM-bundled Eigen
 if(GTSAM_USE_SYSTEM_EIGEN)
 	find_package(Eigen3 REQUIRED)
-	include_directories(AFTER "${EIGEN3_INCLUDE_DIR}")
 
 	# Use generic Eigen include paths e.g. <Eigen/Core>
-    set(GTSAM_EIGEN_INCLUDE_PREFIX "${EIGEN3_INCLUDE_DIR}")
+	set(GTSAM_EIGEN_INCLUDE_FOR_INSTALL "${EIGEN3_INCLUDE_DIR}")
 
 	# check if MKL is also enabled - can have one or the other, but not both!
 	# Note: Eigen >= v3.2.5 includes our patches
 	if(EIGEN_USE_MKL_ALL AND (EIGEN3_VERSION VERSION_LESS 3.2.5))
-	  message(FATAL_ERROR "MKL requires at least Eigen 3.2.5, and your system appears to have an older version. Disable GTSAM_USE_SYSTEM_EIGEN to use GTSAM's copy of Eigen, or disable GTSAM_WITH_EIGEN_MKL")
+		message(FATAL_ERROR "MKL requires at least Eigen 3.2.5, and your system appears to have an older version. Disable GTSAM_USE_SYSTEM_EIGEN to use GTSAM's copy of Eigen, or disable GTSAM_WITH_EIGEN_MKL")
 	endif()
+
+	# The actual include directory (for BUILD cmake target interface):
+	set(GTSAM_EIGEN_INCLUDE_FOR_BUILD "${EIGEN3_INCLUDE_DIR}")
 else()
 	# Use bundled Eigen include path.
 	# Clear any variables set by FindEigen3
 	if(EIGEN3_INCLUDE_DIR)
 		set(EIGEN3_INCLUDE_DIR NOTFOUND CACHE STRING "" FORCE)
 	endif()
-	# Add the bundled version of eigen to the include path so that it can still be included
-	# with  #include <Eigen/Core>
-	include_directories(BEFORE "gtsam/gtsam/3rdparty/Eigen/")
 
 	# set full path to be used by external projects
 	# this will be added to GTSAM_INCLUDE_DIR by gtsam_extra.cmake.in
-	set(GTSAM_EIGEN_INCLUDE_PREFIX "${CMAKE_INSTALL_PREFIX}/include/gtsam/3rdparty/Eigen/")
+	set(GTSAM_EIGEN_INCLUDE_FOR_INSTALL "include/gtsam/3rdparty/Eigen/")
 
+
+	# set full path to be used by external projects
+	# this will be added to GTSAM_INCLUDE_DIR by gtsam_extra.cmake.in
+	set(GTSAM_EIGEN_INCLUDE_FOR_BUILD "${CMAKE_CURRENT_SOURCE_DIR}/gtsam/gtsam/3rdparty/Eigen/")
 endif()
+
+# Detect Eigen version:
+set(EIGEN_VER_H "${GTSAM_EIGEN_INCLUDE_FOR_BUILD}/Eigen/src/Core/util/Macros.h")
+if (EXISTS ${EIGEN_VER_H})
+	file(READ "${EIGEN_VER_H}" STR_EIGEN_VERSION)
+
+	# Extract the Eigen version from the Macros.h file, lines "#define EIGEN_WORLD_VERSION  XX", etc...
+
+	string(REGEX MATCH "EIGEN_WORLD_VERSION[ ]+[0-9]+" CMAKE_EIGEN_VERSION_NUMBER_WORLD "${STR_EIGEN_VERSION}")
+	string(REGEX MATCH "[0-9]+" CMAKE_EIGEN_VERSION_NUMBER_WORLD "${CMAKE_EIGEN_VERSION_NUMBER_WORLD}")
+
+	string(REGEX MATCH "EIGEN_MAJOR_VERSION[ ]+[0-9]+" CMAKE_EIGEN_VERSION_NUMBER_MAJOR "${STR_EIGEN_VERSION}")
+	string(REGEX MATCH "[0-9]+" CMAKE_EIGEN_VERSION_NUMBER_MAJOR "${CMAKE_EIGEN_VERSION_NUMBER_MAJOR}")
+
+	string(REGEX MATCH "EIGEN_MINOR_VERSION[ ]+[0-9]+" CMAKE_EIGEN_VERSION_NUMBER_MINOR "${STR_EIGEN_VERSION}")
+	string(REGEX MATCH "[0-9]+" CMAKE_EIGEN_VERSION_NUMBER_MINOR "${CMAKE_EIGEN_VERSION_NUMBER_MINOR}")
+
+	set(GTSAM_EIGEN_VERSION "${CMAKE_EIGEN_VERSION_NUMBER_WORLD}.${CMAKE_EIGEN_VERSION_NUMBER_MAJOR}.${CMAKE_EIGEN_VERSION_NUMBER_MINOR}")
+
+	message(STATUS "Found Eigen version: ${GTSAM_EIGEN_VERSION}")
+else()
+	message(WARNING "Cannot determine Eigen version, missing file: `${EIGEN_VER_H}`")
+endif ()
 
 if (MSVC)
   if (BUILD_SHARED_LIBS)
@@ -471,6 +506,8 @@ message(STATUS "Building GTSAM - shared: ${BUILD_SHARED_LIBS}")
 
 # BUILD_SHARED_LIBS automatically defines static/shared libs:
 add_library(gtsam ${gtsam_srcs})
+mola_set_target_cxx17(gtsam)
+
 target_link_libraries(gtsam
     PUBLIC
     ${GTSAM_BOOST_LIBRARIES} ${GTSAM_ADDITIONAL_LIBRARIES})
@@ -479,6 +516,13 @@ set_target_properties(gtsam PROPERTIES
     CLEAN_DIRECT_OUTPUT 1
     VERSION             ${gtsam_version}
     SOVERSION           ${gtsam_soversion})
+
+# Append Eigen include path, set in top-level CMakeLists.txt to either
+# system-eigen, or GTSAM eigen path
+target_include_directories(gtsam PUBLIC
+  $<BUILD_INTERFACE:${GTSAM_EIGEN_INCLUDE_FOR_BUILD}>
+  $<INSTALL_INTERFACE:${GTSAM_EIGEN_INCLUDE_FOR_INSTALL}>
+)
 
 if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with shared library
 	if (NOT BUILD_SHARED_LIBS)
@@ -492,6 +536,13 @@ if(WIN32) # Add 'lib' prefix to static library to avoid filename collision with 
 			RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 	endif()
 endif()
+
+message(STATUS "GTSAM_COMPILE_OPTIONS_PUBLIC: ${GTSAM_COMPILE_OPTIONS_PUBLIC}")
+if (NOT "${GTSAM_COMPILE_OPTIONS_PUBLIC}" STREQUAL "")
+  target_compile_options(gtsam PUBLIC ${GTSAM_COMPILE_OPTIONS_PUBLIC})
+endif()
+target_compile_options(gtsam PRIVATE ${GTSAM_COMPILE_OPTIONS_PRIVATE})
+
 
 if (APPLE AND BUILD_SHARED_LIBS)
 	set_target_properties(gtsam PROPERTIES
@@ -678,7 +729,8 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" cmake_build_type_toupper)
 if(NOT MSVC AND NOT XCODE_VERSION)
     message(STATUS "  Build type                     : ${CMAKE_BUILD_TYPE}")
     message(STATUS "  C compilation flags            : ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${cmake_build_type_toupper}}")
-    message(STATUS "  C++ compilation flags          : ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${cmake_build_type_toupper}}")
+    message(STATUS "  C++ compilation flags (private): ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${cmake_build_type_toupper}}")
+    message(STATUS "  C++ compilation flags (public) : ${GTSAM_COMPILE_OPTIONS_PUBLIC}")
 endif()
 if(GTSAM_USE_SYSTEM_EIGEN)
     message(STATUS "  Use System Eigen               : Yes")
@@ -692,6 +744,7 @@ elseif(TBB_FOUND)
 else()
 	message(STATUS "  Use Intel TBB                  : TBB not found")
 endif()
+message(STATUS "  Use Eigen system version       : ${GTSAM_USE_SYSTEM_EIGEN} (Version: ${GTSAM_EIGEN_VERSION})")
 if(GTSAM_USE_EIGEN_MKL)
 	message(STATUS "  Eigen will use MKL             : Yes")
 elseif(MKL_FOUND)

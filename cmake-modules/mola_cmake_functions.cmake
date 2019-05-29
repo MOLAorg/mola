@@ -53,21 +53,28 @@ set(CMAKE_STATIC_LIBRARY_PREFIX "lib")
 set(CMAKE_DEBUG_POSTFIX "-dbg")
 
 # -----------------------------------------------------------------------------
+# mola_set_target_cxx17(target)
+#
+# Enabled C++17 for the given target
+# -----------------------------------------------------------------------------
+function(mola_set_target_cxx17 TARGETNAME)
+  target_compile_features(${TARGETNAME} PUBLIC cxx_std_17)
+  if (MSVC)
+    # this seems to be required in addition to the cxx_std_17 above (?)
+    target_compile_options(${TARGETNAME} PUBLIC /std:c++latest)
+  endif()
+endfunction()
+
+# -----------------------------------------------------------------------------
 # mola_set_target_build_options(target)
 #
 # Set defaults for each MOLA cmake target
 # -----------------------------------------------------------------------------
 function(mola_set_target_build_options TARGETNAME)
   # Build for C++17
-  # -------------------------
-  target_compile_features(${TARGETNAME} INTERFACE cxx_std_17)
-  if (MSVC)
-    # this seems to be required in addition to the cxx_std_17 above (?)
-    target_compile_options(${TARGETNAME} INTERFACE /std:c++latest)
-  endif()
+  mola_set_target_cxx17(${TARGETNAME})
 
   # Warning level:
-  # -------------------------
   if (MSVC)
     # msvc:
     target_compile_options(${TARGETNAME} PRIVATE /W3)
@@ -89,8 +96,19 @@ function(mola_set_target_build_options TARGETNAME)
 
   # Optimization:
   # -------------------------
-  if((NOT MSVC) AND ((NOT CMAKE_CROSSCOMPILING) AND (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")))
-    target_compile_options(${TARGETNAME} PRIVATE -O3 -mtune=native)
+  if((NOT MSVC) AND (NOT CMAKE_CROSSCOMPILING))
+    option(MOLA_BUILD_MARCH_NATIVE "Build with `-march=\"native\"`" ON)
+
+    if (MOLA_BUILD_MARCH_NATIVE)
+      # Note 1: GTSAM must be built with identical flags to avoid crashes.
+      #  We will use this cmake variable too to populate GTSAM_BUILD_WITH_MARCH_NATIVE
+      # Note 2: We must set "march=native" PUBLIC to avoid crashes with Eigen in derived projects
+      target_compile_options(${TARGETNAME} PUBLIC -march=native)
+    endif()
+
+    if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+      target_compile_options(${TARGETNAME} PRIVATE -O3)
+    endif()
   endif()
 
 endfunction()
