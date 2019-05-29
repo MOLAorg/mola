@@ -14,6 +14,12 @@ modules:
       # true: use iSAM2
       # false: use global levmarquartd
       use_incremental_solver: true
+      # iSAM2 additional update() steps. Set >0 to fasten convergence, at
+      # the cost of more processing time for each timestep:
+      isam2_additional_update_steps: 10
+      # Refer to iSAM2 C++ docs for these ones:
+      isam2_relinearize_threshold: 0.01
+      isam2_relinearize_skip: 1
       # ------
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
@@ -72,8 +78,8 @@ modules:
 #        win_pos: 510 0 500 200 # [x,y,width,height]
     params:
       base_dir: ${KITTI_BASE_DIR}
-      sequence: 00
-      time_warp_scale: 0.2
+      sequence: ${KITTI_SEQ}
+      time_warp_scale: 0.5
       publish_lidar: false
       publish_image_0: true
       publish_image_1: true

@@ -17,6 +17,7 @@ modules:
       # iSAM2 additional update() steps. Set >0 to fasten convergence, at
       # the cost of more processing time for each timestep:
       isam2_additional_update_steps: 2
+      # Refer to iSAM2 C++ docs for these ones:
       isam2_relinearize_threshold: 0.01
       isam2_relinearize_skip: 1
       # ------
