@@ -14,6 +14,11 @@ modules:
       # true: use iSAM2
       # false: use global levmarquartd
       use_incremental_solver: true
+      # iSAM2 additional update() steps. Set >0 to fasten convergence, at
+      # the cost of more processing time for each timestep:
+      isam2_additional_update_steps: 2
+      isam2_relinearize_threshold: 0.01
+      isam2_relinearize_skip: 1
       # ------
       # Select state space representation for KeyFrame poses:
       #state_vector: SE2
