@@ -14,7 +14,7 @@
 #include <mola-kernel/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/img/TCamera.h>
-#include <mrpt/math/lightweight_geom_data.h>
+#include <mrpt/math/TPose3D.h>
 #include <array>
 #include <map>
 #include <string>
