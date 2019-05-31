@@ -669,9 +669,7 @@ void saveStats(vector<errors> err, string dir)
     // save errors
     float num = err.size();
     fprintf(fp, "%% Overall error: trans_error (percent)  rot_error\n");
-    fprintf(
-        fp, "%f  %f\n", 100 * t_err / num, r_err / num,
-        (180.0f / 3.14159265359f) * r_err_per_meter / num);
+    fprintf(fp, "%f  %f\n", 100 * t_err / num, r_err / num);
 
     // close file
     fclose(fp);
