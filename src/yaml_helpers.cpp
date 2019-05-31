@@ -42,8 +42,9 @@ std::string mola::parseEnvVars(const std::string& text)
         varvalue = std::string(v);
     else
     {
-        std::cerr << "**Warning** parseEnvVars(): Undefined variable found: ${"
-                  << varname << "}\n";
+        THROW_EXCEPTION_FMT(
+            "YAML parseEnvVars(): Undefined variable found: ${%s}",
+            varname.c_str());
     }
 
     return parseEnvVars(pre + varvalue + post.substr(post_end + 1));

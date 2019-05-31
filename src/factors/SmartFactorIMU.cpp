@@ -23,7 +23,8 @@ SmartFactorIMU::SmartFactorIMU(BackEndBase* slam_backend)
 }
 
 std::size_t SmartFactorIMU::edge_count() const { return 0; }
-mola::id_t  SmartFactorIMU::edge_indices(const std::size_t i) const
+mola::id_t  SmartFactorIMU::edge_indices(  //
+    [[maybe_unused]] const std::size_t i) const
 {
     throw std::runtime_error("invalid method for this factor");
 }

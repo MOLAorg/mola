@@ -12,11 +12,9 @@
 #pragma once
 
 #include <mola-kernel/factors/FactorBase.h>
-#include <mrpt/math/lightweight_geom_data.h>
+#include <mrpt/math/CMatrixFixed.h>
+#include <mrpt/math/TPose3D.h>
 #include <optional>
-
-// Eigen includes after mrpt's ones:
-#include <Eigen/Dense>
 
 namespace mola
 {
@@ -39,7 +37,7 @@ class FactorRelativePose3 : public FactorBase
 
     /** If provided, it models the covariance of the observation. Order of
      * variables is: rotx roty rotz tx ty tz */
-    std::optional<Eigen::Matrix<double, 6, 6>> noise_model_;
+    std::optional<mrpt::math::CMatrixDouble66> noise_model_;
 
     /** Standard deviation of the measurement, in X Y Z. Ignored if noise_model_
      * is provided. */

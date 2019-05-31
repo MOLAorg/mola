@@ -13,7 +13,7 @@
 
 #include <mola-kernel/entities/EntityRelativeBase.h>
 #include <mola-kernel/entities/KeyFrameBase.h>
-#include <mrpt/math/lightweight_geom_data.h>
+#include <mrpt/math/TPose3D.h>
 
 namespace mola
 {

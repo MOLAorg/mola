@@ -16,6 +16,7 @@
 #include <mola-kernel/WorldModel.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/img/TCamera.h>  // TODO: Remove after unused below
+#include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/obs/CSensoryFrame.h>
 #include <future>
 #include <optional>
@@ -90,7 +91,7 @@ class BackEndBase : public ExecutableBase
         mola::id_t reference_kf{mola::INVALID_ID};
 
         mrpt::math::TPose3D                        pose;
-        std::optional<Eigen::Matrix<double, 6, 6>> cov{std::nullopt};
+        std::optional<mrpt::math::CMatrixDouble66> cov{std::nullopt};
     };
     std::future<void> advertiseUpdatedLocalization(
         const AdvertiseUpdatedLocalization_Input& l)

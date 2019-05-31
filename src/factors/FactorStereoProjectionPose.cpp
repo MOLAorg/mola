@@ -20,5 +20,6 @@ using namespace mola;
 std::size_t FactorStereoProjectionPose::edge_count() const { return 1; }
 mola::id_t  FactorStereoProjectionPose::edge_indices(const std::size_t i) const
 {
+    ASSERT_EQUAL_(i, 0UL);
     return observing_kf_;
 }

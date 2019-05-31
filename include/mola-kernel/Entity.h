@@ -12,7 +12,7 @@
 #pragma once
 
 #include <mola-kernel/entities/entities-common.h>
-#include <mrpt/math/lightweight_geom_data.h>
+#include <mrpt/math/TPose3D.h>
 #include <array>
 #include <variant>
 
