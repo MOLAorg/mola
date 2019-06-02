@@ -38,8 +38,8 @@ release = u''
 extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
-    'sphinx.ext.githubpages'
-#    'edit_on_github'
+    'sphinx.ext.githubpages',
+    'edit_on_github'
 ]
 
 # For edit_on_github extension:

@@ -12,3 +12,4 @@ MOLA modules are kept as git submodules under ``${MOLA_ROOT}/modules``.
   :maxdepth: 2
 
   module-mola-kernel
+  module-mola-launcher

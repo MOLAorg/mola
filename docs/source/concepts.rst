@@ -2,7 +2,7 @@
 Concepts
 =============
 
-XXX
-============================================
+.. toctree::
+  :maxdepth: 2
 
-xx
+  concept-slam-configuration-file

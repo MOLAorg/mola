@@ -8,7 +8,6 @@ Loosely based on https://github.com/astropy/astropy/pull/347
 import os
 import warnings
 
-
 __licence__ = 'BSD (3 clause)'
 
 
@@ -40,7 +39,7 @@ def html_page_context(app, pagename, templatename, context, doctree):
     context['github_user'] = app.config.edit_on_github_project.split('/')[0]
     context['github_version'] = app.config.edit_on_github_branch + '/'
     context['github_repo'] = app.config.edit_on_github_project.split('/')[1]
-    context['source_suffix'] = app.config.source_suffix[0]
+    context['source_suffix'] = '.rst' # JLBC. Why does this fail? app.config.source_suffix[0]
 
 def setup(app):
     app.add_config_value('edit_on_github_project', '', True)

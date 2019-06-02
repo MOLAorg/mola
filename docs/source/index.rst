@@ -14,7 +14,10 @@ MOLA
   concepts
   modules
 
+
 `MOLA`_ is a Modular system for Localization and Mapping.
+
+Refer to :ref:`demos` for real examples to launch and run SLAM systems.
 
 .. _MOLA: https://github.com/MOLAorg/mola
 
@@ -36,4 +39,3 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`
