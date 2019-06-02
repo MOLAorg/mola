@@ -1,7 +1,11 @@
+.. index::
+   single: mola-kernel
+   module: mola-kernel
 
 ====================
-mola-kernel
+Module: mola-kernel
 ====================
+
 
 
 XX
