@@ -15,6 +15,19 @@
 
 namespace mola
 {
+/** Defines a type of robust (m-Estimator) factor
+ * \ingroup mola_kernel_grp
+ */
+enum class Robust : uint8_t
+{
+    REGULAR_L2 = 0 /**!< Regular L2 least-squares (no robust kernel) */,
+    HUBER /**!< Huber kernel */,
+    CAUCHY,  //
+    TUKEY,  //
+    WELSH,  //
+    GEMANMCCLURE  //
+};
+
 /** Base class for all "factors" in the world model
  *
  * \ingroup mola_kernel_grp
@@ -36,6 +49,14 @@ class FactorBase
      * are already stored in the WorldModel indexed by ID.
      */
     mola::fid_t my_id_{mola::INVALID_FID};
+
+    /** Type of robust error function to use
+     */
+    mola::Robust robust_type_{mola::Robust::REGULAR_L2};
+
+    /** Parameter for the robust error function, if so defined in  robust_type_
+     */
+    double robust_param_{1.0};
 };
 
 }  // namespace mola
