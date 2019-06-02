@@ -44,5 +44,23 @@ Directories layout is as follows:
 * `doc`: Documentation and placeholder for Doxygen docs.
 * `externals`: All external depedencies
 
+## How to generate the docs
+
+### Requisities
+```
+sudo apt install python3-pip
+sudo -H pip3 install sphinx_rtd_theme
+```
+
+### Generate docs
+
+```
+cd mola/..
+mkdir mola-www
+sphinx-build -b html mola/docs/source/ mola-www/
+```
+
+
+
 ## License
 MOLA is released under the GNU GPL v3 license. Other options available upon request.
