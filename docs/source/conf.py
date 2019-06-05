@@ -12,6 +12,9 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('_ext'))
 
+#sys.path.insert(1, os.path.abspath('/PATH/TO/doxyrest_b/doxyrest/sphinx'))
+# JLBC: Must be added to PYTHONPATH manually by the caller.
+
 from datetime import datetime
 
 
@@ -41,6 +44,9 @@ extensions = [
     'sphinx.ext.githubpages',
     'edit_on_github'
 ]
+
+extensions += ['doxyrest', 'cpplexer']
+
 
 # For edit_on_github extension:
 edit_on_github_project = 'jlblanco/mola'
