@@ -14,7 +14,7 @@ add_subdirectory(mola-launcher)
 add_subdirectory(mola-fe-g2o-dataset)
 add_subdirectory(mola-fe-imu-preintegration)
 add_subdirectory(mola-fe-lidar-3d)
-add_subdirectory(mola-fe-visual-orb)
+#add_subdirectory(mola-fe-visual-orb) # Under development
 add_subdirectory(mola-sensor-euroc-dataset)
 add_subdirectory(mola-sensor-hwdrivers)
 add_subdirectory(mola-sensor-kaist-dataset)
