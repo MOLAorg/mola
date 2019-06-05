@@ -19,21 +19,12 @@
 [submodule "modules/mola-slam-gtsam"]
 	path = modules/mola-slam-gtsam
 	url = git@github.com:jlblancoc/mola-slam-gtsam.git
-[submodule "modules/mola-fe-visual-orb"]
-	path = modules/mola-fe-visual-orb
-	url = git@github.com:jlblancoc/mola-fe-visual-orb.git
 [submodule "modules/mola-sensor-euroc-dataset"]
 	path = modules/mola-sensor-euroc-dataset
 	url = git@github.com:jlblancoc/mola-sensor-euroc-dataset.git
 [submodule "modules/mola-fe-g2o-dataset"]
 	path = modules/mola-fe-g2o-dataset
 	url = git@github.com:jlblancoc/mola-fe-g2o-dataset.git
-[submodule "externals/DBoW2/DBoW2"]
-	path = externals/DBoW2/DBoW2
-	url = git@github.com:jlblancoc/DBoW2.git
-[submodule "externals/g2o/g2o"]
-	path = externals/g2o/g2o
-	url = git@github.com:RainerKuemmerle/g2o.git
 [submodule "modules/mola-fe-imu-preintegration"]
 	path = modules/mola-fe-imu-preintegration
 	url = git@github.com:jlblancoc/mola-fe-imu-preintegration.git
