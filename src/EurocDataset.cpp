@@ -20,13 +20,14 @@
 #include <mola-kernel/yaml_helpers.h>
 #include <mola-sensor-euroc-dataset/EurocDataset.h>
 #include <mrpt/core/initializer.h>
-//#include <mrpt/math/CMatrixTemplateNumeric.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 #include <yaml-cpp/yaml.h>
 #include <Eigen/Dense>
 #include <fstream>
+// Eigen must be before csv.h
+#include <mrpt/io/csv.h>
 
 using namespace mola;
 using namespace mola::euroc_dataset;
@@ -34,38 +35,6 @@ using namespace mola::euroc_dataset;
 MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(EurocDataset)}
 
 EurocDataset::EurocDataset() = default;
-
-// Based on: https://stackoverflow.com/a/39146048/1631514
-template <typename MATRIX>
-static void load_csv(const std::string& path, MATRIX& M)
-{
-    MRPT_TODO("Refactor to mrpt-math?");
-
-    std::ifstream indata;
-    indata.open(path);
-    std::string                          line;
-    std::vector<typename MATRIX::Scalar> values;
-    uint                                 rows = 0;
-    while (std::getline(indata, line))
-    {
-        if (!line.empty() && line[0] == '#') continue;
-        std::stringstream lineStream(line);
-        std::string       cell;
-        while (std::getline(lineStream, cell, ','))
-        {
-            std::stringstream       cs(cell);
-            typename MATRIX::Scalar val;
-            cs >> val;
-            values.push_back(val);
-        }
-        ++rows;
-    }
-    // Convert from RowMajor if needed!
-    M = Eigen::Map<const Eigen::Matrix<
-        typename MATRIX::Scalar, MATRIX::RowsAtCompileTime,
-        MATRIX::ColsAtCompileTime, Eigen::RowMajor>>(
-        values.data(), rows, values.size() / rows);
-}
 
 void EurocDataset::initialize(const std::string& cfg_block)
 {
@@ -106,7 +75,7 @@ void EurocDataset::initialize(const std::string& cfg_block)
             seq_dir_ + "/cam"s + std::to_string(cam_id) + "/data.csv"s;
         ASSERT_FILE_EXISTS_(cam_data_fil);
 
-        load_csv(cam_data_fil, dat);
+        mrpt::io::load_csv(cam_data_fil, dat);
         ASSERT_(dat.cols() == 2);
         ASSERT_(dat.rows() > 10);
 
@@ -195,7 +164,7 @@ void EurocDataset::initialize(const std::string& cfg_block)
         const auto imu_data_fil = seq_dir_ + "/imu0/data.csv"s;
         ASSERT_FILE_EXISTS_(imu_data_fil);
 
-        load_csv(imu_data_fil, dat);
+        mrpt::io::load_csv(imu_data_fil, dat);
 
         // Example rows:
         // clang-format off
