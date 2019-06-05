@@ -13,6 +13,7 @@ MOLA
   demos
   concepts
   modules
+  doxygen-index
 
 
 `MOLA`_ is a Modular system for Localization and Mapping.
