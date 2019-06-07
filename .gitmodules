@@ -1,42 +1,42 @@
 [submodule "mola-kernel"]
 	path = modules/mola-kernel
 	url = git@github.com:jlblancoc/mola-kernel.git
-[submodule "externals/yaml-cpp/yaml-cpp"]
+[submodule "yaml-cpp"]
 	path = externals/yaml-cpp/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
-[submodule "externals/gtsam/gtsam"]
+[submodule "gtsam"]
 	path = externals/gtsam/gtsam
 	url = https://github.com/jlblancoc/gtsam.git
-[submodule "modules/mola-launcher"]
+[submodule "mola-launcher"]
 	path = modules/mola-launcher
 	url = git@github.com:jlblancoc/mola-launcher.git
-[submodule "modules/mola-sensor-kitti-dataset"]
+[submodule "mola-sensor-kitti-dataset"]
 	path = modules/mola-sensor-kitti-dataset
 	url = git@github.com:jlblancoc/mola-sensor-kitti-dataset.git
-[submodule "modules/mola-fe-lidar-3d"]
+[submodule "mola-fe-lidar-3d"]
 	path = modules/mola-fe-lidar-3d
 	url = git@github.com:jlblancoc/mola-fe-lidar-3d.git
-[submodule "modules/mola-slam-gtsam"]
+[submodule "mola-slam-gtsam"]
 	path = modules/mola-slam-gtsam
 	url = git@github.com:jlblancoc/mola-slam-gtsam.git
-[submodule "modules/mola-sensor-euroc-dataset"]
+[submodule "mola-sensor-euroc-dataset"]
 	path = modules/mola-sensor-euroc-dataset
 	url = git@github.com:jlblancoc/mola-sensor-euroc-dataset.git
-[submodule "modules/mola-fe-g2o-dataset"]
+[submodule "mola-fe-g2o-dataset"]
 	path = modules/mola-fe-g2o-dataset
 	url = git@github.com:jlblancoc/mola-fe-g2o-dataset.git
-[submodule "modules/mola-fe-imu-preintegration"]
+[submodule "mola-fe-imu-preintegration"]
 	path = modules/mola-fe-imu-preintegration
 	url = git@github.com:jlblancoc/mola-fe-imu-preintegration.git
-[submodule "modules/mola-sensor-rawlog"]
+[submodule "mola-sensor-rawlog"]
 	path = modules/mola-sensor-rawlog
 	url = git@github.com:jlblancoc/mola-sensor-rawlog.git
-[submodule "modules/mola-sensor-hwdrivers"]
+[submodule "mola-sensor-hwdrivers"]
 	path = modules/mola-sensor-hwdrivers
 	url = git@github.com:jlblancoc/mola-sensor-hwdrivers.git
-[submodule "modules/mola-sensor-kaist-dataset"]
+[submodule "mola-sensor-kaist-dataset"]
 	path = modules/mola-sensor-kaist-dataset
 	url = git@github.com:jlblancoc/mola-sensor-kaist-dataset.git
-[submodule "modules/mola-viz"]
+[submodule "mola-viz"]
 	path = modules/mola-viz
 	url = git@github.com:jlblancoc/mola-viz
