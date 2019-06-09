@@ -7,45 +7,33 @@
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
 
+# Minimum CMake vesion: limited by CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS
+cmake_minimum_required(VERSION 3.4)
+
 # Tell CMake we'll use C++ for use in its tests/flags
 project(mola-kernel LANGUAGES CXX)
+
+# MOLA CMake scripts: "mola_xxx()"
+find_package(mola-common REQUIRED)
+
+# find dependencies:
+find_package(MRPT 1.9.9 REQUIRED COMPONENTS gui obs maps)
 
 # define lib:
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
 file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 
-add_library(${PROJECT_NAME} SHARED
-    ${LIB_SRCS}
-    ${LIB_PUBLIC_HDRS}
-    )
+mola_add_library(
+	TARGET ${PROJECT_NAME}
+	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
+	PUBLIC_LINK_LIBRARIES
+		mrpt::obs
+	PRIVATE_LINK_LIBRARIES
+		gtsam
+		mrpt::gui   #TODO: remove after mapviz!
+		mrpt::maps  #TODO: remove after mapviz!
+)
 
-# Define common flags:
-mola_set_target_build_options(${PROJECT_NAME})
-mola_configure_library(${PROJECT_NAME})
-
-# find dependencies:
-find_package(MRPT 1.9.9 REQUIRED COMPONENTS gui obs maps)
-find_package(TBB COMPONENTS tbb tbbmalloc)
-
-if (TARGET tbb)
-    message("mola-kernel: Using TBB")
-    target_link_libraries(${PROJECT_NAME} PRIVATE tbbmalloc tbb)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC MOLA_KERNEL_HAS_TBB)
+if ("$ENV{VERBOSE}")
+	message(STATUS "mola-kernel: Using MRPT version: ${MRPT_VERSION}")
 endif()
-
-message("mola-kernel: Using MRPT version: ${MRPT_VERSION}")
-
-
-# Public lib Dependencies:
-target_link_libraries(${PROJECT_NAME}
-  PUBLIC
-    mrpt::obs
-)
-
-# Private lib Dependencies:
-target_link_libraries(${PROJECT_NAME}
-  PRIVATE
-    gtsam
-    mrpt::gui   #TODO: remove after mapviz!
-    mrpt::maps  #TODO: remove after mapviz!
-)
