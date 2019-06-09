@@ -7,22 +7,14 @@
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
 
+# Minimum CMake vesion: limited by CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS
+cmake_minimum_required(VERSION 3.4)
+
 # Tell CMake we'll use C++ for use in its tests/flags
 project(mola-sensor-kitti-dataset LANGUAGES CXX)
 
-# -----------------------
-# define lib:
-file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
-file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
-
-add_library(${PROJECT_NAME} SHARED
-    ${LIB_SRCS}
-    ${LIB_PUBLIC_HDRS}
-    )
-
-# Define common flags:
-mola_set_target_build_options(${PROJECT_NAME})
-mola_configure_library(${PROJECT_NAME})
+# MOLA CMake scripts: "mola_xxx()"
+find_package(mola-common REQUIRED)
 
 # find dependencies:
 find_package(mrpt-math) # for MRPT Eigen utilities
@@ -30,35 +22,33 @@ find_package(mrpt-maps)
 find_package(mrpt-poses)
 find_package(mrpt-tclap)
 
-# Public lib Dependencies:
-target_link_libraries(${PROJECT_NAME}
-  PUBLIC
-    mola-kernel
-)
+# -----------------------
+# define lib:
+file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
+file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 
-# Private lib Dependencies:
-target_link_libraries(${PROJECT_NAME}
-  PRIVATE
-    mrpt::maps
-    mrpt::math
+mola_add_library(
+	TARGET ${PROJECT_NAME}
+	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
+	PUBLIC_LINK_LIBRARIES
+		mola-kernel
+	PRIVATE_LINK_LIBRARIES
+		mrpt::maps
+		mrpt::math
 )
-
 
 # ----------------------
 # define app target:
-add_executable(mola-kitti-eval-error
-  apps/mola-kitti-eval-error.cpp)
+mola_add_executable(
+	TARGET  mola-kitti-eval-error
+	SOURCES apps/mola-kitti-eval-error.cpp
+	LINK_LIBRARIES
+		mrpt::tclap
+		mrpt::poses
+		${PROJECT_NAME}
+)
 
-# Define common flags:
-mola_set_target_build_options(mola-kitti-eval-error)
-mola_configure_app(mola-kitti-eval-error)
+# Silent tons of warnings from kitti-eval original code:
 if (CMAKE_COMPILER_IS_GNUCXX)
-    # Silent tons of warnings from kitti-eval original code:
     target_compile_options(mola-kitti-eval-error PRIVATE "-Wno-unused-result" "-Wno-shadow" "-Wno-sign-compare")
 endif()
-
-# Dependencies:
-target_link_libraries(mola-kitti-eval-error
-    mrpt::tclap
-    mrpt::poses
-)
