@@ -43,3 +43,6 @@
 [submodule "mp2_icp"]
 	path = externals/mp2_icp
 	url = https://github.com/MOLAorg/mp2_icp.git
+[submodule "mola-common"]
+	path = modules/mola-common
+	url = https://github.com/MOLAorg/mola-common.git
