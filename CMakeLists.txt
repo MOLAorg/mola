@@ -13,12 +13,6 @@ cmake_minimum_required(VERSION 3.4)
 # Tell CMake we'll use C++ for use in its tests/flags
 project(mola LANGUAGES CXX)
 
-# Project version:
-# (TODO: Read from file?)
-set(MOLA_VERSION_NUMBER_MAJOR 0)
-set(MOLA_VERSION_NUMBER_MINOR 1)
-set(MOLA_VERSION_NUMBER_PATCH 0)
-
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 # Include std cmake scripts:
@@ -26,9 +20,12 @@ include(CheckCXXCompilerFlag) # for check_cxx_compiler_flag()
 include(CMakeDetermineCXXCompiler)
 include(GNUInstallDirs) # for install dirs in multilib
 
-# Include our aux cmake scripts:
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules)
-include(mola_cmake_functions)
+# Allow finding cmake packages that we are just configuring now:
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
+
+# Common CMake scripts:
+add_subdirectory(modules/mola-common)
+find_package(mola-common REQUIRED) # find here so external projects can use it
 
 # Process subdirectories:
 option(MOLA_ENABLE_UNIT_TESTS "Build unit tests" ON)
@@ -36,7 +33,11 @@ if(MOLA_ENABLE_UNIT_TESTS)
     include(GoogleTest)
     enable_testing()
 endif()
+
+# External projects:
 add_subdirectory(externals)
+
+# MOLA modules:
 add_subdirectory(modules)
 
 # Docs:

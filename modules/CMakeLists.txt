@@ -5,6 +5,8 @@
 
 project(all_modules LANGUAGES CXX)
 
+# mola-common: already included from top-level cmake script
+
 # System kernel:
 add_subdirectory(mola-kernel)
 # Launcher app:
