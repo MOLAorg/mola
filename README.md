@@ -1,12 +1,14 @@
 # mola
 A Modular Optimization framework for Localization and mApping (MOLA)
 
-(videos)
+This repository holds the MOLA git [superproject](https://en.wikibooks.org/wiki/Git/Submodules_and_Superprojects). 
+
+Refer to the [official documentation](https://docs.mola-slam.org/latest/) for instructions, demos, API reference, etc.
 
 ## Building
 ### Getting the sources
 ```
-git clone --recurse-submodules git@github.com:MOLA/mola.git
+git clone --recurse-submodules https://github.com/MOLAorg/mola.git
 ```
 
 ### Requisites
@@ -35,7 +37,8 @@ cmake --build .
 ```
 
 ## Run demos
-Write me!
+
+Read [the documentation](https://docs.mola-slam.org/latest/demos.html).
 
 ## About the directory structure
 Directories layout is as follows:
@@ -59,8 +62,6 @@ cd mola/..
 mkdir mola-www
 sphinx-build -b html mola/docs/source/ mola-www/
 ```
-
-
 
 ## License
 MOLA is released under the GNU GPL v3 license. Other options available upon request.
