@@ -1,3 +1,21 @@
+# ------------------------------------------------------------------------------
+#        A Modular Optimization framework for Localization and mApping
+#                               (MOLA)
+#
+# Copyright (C) 2018-2019, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
+# All rights reserved.
+# Released under GNU GPL v3. See LICENSE file
+# ------------------------------------------------------------------------------
+
+# This file defines utility CMake functions to ensure uniform settings all
+# accross MOLA modules, programs, and tests.
+# Usage:
+#   include(mola_cmake_functions)
+#
+# Main functions (refer to their docs below)
+#  - mola_add_library()
+#  - mola_add_executable()
+#
 
 
 # Avoid the need for DLL export/import macros in Windows:
