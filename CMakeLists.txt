@@ -18,7 +18,6 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 # Include std cmake scripts:
 include(CheckCXXCompilerFlag) # for check_cxx_compiler_flag()
 include(CMakeDetermineCXXCompiler)
-include(GNUInstallDirs) # for install dirs in multilib
 
 # Allow finding cmake packages that we are just configuring now:
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
