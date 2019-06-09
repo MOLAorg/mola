@@ -64,4 +64,4 @@ sphinx-build -b html mola/docs/source/ mola-www/
 ```
 
 ## License
-MOLA is released under the GNU GPL v3 license. Other options available upon request.
+MOLA is released under the GNU GPL v3 license, except noted otherwise in each individual module. Other options available upon request.
