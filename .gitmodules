@@ -7,6 +7,7 @@
 [submodule "gtsam"]
 	path = externals/gtsam/gtsam
 	url = https://github.com/jlblancoc/gtsam.git
+	shallow = true
 [submodule "mola-launcher"]
 	path = modules/mola-launcher
 	url = git@github.com:jlblancoc/mola-launcher.git
