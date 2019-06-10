@@ -46,3 +46,6 @@
 [submodule "mola-common"]
 	path = modules/mola-common
 	url = https://github.com/MOLAorg/mola-common.git
+[submodule "mola-lidar-segmentation"]
+	path = modules/mola-lidar-segmentation
+	url = https://github.com/MOLAorg/mola-lidar-segmentation.git
