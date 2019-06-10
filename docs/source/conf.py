@@ -21,13 +21,12 @@ from datetime import datetime
 # -- Project information -----------------------------------------------------
 
 project = u'MOLA'
-copyright = u'{year} The MOLA Authors'.format(year=datetime.now().year)
+copyright = u'{year} The MOLA Authors.'.format(year=datetime.now().year)
 
 # The short X.Y version
-version = u''
+version = u'v0.1'
 # The full version, including alpha/beta/rc tags
-release = u''
-
+release = u'v0.1'
 
 # -- General configuration ---------------------------------------------------
 
@@ -47,6 +46,8 @@ extensions = [
 
 extensions += ['doxyrest', 'cpplexer']
 
+# Show build time
+html_last_updated_fmt = '%H:%M, %b %d, %Y'
 
 # For edit_on_github extension:
 edit_on_github_project = 'jlblanco/mola'
@@ -142,7 +143,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'MOLA.tex', u'MOLA Documentation',
-     u'The MOLA Authors', 'manual'),
+     u'The MOLA Authors.', 'manual'),
 ]
 
 
@@ -152,7 +153,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     (master_doc, 'mola', u'MOLA Documentation',
-     [u'The MOLA Authors'], 1)
+     [u'The MOLA Authors.'], 1)
 ]
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -162,7 +163,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'MOLA', u'MOLA Documentation',
-     u'The MOLA Authors', 'MOLA', 'One line description of project.',
+     u'The MOLA Authors.', 'MOLA', 'One line description of project.',
      'Miscellaneous'),
 ]
 

@@ -7,11 +7,11 @@ MOLA CMake functions
 The following CMake functions are defined by `mola-common`.
 
 
-
 `find_mola_package()`
 -----------------------------------
 
 .. code-block:: cmake
+
     # find_mola_package(package_name)
     #
     # Does nothing if the target is known at build time, or issues the corresponding
@@ -23,6 +23,7 @@ The following CMake functions are defined by `mola-common`.
 -----------------------------------
 
 .. code-block:: cmake
+
     # mola_add_library(
     #	TARGET name
     #	SOURCES ${SRC_FILES}
@@ -37,6 +38,7 @@ The following CMake functions are defined by `mola-common`.
 -----------------------------------
 
 .. code-block:: cmake
+
     # mola_add_executable(
     #	TARGET name
     #	SOURCES ${SRC_FILES}
@@ -44,5 +46,3 @@ The following CMake functions are defined by `mola-common`.
     #	)
     #
     # Defines a MOLA executable
-
-
