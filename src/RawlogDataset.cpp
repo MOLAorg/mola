@@ -16,7 +16,7 @@
  */
 
 #include <mola-kernel/yaml_helpers.h>
-#include <mola-sensor-rawlog/RawlogDataset.h>
+#include <mola-input-rawlog/RawlogDataset.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/system/filesystem.h>
 #include <yaml-cpp/yaml.h>
