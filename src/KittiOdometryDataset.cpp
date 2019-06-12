@@ -10,14 +10,14 @@
  * @date   Nov 29, 2018
  */
 
-/** \defgroup mola_sensor_kitti_dataset_grp mola-sensor-kitti-dataset.
+/** \defgroup mola_sensor_kitti_dataset_grp mola-input-kitti-dataset.
  * RawDataSource from Kitti odometry/SLAM datasets.
  *
  *
  */
 
 #include <mola-kernel/yaml_helpers.h>
-#include <mola-sensor-kitti-dataset/KittiOdometryDataset.h>
+#include <mola-input-kitti-dataset/KittiOdometryDataset.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservationImage.h>
