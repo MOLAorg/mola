@@ -21,7 +21,6 @@
 #include <mrpt/system/memory.h>
 #include <chrono>
 #include <iostream>
-#include <sstream>
 #include <thread>
 #include "MolaDLL_Loader.h"
 
@@ -132,13 +131,9 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             ASSERTMSG_(!ds_classname.empty(), "`type` cannot be empty!");
 
             InfoPerRunningThread& info = running_threads_[ds_label];
-            {
-                // Make a copy of the YAML config block:
-                std::stringstream ss;
-                ss << ds;
-                info.yaml_cfg_block = ss.str();
-            }
-            info.name = ds_label;
+            // Make a copy of the YAML config block:
+            info.yaml_cfg_block = mola::yaml2string(ds);
+            info.name           = ds_label;
             MRPT_LOG_INFO_STREAM(
                 "Instantiating module `" << ds_label << "` of type `"
                                          << ds_classname << "`");
