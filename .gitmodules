@@ -10,7 +10,7 @@
 	shallow = true
 [submodule "mola-launcher"]
 	path = modules/mola-launcher
-	url = git@github.com:jlblancoc/mola-launcher.git
+	url = https://github.com/MOLAorg/mola-launcher.git
 [submodule "mola-input-kitti-dataset"]
 	path = modules/mola-input-kitti-dataset
 	url = https://github.com/MOLAorg/mola-input-kitti-dataset.git
