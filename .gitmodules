@@ -22,7 +22,7 @@
 	url = git@github.com:jlblancoc/mola-slam-gtsam.git
 [submodule "mola-input-euroc-dataset"]
 	path = modules/mola-input-euroc-dataset
-	url = git@github.com:jlblancoc/mola-input-euroc-dataset.git
+	url = https://github.com/MOLAorg/mola-input-euroc-dataset.git
 [submodule "mola-fe-g2o-dataset"]
 	path = modules/mola-fe-g2o-dataset
 	url = https://github.com/MOLAorg/mola-fe-g2o-dataset.git
