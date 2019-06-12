@@ -204,11 +204,15 @@ void MolaLauncherApp::spin()
 
         for (auto& name : lst)
         {
+            // atomic counter. See docs in the variable declaration (in the .h)
+            pending_initializations_++;
+
             auto& ds    = running_threads_[name.second];
             ds.executor = std::thread(
                 &MolaLauncherApp::executor_thread, this, std::ref(ds));
 
             // Wait until the new thread is done with its initialization():
+            if (launcher_params_.enforce_initialize_one_at_a_time)
             {
                 std::unique_lock<std::mutex> lock(thread_launch_init_mtx_);
                 thread_launch_condition_.wait_for(
@@ -247,22 +251,32 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
             "Thread started for module named `"
             << rds.name << "` (launch priority=" << rds.launch_priority << ")");
 
-        {
-            std::unique_lock<std::mutex> lock(thread_launch_init_mtx_);
+        // Ensure that modules initialize one by one, if so defined:
+        std::unique_ptr<std::unique_lock<std::mutex>> lock;
+        if (launcher_params_.enforce_initialize_one_at_a_time)
+            lock = std::make_unique<std::unique_lock<std::mutex>>(
+                thread_launch_init_mtx_);
 
-            rds.impl->initialize_common(rds.yaml_cfg_block);
-            rds.impl->initialize(rds.yaml_cfg_block);
+        rds.impl->initialize_common(rds.yaml_cfg_block);
+        rds.impl->initialize(rds.yaml_cfg_block);
 
-            // Notify that we are done with initialization:
-            rds.initialization_done = true;
-            thread_launch_condition_.notify_one();
-        }
+        // Notify that we are done with initialization:
+        rds.initialization_done = true;
+        thread_launch_condition_.notify_one();
+        pending_initializations_--;
+
+        lock.reset();  // unlock at dtor, if created
 
         mrpt::system::CRateTimer timer(rds.execution_rate);
 
         while (!threads_must_end_)
         {
-            rds.impl->spinOnce();
+            // Only if all modules are correctly initialized:
+            if (pending_initializations_ == 0)
+            {
+                // Run the main module loop code:
+                rds.impl->spinOnce();
+            }
 
             // Done, cycle:
             const bool ontime = timer.sleep();

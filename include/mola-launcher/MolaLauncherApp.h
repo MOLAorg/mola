@@ -63,7 +63,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** @name SLAM system control & monitoring
      * @{ */
 
-    // TODO: set SLAM / localization mode
+    // TODO: set SLAM / localization mode?
 
     /** @} */
 
@@ -76,6 +76,13 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      * to .m files at program end.
      */
     std::optional<ProfilerSaverAtDtor> profiler_dtor_save_stats_;
+
+    struct Parameters
+    {
+        bool enforce_initialize_one_at_a_time{false};
+    };
+
+    Parameters launcher_params_;
 
    private:
     struct InfoPerRunningThread
@@ -91,10 +98,18 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** Indexed by `name` */
     std::map<std::string, InfoPerRunningThread> running_threads_;
 
-    /** Used to enforce a one-by-one module initialization, if so desired */
+    /** Used to enforce a one-by-one module initialization */
     std::condition_variable thread_launch_condition_;
     /** Used together with thread_launch_condition_ */
     std::mutex thread_launch_init_mtx_;
+
+    /** Number of threads which are not done yet with initilize()
+     * This is incremented before launching each thread from the main thread,
+     * then decreased by each thread after initialization is done. The main
+     * spinOnce() loop is not executed until this global variable is zero, i.e.
+     * all modules are correctly initialized.
+     */
+    std::atomic<int> pending_initializations_{0};
 
     void executor_thread(InfoPerRunningThread& rds);  //!< Thread func.
 
