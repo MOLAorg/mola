@@ -14,30 +14,30 @@
 [submodule "mola-input-kitti-dataset"]
 	path = modules/mola-input-kitti-dataset
 	url = https://github.com/MOLAorg/mola-input-kitti-dataset.git
-[submodule "mola-fe-lidar-3d"]
+[submodule "mola-fe-lidar"]
 	path = modules/mola-fe-lidar
-	url = git@github.com:jlblancoc/mola-fe-lidar-3d.git
+	url = git@github.com:jlblancoc/mola-fe-lidar.git
 [submodule "mola-slam-gtsam"]
 	path = modules/mola-slam-gtsam
 	url = git@github.com:jlblancoc/mola-slam-gtsam.git
-[submodule "mola-sensor-euroc-dataset"]
+[submodule "mola-input-euroc-dataset"]
 	path = modules/mola-input-euroc-dataset
-	url = git@github.com:jlblancoc/mola-sensor-euroc-dataset.git
+	url = git@github.com:jlblancoc/mola-input-euroc-dataset.git
 [submodule "mola-fe-g2o-dataset"]
 	path = modules/mola-fe-g2o-dataset
-	url = git@github.com:jlblancoc/mola-fe-g2o-dataset.git
+	url = https://github.com/MOLAorg/mola-fe-g2o-dataset.git
 [submodule "mola-fe-imu-preintegration"]
 	path = modules/mola-fe-imu-preintegration
 	url = git@github.com:jlblancoc/mola-fe-imu-preintegration.git
-[submodule "mola-sensor-rawlog"]
+[submodule "mola-input-rawlog"]
 	path = modules/mola-input-rawlog
-	url = git@github.com:jlblancoc/mola-sensor-rawlog.git
-[submodule "mola-sensor-hwdrivers"]
+	url = git@github.com:jlblancoc/mola-input-rawlog.git
+[submodule "mola-input-hwdrivers"]
 	path = modules/mola-input-hwdrivers
-	url = git@github.com:jlblancoc/mola-sensor-hwdrivers.git
-[submodule "mola-sensor-kaist-dataset"]
+	url = git@github.com:jlblancoc/mola-input-hwdrivers.git
+[submodule "mola-input-kaist-dataset"]
 	path = modules/mola-input-kaist-dataset
-	url = git@github.com:jlblancoc/mola-sensor-kaist-dataset.git
+	url = git@github.com:jlblancoc/mola-input-kaist-dataset.git
 [submodule "mola-viz"]
 	path = modules/mola-viz
 	url = git@github.com:jlblancoc/mola-viz
