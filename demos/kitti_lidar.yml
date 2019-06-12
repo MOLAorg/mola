@@ -59,15 +59,22 @@ modules:
       min_icp_goodness: 0.50        # range [0,1]
       # ditto, for loop-closures attempts to align
       min_icp_goodness_lc: 0.70     # range [0,1]
-      # Size (resolution) of the voxel filter
-      voxel_filter_resolution: 1.0  # [meters]
-      # decimate as we filter by voxels (1=no decimation)
-      full_pointcloud_decimation: 10
-      voxel_filter_decimation: 10
-      voxel_filter_max_e2_e0: 30
-      voxel_filter_max_e1_e0: 30
-      voxel_filter_min_e2_e0: 80
-      voxel_filter_min_e1_e0: 80
+      #
+      # ---------------------------------------------------------
+      # Instantiate one of this point cloud filters:
+      pointcloud_filter_class: mola::lidar_segmentation::FilterEdgesPlanes
+      # And its params:
+      pointcloud_filter_params:
+        # Size (resolution) of the voxel filter
+        voxel_filter_resolution: 1.0  # [meters]
+        # decimate as we filter by voxels (1=no decimation)
+        full_pointcloud_decimation: 10
+        voxel_filter_decimation: 10
+        voxel_filter_max_e2_e0: 30
+        voxel_filter_max_e1_e0: 30
+        voxel_filter_min_e2_e0: 80
+        voxel_filter_min_e1_e0: 80
+      # ---------------------------------------------------------
       # min/max distance to check for match/loop closure between KFs:
       min_dist_to_matching: 5.0       # [m]
       max_dist_to_matching: 20.0      # [m]
