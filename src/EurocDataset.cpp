@@ -18,7 +18,7 @@
 
 #include <mola-kernel/variant_helper.h>
 #include <mola-kernel/yaml_helpers.h>
-#include <mola-sensor-euroc-dataset/EurocDataset.h>
+#include <mola-input-euroc-dataset/EurocDataset.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationImage.h>
