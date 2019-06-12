@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <sstream>
 #include <string>
 #include "macro_helpers.h"
 
@@ -20,6 +21,17 @@ namespace mola
  * \ingroup mola_kernel_grp
  */
 std::string parseEnvVars(const std::string& text);
+
+/** Converts a yamlcpp node into a string
+ * \ingroup mola_kernel_grp
+ */
+template <class YAML_CLASS>
+inline std::string yaml2string(const YAML_CLASS& cfg)
+{
+    std::stringstream ss;
+    ss << cfg;
+    return ss.str();
+}
 
 #define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
     ASSERTMSG_(_c[_name], "Missing YAML required entry: `" _name "`")
