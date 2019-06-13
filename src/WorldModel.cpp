@@ -28,7 +28,7 @@
 
 using namespace mola;
 
-MRPT_INITIALIZER(do_register) { MOLA_REGISTER_MODULE(WorldModel) }
+MRPT_INITIALIZER(do_register_WorldModel) { MOLA_REGISTER_MODULE(WorldModel) }
 
 /** Map container interface for Entities inside a WorldModel
  * \ingroup mola_kernel_grp */

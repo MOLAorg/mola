@@ -14,8 +14,10 @@
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
+#include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/stock_objects.h>
@@ -161,10 +163,25 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                 MRPT_TODO("Make new registry of renderizable objects,...");
 
                 // temp code ----
-                auto o_velo =
-                    mrpt::ptr_cast<mrpt::obs::CObservationPointCloud>::from(
-                        obs);
-                if (o_velo && o_velo->pointcloud)
+                if (auto o_points =
+                        mrpt::ptr_cast<mrpt::obs::CObservationPointCloud>::from(
+                            obs);
+                    o_points && o_points->pointcloud)
+                {
+                    mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
+                    auto o     = scene->getByName("pointcloud");
+                    auto gl_pt = mrpt::ptr_cast<CSetOfObjects>::from(o);
+
+                    // o_points
+                    gl_pt->clear();
+                    o_points->pointcloud->renderOptions.point_size = 1.0f;
+                    o_points->pointcloud->getAs3DObject(gl_pt);
+                    gl_pt->setPose(o_points->sensorPose);
+                }
+
+                if (auto o_velo = mrpt::ptr_cast<
+                        mrpt::obs::CObservationVelodyneScan>::from(obs);
+                    o_velo)
                 {
                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
                     auto o     = scene->getByName("pointcloud");
@@ -172,9 +189,11 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
                     // o_velo
                     gl_pt->clear();
-                    o_velo->pointcloud->renderOptions.point_size = 1.0f;
-                    o_velo->pointcloud->getAs3DObject(gl_pt);
-                    gl_pt->setPose(o_velo->sensorPose);
+                    mrpt::maps::CPointsMapXYZI xyzi;
+                    xyzi.renderOptions.point_size = 1.0f;
+                    o_velo->generatePointCloud();
+                    xyzi.loadFromVelodyneScan(*o_velo);
+                    xyzi.getAs3DObject(gl_pt);
                 }
 
                 auto o_img =
