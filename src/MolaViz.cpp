@@ -21,7 +21,7 @@
 
 using namespace mola;
 
-MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(MolaViz)}
+MRPT_INITIALIZER(do_register_MolaViz){MOLA_REGISTER_MODULE(MolaViz)}
 
 MolaViz::MolaViz() = default;
 
