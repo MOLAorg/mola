@@ -83,7 +83,8 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
     }
     else
     {
-        MRPT_LOG_WARN(
+        MRPT_LOG_THROTTLE_WARN(
+            10.0,
             "[sendObservationsToFrontEnds] Dropping observation: no consumer "
             "is attached.");
     }
@@ -147,6 +148,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                     gl_pt->clear();
                     o_velo->pointcloud->renderOptions.point_size = 1.0f;
                     o_velo->pointcloud->getAs3DObject(gl_pt);
+                    gl_pt->setPose(o_velo->sensorPose);
                 }
 
                 auto o_img =
