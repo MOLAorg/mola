@@ -10,8 +10,8 @@
  * @date   Jan 08, 2019
  */
 
-#include <mola-kernel/BackEndBase.h>
 #include <mola-kernel/factors/FactorStereoProjectionPose.h>
+#include <mola-kernel/interfaces/BackEndBase.h>
 
 // TODO: make serializable
 

@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/RawDataConsumer.h>
-#include <mola-kernel/RawDataSourceBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
+#include <mola-kernel/interfaces/RawDataConsumer.h>
+#include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/system/COutputLogger.h>
 
 namespace mola

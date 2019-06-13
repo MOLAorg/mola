@@ -10,8 +10,8 @@
  * @date   Dec 11, 2018
  */
 
-#include <mola-kernel/FrontEndBase.h>
-#include <mola-kernel/RawDataSourceBase.h>
+#include <mola-kernel/interfaces/FrontEndBase.h>
+#include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 

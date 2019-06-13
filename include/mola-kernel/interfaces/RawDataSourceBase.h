@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include <mola-kernel/ExecutableBase.h>
-#include <mola-kernel/RawDataConsumer.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mola-kernel/interfaces/RawDataConsumer.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/pimpl.h>
 #include <mrpt/obs/CObservation.h>

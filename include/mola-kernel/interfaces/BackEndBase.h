@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/ExecutableBase.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/WorldModel.h>
 #include <mrpt/core/Clock.h>

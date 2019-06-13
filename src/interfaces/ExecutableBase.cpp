@@ -10,16 +10,35 @@
  * @date   Dec 14, 2018
  */
 
-#include <mola-kernel/ExecutableBase.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mola-kernel/lock_helper.h>
+#include <mutex>
 
 using namespace mola;
 
 // Class factory:
-static std::map<std::string, std::function<ExecutableBase::Ptr(void)>> registry;
+struct Registry
+{
+    static Registry& Instance()
+    {
+        static Registry r;
+        return r;
+    }
+
+    std::mutex registry_mtx_;
+    std::map<std::string, std::function<ExecutableBase::Ptr(void)>> registry_;
+
+   private:
+    Registry() = default;
+};
+
 ExecutableBase::Ptr ExecutableBase::Factory(const std::string& name)
 {
-    const auto f = registry.find(name);
-    if (f == registry.end())
+    Registry& r = Registry::Instance();
+    auto      l = lockHelper(r.registry_mtx_);
+
+    const auto f = r.registry_.find(name);
+    if (f == r.registry_.end())
         THROW_EXCEPTION_FMT(
             "[ExecutableBase::Factory] Request for unregistered class: `%s`",
             name.c_str());
@@ -29,7 +48,10 @@ ExecutableBase::Ptr ExecutableBase::Factory(const std::string& name)
 void ExecutableBase::registerClass(
     const std::string_view& classname, std::function<Ptr(void)> func)
 {
-    registry.emplace(classname, func);
+    Registry& r = Registry::Instance();
+    auto      l = lockHelper(r.registry_mtx_);
+
+    r.registry_.emplace(classname, func);
 }
 
 ExecutableBase::ExecutableBase() = default;

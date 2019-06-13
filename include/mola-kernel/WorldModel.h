@@ -12,7 +12,7 @@
 #pragma once
 
 #include <mola-kernel/Entity.h>
-#include <mola-kernel/ExecutableBase.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/Factor.h>
 #include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/id.h>

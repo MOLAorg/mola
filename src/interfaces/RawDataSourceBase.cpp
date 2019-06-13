@@ -10,7 +10,7 @@
  * @date   Nov 21, 2018
  */
 
-#include <mola-kernel/RawDataSourceBase.h>
+#include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/gui/CDisplayWindow3D.h>

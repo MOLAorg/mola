@@ -10,7 +10,7 @@
  * @date   Jan 28, 2019
  */
 
-#include <mola-kernel/BackEndBase.h>
+#include <mola-kernel/interfaces/BackEndBase.h>
 #include <mola-kernel/factors/SmartFactorIMU.h>
 
 // TODO: make serializable

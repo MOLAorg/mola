@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/BackEndBase.h>
-#include <mola-kernel/ExecutableBase.h>
-#include <mola-kernel/RawDataConsumer.h>
+#include <mola-kernel/interfaces/BackEndBase.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mola-kernel/interfaces/RawDataConsumer.h>
 
 namespace mola
 {
