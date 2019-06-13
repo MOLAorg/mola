@@ -1,0 +1,19 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# an input of type MRPT .rawlog file. No SLAM, just shows the raw data.
+# -----------------------------------------------------------------------------
+
+modules:
+# Offline or online sensory data sources =====================
+  - name: rawlog_input
+    type: RawlogDataset
+    execution_rate: 50 # Hz
+    #verbosity_level: INFO
+    gui_preview_sensors:
+      - raw_sensor_label: Velodyne1_SCAN
+        decimation: 1
+        win_pos: 5 5 400 400
+    params:
+      rawlog_filename: ${MOLA_INPUT_RAWLOG}
+      time_warp_scale: 1.0
