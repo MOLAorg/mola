@@ -16,9 +16,9 @@
  *
  */
 
+#include <mola-input-euroc-dataset/EurocDataset.h>
 #include <mola-kernel/variant_helper.h>
 #include <mola-kernel/yaml_helpers.h>
-#include <mola-input-euroc-dataset/EurocDataset.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationImage.h>
@@ -32,7 +32,7 @@
 using namespace mola;
 using namespace mola::euroc_dataset;
 
-MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(EurocDataset)}
+MRPT_INITIALIZER(do_register_EurocDataset){MOLA_REGISTER_MODULE(EurocDataset)}
 
 EurocDataset::EurocDataset() = default;
 
