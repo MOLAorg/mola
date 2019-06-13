@@ -37,7 +37,7 @@
 	url = git@github.com:jlblancoc/mola-input-hwdrivers.git
 [submodule "mola-input-kaist-dataset"]
 	path = modules/mola-input-kaist-dataset
-	url = git@github.com:jlblancoc/mola-input-kaist-dataset.git
+	url = https://github.com/MOLAorg/mola-input-kaist-dataset.git
 [submodule "mola-viz"]
 	path = modules/mola-viz
 	url = git@github.com:jlblancoc/mola-viz
