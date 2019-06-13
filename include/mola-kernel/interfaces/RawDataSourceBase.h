@@ -45,6 +45,11 @@ class RawDataSourceBase : public mola::ExecutableBase
     /** Send an observation to the associated target front-ends */
     void sendObservationsToFrontEnds(CObservation::Ptr& obs);
 
+    /** Make sure the observation is loaded in memory (for exernally-stored
+     * classes), etc. */
+    virtual void prepareObservationBeforeFrontEnds(
+        CObservation::Ptr& obs) const;
+
    private:
     /** Target of captured data */
     std::vector<RawDataConsumer*> rdc_;

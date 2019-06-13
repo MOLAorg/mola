@@ -90,9 +90,13 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
     MRPT_TRY_START
 
     ASSERT_(obs);
-    // Just forward the data to my associated consumer:
+    // Forward the data to my associated consumer:
     if (!rdc_.empty())
     {
+        // prepare observation before processing it:
+        prepareObservationBeforeFrontEnds(obs);
+
+        // Forward data:
         for (auto& subscriber : rdc_) subscriber->onNewObservation(obs);
     }
     else
@@ -191,7 +195,6 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                     gl_pt->clear();
                     mrpt::maps::CPointsMapXYZI xyzi;
                     xyzi.renderOptions.point_size = 1.0f;
-                    o_velo->generatePointCloud();
                     xyzi.loadFromVelodyneScan(*o_velo);
                     xyzi.getAs3DObject(gl_pt);
                 }
@@ -222,4 +225,26 @@ void RawDataSourceBase::attachToDataConsumer(RawDataConsumer& rdc)
 {
     MRPT_TODO("fix shared_from_this()");
     rdc_.push_back(&rdc);  // rdc.getAsPtr();
+}
+
+void RawDataSourceBase::prepareObservationBeforeFrontEnds(
+    CObservation::Ptr& obs) const
+{
+    MRPT_TRY_START
+
+    using namespace mrpt::obs;
+
+    // for delay-load data:
+    obs->load();
+
+    // Sensor-specific:
+    if (auto o_velo = mrpt::ptr_cast<CObservationVelodyneScan>::from(obs);
+        o_velo)
+    {
+        if (!o_velo->point_cloud.size()) o_velo->generatePointCloud();
+        const auto& pc = o_velo->point_cloud;
+        ASSERT_EQUAL_(pc.x.size(), pc.y.size());
+        ASSERT_EQUAL_(pc.x.size(), pc.z.size());
+    }
+    MRPT_TRY_END
 }
