@@ -15,8 +15,8 @@
  *
  */
 
-#include <mola-kernel/yaml_helpers.h>
 #include <mola-input-rawlog/RawlogDataset.h>
+#include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/system/filesystem.h>
 #include <yaml-cpp/yaml.h>
@@ -24,7 +24,7 @@
 using namespace mola;
 using namespace mola::sensor_rawlog_dataset;
 
-MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(RawlogDataset)}
+MRPT_INITIALIZER(do_register_RawlogDataset){MOLA_REGISTER_MODULE(RawlogDataset)}
 
 RawlogDataset::RawlogDataset() = default;
 
@@ -85,7 +85,7 @@ void RawlogDataset::spinOnce()
 
     // Publish observations up to current time:
     while (!read_ahead_.empty() &&
-           timeDifference(rawlog_begin_time_, read_ahead_.begin()->first) >= t)
+           t >= timeDifference(rawlog_begin_time_, read_ahead_.begin()->first))
     {
         //
         CObservation::Ptr obs = read_ahead_.begin()->second;
@@ -95,9 +95,9 @@ void RawlogDataset::spinOnce()
 
         MRPT_LOG_DEBUG_STREAM(
             "Publishing " << obs->GetRuntimeClass()->className
-                          << " sensorLabel: " << obs->sensorLabel);
+                          << " sensorLabel: " << obs->sensorLabel
+                          << " for t=" << t);
     }
-
     MRPT_END
 }
 
