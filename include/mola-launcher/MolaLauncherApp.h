@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/ExecutableBase.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/system/CTimeLogger.h>
 #include <yaml-cpp/yaml.h>
