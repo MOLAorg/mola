@@ -8,4 +8,4 @@ Demos
 .. toctree::
   :maxdepth: 1
 
-  demo-kitti-lidar
+  demo-kitti-lidar-slam

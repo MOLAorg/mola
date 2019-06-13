@@ -14,12 +14,12 @@ Usage
     export KITTI_BASE_DIR=$HOME/dataset-kitti/  # set to your local copy!
 
     cd mola/demos
-    mola-cli -c kitti_lidar.yml -p
+    mola-cli -c kitti_lidar_slam.yml -p
 
 
 Configuration file, explained
 --------------------------------
 
-.. literalinclude:: ../../demos/kitti_lidar.yml
+.. literalinclude:: ../../demos/kitti_lidar_slam.yml
    :language: yaml
    :linenos:
