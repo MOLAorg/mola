@@ -106,6 +106,10 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
     // clang-format on
 
     // for each YAML file section type:
+    //
+    // Refer to docs:
+    // https://docs.mola-slam.org/latest/concept-slam-configuration-file.html
+    //
     for (const auto& section : lstSections)
     {
         const auto& sectName      = section.first;
@@ -121,6 +125,9 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             ENSURE_YAML_ENTRY_EXISTS(ds, "type");
             ENSURE_YAML_ENTRY_EXISTS(ds, "name");
             ENSURE_YAML_ENTRY_EXISTS(ds, "params");
+
+            // Allow quickly disabling sections:
+            if (ds["launch_ignore"] && ds["launch_ignore"].as<bool>()) continue;
 
             const auto ds_label = ds["name"].as<std::string>();
             ASSERTMSG_(!ds_label.empty(), "`name` cannot be empty!");
