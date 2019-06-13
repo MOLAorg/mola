@@ -6,8 +6,8 @@
 
 modules:
 # Setup of SLAM back-end =====================================
-  - name: backend
-    type: ASLAM_gtsam
+  - type: ASLAM_gtsam
+    name: backend
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     #verbosity_level: INFO
     params:
@@ -34,15 +34,34 @@ modules:
       #save_trajectory_file_prefix:
       # ------------------------
 # Setup of World Model (the map) =====================================
-  - name: map
-    type: WorldModel
+  - type: WorldModel
+    name: map
     #verbosity_level: DEBUG
     params:
       # Age at which map keyframes will be unloaded from memory [s]
       age_to_unload_keyframes: 25.0
 # Setup of SLAM front-ends ====================================
-  - name: lidar_fe
-    type: LidarOdometry
+    # ------------------
+    # Wheel odometry
+    # ------------------
+  - type: WheelOdometry
+    name: wheel_odometry_fe
+    launch_ignore: true
+    raw_data_source: rawlog_input
+    raw_sensor_label: ODOMETRY
+    params:
+      # Minimum Euclidean distance (x,y,z) between keyframes inserted into
+      # the map
+      min_dist_xyz_between_keyframes: 2   # [meters]
+      # Minimum rotation (in 3D space, yaw, pitch,roll, altogether) between
+      # keyframes inserted into  the map:
+      min_rotation_between_keyframes: 30.0  # [deg]
+    # ------------------
+    # Lidar odometry
+    # ------------------
+  - type: LidarOdometry
+    name: lidar_fe
+    launch_ignore: false
     raw_data_source: rawlog_input
     raw_sensor_label: Velodyne1_SCAN
     params:
@@ -51,7 +70,11 @@ modules:
       min_time_between_scans: 0.01    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 3   # [meters]
+      min_dist_xyz_between_keyframes: 3.0   # [meters]
+      # Minimum rotation (in 3D space, yaw, pitch,roll, altogether) between
+      # keyframes inserted into  the map:
+      min_rotation_between_keyframes: 30.0  # [deg]
+      #
       # If !=0, decimate point clouds so they do not have more than this number of points
       decimate_to_point_count: 450
       # Minimum ICP "goodness" (in the range [0,1]) for a new KeyFrame to be accepted
@@ -107,7 +130,7 @@ modules:
   - name: rawlog_input
     type: RawlogDataset
     execution_rate: 50 # Hz
-    #verbosity_level: INFO
+    verbosity_level: INFO
     gui_preview_sensors:
       - raw_sensor_label: Velodyne1_SCAN
         decimation: 1

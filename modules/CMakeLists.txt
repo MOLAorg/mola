@@ -18,6 +18,7 @@ add_subdirectory(mola-fe-g2o-dataset)
 add_subdirectory(mola-fe-imu-preintegration)
 add_subdirectory(mola-lidar-segmentation)
 add_subdirectory(mola-fe-lidar)
+add_subdirectory(mola-fe-odometry)
 #add_subdirectory(mola-fe-visual-orb) # Under development
 add_subdirectory(mola-input-euroc-dataset)
 add_subdirectory(mola-input-hwdrivers)
