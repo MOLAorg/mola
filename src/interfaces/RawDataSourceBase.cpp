@@ -10,8 +10,8 @@
  * @date   Nov 21, 2018
  */
 
-#include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
+#include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
 #include <mrpt/obs/CObservationImage.h>
@@ -19,6 +19,7 @@
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/stock_objects.h>
+#include <mrpt/serialization/CArchive.h>
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 
@@ -67,6 +68,17 @@ void RawDataSourceBase::initialize_common(const std::string& cfg_block)
             // sv->win: Create a window when the sensor actually publishes.
         }
     }
+
+    // Handle optional export to rawlog file
+    auto export_to_rawlog = cfg["export_to_rawlog"];
+    if (export_to_rawlog)
+    {
+        const auto fil = export_to_rawlog.as<std::string>();
+        MRPT_LOG_INFO_STREAM("Exporting to rawlog file: " << fil);
+        if (!export_to_rawlog_out_.open(fil))
+            THROW_EXCEPTION_FMT("Error opening for write: `%s`", fil.c_str());
+    }
+
     MRPT_TRY_END
 }
 
@@ -87,6 +99,20 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
             10.0,
             "[sendObservationsToFrontEnds] Dropping observation: no consumer "
             "is attached.");
+    }
+
+    // if we are storing data to .rawlog, enqueue it in the specific worker
+    // thread:
+    if (export_to_rawlog_out_.is_open())
+    {
+        worker_pool_export_rawlog_.enqueue(
+            [this](mrpt::obs::CObservation::Ptr& o) {
+                if (!o) return;
+                auto a = mrpt::serialization::archiveFrom(
+                    this->export_to_rawlog_out_);
+                a << o;
+            },
+            obs);
     }
 
     // Send this observation for GUI preview, if enabled:
