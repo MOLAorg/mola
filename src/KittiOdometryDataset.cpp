@@ -16,8 +16,8 @@
  *
  */
 
-#include <mola-kernel/yaml_helpers.h>
 #include <mola-input-kitti-dataset/KittiOdometryDataset.h>
+#include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservationImage.h>
@@ -29,7 +29,8 @@
 
 using namespace mola;
 
-MRPT_INITIALIZER(do_register){MOLA_REGISTER_MODULE(KittiOdometryDataset)}
+MRPT_INITIALIZER(do_register_KittiOdometryDataset){
+    MOLA_REGISTER_MODULE(KittiOdometryDataset)}
 
 KittiOdometryDataset::KittiOdometryDataset() = default;
 
