@@ -53,3 +53,6 @@
 [submodule "mola-fe-odometry"]
 	path = modules/mola-fe-odometry
 	url = https://github.com/MOLAorg/mola-fe-odometry.git
+[submodule "DBoW"]
+	path = externals/DBoW2/DBoW2
+	url = https://github.com/MOLAorg/DBoW2.git
