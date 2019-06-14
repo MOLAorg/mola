@@ -5,25 +5,57 @@
 
 project(all_modules LANGUAGES CXX)
 
+# ----------------------------------------------------
+# Process dir by dir, solving build dependencies
+#
+# ----------------------------------------------------
+set(VISITED_DIRS "")
+
+function(process_module_dir dir)
+	message(STATUS "Processing: ${dir}")
+	list(APPEND VISITED_DIRS ${dir})
+
+	set(VAR_NAME "BUILD_MODULE_${dir}")
+	set(${VAR_NAME} ON CACHE BOOL "Build MOLA module: ${dir}")
+	#mark_as_advanced(FORCE ${VAR_NAME})
+
+  # If enabled in cmake options, and not already included from the root script:
+	if (${VAR_NAME} AND NOT TARGET "${dir}")
+		# First, process dependencies:
+
+		set(meta_file "${CMAKE_CURRENT_LIST_DIR}/${dir}/mola-module.yml")
+		if (EXISTS ${meta_file})
+			file(READ ${meta_file} contents)
+			string(REGEX REPLACE ";" "\\\\;" contents "${contents}")
+			string(REGEX REPLACE "\n" ";" contents "${contents}")
+
+			string(REGEX REPLACE "build-dep: (.*)" "\\1" build_deps "${contents}")
+
+			message(STATUS "${dir} has build_deps ==> " ${build_deps})
+			foreach(d ${build_deps})
+				message(STATUS "  Processing dep: ${d}")
+				# visit, if not done already:
+				list(APPEND VISITED_DIRS )
+				list(FIND VISITED_DIRS ${d} idx)
+				if (NOT ${idx} GREATER -1)
+					process_module_dir("${d}")
+				endif()
+			endforeach()
+		endif()
+
+		# Now, process the module:
+		add_subdirectory(${dir})
+	endif()
+endfunction()
+
+
+
 # mola-common: already included from top-level cmake script
 
-# System kernel:
-add_subdirectory(mola-kernel)
-# Launcher app:
-add_subdirectory(mola-launcher)
+# Enumerate all subdirs and process them:
+list_subdirectories(LIST_MODULE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
+mola_message_verbose("LIST_MODULE_DIRS: ${LIST_MODULE_DIRS}")
 
-
-# Modules:
-add_subdirectory(mola-fe-g2o-dataset)
-add_subdirectory(mola-fe-imu-preintegration)
-add_subdirectory(mola-lidar-segmentation)
-add_subdirectory(mola-fe-lidar)
-add_subdirectory(mola-fe-odometry)
-#add_subdirectory(mola-fe-visual-orb) # Under development
-add_subdirectory(mola-input-euroc-dataset)
-add_subdirectory(mola-input-hwdrivers)
-add_subdirectory(mola-input-kaist-dataset)
-add_subdirectory(mola-input-kitti-dataset)
-add_subdirectory(mola-input-rawlog)
-add_subdirectory(mola-slam-gtsam)
-add_subdirectory(mola-viz)
+foreach(dir ${LIST_MODULE_DIRS})
+	process_module_dir(${dir})
+endforeach(dir)
