@@ -16,6 +16,8 @@ project(mola-input-euroc-dataset LANGUAGES CXX)
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola-common REQUIRED)
 
+find_mola_package(mola-kernel)
+
 # find dependencies:
 find_package(mrpt-obs)
 find_package(mrpt-math)  # for MRPT Eigen utilities
