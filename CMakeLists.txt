@@ -18,6 +18,8 @@ find_package(mola-common REQUIRED)
 # find dependencies:
 find_package(mrpt-obs REQUIRED)
 
+find_mola_package(mola-kernel)
+
 # -----------------------
 # define lib:
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
