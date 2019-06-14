@@ -17,6 +17,7 @@ project(mola-viz LANGUAGES CXX)
 find_package(mola-common REQUIRED)
 # find dependencies:
 find_package(MRPT 1.9.9 REQUIRED COMPONENTS gui opengl)
+find_mola_package(mola-kernel)
 
 # -----------------------
 # define lib:
