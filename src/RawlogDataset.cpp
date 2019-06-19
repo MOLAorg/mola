@@ -22,9 +22,14 @@
 #include <yaml-cpp/yaml.h>
 
 using namespace mola;
-using namespace mola::sensor_rawlog_dataset;
 
-MRPT_INITIALIZER(do_register_RawlogDataset){MOLA_REGISTER_MODULE(RawlogDataset)}
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(RawlogDataset, RawDataSourceBase, mola);
+
+MRPT_INITIALIZER(do_register_RawlogDataset)
+{
+    MOLA_REGISTER_MODULE(RawlogDataset);
+}
 
 RawlogDataset::RawlogDataset() = default;
 

@@ -17,13 +17,13 @@
 
 namespace mola
 {
-namespace sensor_rawlog_dataset
-{
 /**
  *
  * \ingroup mola_sensor_rawlog_grp */
 class RawlogDataset : public RawDataSourceBase
 {
+    DEFINE_MRPT_OBJECT(RawlogDataset)
+
    public:
     RawlogDataset();
     ~RawlogDataset() override = default;
@@ -45,5 +45,4 @@ class RawlogDataset : public RawDataSourceBase
     std::map<mrpt::Clock::time_point, mrpt::obs::CObservation::Ptr> read_ahead_;
 };
 
-}  // namespace sensor_rawlog_dataset
 }  // namespace mola
