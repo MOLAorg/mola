@@ -22,8 +22,6 @@
 
 namespace mola
 {
-namespace euroc_dataset
-{
 struct SensorCamera
 {
     std::string                  sensor_name;
@@ -50,6 +48,8 @@ using euroc_dataset_t   = std::multimap<euroc_timestamp_t, SensorEntry>;
  * \ingroup mola_sensor_euroc_dataset_grp */
 class EurocDataset : public RawDataSourceBase
 {
+    DEFINE_MRPT_OBJECT(EurocDataset)
+
    public:
     EurocDataset();
     ~EurocDataset() override = default;
@@ -79,5 +79,4 @@ class EurocDataset : public RawDataSourceBase
     // void load_lidar(std::size_t step);
 };
 
-}  // namespace euroc_dataset
 }  // namespace mola

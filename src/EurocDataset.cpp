@@ -30,9 +30,14 @@
 #include <mrpt/io/csv.h>
 
 using namespace mola;
-using namespace mola::euroc_dataset;
 
-MRPT_INITIALIZER(do_register_EurocDataset){MOLA_REGISTER_MODULE(EurocDataset)}
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(EurocDataset, RawDataSourceBase, mola);
+
+MRPT_INITIALIZER(do_register_EurocDataset)
+{
+    MOLA_REGISTER_MODULE(EurocDataset);
+}
 
 EurocDataset::EurocDataset() = default;
 
