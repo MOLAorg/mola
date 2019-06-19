@@ -14,6 +14,7 @@
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/otherlibs/tclap/CmdLine.h>
+#include <mrpt/rtti/CObject.h>
 #include <csignal>  // sigaction
 #include <cstdlib>
 #include <iostream>
@@ -27,7 +28,7 @@ MRPT_TODO("win32: add SetConsoleCtrlHandler");
 // Declare supported cli switches ===========
 static TCLAP::CmdLine               cmd("mola-launcher");
 static TCLAP::ValueArg<std::string> arg_yaml_cfg(
-    "c", "config", "Input YAML config file (required) (*.yml)", true, "",
+    "c", "config", "Input YAML config file (required) (*.yml)", false, "",
     "demo.yml", cmd);
 
 static TCLAP::ValueArg<std::string> arg_verbosity_level(
@@ -45,10 +46,94 @@ static TCLAP::SwitchArg arg_enable_profiler_whole(
     "usage)",
     cmd);
 
+static TCLAP::SwitchArg arg_rtti_list_all(
+    "", "rtti-list-all",
+    "Loads all MOLA modules, then list all classes registered via mrpt::rtti",
+    cmd);
+
+static TCLAP::ValueArg<std::string> arg_rtti_list_children(
+    "", "rtti-children-of",
+    "Loads all MOLA modules, then list all known classes that inherit from the "
+    "given one",
+    false, "", "mp2p_icp::ICP_Base", cmd);
+
 void mola_signal_handler(int s);
 void mola_install_signal_handler();
 
 static mola::MolaLauncherApp app;
+
+// Default task for mola-cli: launching a SLAM system
+// -----------------------------------------------------
+static int mola_cli_launch_slam()
+{
+    // Load YAML config file:
+    if (!arg_yaml_cfg.isSet())
+    {
+        throw std::runtime_error(
+            "-c xxx.yaml (or --config xxx.yml) is required to launch a "
+            "SLAM system.\nInvoke con --help to see full usage "
+            "information.");
+    }
+    const auto file_yml = arg_yaml_cfg.getValue();
+
+    YAML::Node cfg = YAML::LoadFile(file_yml);
+
+    if (arg_verbosity_level.isSet())
+    {
+        using vl     = mrpt::typemeta::TEnumType<mrpt::system::VerbosityLevel>;
+        const auto v = vl::name2value(arg_verbosity_level.getValue());
+        app.setVerbosityLevel(v);
+    }
+    app.profiler_.enable(
+        arg_enable_profiler.isSet() || arg_enable_profiler_whole.isSet());
+    app.profiler_.enableKeepWholeHistory(arg_enable_profiler_whole.isSet());
+
+    // Create SLAM system:
+    app.setup(cfg);
+
+    // Run it:
+    app.spin();
+
+    return 0;
+}
+
+// list all RTTI classes:
+// -----------------------------------------------------
+int mola_cli_rtti_list_all()
+{
+    app.scanAndLoadLibraries();
+
+    std::vector<const mrpt::rtti::TRuntimeClassId*> lst =
+        mrpt::rtti::getAllRegisteredClasses();
+
+    for (const auto& c : lst) std::cout << c->className << "\n";
+
+    return 0;
+}
+
+// list children of a given class:
+// -----------------------------------------------------
+int mola_cli_rtti_list_child()
+{
+    app.scanAndLoadLibraries();
+
+    const auto parentName = arg_rtti_list_children.getValue();
+
+    std::cout << "Listing children of class: " << parentName << "\n";
+
+    const mrpt::rtti::TRuntimeClassId* id_parent =
+        mrpt::rtti::findRegisteredClass(parentName);
+
+    if (id_parent == nullptr)
+        throw std::runtime_error(mrpt::format(
+            "Cannot find any registered class named `%s`.\nTry using "
+            "`mola-cli --rtti-list-all`",
+            parentName.c_str()));
+
+    const auto lst = mrpt::rtti::getAllRegisteredClassesChildrenOf(id_parent);
+    for (const auto& c : lst) std::cout << c->className << "\n";
+    return 0;
+}
 
 int main(int argc, char** argv)
 {
@@ -59,26 +144,12 @@ int main(int argc, char** argv)
 
         mola_install_signal_handler();
 
-        // Load YAML config file:
-        const auto file_yml = arg_yaml_cfg.getValue();
+        // Different tasks that can be dine with mola-cli:
+        if (arg_rtti_list_all.isSet()) return mola_cli_rtti_list_all();
+        if (arg_rtti_list_children.isSet()) return mola_cli_rtti_list_child();
 
-        YAML::Node cfg = YAML::LoadFile(file_yml);
-
-        if (arg_verbosity_level.isSet())
-        {
-            using vl = mrpt::typemeta::TEnumType<mrpt::system::VerbosityLevel>;
-            const auto v = vl::name2value(arg_verbosity_level.getValue());
-            app.setVerbosityLevel(v);
-        }
-        app.profiler_.enable(
-            arg_enable_profiler.isSet() || arg_enable_profiler_whole.isSet());
-        app.profiler_.enableKeepWholeHistory(arg_enable_profiler_whole.isSet());
-
-        // Create SLAM system:
-        app.setup(cfg);
-
-        // Run it:
-        app.spin();
+        // Default task:
+        return mola_cli_launch_slam();
 
         return 0;
     }

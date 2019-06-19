@@ -45,7 +45,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      * At this point, MOLA module libraries are searched in a list of paths
      * and loaded for their classes to be available in name-based class
      * factories. Modules must be named "libmola*" to be loaded.
-     * \sa addModulesDirectory
+     * \sa addModulesDirectory, scanAndLoadLibraries
      */
     void setup(const YAML::Node& cfg);
 
@@ -66,6 +66,14 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     // TODO: set SLAM / localization mode?
 
     /** @} */
+
+    /** Scans and loads MOLA module libraries. This is automatically called
+     * within setup(), but it's provided here in case a user want to only load
+     * modules for use the RTTI machinery on them without setting up a complete
+     * SLAM system.
+     * \sa addModulesDirectory, setup
+     */
+    void scanAndLoadLibraries();
 
     /** Time profiler. It's enabled/disabled status will be inherited (by
      * default, unless set otherwise in their YAML config files) by all modules

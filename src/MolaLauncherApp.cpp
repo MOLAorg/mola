@@ -62,12 +62,21 @@ void MolaLauncherApp::addModulesDirectory(const std::string& path)
     lib_search_paths_.push_back(path);
 }
 
-void MolaLauncherApp::setup(const YAML::Node& cfg_in)
+void MolaLauncherApp::scanAndLoadLibraries()
 {
     MRPT_TRY_START
 
     // make sure all available modules are loaded and classes are registered.
     internal_load_lib_modules(*this, lib_search_paths_);
+
+    MRPT_TRY_END
+}
+
+void MolaLauncherApp::setup(const YAML::Node& cfg_in)
+{
+    MRPT_TRY_START
+
+    scanAndLoadLibraries();
 
     MRPT_LOG_INFO(
         "Setting up system from YAML config... (set DEBUG verbosity level to "
