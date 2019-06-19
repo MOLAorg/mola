@@ -6,7 +6,7 @@
 
 modules:
 # Offline or online sensory data sources =====================
-  - type: KaistDataset
+  - type: mola::KaistDataset
     name: kaist_input
     execution_rate: 50 # Hz
     #verbosity_level: INFO

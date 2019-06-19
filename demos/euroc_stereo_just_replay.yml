@@ -7,7 +7,7 @@
 modules:
 # Offline or online sensory data sources =====================
   - name: euroc_input
-    type: EurocDataset
+    type: mola::EurocDataset
     execution_rate: 50 # Hz
     gui_preview_sensors:
       - raw_sensor_label: cam0

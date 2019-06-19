@@ -7,7 +7,7 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: RSLAM_gtsam
+    type: mola::RSLAM_gtsam
     execution_rate: 100 # Hz
     verbosity_level: INFO
     params:
@@ -34,14 +34,14 @@ modules:
       # ----------
 # Setup of World Model (the map) =====================================
   - name: map
-    type: WorldModel
+    type: mola::WorldModel
     verbosity_level: INFO
     params:
     # None required
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
-    type: KittiOdometryDataset
+    type: mola::KittiOdometryDataset
     execution_rate: 25 # Hz
     verbosity_level: INFO
     gui_preview_sensors:
