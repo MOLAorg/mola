@@ -12,10 +12,10 @@
 #pragma once
 
 #include <mola-kernel/Entity.h>
-#include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/Factor.h>
 #include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/id.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
 #include <map>
 #include <shared_mutex>
 
@@ -27,6 +27,8 @@ namespace mola
  */
 class WorldModel : public ExecutableBase
 {
+    DEFINE_MRPT_OBJECT(WorldModel)
+
    public:
     // Virtual interface of any ExecutableBase. See base docs:
     void initialize_common(const std::string&) override {}
@@ -35,8 +37,6 @@ class WorldModel : public ExecutableBase
 
     /** The WorldModel is launched first, before most other modules. */
     int launchOrderPriority() const override { return 10; }
-
-    using Ptr = std::shared_ptr<WorldModel>;
 
     struct Parameters
     {

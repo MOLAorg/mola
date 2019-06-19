@@ -28,6 +28,10 @@
 using namespace mola;
 using mrpt::gui::CDisplayWindow3D;
 
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(
+    RawDataSourceBase, ExecutableBase, mola);
+
 static WorkerThreadsPool gui_updater_threadpool(1 /* 1 thread */);
 
 struct RawDataSourceBase::SensorViewerImpl

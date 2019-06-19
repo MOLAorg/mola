@@ -17,6 +17,9 @@
 
 using namespace mola;
 
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(FrontEndBase, ExecutableBase, mola);
+
 FrontEndBase::FrontEndBase() = default;
 
 void FrontEndBase::initialize_common(const std::string& cfg_block)

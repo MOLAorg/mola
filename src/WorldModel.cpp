@@ -28,7 +28,14 @@
 
 using namespace mola;
 
-MRPT_INITIALIZER(do_register_WorldModel) { MOLA_REGISTER_MODULE(WorldModel) }
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(WorldModel, ExecutableBase, mola);
+
+MRPT_INITIALIZER(do_register_WorldModel)
+{
+    // Register:
+    MOLA_REGISTER_MODULE(WorldModel);
+}
 
 /** Map container interface for Entities inside a WorldModel
  * \ingroup mola_kernel_grp */

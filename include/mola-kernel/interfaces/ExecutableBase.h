@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mrpt/rtti/CObject.h>
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/system/CTimeLogger.h>
 #include <functional>
@@ -25,22 +26,21 @@ using Profiler            = mrpt::system::CTimeLogger;
 using ProfilerEntry       = mrpt::system::CTimeLoggerEntry;
 using ProfilerSaverAtDtor = mrpt::system::CTimeLoggerSaveAtDtor;
 
-/** Base virtual class for all executable (nodelets-like) units inside a
+/** Base virtual class for all executable (nodelet-like) units inside a
  * SLAM system. \ingroup mola_kernel_grp */
-class ExecutableBase : public mrpt::system::COutputLogger,
+class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
+                       public mrpt::rtti::CObject,  // RTTI helpers
                        std::enable_shared_from_this<ExecutableBase>
 {
+    // This macro defines `Ptr=shared_ptr<T>`, among other types and methods.
+    DEFINE_VIRTUAL_MRPT_OBJECT(ExecutableBase)
+
    public:
     ExecutableBase();
     virtual ~ExecutableBase();
 
-    using Ptr = std::shared_ptr<ExecutableBase>;
-
     /** Class factory. Register using MOLA_REGISTER_MODULE() */
     static Ptr Factory(const std::string& classname);
-
-    static void registerClass(
-        const std::string_view& classname, std::function<Ptr(void)> func);
 
     /** Get as shared_ptr via enable_shared_from_this<> */
     Ptr getAsPtr() { return shared_from_this(); }
@@ -118,7 +118,6 @@ std::vector<ExecutableBase::Ptr> ExecutableBase::findService() const
 }
 
 #define MOLA_REGISTER_MODULE(_classname) \
-    mola::ExecutableBase::registerClass( \
-        #_classname, []() { return std::make_shared<_classname>(); });
+    mrpt::rtti::registerClass(CLASS_ID(_classname))
 
 }  // namespace mola

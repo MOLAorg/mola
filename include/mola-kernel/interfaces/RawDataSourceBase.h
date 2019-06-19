@@ -27,11 +27,11 @@ namespace mola
  * \ingroup mola_kernel_grp */
 class RawDataSourceBase : public mola::ExecutableBase
 {
+    DEFINE_VIRTUAL_MRPT_OBJECT(RawDataSourceBase)
+
    public:
     RawDataSourceBase();
     virtual ~RawDataSourceBase() = default;
-
-    using Ptr = std::shared_ptr<RawDataSourceBase>;
 
     /** Attach this object to a consumer. A shared_ptr is created to keep a
      * reference to the object. */

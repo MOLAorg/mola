@@ -31,11 +31,11 @@ namespace mola
  * \ingroup mola_kernel_grp */
 class FrontEndBase : public ExecutableBase, RawDataConsumer
 {
+    DEFINE_VIRTUAL_MRPT_OBJECT(FrontEndBase)
+
    public:
     FrontEndBase();
     virtual ~FrontEndBase() = default;
-
-    using Ptr = std::shared_ptr<FrontEndBase>;
 
     /** Loads common parameters for all front-ends. Called by launcher just
      * before initialize(). */

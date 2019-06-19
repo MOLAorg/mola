@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/WorldModel.h>
+#include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/img/TCamera.h>  // TODO: Remove after unused below
 #include <mrpt/math/CMatrixFixed.h>
@@ -30,11 +30,11 @@ namespace mola
  * \ingroup mola_kernel_grp */
 class BackEndBase : public ExecutableBase
 {
+    DEFINE_VIRTUAL_MRPT_OBJECT(BackEndBase)
+
    public:
     BackEndBase();
     virtual ~BackEndBase() = default;
-
-    using Ptr = std::shared_ptr<BackEndBase>;
 
     /** Loads common parameters for all back-ends. Called by launcher just
      * before initialize(). */

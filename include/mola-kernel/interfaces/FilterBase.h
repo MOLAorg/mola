@@ -24,10 +24,10 @@ namespace mola
  * \ingroup mola_kernel_grp */
 class FilterBase : public RawDataSourceBase, RawDataConsumer
 {
+    DEFINE_VIRTUAL_MRPT_OBJECT(FilterBase)
+
    public:
     FilterBase();
-
-    using Ptr = std::shared_ptr<FilterBase>;
 
     /** @name Virtual interface of any Filter
      *{ */

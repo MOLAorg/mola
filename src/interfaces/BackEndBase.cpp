@@ -10,13 +10,16 @@
  * @date   Dec 21, 2018
  */
 
+#include <mola-kernel/WorldModel.h>
 #include <mola-kernel/interfaces/BackEndBase.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
-#include <mola-kernel/WorldModel.h>
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 
 using namespace mola;
+
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(BackEndBase, ExecutableBase, mola);
 
 BackEndBase::BackEndBase() = default;
 

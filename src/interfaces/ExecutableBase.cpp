@@ -14,44 +14,21 @@
 #include <mola-kernel/lock_helper.h>
 #include <mutex>
 
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(
+    ExecutableBase, mrpt::rtti::CObject, mola);
+
 using namespace mola;
-
-// Class factory:
-struct Registry
-{
-    static Registry& Instance()
-    {
-        static Registry r;
-        return r;
-    }
-
-    std::mutex registry_mtx_;
-    std::map<std::string, std::function<ExecutableBase::Ptr(void)>> registry_;
-
-   private:
-    Registry() = default;
-};
 
 ExecutableBase::Ptr ExecutableBase::Factory(const std::string& name)
 {
-    Registry& r = Registry::Instance();
-    auto      l = lockHelper(r.registry_mtx_);
+    auto o = mrpt::rtti::classFactory(name);
 
-    const auto f = r.registry_.find(name);
-    if (f == r.registry_.end())
+    if (!o)
         THROW_EXCEPTION_FMT(
             "[ExecutableBase::Factory] Request for unregistered class: `%s`",
             name.c_str());
-    return (f->second)();
-}
-
-void ExecutableBase::registerClass(
-    const std::string_view& classname, std::function<Ptr(void)> func)
-{
-    Registry& r = Registry::Instance();
-    auto      l = lockHelper(r.registry_mtx_);
-
-    r.registry_.emplace(classname, func);
+    return mrpt::ptr_cast<ExecutableBase>::from(o);
 }
 
 ExecutableBase::ExecutableBase() = default;
