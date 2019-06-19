@@ -48,13 +48,14 @@ static TCLAP::SwitchArg arg_enable_profiler_whole(
 
 static TCLAP::SwitchArg arg_rtti_list_all(
     "", "rtti-list-all",
-    "Loads all MOLA modules, then list all classes registered via mrpt::rtti",
+    "Loads all MOLA modules, then list all classes registered via mrpt::rtti, "
+    "and exits.",
     cmd);
 
 static TCLAP::ValueArg<std::string> arg_rtti_list_children(
     "", "rtti-children-of",
     "Loads all MOLA modules, then list all known classes that inherit from the "
-    "given one",
+    "given one, and exits.",
     false, "", "mp2p_icp::ICP_Base", cmd);
 
 void mola_signal_handler(int s);
@@ -69,10 +70,10 @@ static int mola_cli_launch_slam()
     // Load YAML config file:
     if (!arg_yaml_cfg.isSet())
     {
-        throw std::runtime_error(
-            "-c xxx.yaml (or --config xxx.yml) is required to launch a "
-            "SLAM system.\nInvoke con --help to see full usage "
-            "information.");
+        TCLAP::ArgException e(
+            "-c xxx.yaml (or --config xxx.yml) is required to launch a SLAM "
+            "system.");
+        cmd.getOutput()->failure(cmd, e);
     }
     const auto file_yml = arg_yaml_cfg.getValue();
 
