@@ -7,14 +7,14 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: RSLAM_gtsam
+    type: mola::RSLAM_gtsam
     execution_rate: 100 # Hz
     verbosity_level: INFO
     params:
       # ...
 # Setup of SLAM front-ends ====================================
   - name: mono_visual_fe
-    type: VisualORB_Mono
+    type: mola::VisualORB_Mono
     raw_data_source: euroc_input
     raw_sensor_label: cam0
     params:
@@ -41,7 +41,7 @@ modules:
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: euroc_input
-    type: EurocDataset
+    type: mola::EurocDataset
     execution_rate: 50 # Hz
     gui_preview_sensors:
 #      - raw_sensor_label: cam0

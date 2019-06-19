@@ -7,7 +7,7 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: ASLAM_gtsam
+    type: mola::ASLAM_gtsam
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     #verbosity_level: INFO
     params:
@@ -35,14 +35,14 @@ modules:
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
-    type: WorldModel
+    type: mola::WorldModel
     #verbosity_level: DEBUG
     params:
       # Age at which map keyframes will be unloaded from memory [s]
       age_to_unload_keyframes: 25.0
 # Setup of SLAM front-ends ====================================
   - name: lidar_fe
-    type: LidarOdometry
+    type: mola::LidarOdometry
     raw_data_source: kitti_input
     raw_sensor_label: lidar
     #verbosity_level: DEBUG
@@ -107,7 +107,7 @@ modules:
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: kitti_input
-    type: KittiOdometryDataset
+    type: mola::KittiOdometryDataset
     execution_rate: 20 # Hz
     verbosity_level: INFO
     gui_preview_sensors:

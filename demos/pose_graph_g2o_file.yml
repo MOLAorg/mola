@@ -10,7 +10,7 @@ modules:
   - name: backend
     # ASLAM_gtsam for SLAM in absolute coordinates
     # RSLAM_gtsam for SLAM in relative coordinates
-    type: ASLAM_gtsam
+    type: mola::ASLAM_gtsam
     # The rate at which the SLAM solution will be recomputed
     execution_rate: 10 # Hz
     params:
@@ -33,7 +33,7 @@ modules:
       # ------------------------
 # Setup of SLAM front-ends ====================================
   - name: g2o_dataset_fe
-    type: G2ODataset
+    type: mola::G2ODataset
     # The execution rate for this module is the rate at which observations
     # will be sent to the SLAM back-end. Change to modify the speed at which
     # the map is being built.
@@ -44,7 +44,7 @@ modules:
       # ----------
 # Setup of World Model (the map) =====================================
   - name: map
-    type: WorldModel
+    type: mola::WorldModel
     verbosity_level: INFO
     params:
       age_to_unload_keyframes: 1500000.0

@@ -7,7 +7,7 @@
 modules:
 # Offline or online sensory data sources =====================
   - name: rawlog_input
-    type: RawlogDataset
+    type: mola::RawlogDataset
     execution_rate: 50 # Hz
     #verbosity_level: INFO
     gui_preview_sensors:

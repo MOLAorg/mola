@@ -9,7 +9,7 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: ASLAM_gtsam
+    type: mola::ASLAM_gtsam
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     #verbosity_level: INFO
     params:
@@ -37,13 +37,13 @@ modules:
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
-    type: WorldModel
+    type: mola::WorldModel
     #verbosity_level: DEBUG
     params:
       # Age at which map keyframes will be unloaded from memory [s]
       age_to_unload_keyframes: 25.0
 # Setup of SLAM front-ends ====================================
-  - type: LidarOdometry
+  - type: mola::LidarOdometry
     name: lidar_fe
     raw_data_source: kaist_input
     raw_sensor_label: VLP_left
@@ -107,7 +107,7 @@ modules:
       #debug_save_extra_edges: true
       #debug_save_loop_closures: true
 # Offline or online sensory data sources =====================
-  - type: KaistDataset
+  - type: mola::KaistDataset
     name: kaist_input
     execution_rate: 50 # Hz
     #verbosity_level: INFO

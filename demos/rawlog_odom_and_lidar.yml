@@ -6,7 +6,7 @@
 
 modules:
 # Setup of SLAM back-end =====================================
-  - type: ASLAM_gtsam
+  - type: mola::ASLAM_gtsam
     name: backend
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     #verbosity_level: INFO
@@ -34,7 +34,7 @@ modules:
       #save_trajectory_file_prefix:
       # ------------------------
 # Setup of World Model (the map) =====================================
-  - type: WorldModel
+  - type: mola::WorldModel
     name: map
     #verbosity_level: DEBUG
     params:
@@ -44,7 +44,7 @@ modules:
     # ------------------
     # Wheel odometry
     # ------------------
-  - type: WheelOdometry
+  - type: mola::WheelOdometry
     name: wheel_odometry_fe
     launch_ignore: true
     raw_data_source: rawlog_input
@@ -59,7 +59,7 @@ modules:
     # ------------------
     # Lidar odometry
     # ------------------
-  - type: LidarOdometry
+  - type: mola::LidarOdometry
     name: lidar_fe
     launch_ignore: false
     raw_data_source: rawlog_input
@@ -128,7 +128,7 @@ modules:
       #debug_save_loop_closures: true
 # Offline or online sensory data sources =====================
   - name: rawlog_input
-    type: RawlogDataset
+    type: mola::RawlogDataset
     execution_rate: 50 # Hz
     verbosity_level: INFO
     gui_preview_sensors:

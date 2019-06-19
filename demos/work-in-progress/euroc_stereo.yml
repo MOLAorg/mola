@@ -7,7 +7,7 @@
 modules:
 # Setup of SLAM back-end =====================================
   - name: backend
-    type: ASLAM_gtsam
+    type: mola::ASLAM_gtsam
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     #verbosity_level: INFO
     params:
@@ -29,14 +29,14 @@ modules:
       # ------------------------
 # Setup of World Model (the map) =====================================
   - name: map
-    type: WorldModel
+    type: mola::WorldModel
     #verbosity_level: DEBUG
     params:
       # Age at which map keyframes will be unloaded from memory [s]
       age_to_unload_keyframes: 1500000.0
 # Setup of SLAM front-ends ====================================
   - name: stereo_visual_fe
-    type: VisualORB_Stereo
+    type: mola::VisualORB_Stereo
     raw_data_source: euroc_input
     raw_sensor_label_left: cam0
     raw_sensor_label_right: cam1
@@ -67,7 +67,7 @@ modules:
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
   - name: euroc_input
-    type: EurocDataset
+    type: mola::EurocDataset
     execution_rate: 50 # Hz
     gui_preview_sensors:
 #      - raw_sensor_label: cam0
