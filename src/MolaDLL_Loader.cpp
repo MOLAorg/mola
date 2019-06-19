@@ -22,15 +22,13 @@
 MRPT_TODO(
     "Improvement: automatic scanning libraries and extract their classes");
 
-/** Used in internal_load_lib_modules() */
-struct LoadedModules
-{
-    std::string lib_path;
-    void*       handle{nullptr};
-};
-
 /** From internal_load_lib_modules() */
 static std::map<std::string, LoadedModules> loaded_lib_handled;
+
+const std::map<std::string, LoadedModules>& get_loaded_modules()
+{
+    return loaded_lib_handled;
+}
 
 /** Loads all libs under lib_search_paths_. \sa setup() */
 void internal_load_lib_modules(

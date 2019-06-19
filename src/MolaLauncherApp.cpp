@@ -29,7 +29,6 @@ using namespace mola;
 MolaLauncherApp::MolaLauncherApp()
     : mrpt::system::COutputLogger("MolaLauncherApp")
 {
-    profiler_.setName("MolaLauncherApp");
     lib_search_paths_.emplace_back(MOLA_MODULES_DIR);
 }
 
@@ -60,6 +59,15 @@ void MolaLauncherApp::shutdown()
 void MolaLauncherApp::addModulesDirectory(const std::string& path)
 {
     lib_search_paths_.push_back(path);
+}
+
+std::vector<std::string> MolaLauncherApp::getLoadedModules()
+{
+    std::vector<std::string> mods;
+
+    const std::map<std::string, LoadedModules>& lst = get_loaded_modules();
+    for (const auto& m : lst) mods.push_back(m.second.lib_path);
+    return mods;
 }
 
 void MolaLauncherApp::scanAndLoadLibraries()

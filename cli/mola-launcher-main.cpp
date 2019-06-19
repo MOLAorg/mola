@@ -58,6 +58,12 @@ static TCLAP::ValueArg<std::string> arg_rtti_list_children(
     "given one, and exits.",
     false, "", "mp2p_icp::ICP_Base", cmd);
 
+static TCLAP::SwitchArg arg_list_modules(
+    "", "list-modules",
+    "Loads all MOLA modules, then list them. It also shows the list of paths "
+    "in which the program looks for module dynamic libraries, then exits.",
+    cmd);
+
 void mola_signal_handler(int s);
 void mola_install_signal_handler();
 
@@ -136,6 +142,25 @@ int mola_cli_rtti_list_child()
     return 0;
 }
 
+int mola_cli_list_modules()
+{
+    // show paths:
+    std::vector<std::string> lst = app.getModulesPaths();
+    std::cout << "MOLA modules paths has " << lst.size() << " directories:\n";
+    for (const auto& p : lst) std::cout << p << "\n";
+    std::cout << "\n";
+
+    // Load and show loaded modules:
+    app.scanAndLoadLibraries();
+
+    const std::vector<std::string> mods = app.getLoadedModules();
+    std::cout << "Loaded MOLA modules: " << mods.size() << "\n";
+    for (const auto& p : mods) std::cout << p << "\n";
+    std::cout << "\n";
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
     try
@@ -148,6 +173,7 @@ int main(int argc, char** argv)
         // Different tasks that can be dine with mola-cli:
         if (arg_rtti_list_all.isSet()) return mola_cli_rtti_list_all();
         if (arg_rtti_list_children.isSet()) return mola_cli_rtti_list_child();
+        if (arg_list_modules.isSet()) return mola_cli_list_modules();
 
         // Default task:
         return mola_cli_launch_slam();

@@ -40,6 +40,19 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      */
     void addModulesDirectory(const std::string& path);
 
+    /** Returns a copy of the current list of paths in which this object will
+     * try to look for MOLA modules.
+     * (Default=CMAKE_LIBRARY_OUTPUT_DIRECTORY).
+     * \sa addModulesDirectory
+     */
+    std::vector<std::string> getModulesPaths() const
+    {
+        return lib_search_paths_;
+    }
+
+    /** Returns the current list of loaded module dynamic libraries. */
+    std::vector<std::string> getLoadedModules();
+
     /** Prepares the SLAM system based on a YAML configuration file.
      * See [mola]/demos/ for example YAML files.
      * At this point, MOLA module libraries are searched in a list of paths
@@ -78,7 +91,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** Time profiler. It's enabled/disabled status will be inherited (by
      * default, unless set otherwise in their YAML config files) by all modules
      * created upon the call to setup() */
-    mrpt::system::CTimeLogger profiler_;
+    mrpt::system::CTimeLogger profiler_{"MolaLauncherApp"};
 
     /** Enabled from mola-cli with `--profiler-whole` to save full profile stats
      * to .m files at program end.
