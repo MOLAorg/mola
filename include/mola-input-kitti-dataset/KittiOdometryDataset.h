@@ -29,6 +29,8 @@ namespace mola
  * \ingroup mola_sensor_kitti_dataset_grp */
 class KittiOdometryDataset : public RawDataSourceBase
 {
+    DEFINE_MRPT_OBJECT(KittiOdometryDataset)
+
    public:
     KittiOdometryDataset();
     ~KittiOdometryDataset() override = default;

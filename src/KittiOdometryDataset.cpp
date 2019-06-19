@@ -29,8 +29,13 @@
 
 using namespace mola;
 
-MRPT_INITIALIZER(do_register_KittiOdometryDataset){
-    MOLA_REGISTER_MODULE(KittiOdometryDataset)}
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(KittiOdometryDataset, RawDataSourceBase, mola);
+
+MRPT_INITIALIZER(do_register_KittiOdometryDataset)
+{
+    MOLA_REGISTER_MODULE(KittiOdometryDataset);
+}
 
 KittiOdometryDataset::KittiOdometryDataset() = default;
 
