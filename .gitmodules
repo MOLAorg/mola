@@ -31,7 +31,7 @@
 	url = git@github.com:jlblancoc/mola-fe-imu-preintegration.git
 [submodule "mola-input-rawlog"]
 	path = modules/mola-input-rawlog
-	url = git@github.com:jlblancoc/mola-input-rawlog.git
+	url = https://github.com/MOLAorg/mola-input-rawlog.git
 [submodule "mola-input-hwdrivers"]
 	path = modules/mola-input-hwdrivers
 	url = git@github.com:jlblancoc/mola-input-hwdrivers.git
