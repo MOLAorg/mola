@@ -5,7 +5,17 @@ if [ -z "$1" ]; then
 	exit 1	
 fi
 
-CWD=$(pwd);
-ls -1d */.git | xargs -I FIL dirname FIL | while read line; do echo "Processing: $line"; cd $CWD/$line && git "$@"; done;
+NUM_PARALLEL_THREADS=8
 
+CWD=$(pwd);
+ls -1d */.git | xargs -I FIL dirname FIL | \
+while read line; do \
+ ((i=i%NUM_PARALLEL_THREADS)); ((i++==0)) && wait
+ echo "[thread $i] Processing: $line";\
+ cd $CWD/$line; \
+ git "$@" & \
+done;
+
+# Wait for all children processes to end:
+wait
 
