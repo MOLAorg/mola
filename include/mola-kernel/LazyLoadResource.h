@@ -37,23 +37,25 @@ class LazyLoadResource
     /** Access (a copy of) the underlying smart pointer to the object */
     mrpt::serialization::CSerializable::Ptr value()
     {
-        load_proxy();
+        internalLoadProxy();
         return data_;
     }
     /** Access (a const-ref to) the underlying smart pointer to the object */
     const mrpt::serialization::CSerializable::Ptr& value() const
     {
-        load_proxy();
+        internalLoadProxy();
         return data_;
     }
 
-    /** Ensure data is loaded from disk */
+    /** Ensure data is loaded from disk, if it was automatically swapped-off */
     void load() const;
-    /** Unload data is loaded from disk */
-    void unload() const;
-    bool is_unloaded() const;
 
-    void reset() { data_.reset(); }
+    /** Unload data and save to disk now, if not already done before */
+    void unload() const;
+    bool isUnloaded() const;
+
+    /** Empty this container. */
+    void reset() { *this = LazyLoadResource(); }
 
     /** Sets the contents of this container, including the desired external file
      * name */
@@ -61,10 +63,18 @@ class LazyLoadResource
         const mrpt::serialization::CSerializable::Ptr& source,
         const std::string&                             f);
 
+    /** Sets this container as externally-stored, given an external filename.
+     * The external content is *not* automatically loaded, for that, explicitly
+     * call load() if needed.
+     */
+    void setAsExternal(const std::string& relativeFileName);
+
     void setParentEntityID(const mola::id_t id) { parent_entity_id_ = id; }
 
+    static std::string EXTERNAL_BASE_DIR;
+
    private:
-    void load_proxy() const
+    inline void internalLoadProxy() const
     {
         if (data_) return;
         load();

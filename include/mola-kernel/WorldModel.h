@@ -16,20 +16,58 @@
 #include <mola-kernel/FastAllocator.h>
 #include <mola-kernel/id.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mrpt/serialization/CSerializable.h>
 #include <map>
 #include <shared_mutex>
 
 namespace mola
 {
+/** \addtogroup mola_kernel_grp
+ * @{ */
+
+using entity_connected_factors_t = mola::fast_map<id_t, mola::fast_set<fid_t>>;
+
+/** A serializable data container for all WorldModel data (i.e. a "map")
+ */
+class WorldModelData : public mrpt::serialization::CSerializable
+{
+    DEFINE_SERIALIZABLE(WorldModelData)
+   public:
+    struct EntitiesContainer;
+    struct FactorsContainer;
+
+    /** Arbitrary map name, used as directory prefix for saving to disk, for
+     * example. It is populated at ctor with the date and time. */
+    std::string map_name_;
+
+    /** All keyframes, relative and absolute poses, calibration parameter
+     * sets, etc. that can be stored in a world model. Indexed by a unique
+     * id_t; */
+    std::unique_ptr<EntitiesContainer> entities_;
+    entity_connected_factors_t         entity_connected_factors_;
+    std::shared_mutex                  entities_mtx_;
+
+    /** All observations, constraints, etc. as generic "factors".
+     * Indexed by a unique fid_t; */
+    std::unique_ptr<FactorsContainer> factors_;
+    std::shared_mutex                 factors_mtx_;
+
+    mutable mola::fast_map<id_t, mrpt::Clock::time_point> entity_last_access_;
+    std::shared_mutex entity_last_access_mtx_;
+};
+
 /** The main class for a "map" or "world model".
  *
- * \ingroup mola_kernel_grp
+ * \note This class cannot be factored out into its independent module due to
+ * its tight connection to "mola-kernel/interfaces".
  */
 class WorldModel : public ExecutableBase
 {
     DEFINE_MRPT_OBJECT(WorldModel)
 
    public:
+    WorldModel();
+
     // Virtual interface of any ExecutableBase. See base docs:
     void initialize_common(const std::string&) override {}
     void initialize(const std::string& cfg_block) override;
@@ -45,20 +83,42 @@ class WorldModel : public ExecutableBase
 
     Parameters params_;
 
-    using entity_connected_factors_t =
-        mola::fast_map<id_t, mola::fast_set<fid_t>>;
-
-    /** @name Main API
+    /** @name Map load/save API
      * @{ */
-    void entities_lock_for_read() { entities_mtx_.lock_shared(); }
-    void entities_unlock_for_read() { entities_mtx_.unlock_shared(); }
-    void entities_lock_for_write() { entities_mtx_.lock(); }
-    void entities_unlock_for_write() { entities_mtx_.unlock(); }
 
-    void factors_lock_for_read() { factors_mtx_.lock_shared(); }
-    void factors_unlock_for_read() { factors_mtx_.unlock_shared(); }
-    void factors_lock_for_write() { factors_mtx_.lock(); }
-    void factors_unlock_for_write() { factors_mtx_.unlock(); }
+    /** Loads the map from a given source.
+     * \exception std::runtime_error in case of any I/O error. */
+    void map_load_from(mrpt::serialization::CArchive& in);
+
+    /// overload
+    void map_load_from(const std::string& fileName);
+
+    /** Saves the map to the given data sink.
+     * \exception std::runtime_error in case of any I/O error. */
+    void map_save_to(mrpt::serialization::CArchive& out) const;
+
+    void map_save_to(const std::string& fileName) const;
+
+    /** Returns the directory where entities will be swapped-off to disk when
+     * unloaded, i.e. the map database directory.
+     * This directory is built at construction from `MOLA_MAP_STORAGE_DIR` and
+     * the map name, which by default is the current date and time.
+     */
+    std::string map_base_directory() const { return map_base_dir_; }
+
+    /** @} */
+
+    /** @name Main map content API
+     * @{ */
+    void entities_lock_for_read() { data_.entities_mtx_.lock_shared(); }
+    void entities_unlock_for_read() { data_.entities_mtx_.unlock_shared(); }
+    void entities_lock_for_write() { data_.entities_mtx_.lock(); }
+    void entities_unlock_for_write() { data_.entities_mtx_.unlock(); }
+
+    void factors_lock_for_read() { data_.factors_mtx_.lock_shared(); }
+    void factors_unlock_for_read() { data_.factors_mtx_.unlock_shared(); }
+    void factors_lock_for_write() { data_.factors_mtx_.lock(); }
+    void factors_unlock_for_write() { data_.factors_mtx_.unlock(); }
 
     const Entity& entity_by_id(const id_t id) const;
     Entity&       entity_by_id(const id_t id);
@@ -85,24 +145,11 @@ class WorldModel : public ExecutableBase
 
     /** @} */
 
-    struct EntitiesContainer;
-    struct FactorsContainer;
-
    private:
-    /** All keyframes, relative and absolute poses, calibration parameter sets,
-     * etc. that can be stored in a world model.
-     * Indexed by a unique id_t; */
-    std::unique_ptr<EntitiesContainer> entities_;
-    entity_connected_factors_t         entity_connected_factors_;
-    std::shared_mutex                  entities_mtx_;
+    /** All map data */
+    WorldModelData data_;
 
-    /** All observations, constraints, etc. as generic "factors".
-     * Indexed by a unique fid_t; */
-    std::unique_ptr<FactorsContainer> factors_;
-    std::shared_mutex                 factors_mtx_;
-
-    mutable mola::fast_map<id_t, mrpt::Clock::time_point> entity_last_access_;
-    std::shared_mutex entity_last_access_mtx_;
+    std::string map_base_dir_;
 
     /** Returns a list with all those entities that have not been accessed in
      * `age_to_unload_keyframes`. Once an entity is reported as "aged", it's
@@ -110,7 +157,11 @@ class WorldModel : public ExecutableBase
      * again unless re-loaded. */
     std::vector<id_t> findEntitiesToSwapOff();
 
+    /** Updates entity_connected_factors_ within each call to
+     * factor_emplace_back() */
     void internal_update_neighbors(const FactorBase& f);
 };
+
+/** @} */
 
 }  // namespace mola

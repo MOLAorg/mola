@@ -13,6 +13,7 @@
 #include <mola-kernel/Entity.h>
 #include <mola-kernel/entities/EntityBase.h>
 #include <mola-kernel/variant_helper.h>
+#include <mrpt/serialization/CArchive.h>
 
 // TODO: make serializable
 
@@ -75,7 +76,7 @@ bool EntityBase::is_unloaded() const
 
     // Always: unload annotations:
     for (auto& a : annotations_)
-        is_unloaded = is_unloaded && a.second.is_unloaded();
+        is_unloaded = is_unloaded && a.second.isUnloaded();
 
     /*    // If I am a KeyFrame: unload observations:
         if (auto kf = dynamic_cast<const KeyFrameBase*>(this); kf != nullptr)
@@ -84,4 +85,35 @@ bool EntityBase::is_unloaded() const
     return is_unloaded;
 
     MRPT_TRY_END
+}
+
+void EntityBase::serializeTo(mrpt::serialization::CArchive& out) const
+{
+    out << my_id_ << timestamp_;
+
+    out.WriteAs<uint32_t>(annotations_.size());
+    for (const auto& a : annotations_)
+    {
+        out << a.first;
+        // this saves data to disk to independent file
+        a.second.unload();
+        // Save name of external file so we know what to load when
+        // de-serializing:
+        out << a.second.externalStorage();
+    }
+}
+void EntityBase::serializeFrom(mrpt::serialization::CArchive& in)
+{
+    in >> my_id_ >> timestamp_;
+
+    const auto nAnnotations = in.ReadAs<uint32_t>();
+    annotations_.clear();
+
+    for (uint32_t i = 0; i < nAnnotations; i++)
+    {
+        std::string annotationName, annotationExternalFilename;
+        in >> annotationName >> annotationExternalFilename;
+        auto& a = annotations_[annotationName];
+        a.setAsExternal(annotationExternalFilename);
+    }
 }

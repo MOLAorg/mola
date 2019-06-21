@@ -49,6 +49,11 @@ class EntityBase
     void load();
     void unload();
     bool is_unloaded() const;
+
+    // If extended in derived classes to save more data, remember calling this
+    // method in this (parent) class:
+    virtual void serializeTo(mrpt::serialization::CArchive& out) const;
+    virtual void serializeFrom(mrpt::serialization::CArchive& in);
 };
 
 }  // namespace mola

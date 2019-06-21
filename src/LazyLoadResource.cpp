@@ -22,6 +22,8 @@ using namespace mola;
 
 static const int GZ_COMPRESS_LEVEL = 0;
 
+std::string LazyLoadResource::EXTERNAL_BASE_DIR{""};
+
 const std::string& LazyLoadResource::buildAbsoluteFilePath() const
 {
     MRPT_TODO("Handle the case when f is already absolute");
@@ -34,7 +36,8 @@ const std::string& LazyLoadResource::buildAbsoluteFilePath() const
 
     cached_abs_fil = mrpt::system::fileNameStripInvalidChars(cached_abs_fil);
 
-    cached_abs_fil = std::string("/tmp/") + cached_abs_fil;
+    ASSERT_(!EXTERNAL_BASE_DIR.empty());
+    cached_abs_fil = EXTERNAL_BASE_DIR + cached_abs_fil;
 
     cached_file_ok = true;
     return cached_abs_fil;
@@ -77,7 +80,13 @@ void LazyLoadResource::load() const
     MRPT_END
 }
 
-bool LazyLoadResource::is_unloaded() const { return !data_; }
+void LazyLoadResource::setAsExternal(const std::string& relativeFileName)
+{
+    reset();
+    external_filename_ = relativeFileName;
+}
+
+bool LazyLoadResource::isUnloaded() const { return !data_; }
 
 void LazyLoadResource::unload() const
 {

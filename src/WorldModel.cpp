@@ -19,7 +19,12 @@
 #include <mola-kernel/lock_helper.h>
 #include <mola-kernel/variant_helper.h>
 #include <mola-kernel/yaml_helpers.h>
+#include <mrpt/core/get_env.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/io/CFileGZInputStream.h>
+#include <mrpt/io/CFileGZOutputStream.h>
+#include <mrpt/serialization/CArchive.h>
+#include <mrpt/system/filesystem.h>
 #include <yaml-cpp/yaml.h>
 #include <deque>
 #include <map>
@@ -28,18 +33,59 @@
 
 using namespace mola;
 
+std::string MOLA_MAP_STORAGE_DIR =
+    mrpt::get_env<std::string>("MOLA_MAP_STORAGE_DIR", "/tmp");
+
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(WorldModel, ExecutableBase, mola);
 
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_SERIALIZABLE_NS_PREFIX(
+    WorldModelData, mrpt::serialization::CSerializable, mola);
+
+// To be run at .so/.dll load:
 MRPT_INITIALIZER(do_register_WorldModel)
 {
-    // Register:
+    // Register module:
     MOLA_REGISTER_MODULE(WorldModel);
+
+    // Register serializable classes:
+    mrpt::rtti::registerClass(CLASS_ID(mola::WorldModelData));
+}
+
+// =============== WorldModel ===============
+
+WorldModel::WorldModel()
+{
+    using namespace std::string_literals;
+    MRPT_START
+
+    this->setLoggerName("WorldModel");
+
+    data_.map_name_ =
+        "mola_map_" +
+        mrpt::system::fileNameStripInvalidChars(
+            mrpt::system::dateTimeLocalToString(mrpt::Clock::now()));
+
+    map_base_dir_ = MOLA_MAP_STORAGE_DIR + "/"s + data_.map_name_ + "/"s;
+
+    LazyLoadResource::EXTERNAL_BASE_DIR = map_base_dir_;
+
+    MRPT_LOG_INFO_STREAM("=== Using map name: `" << data_.map_name_ << "` ===");
+    MRPT_LOG_INFO_STREAM(
+        "=== Setting map storage base directory: `" << map_base_dir_
+                                                    << "` ===");
+
+    if (!mrpt::system::createDirectory(map_base_dir_))
+        THROW_EXCEPTION_FMT(
+            "Error creating directory: `%s`", map_base_dir_.c_str());
+
+    MRPT_END
 }
 
 /** Map container interface for Entities inside a WorldModel
  * \ingroup mola_kernel_grp */
-struct WorldModel::EntitiesContainer
+struct WorldModelData::EntitiesContainer
 {
     EntitiesContainer() = default;
     virtual ~EntitiesContainer();
@@ -51,11 +97,11 @@ struct WorldModel::EntitiesContainer
     virtual std::vector<id_t>        all_ids() const            = 0;
 };
 
-WorldModel::EntitiesContainer::~EntitiesContainer() = default;
+WorldModelData::EntitiesContainer::~EntitiesContainer() = default;
 
 /** Map container interface for Factors inside a WorldModel
  * \ingroup mola_kernel_grp */
-struct WorldModel::FactorsContainer
+struct WorldModelData::FactorsContainer
 {
     FactorsContainer() = default;
     virtual ~FactorsContainer();
@@ -66,7 +112,7 @@ struct WorldModel::FactorsContainer
     virtual std::pair<fid_t, Factor*> emplace_back(Factor&& e)    = 0;
     virtual std::vector<fid_t>        all_ids() const             = 0;
 };
-WorldModel::FactorsContainer::~FactorsContainer() = default;
+WorldModelData::FactorsContainer::~FactorsContainer() = default;
 
 namespace mola
 {
@@ -170,9 +216,9 @@ struct ContainerFastMap : public BASE
  * Avoids pool allocation for each entry, but poorly supports discontinuous
  * ID numbers. \ingroup mola_kernel_grp */
 using EntitiesContainerDeque = ContainerDeque<
-    Entity, WorldModel::EntitiesContainer, EntityBase, EntityOther, id_t>;
+    Entity, WorldModelData::EntitiesContainer, EntityBase, EntityOther, id_t>;
 using FactorsContainerDeque = ContainerDeque<
-    Factor, WorldModel::FactorsContainer, FactorBase, FactorOther, fid_t>;
+    Factor, WorldModelData::FactorsContainer, FactorBase, FactorOther, fid_t>;
 
 static const char e_str[] = "Entity", f_str[] = "Factor";
 
@@ -181,11 +227,11 @@ static const char e_str[] = "Entity", f_str[] = "Factor";
  *
  * \ingroup mola_kernel_grp */
 using EntitiesContainerFastMap = ContainerFastMap<
-    Entity, WorldModel::EntitiesContainer, EntityBase, EntityOther, id_t,
+    Entity, WorldModelData::EntitiesContainer, EntityBase, EntityOther, id_t,
     e_str>;
 
 using FactorsContainerFastMap = ContainerFastMap<
-    Factor, WorldModel::FactorsContainer, FactorBase, FactorOther, fid_t,
+    Factor, WorldModelData::FactorsContainer, FactorBase, FactorOther, fid_t,
     f_str>;
 
 }  // namespace mola
@@ -203,12 +249,13 @@ void WorldModel::initialize(const std::string& cfg_block)
 
     // Create map container:
     MRPT_TODO("Switch between container type per cfg");
-    entities_ =
-        std::unique_ptr<EntitiesContainer>(new EntitiesContainerFastMap);
-    ASSERT_(entities_);
+    data_.entities_ = std::unique_ptr<WorldModelData::EntitiesContainer>(
+        new EntitiesContainerFastMap);
+    ASSERT_(data_.entities_);
 
-    factors_ = std::unique_ptr<FactorsContainer>(new FactorsContainerFastMap);
-    ASSERT_(factors_);
+    data_.factors_ = std::unique_ptr<WorldModelData::FactorsContainer>(
+        new FactorsContainerFastMap);
+    ASSERT_(data_.factors_);
 
     MRPT_TRY_END
 }
@@ -220,44 +267,47 @@ const Entity& WorldModel::entity_by_id(const id_t id) const
 
 Entity& WorldModel::entity_by_id(const id_t id)
 {
-    Entity& e = entities_->by_id(id);
+    Entity& e = data_.entities_->by_id(id);
     return e;
 }
 
 const Factor& WorldModel::factor_by_id(const fid_t id) const
 {
-    return factors_->by_id(id);
+    return data_.factors_->by_id(id);
 }
-Factor& WorldModel::factor_by_id(const fid_t id) { return factors_->by_id(id); }
+Factor& WorldModel::factor_by_id(const fid_t id)
+{
+    return data_.factors_->by_id(id);
+}
 
 std::vector<mola::id_t> WorldModel::entity_all_ids() const
 {
-    return entities_->all_ids();
+    return data_.entities_->all_ids();
 }
 
 std::vector<mola::fid_t> WorldModel::factor_all_ids() const
 {
-    return factors_->all_ids();
+    return data_.factors_->all_ids();
 }
 
 mola::id_t WorldModel::entity_emplace_back(Entity&& e)
 {
-    const auto [id, eptr] = entities_->emplace_back(std::move(e));
+    const auto [id, eptr] = data_.entities_->emplace_back(std::move(e));
     (void)eptr;
 
-    entity_connected_factors_[id];  // Create empty entry
+    data_.entity_connected_factors_[id];  // Create empty entry
 
     {
-        auto lock = mola::lockHelper(entity_last_access_mtx_);
+        auto lock = mola::lockHelper(data_.entity_last_access_mtx_);
 
-        entity_last_access_[id] = mrpt::Clock::now();
+        data_.entity_last_access_[id] = mrpt::Clock::now();
     }
 
     return id;
 }
 mola::fid_t WorldModel::factor_emplace_back(Factor&& f)
 {
-    const auto [id, fptr] = factors_->emplace_back(std::move(f));
+    const auto [id, fptr] = data_.factors_->emplace_back(std::move(f));
 
     std::visit(
         overloaded{
@@ -289,7 +339,7 @@ void WorldModel::internal_update_neighbors(const FactorBase& f)
     {
         const auto id = f.edge_indices(i);
         ASSERT_(id != mola::INVALID_ID);
-        entity_connected_factors_[id].insert(f.my_id_);
+        data_.entity_connected_factors_[id].insert(f.my_id_);
     }
 }
 
@@ -298,8 +348,9 @@ std::set<mola::id_t> WorldModel::entity_neighbors(const mola::id_t id) const
     MRPT_START
 
     std::set<mola::id_t> ids;
-    const auto           it_ns = entity_connected_factors_.find(id);
-    ASSERTMSG_(it_ns != entity_connected_factors_.end(), "Unknown entity `id`");
+    const auto           it_ns = data_.entity_connected_factors_.find(id);
+    ASSERTMSG_(
+        it_ns != data_.entity_connected_factors_.end(), "Unknown entity `id`");
 
     auto adder = [&ids](const FactorBase& b) {
         const auto n = b.edge_count();
@@ -308,7 +359,7 @@ std::set<mola::id_t> WorldModel::entity_neighbors(const mola::id_t id) const
 
     for (const auto fid : it_ns->second)
     {
-        const auto& f = factors_->by_id(fid);
+        const auto& f = data_.factors_->by_id(fid);
         std::visit(
             overloaded{
                 [&adder](const FactorBase& b) { adder(b); },
@@ -332,12 +383,12 @@ const annotations_data_t& WorldModel::entity_annotations_by_id(
     MRPT_START
 
     {
-        auto lock               = mola::lockHelper(entity_last_access_mtx_);
-        entity_last_access_[id] = mrpt::Clock::now();
+        auto lock = mola::lockHelper(data_.entity_last_access_mtx_);
+        data_.entity_last_access_[id] = mrpt::Clock::now();
     }
 
     const annotations_data_t* ret = nullptr;
-    auto&                     e   = entities_->by_id(id);
+    auto&                     e   = data_.entities_->by_id(id);
 
     // Load on-the-fly if required:
     entity_get_base(e).load();
@@ -365,11 +416,11 @@ std::vector<mola::id_t> WorldModel::findEntitiesToSwapOff()
 
     std::vector<id_t> aged_ids;
 
-    auto       lk    = lockHelper(entity_last_access_mtx_);
+    auto       lk    = lockHelper(data_.entity_last_access_mtx_);
     const auto t_now = mrpt::Clock::now();
 
-    for (auto it_ent = entity_last_access_.begin();
-         it_ent != entity_last_access_.end();)
+    for (auto it_ent = data_.entity_last_access_.begin();
+         it_ent != data_.entity_last_access_.end();)
     {
         const double age = mrpt::system::timeDifference(it_ent->second, t_now);
 
@@ -377,7 +428,7 @@ std::vector<mola::id_t> WorldModel::findEntitiesToSwapOff()
         {
             const auto id = it_ent->first;
             // Remove from list:
-            it_ent = entity_last_access_.erase(it_ent);
+            it_ent = data_.entity_last_access_.erase(it_ent);
             // and report:
             aged_ids.push_back(id);
         }
@@ -406,7 +457,7 @@ void WorldModel::spinOnce()
         entities_lock_for_write();
 
         for (auto id : aged_ids)
-            mola::entity_get_base(entities_->by_id(id)).unload();
+            mola::entity_get_base(data_.entities_->by_id(id)).unload();
 
         entities_unlock_for_write();
 
@@ -417,4 +468,84 @@ void WorldModel::spinOnce()
     profiler_.registerUserMeasure("unloaded_count", aged_ids.size());
 
     MRPT_END
+}
+
+void WorldModel::map_load_from(mrpt::serialization::CArchive& in)
+{
+    MRPT_START
+    in >> data_;
+    MRPT_END
+}
+
+void WorldModel::map_load_from(const std::string& fileName)
+{
+    MRPT_START
+    mrpt::io::CFileGZInputStream f(fileName);
+
+    auto in = mrpt::serialization::archiveFrom(f);
+    map_load_from(in);
+    MRPT_END
+}
+
+void WorldModel::map_save_to(mrpt::serialization::CArchive& out) const
+{
+    MRPT_START
+    out << data_;
+    MRPT_END
+}
+
+void WorldModel::map_save_to(const std::string& fileName) const
+{
+    MRPT_START
+    mrpt::io::CFileGZOutputStream f(fileName);
+
+    auto out = mrpt::serialization::archiveFrom(f);
+    map_save_to(out);
+    MRPT_END
+}
+
+// =============== WorldModelData ===============
+// See docs for mrpt-serialization:
+uint8_t WorldModelData::serializeGetVersion() const { return 0; }
+void    WorldModelData::serializeTo(mrpt::serialization::CArchive& out) const
+{
+    out << map_name_;
+
+    // Ensure lock:
+    {
+        auto el = lockHelper(entities_mtx_);
+    }
+    {
+        auto ef = lockHelper(factors_mtx_);
+    }
+    auto el = lockHelper(entities_mtx_);
+    auto ef = lockHelper(factors_mtx_);
+
+    ASSERT_(entities_);
+    ASSERT_(factors_);
+
+    // TODO: Implement some sort of visitor function / iterator instead?
+    std::vector<id_t> entity_ids = entities_->all_ids();
+    out << entity_ids;
+    for (auto eid : entity_ids)
+    {
+        const Entity&     ent = entities_->by_id(eid);
+        const EntityBase& e   = mola::entity_get_base(ent);
+        e.serializeTo(out);
+    }
+}
+void WorldModelData::serializeFrom(
+    mrpt::serialization::CArchive& in, uint8_t version)
+{
+    switch (version)
+    {
+        case 0:
+        {
+            MRPT_TODO("Implement load");
+            THROW_EXCEPTION("to do");
+        }
+        break;
+        default:
+            MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
+    };
 }
