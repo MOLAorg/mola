@@ -23,6 +23,9 @@ Get started:
  - See :ref:`demos` for real examples to launch and run SLAM systems.
  - See `videos`_ on YouTube.
 
+.. image:: mola-slam-representations.png
+
+
 .. _MOLA: https://github.com/MOLAorg/mola
 .. _videos: https://www.youtube.com/playlist?list=PLOJ3GF0x2_eVaujK78PoVOvxJGrl_Z7fV
 

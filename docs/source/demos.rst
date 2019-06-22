@@ -9,3 +9,4 @@ Demos
   :maxdepth: 1
 
   demo-kitti-lidar-slam
+  demo-rawlog-velodyne-slam
