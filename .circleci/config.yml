@@ -4,11 +4,21 @@ jobs:
     docker:
       - image: mrpt/mrpt-build-env:full-bionic
     steps:
-      - run: sudo add-apt-repository ppa:joseluisblancoc/mrpt -y
-      - run: sudo add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
-      - run: sudo apt-get install libmrpt-dev -y
-      - run: sudo apt-get install libgtsam-dev -y
+      - run:
+          name: "Install dependencies"
+          command: |
+            apt-get update
+            apt-get install software-properties-common -y
+            add-apt-repository ppa:joseluisblancoc/mrpt -y
+            add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+            apt-get install libmrpt-dev -y
+            apt-get install libgtsam-dev -y
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule init
+            git submodule update --remote
       - run:
           name: Generate cmake files
           command: cmake -H. -Bbuild
@@ -21,11 +31,21 @@ jobs:
     docker:
       - image: mrpt/mrpt-build-env:full-bionic
     steps:
-      - run: sudo add-apt-repository ppa:joseluisblancoc/mrpt -y
-      - run: sudo add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
-      - run: sudo apt-get install libmrpt-dev -y
-      - run: sudo apt-get install libgtsam-dev -y
+      - run:
+          name: "Install dependencies"
+          command: |
+            apt-get update
+            apt-get install software-properties-common -y
+            add-apt-repository ppa:joseluisblancoc/mrpt -y
+            add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+            apt-get install libmrpt-dev -y
+            apt-get install libgtsam-dev -y
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule init
+            git submodule update --remote
       - run:
           name: Generate cmake files
           command: cmake -H. -Bbuild
