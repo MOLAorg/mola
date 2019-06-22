@@ -120,7 +120,7 @@ modules:
     params:
       base_dir: ${KITTI_BASE_DIR}
       sequence: ${KITTI_SEQ}
-      time_warp_scale: 1.2
+      time_warp_scale: 1.0
       publish_lidar: true
       publish_image_0: true
       publish_image_1: false
