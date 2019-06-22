@@ -6,8 +6,8 @@
 
 modules:
 # Setup of SLAM back-end =====================================
-  - name: backend
-    type: mola::ASLAM_gtsam
+  - type: mola::ASLAM_gtsam
+    name: backend
     execution_rate: 1 # Rate to update the SLAM solution [Hz]
     #verbosity_level: INFO
     params:
@@ -31,18 +31,18 @@ modules:
       const_vel_model_std_vel: 5.0  # [m/s]
       # ------
       # Save trajectory to file at end? useful for plots, error evaluation,...
-      save_trajectory_file_prefix: kitti_result_${KITTI_SEQ}
+      #save_trajectory_file_prefix: kitti_result_${KITTI_SEQ}
       # ------------------------
 # Setup of World Model (the map) =====================================
-  - name: map
-    type: mola::WorldModel
+  - type: mola::WorldModel
+    name: map
     #verbosity_level: DEBUG
     params:
       # Age at which map keyframes will be unloaded from memory [s]
       age_to_unload_keyframes: 25.0
 # Setup of SLAM front-ends ====================================
-  - name: lidar_fe
-    type: mola::LidarOdometry
+  - type: mola::LidarOdometry
+    name: lidar_fe
     raw_data_source: kitti_input
     raw_sensor_label: lidar
     #verbosity_level: DEBUG
@@ -61,7 +61,10 @@ modules:
       min_icp_goodness_lc: 0.70     # range [0,1]
       #
       # ---------------------------------------------------------
-      # Instantiate one of this point cloud filters:
+      # Instantiate one of the point cloud filters.
+      # See available methods with:
+      #  mola-cli --rtti-children-of mola::lidar_segmentation::LidarFilterBase
+      #
       pointcloud_filter_class: mola::lidar_segmentation::FilterEdgesPlanes
       # And its params:
       pointcloud_filter_params:
@@ -81,7 +84,16 @@ modules:
       max_dist_to_loop_closure: 30.0  # [m]
       max_nearby_align_checks: 5
       min_topo_dist_to_consider_loopclosure: 30
-      # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
+      # ---------------------------------------------------------
+      # Instantiate one of the ICP algorithms.
+      # See available methods with:
+      #  mola-cli --rtti-children-of mp2p_icp::ICP_Base
+      #
+      icp_class: mp2p_icp::ICP_Horn_MultiCloud
+      #icp_class: mp2p_icp::ICP_OLAE
+      #
+      # And its params:
+      # Params for the ICP algoritm:
       # Case: WITH a good twist (velocity) model:
       icp_params_with_vel.maxIterations:  10    90
       icp_params_with_vel.thresholdDist:   1.0   0.50   # [meters]
@@ -106,8 +118,8 @@ modules:
       #debug_save_loop_closures: true
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
-  - name: kitti_input
-    type: mola::KittiOdometryDataset
+  - type: mola::KittiOdometryDataset
+    name: kitti_input
     execution_rate: 20 # Hz
     verbosity_level: INFO
     gui_preview_sensors:
