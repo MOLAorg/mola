@@ -114,7 +114,8 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
         std::string         name;
         double              execution_rate{10.0};  //!< (Hz)
         int                 launch_priority{0};
-        bool                initialization_done{false};
+        std::atomic_bool    initialization_done{false};
+        std::atomic_bool    this_thread_must_end{false};
     };
     /** Indexed by `name` */
     std::map<std::string, InfoPerRunningThread> running_threads_;
@@ -145,6 +146,17 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
 
     /** Household tasks to be done while in the infinite main loop. */
     void internal_spin_tasks();
+
+    template <typename T>
+    void stopAllThreadsOfType()
+    {
+        for (auto& th : running_threads_)
+        {
+            InfoPerRunningThread& rds = th.second;
+            if (auto p = dynamic_cast<T*>(rds.impl.get()); p != nullptr)
+                rds.this_thread_must_end = true;
+        }
+    }
 };
 
 }  // namespace mola

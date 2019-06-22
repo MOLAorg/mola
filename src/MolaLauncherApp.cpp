@@ -14,6 +14,8 @@
  * systems
  */
 
+#include <mola-kernel/interfaces/FrontEndBase.h>
+#include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mola-kernel/yaml_helpers.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
@@ -52,6 +54,18 @@ MolaLauncherApp::~MolaLauncherApp()
 
 void MolaLauncherApp::shutdown()
 {
+    using namespace std::chrono_literals;
+
+    // Ordered shut down:
+
+    // Stop data sources first
+    stopAllThreadsOfType<RawDataSourceBase>();
+    std::this_thread::sleep_for(200ms);
+
+    // Front ends next:
+    stopAllThreadsOfType<FrontEndBase>();
+    std::this_thread::sleep_for(300ms);
+
     // End all threads:
     threads_must_end_ = true;
 }
@@ -293,7 +307,7 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
 
         mrpt::system::CRateTimer timer(rds.execution_rate);
 
-        while (!threads_must_end_)
+        while (!threads_must_end_ && !rds.this_thread_must_end)
         {
             // Only if all modules are correctly initialized:
             if (pending_initializations_ == 0)
@@ -324,6 +338,9 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
             << mrpt::exception_to_str(e));
         threads_must_end_ = true;
     }
+    using namespace std::chrono_literals;
+    // Give time for all threads to end:
+    std::this_thread::sleep_for(250ms);
 }
 
 ExecutableBase::Ptr MolaLauncherApp::nameServerImpl(const std::string& name)
