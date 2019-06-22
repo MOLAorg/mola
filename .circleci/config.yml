@@ -1,0 +1,45 @@
+version: 2
+jobs:
+  full:
+    docker:
+      - image: mrpt/mrpt-build-env:full-bionic
+    steps:
+      - run: sudo add-apt-repository ppa:joseluisblancoc/mrpt -y
+      - run: sudo add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+      - run: sudo apt-get install libmrpt-dev -y
+      - run: sudo apt-get install libgtsam-dev -y
+      - checkout
+      - run:
+          name: Generate cmake files
+          command: cmake -H. -Bbuild
+      - run: make -C build
+      - run: make CTEST_OUTPUT_ON_FAILURE=1 test -C build
+#      - run: make gcov -C build
+#      - run: make -C build
+#      - run: bash <(curl -s https://codecov.io/bash) -X gcov -y .codecov.yml -s build
+  clang:
+    docker:
+      - image: mrpt/mrpt-build-env:full-bionic
+    steps:
+      - run: sudo add-apt-repository ppa:joseluisblancoc/mrpt -y
+      - run: sudo add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+      - run: sudo apt-get install libmrpt-dev -y
+      - run: sudo apt-get install libgtsam-dev -y
+      - checkout
+      - run:
+          name: Generate cmake files
+          command: cmake -H. -Bbuild
+          environment:
+            CC: /usr/bin/clang-6.0
+            CXX: /usr/bin/clang++-6.0
+      - run: make -C build
+      - run: make CTEST_OUTPUT_ON_FAILURE=1 test -C build
+#      - run: make gcov -C build
+#      - run: make -C build
+#      - run: bash <(curl -s https://codecov.io/bash) -X gcov -y .codecov.yml -s build
+workflows:
+  version: 2
+  build:
+    jobs:
+      - full
+      - clang
