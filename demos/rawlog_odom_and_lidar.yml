@@ -70,7 +70,7 @@ modules:
       min_time_between_scans: 0.01    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 3.0   # [meters]
+      min_dist_xyz_between_keyframes: 1.5   # [meters]
       # Minimum rotation (in 3D space, yaw, pitch,roll, altogether) between
       # keyframes inserted into  the map:
       min_rotation_between_keyframes: 30.0  # [deg]
