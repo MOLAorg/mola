@@ -24,7 +24,11 @@ namespace mola
  */
 class FactorRelativePose3 : public FactorBase
 {
+    DEFINE_SERIALIZABLE(FactorRelativePose3)
+
    public:
+    FactorRelativePose3() = default;
+
     /** Creates relative pose constraint of KF `to` as seem from `from`. */
     FactorRelativePose3(
         id_t kf_from, id_t kf_to, const mrpt::math::TPose3D& rel_pose)
@@ -47,18 +51,7 @@ class FactorRelativePose3 : public FactorBase
     double noise_model_diag_rot_{mrpt::DEG2RAD(0.5)};
 
     std::size_t edge_count() const override { return 2; }
-    mola::id_t  edge_indices(const std::size_t i) const override
-    {
-        switch (i)
-        {
-            case 0:
-                return from_kf_;
-            case 1:
-                return to_kf_;
-            default:
-                THROW_EXCEPTION("Out of bounds");
-        }
-    }
+    mola::id_t  edge_indices(const std::size_t i) const override;
 };
 
 }  // namespace mola

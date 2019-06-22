@@ -16,12 +16,17 @@
 namespace mola
 {
 /** A Reference SE(3) keyframe.
- * Does not hold raw observations, it is
+ * Does not hold raw observations.
+ * This kind of frame is used as "coordinate origin" for both, absolute and
+ * relative maps (submaps). Global SLAM frameworks should have only one entity
+ * of this class, submapping approaches will have several instances.
  *
  * \ingroup mola_kernel_grp
  */
 class RefPose3 : public EntityBase
 {
+    DEFINE_SERIALIZABLE(RefPose3);
+
    public:
 };
 

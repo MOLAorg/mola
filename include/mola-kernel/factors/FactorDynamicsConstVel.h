@@ -22,7 +22,11 @@ namespace mola
  */
 class FactorDynamicsConstVel : public FactorBase
 {
+    DEFINE_SERIALIZABLE(FactorDynamicsConstVel)
+
    public:
+    FactorDynamicsConstVel() = default;
+
     /** Creates relative pose constraint of KF `to` as seem from `from`. */
     FactorDynamicsConstVel(id_t kf_from, id_t kf_to)
         : from_kf_(kf_from), to_kf_{kf_to}
@@ -32,18 +36,7 @@ class FactorDynamicsConstVel : public FactorBase
     id_t from_kf_{INVALID_ID}, to_kf_{INVALID_ID};
 
     std::size_t edge_count() const override { return 2; }
-    mola::id_t  edge_indices(const std::size_t i) const override
-    {
-        switch (i)
-        {
-            case 0:
-                return from_kf_;
-            case 1:
-                return to_kf_;
-            default:
-                THROW_EXCEPTION("Out of bounds");
-        }
-    }
+    mola::id_t  edge_indices(const std::size_t i) const override;
 };
 
 }  // namespace mola

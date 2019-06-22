@@ -13,8 +13,7 @@
 
 #include <memory>
 
-//#include <mola-kernel/entities/FeatPlane.h>
-//#include <mola-kernel/entities/FeatPoint3.h>
+#include <mola-kernel/entities/LandmarkPoint3.h>
 #include <mola-kernel/entities/RefPose3.h>
 #include <mola-kernel/entities/RelDynPose3KF.h>
 #include <mola-kernel/entities/RelPose3.h>
@@ -22,10 +21,6 @@
 
 namespace mola
 {
-struct LandmarkPoint3 : public EntityBase
-{
-};
-
 /** Placeholder for generic entity of user-defined types */
 using EntityOther = std::shared_ptr<EntityBase>;
 

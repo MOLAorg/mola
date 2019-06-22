@@ -29,7 +29,11 @@ struct StereoObservation
  */
 class FactorStereoProjectionPose : public FactorBase
 {
+    DEFINE_SERIALIZABLE(FactorStereoProjectionPose)
+
    public:
+    FactorStereoProjectionPose() = default;
+
     FactorStereoProjectionPose(
         double sigma_xleft, double sigma_xright, double sigma_y,
         const StereoObservation& st, const id_t observing_kf,

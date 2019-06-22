@@ -34,4 +34,9 @@ using Factor = std::variant<
     FactorStereoProjectionPose, SmartFactorStereoProjectionPose, SmartFactorIMU,
     FactorOther>;
 
+/** Return a reference to the FactorBase associated to the variant f */
+FactorBase& factor_get_base(Factor& f);
+/** \overload */
+const FactorBase& factor_get_base(const Factor& f);
+
 }  // namespace mola

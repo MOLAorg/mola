@@ -14,3 +14,36 @@
 #include <mola-kernel/variant_helper.h>
 
 using namespace mola;
+
+FactorBase& mola::factor_get_base(Factor& f)
+{
+    FactorBase* ret = nullptr;
+    std::visit(
+        overloaded{[&ret](FactorBase& b) { ret = &b; },
+                   [&ret](FactorOther& o) {
+                       ASSERT_(o);
+                       ret = o.get();
+                   },
+                   [](std::monostate) {}},
+        f);
+
+    if (!ret) THROW_EXCEPTION("factor_get_base(): Empty variant.");
+
+    return *ret;
+}
+
+const FactorBase& mola::factor_get_base(const Factor& f)
+{
+    const FactorBase* ret = nullptr;
+    std::visit(
+        overloaded{[&ret](const FactorBase& b) { ret = &b; },
+                   [&ret](const FactorOther& o) {
+                       ASSERT_(o);
+                       ret = o.get();
+                   },
+                   [](std::monostate) {}},
+        f);
+
+    if (!ret) THROW_EXCEPTION("factor_get_base(): Empty variant.");
+    return *ret;
+}

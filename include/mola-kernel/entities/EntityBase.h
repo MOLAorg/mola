@@ -14,6 +14,7 @@
 #include <mola-kernel/LazyLoadResource.h>
 #include <mola-kernel/id.h>
 #include <mrpt/core/Clock.h>
+#include <mrpt/serialization/CSerializable.h>
 #include <map>
 
 namespace mola
@@ -28,8 +29,10 @@ using annotations_data_t = std::map<std::string, LazyLoadResource>;
  *
  * \ingroup mola_kernel_grp
  */
-class EntityBase
+class EntityBase : public mrpt::serialization::CSerializable
 {
+    DEFINE_VIRTUAL_SERIALIZABLE(EntityBase);
+
    public:
     EntityBase();
     virtual ~EntityBase();
@@ -50,10 +53,11 @@ class EntityBase
     void unload();
     bool is_unloaded() const;
 
-    // If extended in derived classes to save more data, remember calling this
-    // method in this (parent) class:
-    virtual void serializeTo(mrpt::serialization::CArchive& out) const;
-    virtual void serializeFrom(mrpt::serialization::CArchive& in);
+   protected:
+    // Derived classes mus call these methods to serialize the common data in
+    // this base class:
+    void baseSerializeTo(mrpt::serialization::CArchive& out) const;
+    void baseSerializeFrom(mrpt::serialization::CArchive& in);
 };
 
 }  // namespace mola

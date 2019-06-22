@@ -26,11 +26,15 @@ class BackEndBase;
  */
 class SmartFactorStereoProjectionPose : public FactorBase
 {
+    DEFINE_SERIALIZABLE(SmartFactorStereoProjectionPose)
+
    public:
     struct StereoObservation
     {
         double x_left{0}, x_right{0}, y{0};
     };
+
+    SmartFactorStereoProjectionPose() = default;
 
     SmartFactorStereoProjectionPose(
         double sigma_xleft, double sigma_xright, double sigma_y,

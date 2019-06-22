@@ -25,6 +25,8 @@ namespace mola
  */
 class RelDynPose3KF : public EntityRelativeBase, public KeyFrameBase
 {
+    DEFINE_SERIALIZABLE(RelDynPose3KF);
+
    public:
     /** The up-to-date value of this entity. */
     mrpt::math::TPose3D  relpose_value;

@@ -12,6 +12,7 @@
 #pragma once
 
 #include <mola-kernel/entities/EntityRelativeBase.h>
+#include <mrpt/math/TPose3D.h>
 
 namespace mola
 {
@@ -21,6 +22,8 @@ namespace mola
  */
 class RelPose3 : public EntityRelativeBase
 {
+    DEFINE_SERIALIZABLE(RelPose3);
+
    public:
     /** The up-to-date value of this entity. */
     mrpt::math::TPose3D relpose_value;

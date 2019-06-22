@@ -23,7 +23,11 @@ class BackEndBase;
  */
 class SmartFactorIMU : public FactorBase
 {
+    DEFINE_SERIALIZABLE(SmartFactorIMU)
+
    public:
+    SmartFactorIMU() = default;
+
     // TODO: Add configurable noise model & IMU pose:
     SmartFactorIMU(BackEndBase* slam_backend);
 

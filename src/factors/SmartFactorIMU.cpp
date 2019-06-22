@@ -10,12 +10,14 @@
  * @date   Jan 28, 2019
  */
 
-#include <mola-kernel/interfaces/BackEndBase.h>
 #include <mola-kernel/factors/SmartFactorIMU.h>
-
-// TODO: make serializable
+#include <mola-kernel/interfaces/BackEndBase.h>
+#include <mrpt/serialization/CArchive.h>
 
 using namespace mola;
+
+// arguments: classname, parent class, namespace
+IMPLEMENTS_SERIALIZABLE_NS_PREFIX(SmartFactorIMU, FactorBase, mola);
 
 SmartFactorIMU::SmartFactorIMU(BackEndBase* slam_backend)
     : slam_backend_(slam_backend)
@@ -53,4 +55,29 @@ void SmartFactorIMU::createIMUFactor(
     new_state_    = NewState::FACTOR;
     slam_backend_->onSmartFactorChanged(my_id_, this);
     new_state_ = NewState::NONE;
+}
+
+// Implementation of the CSerializable virtual interface:
+uint8_t SmartFactorIMU::serializeGetVersion() const { return 0; }
+void    SmartFactorIMU::serializeTo(mrpt::serialization::CArchive& out) const
+{
+    baseSerializeTo(out);
+
+    THROW_EXCEPTION("TO DO");
+}
+void SmartFactorIMU::serializeFrom(
+    mrpt::serialization::CArchive& in, uint8_t version)
+{
+    baseSerializeFrom(in);
+
+    switch (version)
+    {
+        case 0:
+        {
+            THROW_EXCEPTION("TO DO");
+        }
+        break;
+        default:
+            MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
+    };
 }

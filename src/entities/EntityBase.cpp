@@ -15,9 +15,11 @@
 #include <mola-kernel/variant_helper.h>
 #include <mrpt/serialization/CArchive.h>
 
-// TODO: make serializable
-
 using namespace mola;
+
+// arguments: class, parent class, namespace
+IMPLEMENTS_VIRTUAL_SERIALIZABLE_NS_PREFIX(
+    EntityBase, mrpt::serialization::CSerializable, mola);
 
 EntityBase::EntityBase()  = default;
 EntityBase::~EntityBase() = default;
@@ -87,8 +89,11 @@ bool EntityBase::is_unloaded() const
     MRPT_TRY_END
 }
 
-void EntityBase::serializeTo(mrpt::serialization::CArchive& out) const
+void EntityBase::baseSerializeTo(mrpt::serialization::CArchive& out) const
 {
+    const uint8_t base_serial_version = 0;
+    out << base_serial_version;
+
     out << my_id_ << timestamp_;
 
     out.WriteAs<uint32_t>(annotations_.size());
@@ -102,8 +107,11 @@ void EntityBase::serializeTo(mrpt::serialization::CArchive& out) const
         out << a.second.externalStorage();
     }
 }
-void EntityBase::serializeFrom(mrpt::serialization::CArchive& in)
+void EntityBase::baseSerializeFrom(mrpt::serialization::CArchive& in)
 {
+    uint8_t base_serial_version = in.ReadAs<uint8_t>();
+    ASSERT_(base_serial_version == 0);
+
     in >> my_id_ >> timestamp_;
 
     const auto nAnnotations = in.ReadAs<uint32_t>();

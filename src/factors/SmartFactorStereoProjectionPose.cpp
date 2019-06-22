@@ -10,13 +10,16 @@
  * @date   Jan 08, 2019
  */
 
-#include <mola-kernel/interfaces/BackEndBase.h>
 #include <mola-kernel/factors/FactorBase.h>
 #include <mola-kernel/factors/SmartFactorStereoProjectionPose.h>
-
-// TODO: make serializable
+#include <mola-kernel/interfaces/BackEndBase.h>
+#include <mrpt/serialization/CArchive.h>
 
 using namespace mola;
+
+// arguments: classname, parent class, namespace
+IMPLEMENTS_SERIALIZABLE_NS_PREFIX(
+    SmartFactorStereoProjectionPose, FactorBase, mola);
 
 SmartFactorStereoProjectionPose::SmartFactorStereoProjectionPose(
     double sigma_xleft, double sigma_xright, double sigma_y,
@@ -49,4 +52,32 @@ void SmartFactorStereoProjectionPose::addObservation(
     all_observations_.emplace_back(st, observing_kf, camera_params);
 
     slam_backend_->onSmartFactorChanged(my_id_, this);
+}
+
+// Implementation of the CSerializable virtual interface:
+uint8_t SmartFactorStereoProjectionPose::serializeGetVersion() const
+{
+    return 0;
+}
+void SmartFactorStereoProjectionPose::serializeTo(
+    mrpt::serialization::CArchive& out) const
+{
+    baseSerializeTo(out);
+    THROW_EXCEPTION("TO DO");
+}
+void SmartFactorStereoProjectionPose::serializeFrom(
+    mrpt::serialization::CArchive& in, uint8_t version)
+{
+    baseSerializeFrom(in);
+
+    switch (version)
+    {
+        case 0:
+        {
+            THROW_EXCEPTION("TO DO");
+        }
+        break;
+        default:
+            MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
+    };
 }

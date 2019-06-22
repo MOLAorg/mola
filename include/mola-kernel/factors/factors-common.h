@@ -21,7 +21,7 @@
 
 namespace mola
 {
-/** Placeholder for generic entity of user-defined types */
+/** Placeholder for a generic factor of user-defined types */
 using FactorOther = std::shared_ptr<FactorBase>;
 
 }  // namespace mola

@@ -4,31 +4,28 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RelPose3KF.h
+ * @file   LandmarkPoint3.h
  * @brief
  * @author Jose Luis Blanco Claraco
  * @date   Jan 08, 2019
  */
 #pragma once
 
-#include <mola-kernel/entities/EntityRelativeBase.h>
-#include <mola-kernel/entities/KeyFrameBase.h>
-#include <mrpt/math/TPose3D.h>
+#include <mola-kernel/entities/EntityBase.h>
+#include <mrpt/math/TPoint3D.h>
 
 namespace mola
 {
-/** A relative SE(3) keyframe, holding a relative SE(3) pose wrt to the base
- * frame.
- * This entity is also a key-frame.
+/** A 3D point landmark.
+ *
  * \ingroup mola_kernel_grp
  */
-class RelPose3KF : public EntityRelativeBase, public KeyFrameBase
+class LandmarkPoint3 : public EntityBase
 {
-    DEFINE_SERIALIZABLE(RelPose3KF);
+    DEFINE_SERIALIZABLE(LandmarkPoint3);
 
    public:
-    /** The up-to-date value of this entity. */
-    mrpt::math::TPose3D relpose_value;
+    mrpt::math::TPoint3D point;
 };
 
 }  // namespace mola

@@ -12,6 +12,7 @@
 #pragma once
 
 #include <mola-kernel/id.h>
+#include <mrpt/serialization/CSerializable.h>
 
 namespace mola
 {
@@ -32,8 +33,10 @@ enum class Robust : uint8_t
  *
  * \ingroup mola_kernel_grp
  */
-class FactorBase
+class FactorBase : public mrpt::serialization::CSerializable
 {
+    DEFINE_VIRTUAL_SERIALIZABLE(FactorBase)
+
    public:
     FactorBase() = default;
     virtual ~FactorBase();
@@ -57,6 +60,12 @@ class FactorBase
     /** Parameter for the robust error function, if so defined in  robust_type_
      */
     double robust_param_{1.0};
+
+   protected:
+    // Derived classes mus call these methods to serialize the common data in
+    // this base class:
+    void baseSerializeTo(mrpt::serialization::CArchive& out) const;
+    void baseSerializeFrom(mrpt::serialization::CArchive& in);
 };
 
 }  // namespace mola

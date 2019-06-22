@@ -20,7 +20,6 @@
 #include <mola-kernel/variant_helper.h>
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/get_env.h>
-#include <mrpt/core/initializer.h>
 #include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/serialization/CArchive.h>
@@ -43,18 +42,7 @@ IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(WorldModel, ExecutableBase, mola);
 IMPLEMENTS_SERIALIZABLE_NS_PREFIX(
     WorldModelData, mrpt::serialization::CSerializable, mola);
 
-// To be run at .so/.dll load:
-MRPT_INITIALIZER(do_register_WorldModel)
-{
-    // Register module:
-    MOLA_REGISTER_MODULE(WorldModel);
-
-    // Register serializable classes:
-    mrpt::rtti::registerClass(CLASS_ID(mola::WorldModelData));
-}
-
 // =============== WorldModel ===============
-
 WorldModel::WorldModel()
 {
     using namespace std::string_literals;
@@ -95,6 +83,7 @@ struct WorldModelData::EntitiesContainer
     virtual Entity&                  by_id(const id_t id)       = 0;
     virtual std::pair<id_t, Entity*> emplace_back(Entity&& e)   = 0;
     virtual std::vector<id_t>        all_ids() const            = 0;
+    virtual void                     clear()                    = 0;
 };
 
 WorldModelData::EntitiesContainer::~EntitiesContainer() = default;
@@ -111,6 +100,7 @@ struct WorldModelData::FactorsContainer
     virtual Factor&                   by_id(const fid_t id)       = 0;
     virtual std::pair<fid_t, Factor*> emplace_back(Factor&& e)    = 0;
     virtual std::vector<fid_t>        all_ids() const             = 0;
+    virtual void                      clear()                     = 0;
 };
 WorldModelData::FactorsContainer::~FactorsContainer() = default;
 
@@ -154,6 +144,7 @@ struct ContainerDeque : public BASE
         std::iota(ret.begin(), ret.end(), 1);
         return ret;
     }
+    void clear() override { data_.clear(); }
 };
 
 template <
@@ -210,6 +201,7 @@ struct ContainerFastMap : public BASE
         for (const auto& e : data_) ret.push_back(e.first);
         return ret;
     }
+    void clear() override { data_.clear(); }
 };
 
 /** Implementation of EntitiesContainer using a std::deque.
@@ -509,8 +501,6 @@ void WorldModel::map_save_to(const std::string& fileName) const
 uint8_t WorldModelData::serializeGetVersion() const { return 0; }
 void    WorldModelData::serializeTo(mrpt::serialization::CArchive& out) const
 {
-    out << map_name_;
-
     // Ensure lock:
     {
         auto el = lockHelper(entities_mtx_);
@@ -521,28 +511,80 @@ void    WorldModelData::serializeTo(mrpt::serialization::CArchive& out) const
     auto el = lockHelper(entities_mtx_);
     auto ef = lockHelper(factors_mtx_);
 
+    out << map_name_;
+
     ASSERT_(entities_);
     ASSERT_(factors_);
 
-    // TODO: Implement some sort of visitor function / iterator instead?
+    MRPT_TODO("Improvement: offer a visitor-like instead of call all_ids()");
+
+    // Entities:
     std::vector<id_t> entity_ids = entities_->all_ids();
     out << entity_ids;
     for (auto eid : entity_ids)
     {
         const Entity&     ent = entities_->by_id(eid);
         const EntityBase& e   = mola::entity_get_base(ent);
-        e.serializeTo(out);
+        out << e;
+    }
+
+    // Factors:
+    std::vector<fid_t> factor_ids = factors_->all_ids();
+    out << factor_ids;
+    for (auto fid : factor_ids)
+    {
+        const Factor&     fac = factors_->by_id(fid);
+        const FactorBase& f   = mola::factor_get_base(fac);
+        out << f;
     }
 }
 void WorldModelData::serializeFrom(
     mrpt::serialization::CArchive& in, uint8_t version)
 {
+    // Ensure lock:
+    {
+        auto el = lockHelper(entities_mtx_);
+    }
+    {
+        auto ef = lockHelper(factors_mtx_);
+    }
+    auto el = lockHelper(entities_mtx_);
+    auto ef = lockHelper(factors_mtx_);
+
+    // Clear:
+    this->entities_->clear();
+
     switch (version)
     {
         case 0:
         {
-            MRPT_TODO("Implement load");
-            THROW_EXCEPTION("to do");
+            // Entities:
+            std::vector<id_t> entity_ids;
+            in >> entity_ids;
+            for (auto eid : entity_ids)
+            {
+                // TODO: Any way to avoid repeating the list of tparams here?
+                Entity e = in.ReadVariant<
+                    std::monostate, RefPose3, RelPose3, RelPose3KF,
+                    RelDynPose3KF, LandmarkPoint3, EntityOther>();
+
+                mola::entity_get_base(e).my_id_ = eid;
+                entities_->emplace_back(std::move(e));
+            }
+
+            // Factors:
+            std::vector<fid_t> factor_ids;
+            in >> factor_ids;
+            for (auto fid : factor_ids)
+            {
+                Factor f = in.ReadVariant<
+                    std::monostate, FactorRelativePose3, FactorDynamicsConstVel,
+                    FactorStereoProjectionPose, SmartFactorStereoProjectionPose,
+                    SmartFactorIMU, FactorOther>();
+
+                mola::factor_get_base(f).my_id_ = fid;
+                factors_->emplace_back(std::move(f));
+            }
         }
         break;
         default:
