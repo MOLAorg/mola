@@ -4,6 +4,7 @@ jobs:
     docker:
       - image: mrpt/mrpt-build-env:full-bionic
     steps:
+      - run: apt-get install software-properties-common -y
       - run: add-apt-repository ppa:joseluisblancoc/mrpt -y
       - run: add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
       - run: apt-get install libmrpt-dev -y
@@ -21,6 +22,7 @@ jobs:
     docker:
       - image: mrpt/mrpt-build-env:full-bionic
     steps:
+      - run: apt-get install software-properties-common -y
       - run: add-apt-repository ppa:joseluisblancoc/mrpt -y
       - run: add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
       - run: apt-get install libmrpt-dev -y
