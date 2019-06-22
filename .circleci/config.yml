@@ -4,10 +4,10 @@ jobs:
     docker:
       - image: mrpt/mrpt-build-env:full-bionic
     steps:
-      - run: sudo add-apt-repository ppa:joseluisblancoc/mrpt -y
-      - run: sudo add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
-      - run: sudo apt-get install libmrpt-dev -y
-      - run: sudo apt-get install libgtsam-dev -y
+      - run: add-apt-repository ppa:joseluisblancoc/mrpt -y
+      - run: add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+      - run: apt-get install libmrpt-dev -y
+      - run: apt-get install libgtsam-dev -y
       - checkout
       - run:
           name: Generate cmake files
@@ -21,10 +21,10 @@ jobs:
     docker:
       - image: mrpt/mrpt-build-env:full-bionic
     steps:
-      - run: sudo add-apt-repository ppa:joseluisblancoc/mrpt -y
-      - run: sudo add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
-      - run: sudo apt-get install libmrpt-dev -y
-      - run: sudo apt-get install libgtsam-dev -y
+      - run: add-apt-repository ppa:joseluisblancoc/mrpt -y
+      - run: add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+      - run: apt-get install libmrpt-dev -y
+      - run: apt-get install libgtsam-dev -y
       - checkout
       - run:
           name: Generate cmake files
