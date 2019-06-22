@@ -13,9 +13,6 @@
 [submodule "mola-fe-lidar"]
 	path = modules/mola-fe-lidar
 	url = git@github.com:jlblancoc/mola-fe-lidar.git
-[submodule "mola-slam-gtsam"]
-	path = modules/mola-slam-gtsam
-	url = git@github.com:jlblancoc/mola-slam-gtsam.git
 [submodule "mola-input-euroc-dataset"]
 	path = modules/mola-input-euroc-dataset
 	url = https://github.com/MOLAorg/mola-input-euroc-dataset.git
@@ -52,3 +49,6 @@
 [submodule "DBoW"]
 	path = externals/DBoW2/DBoW2
 	url = https://github.com/MOLAorg/DBoW2.git
+[submodule "mola-slam-gtsam"]
+	path = modules/mola-slam-gtsam
+	url = git@github.com:jlblancoc/mola-slam-gtsam.git
