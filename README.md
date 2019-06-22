@@ -1,7 +1,7 @@
 # mola
 A Modular Optimization framework for Localization and mApping (MOLA)
 
-This repository holds the MOLA git [superproject](https://en.wikibooks.org/wiki/Git/Submodules_and_Superprojects). 
+This repository holds the MOLA git [superproject](https://en.wikibooks.org/wiki/Git/Submodules_and_Superprojects).
 
 Refer to the [official documentation](https://docs.mola-slam.org/latest/) for instructions, demos, API reference, etc.
 
@@ -20,6 +20,11 @@ git clone --recurse-submodules https://github.com/MOLAorg/mola.git
 sudo add-apt-repository ppa:joseluisblancoc/mrpt
 sudo apt update
 sudo apt install libmrpt-dev mrpt-apps
+
+# GTSAM >=4.0.0, from this PPA, or build it from sources:
+sudo add-apt-repository ppa:joseluisblancoc/gtsam-develop
+sudo apt update
+sudo apt install libgtsam-dev
 
 # Boost, yaml-cpp, etc:
 sudo apt install libboost-serialization-dev libboost-system-dev \

@@ -4,10 +4,6 @@
 [submodule "yaml-cpp"]
 	path = externals/yaml-cpp/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
-[submodule "gtsam"]
-	path = externals/gtsam/gtsam
-	url = https://github.com/jlblancoc/gtsam.git
-	shallow = true
 [submodule "mola-launcher"]
 	path = modules/mola-launcher
 	url = https://github.com/MOLAorg/mola-launcher.git

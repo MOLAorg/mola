@@ -26,6 +26,16 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 add_subdirectory(modules/mola-common)
 find_package(mola-common REQUIRED) # find here so external projects can use it
 
+# GTSAM:
+find_package(GTSAM QUIET)
+if (NOT GTSAM_FOUND)
+  message(FATAL_ERROR
+    " *** GTSAM was not found ***\n"
+    "Please, install GTSAM or build from sources and set the cmake variable GTSAM_DIR to the build directory.\n"
+    "In Ubuntu, the easiest solution is to install gtsam from: https://launchpad.net/~joseluisblancoc/+archive/ubuntu/gtsam-develop"
+  )
+endif()
+
 # Process subdirectories:
 option(MOLA_ENABLE_UNIT_TESTS "Build unit tests" ON)
 if(MOLA_ENABLE_UNIT_TESTS)
