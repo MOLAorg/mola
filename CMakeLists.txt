@@ -24,7 +24,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 
 # Common CMake scripts:
 add_subdirectory(modules/mola-common)
-find_package(mola-common REQUIRED) # find here so external projects can use it
+
+# this is to ensure cmake finds mola-common-config.cmake:
+set(mola-common_DIR ${CMAKE_BINARY_DIR})
+# find here so external projects can use it
+find_package(mola-common REQUIRED)
 
 # GTSAM:
 find_package(GTSAM QUIET)
