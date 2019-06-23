@@ -1,4 +1,5 @@
-[![CircleCI](https://circleci.com/gh/MOLAorg/mola.svg?style=svg)](https://circleci.com/gh/MOLAorg/mola)
+[![CircleCI](https://img.shields.io/circleci/build/gh/MOLAorg/mola/master.svg)](https://circleci.com/gh/MOLAorg/mola) [![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://docs.mola-slam.org/latest/)
+
 
 # mola
 A Modular Optimization framework for Localization and mApping (MOLA)
