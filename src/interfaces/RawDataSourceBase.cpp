@@ -199,6 +199,8 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                     gl_pt->clear();
                     mrpt::maps::CPointsMapXYZI xyzi;
                     xyzi.renderOptions.point_size = 1.0f;
+                    if (o_velo->point_cloud.size() == 0)
+                        o_velo->generatePointCloud();
                     xyzi.loadFromVelodyneScan(*o_velo);
                     xyzi.getAs3DObject(gl_pt);
                 }
