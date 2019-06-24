@@ -108,13 +108,16 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
     if (profiler_.isEnabledKeepWholeHistory())
         profiler_dtor_save_stats_.emplace(profiler_);
 
-    // Parse YAML env variables:
-    YAML::Node cfg;
-    {
-        std::stringstream ss;
-        ss << cfg_in;
-        cfg = YAML::Load(mola::parseEnvVars(ss.str()));
-    }
+    // Parse YAML env variables, custom commands, etc:
+    const std::string org_cfg = mola::yaml2string(cfg_in);
+    MRPT_LOG_DEBUG_STREAM("Raw input YAML configuration file:\n" << org_cfg);
+
+    const std::string parsed_cfg = mola::parseYaml(org_cfg);
+    MRPT_LOG_DEBUG_STREAM(
+        "Preprocessed input YAML configuration file:\n"
+        << parsed_cfg);
+
+    YAML::Node cfg = YAML::Load(parsed_cfg);
 
     MRPT_LOG_DEBUG_STREAM(
         "Using the following configuration:\n"
