@@ -14,14 +14,11 @@ MOLA modules are kept as git submodules under ``${MOLA_ROOT}/modules``.
   module-mola-kernel
   module-mola-launcher
   module-mola-fe-g2o-dataset
-  module-mola-fe-imu-preintegration
   module-mola-fe-lidar
   module-mola-input-euroc-dataset
   module-mola-input-kitti-dataset
   module-mola-lidar-segmentation
-  module-mola-sensor-hwdrivers
-  module-mola-sensor-kaist-dataset
-  module-mola-sensor-rawlog
+  module-mola-input-hwdrivers
+  module-mola-input-kaist-dataset
+  module-mola-input-rawlog
   module-mola-slam-gtsam
-  module-mola-viz
-
