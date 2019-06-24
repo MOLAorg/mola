@@ -10,3 +10,4 @@ Demos
 
   demo-kitti-lidar-slam
   demo-rawlog-velodyne-slam
+  demo-pose-graph-g2o-file
