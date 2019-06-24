@@ -19,8 +19,12 @@
 #include <mola-kernel/yaml_helpers.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
+#include <mrpt/core/get_env.h>
+#include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/CRateTimer.h>
+#include <mrpt/system/filesystem.h>
 #include <mrpt/system/memory.h>
+#include <mrpt/system/string_utils.h>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -28,25 +32,47 @@
 
 using namespace mola;
 
+static void from_env_var_to_list(
+    const std::string& env_var_name, std::vector<std::string>& lst)
+{
+#if defined(_WIN32)
+    const auto delim = std::string(";");
+#else
+    const auto delim = std::string(":");
+#endif
+
+    const auto additionalPaths = mrpt::get_env<std::string>(env_var_name);
+    std::vector<std::string> pathList;
+    mrpt::system::tokenize(additionalPaths, delim, pathList);
+
+    // Append to list:
+    std::copy(pathList.begin(), pathList.end(), std::back_inserter(lst));
+}
+
 MolaLauncherApp::MolaLauncherApp()
     : mrpt::system::COutputLogger("MolaLauncherApp")
 {
-    lib_search_paths_.emplace_back(MOLA_MODULES_DIR);
+    // Add build-time predefined path:
+    lib_search_paths_.emplace_back(BUILDTIME_MOLA_MODULES_LIB_PATH);
+    shared_search_paths_.emplace_back(BUILDTIME_MOLA_MODULES_SHARED_PATH);
+
+    // Add paths from environment variable:
+    from_env_var_to_list("MOLA_MODULES_LIB_PATH", lib_search_paths_);
+    from_env_var_to_list("MOLA_MODULES_SHARED_PATH", shared_search_paths_);
 }
 
 MolaLauncherApp::~MolaLauncherApp()
 {
+    if (running_threads_.empty()) return;
+
     this->shutdown();
-    if (!running_threads_.empty())
-    {
-        MRPT_LOG_INFO_STREAM(
-            "Shutting down " << running_threads_.size()
-                             << " module threads...");
-        for (auto& ds : running_threads_)
-            if (ds.second.executor.joinable()) ds.second.executor.join();
-        MRPT_LOG_INFO("Done.");
-        running_threads_.clear();
-    }
+
+    MRPT_LOG_INFO_STREAM(
+        "Shutting down " << running_threads_.size() << " module threads...");
+    for (auto& ds : running_threads_)
+        if (ds.second.executor.joinable()) ds.second.executor.join();
+    MRPT_LOG_INFO("Done.");
+    running_threads_.clear();
 
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(100ms);
@@ -70,7 +96,7 @@ void MolaLauncherApp::shutdown()
     threads_must_end_ = true;
 }
 
-void MolaLauncherApp::addModulesDirectory(const std::string& path)
+void MolaLauncherApp::addPathModuleLibs(const std::string& path)
 {
     lib_search_paths_.push_back(path);
 }
@@ -375,10 +401,52 @@ void MolaLauncherApp::internal_spin_tasks()
     MRPT_START
 
     // Collect memory stats:
-    {
-        const auto mem_used = mrpt::system::getMemoryUsage();
-        profiler_.registerUserMeasure("memory_used", mem_used);
-    }
+    const auto mem_used = mrpt::system::getMemoryUsage();
+    profiler_.registerUserMeasure("memory_used", mem_used);
 
     MRPT_END
+}
+
+std::map<MolaLauncherApp::module_name_t, MolaLauncherApp::module_shared_path_t>
+    MolaLauncherApp::scanForModuleSharedDirectories() const
+{
+    MRPT_TRY_START
+
+    using direxpl = mrpt::system::CDirectoryExplorer;
+    using namespace std::string_literals;
+
+    std::map<module_name_t, module_shared_path_t> found;
+
+    for (const auto& path : shared_search_paths_)
+    {
+        MRPT_LOG_DEBUG_FMT(
+            "[scanForModuleSharedDirectories]: Searching under: `%s`",
+            path.c_str());
+
+        direxpl::TFileInfoList lst;
+        direxpl::explore(path, FILE_ATTRIB_DIRECTORY, lst);
+        for (const auto& dir : lst)
+        {
+            if (!mrpt::system::fileExists(dir.wholePath + "/mola-module.yml"s))
+                continue;
+
+            found.emplace(dir.name, dir.wholePath);
+        }
+    }
+
+    return found;
+
+    MRPT_TRY_END
+}
+
+std::string MolaLauncherApp::findModuleSharedDir(
+    const std::string& moduleName) const
+{
+    std::map<module_name_t, module_shared_path_t> lst =
+        scanForModuleSharedDirectories();
+
+    if (auto it = lst.find(moduleName); it != lst.end())
+        return it->second;
+    else
+        return std::string();
 }

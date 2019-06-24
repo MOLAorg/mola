@@ -24,20 +24,30 @@ SYNOPSIS
 
     USAGE:
 
-       mola-cli  [--rtti-children-of <mp2p_icp::ICP_Base>] [--rtti-list-all]
+       mola-cli  [--list-module-shared-dirs] [--list-modules]
+                 [--rtti-children-of <mp2p_icp::ICP_Base>] [--rtti-list-all]
                  [--profiler-whole] [-p] [-v <INFO>] [-c <demo.yml>] [--]
                  [--version] [-h]
 
 
     Where:
 
+       --list-module-shared-dirs
+         Finds all MOLA module source/shared directories, then list them. Paths
+         can be added with the environment variable MOLA_MODULES_SHARED_PATH.
+
+       --list-modules
+         Loads all MOLA modules, then list them. It also shows the list of
+         paths in which the program looks for module dynamic libraries, then
+         exits.
+
        --rtti-children-of <mp2p_icp::ICP_Base>
          Loads all MOLA modules, then list all known classes that inherit from
-         the given one
+         the given one, and exits.
 
        --rtti-list-all
          Loads all MOLA modules, then list all classes registered via
-         mrpt::rtti
+         mrpt::rtti, and exits.
 
        --profiler-whole
          Enable whole-history time profiler in all modules (Default: NO). **DO
@@ -62,6 +72,7 @@ SYNOPSIS
        -h,  --help
          Displays usage information and exits.
 
+
 Notes:
 
   - Finer-control of the verbosity for individual modules is possible by using the `verbosity` variable in the YAML launch file, see: :ref:`yaml_slam_cfg_file`.
@@ -83,6 +94,36 @@ Example: To list all known ICP algorithms:
   mp2p_icp::ICP_GaussNewton
   mp2p_icp::ICP_Horn_MultiCloud
   mp2p_icp::ICP_OLAE
+
+
+----
+
+.. index::
+   single: mola-dir
+
+Application: ``mola-dir``
+##########################
+
+``mola-dir`` is a CLI program that finds the shared directory
+(see :ref:`concepts_module_shared_dir`) of a module.
+It is most-commonly useful inside evaluation expression of MOLA definition files (:ref:`yaml_slam_cfg_file`).
+
+-------------
+SYNOPSIS
+-------------
+
+.. code-block:: none
+
+    USAGE:
+
+       mola-dir  <module_name>
+
+
+Note: To list all known shared directories of modules, use:
+
+.. code-block:: none
+
+    mola-cli --list-module-shared-dirs
 
 
 ----

@@ -5,8 +5,8 @@
  * ------------------------------------------------------------------------- */
 
 /**
- * @file   mola-launcher-main.cpp
- * @brief  main() for mola-launcher app
+ * @file   mola-cli.cpp
+ * @brief  main() for the mola-cli app, the CLI for mola-launcher
  * @author Jose Luis Blanco Claraco
  * @date   Nov 28, 2018
  */
@@ -26,7 +26,7 @@
 MRPT_TODO("win32: add SetConsoleCtrlHandler");
 
 // Declare supported cli switches ===========
-static TCLAP::CmdLine               cmd("mola-launcher");
+static TCLAP::CmdLine               cmd("mola-cli");
 static TCLAP::ValueArg<std::string> arg_yaml_cfg(
     "c", "config", "Input YAML config file (required) (*.yml)", false, "",
     "demo.yml", cmd);
@@ -64,6 +64,12 @@ static TCLAP::SwitchArg arg_list_modules(
     "in which the program looks for module dynamic libraries, then exits.",
     cmd);
 
+static TCLAP::SwitchArg arg_list_module_shared_dirs(
+    "", "list-module-shared-dirs",
+    "Finds all MOLA module source/shared directories, then list them. Paths "
+    "can be added with the environment variable MOLA_MODULES_SHARED_PATH.",
+    cmd);
+
 void mola_signal_handler(int s);
 void mola_install_signal_handler();
 
@@ -80,17 +86,12 @@ static int mola_cli_launch_slam()
             "-c xxx.yaml (or --config xxx.yml) is required to launch a SLAM "
             "system.");
         cmd.getOutput()->failure(cmd, e);
+        return 1;
     }
     const auto file_yml = arg_yaml_cfg.getValue();
 
     YAML::Node cfg = YAML::LoadFile(file_yml);
 
-    if (arg_verbosity_level.isSet())
-    {
-        using vl     = mrpt::typemeta::TEnumType<mrpt::system::VerbosityLevel>;
-        const auto v = vl::name2value(arg_verbosity_level.getValue());
-        app.setVerbosityLevel(v);
-    }
     app.profiler_.enable(
         arg_enable_profiler.isSet() || arg_enable_profiler_whole.isSet());
     app.profiler_.enableKeepWholeHistory(arg_enable_profiler_whole.isSet());
@@ -145,8 +146,9 @@ int mola_cli_rtti_list_child()
 int mola_cli_list_modules()
 {
     // show paths:
-    std::vector<std::string> lst = app.getModulesPaths();
-    std::cout << "MOLA modules paths has " << lst.size() << " directories:\n";
+    std::vector<std::string> lst = app.getModuleLibPaths();
+    std::cout << "MOLA_MODULES_LIB_PATH has " << lst.size()
+              << " directories:\n";
     for (const auto& p : lst) std::cout << p << "\n";
     std::cout << "\n";
 
@@ -161,6 +163,15 @@ int mola_cli_list_modules()
     return 0;
 }
 
+int mola_cli_list_module_shared_dirs()
+{
+    const auto mod2path_lst = app.scanForModuleSharedDirectories();
+    for (const auto& p : mod2path_lst)
+        std::cout << p.first << ": " << p.second << "\n";
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
     try
@@ -170,10 +181,21 @@ int main(int argc, char** argv)
 
         mola_install_signal_handler();
 
+        // Define the verbosity level here so it affects all possible commands
+        // of mola-cli:
+        if (arg_verbosity_level.isSet())
+        {
+            using vl = mrpt::typemeta::TEnumType<mrpt::system::VerbosityLevel>;
+            const auto v = vl::name2value(arg_verbosity_level.getValue());
+            app.setVerbosityLevel(v);
+        }
+
         // Different tasks that can be dine with mola-cli:
         if (arg_rtti_list_all.isSet()) return mola_cli_rtti_list_all();
         if (arg_rtti_list_children.isSet()) return mola_cli_rtti_list_child();
         if (arg_list_modules.isSet()) return mola_cli_list_modules();
+        if (arg_list_module_shared_dirs.isSet())
+            return mola_cli_list_module_shared_dirs();
 
         // Default task:
         return mola_cli_launch_slam();
@@ -182,7 +204,7 @@ int main(int argc, char** argv)
     }
     catch (std::exception& e)
     {
-        std::cerr << "[mola-launcher] Exit due to exception:\n"
+        std::cerr << "[mola-cli] Exit due to exception:\n"
                   << mrpt::exception_to_str(e) << std::endl;
         return 1;
     }

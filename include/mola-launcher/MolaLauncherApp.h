@@ -34,31 +34,12 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** @name SLAM system setup
      * @{ */
 
-    /** Adds a directory to the list of paths to search for MOLA modules
-     * (.so/.dll) when setup() is called
-     * (Default=CMAKE_LIBRARY_OUTPUT_DIRECTORY).
-     */
-    void addModulesDirectory(const std::string& path);
-
-    /** Returns a copy of the current list of paths in which this object will
-     * try to look for MOLA modules.
-     * (Default=CMAKE_LIBRARY_OUTPUT_DIRECTORY).
-     * \sa addModulesDirectory
-     */
-    std::vector<std::string> getModulesPaths() const
-    {
-        return lib_search_paths_;
-    }
-
-    /** Returns the current list of loaded module dynamic libraries. */
-    std::vector<std::string> getLoadedModules();
-
     /** Prepares the SLAM system based on a YAML configuration file.
      * See [mola]/demos/ for example YAML files.
      * At this point, MOLA module libraries are searched in a list of paths
      * and loaded for their classes to be available in name-based class
      * factories. Modules must be named "libmola*" to be loaded.
-     * \sa addModulesDirectory, scanAndLoadLibraries
+     * \sa addPathModuleLibs, scanAndLoadLibraries
      */
     void setup(const YAML::Node& cfg);
 
@@ -73,6 +54,60 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
 
     /** @} */
 
+    /** @name MOLA module listing, paths, finding, etc.
+     * @{ */
+
+    /** Adds a directory to the list of paths to search for MOLA modules
+     * (.so/.dll) when setup() is called.
+     * The environment variable MOLA_MODULES_LIB_PATH (`path1[:path2[:...]]`) is
+     * automatically added at class construction.
+     * \note Default is `CMAKE_LIBRARY_OUTPUT_DIRECTORY`.
+     */
+    void addPathModuleLibs(const std::string& path);
+
+    /** Adds a directory to the list of paths to search for MOLA module source
+     * and shared files.
+     * The environment variable MOLA_MODULES_SHARED_PATH (`path1[:path2[:...]]`)
+     * is automatically added at class construction.
+     *
+     * \note Default is `${MOLA_SOURCE_DIR}/modules/`
+     */
+    void addPathModuleSources(const std::string& path);
+
+    /** Returns a copy of the current list of paths in which this object
+     * will try to look for MOLA modules compiled binaries.
+     * \sa addPathModuleLibs
+     */
+    std::vector<std::string> getModuleLibPaths() const
+    {
+        return lib_search_paths_;
+    }
+
+    /** Returns a copy of the current list of paths in which this object
+     * will try to look for MOLA modules shared files.
+     * \sa addPathModuleSources
+     */
+    std::vector<std::string> getModuleSourcePaths() const
+    {
+        return shared_search_paths_;
+    }
+
+    /** Returns the current list of loaded module dynamic libraries. */
+    std::vector<std::string> getLoadedModules();
+
+    /** Returns the absolute path of the root directory where the given module
+     * shared files can be found. For BUILD_INTERFACE, this should be the root
+     * of each repository source. For INSTALL_INTERFACE, it should be
+     * <INSTALL_PREFIX>/share/<MODULE_NAME>/
+     *
+     * Returns an empty string if module is not found.
+     *
+     * \sa scanForModuleSharedDirectories() to search for all module paths.
+     */
+    std::string findModuleSharedDir(const std::string& moduleName) const;
+
+    /** @} */
+
     /** @name SLAM system control & monitoring
      * @{ */
 
@@ -84,13 +119,21 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      * within setup(), but it's provided here in case a user want to only load
      * modules for use the RTTI machinery on them without setting up a complete
      * SLAM system.
-     * \sa addModulesDirectory, setup
+     * \sa addPathModuleLibs, setup
      */
     void scanAndLoadLibraries();
 
+    using module_name_t        = std::string;
+    using module_shared_path_t = std::string;
+
+    /** Scans the shared directories and returns a list with found modules and
+     * their shared directory. */
+    std::map<module_name_t, module_shared_path_t>
+        scanForModuleSharedDirectories() const;
+
     /** Time profiler. It's enabled/disabled status will be inherited (by
-     * default, unless set otherwise in their YAML config files) by all modules
-     * created upon the call to setup() */
+     * default, unless set otherwise in their YAML config files) by all
+     * modules created upon the call to setup() */
     mrpt::system::CTimeLogger profiler_{"MolaLauncherApp"};
 
     /** Enabled from mola-cli with `--profiler-whole` to save full profile stats
@@ -138,8 +181,14 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** Set to true to command all running threads to exit */
     std::atomic_bool threads_must_end_{false};
 
-    /** Used in setup(), can be added to via addModulesDirectory() */
+    /** Paths to search for libraries (libmola-xxx.{so,dll}).
+     * Used in setup(), can be added to via addPathModuleLibs() */
     std::vector<std::string> lib_search_paths_{};
+
+    /** Paths to search for module sources/shared files.
+     * Used in findModuleRootDir(), can be added to via addPathModuleSources()
+     */
+    std::vector<std::string> shared_search_paths_{};
 
     /** Implementation for nameServer in the ExecutableBase interface */
     ExecutableBase::Ptr nameServerImpl(const std::string& name);

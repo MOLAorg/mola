@@ -39,21 +39,10 @@ mola_add_library(
 
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
-    MOLA_MODULES_DIR="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+    BUILDTIME_MOLA_MODULES_LIB_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+    # Use top-level source directory:
+    BUILDTIME_MOLA_MODULES_SHARED_PATH="${CMAKE_SOURCE_DIR}/modules"
     )
 
-# ----------------------
-# define app target:
-find_package(mrpt-core)
-find_package(mrpt-tclap) # tclap wrapper, useful for Windows, etc.
-
-file(GLOB_RECURSE SRCS cli/*.cpp cli/*.h)
-mola_add_executable(
-	TARGET  mola-cli
-	SOURCES ${SRCS}
-	LINK_LIBRARIES
-		mrpt::core
-		mrpt::tclap
-		yaml-cpp
-		${PROJECT_NAME}
-)
+# apps:
+add_subdirectory(apps)
