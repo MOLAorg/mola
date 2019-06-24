@@ -22,11 +22,9 @@ make build_docs
 
 ## Manual method
 
-From the MOLA source tree: 
+From the MOLA source tree:
 
 ```
 cd docs
 make
 ```
-
-
