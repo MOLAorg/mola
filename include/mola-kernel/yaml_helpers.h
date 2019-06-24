@@ -17,10 +17,10 @@
 
 namespace mola
 {
-/** Replaces `${VAR}` expressions with their values from environment vars.
+/** Parses: system run expressions `$(cmd)`, environment variables `${VAR}`.
  * \ingroup mola_kernel_grp
  */
-std::string parseEnvVars(const std::string& text);
+std::string parseYaml(const std::string& text);
 
 /** Converts a yamlcpp node into a string
  * \ingroup mola_kernel_grp
