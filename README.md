@@ -10,6 +10,7 @@ build instructions, [demos](https://docs.mola-slam.org/latest/demos.html), API r
 
 |             Demo                                                                                             |                                          Preview                                               |  
 |--------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+|  [3D LiDAR SLAM from KITTI dataset](https://docs.mola-slam.org/latest/demo-kitti-lidar-slam.html)            |  ![](https://github.com/MOLAorg/static-media/blob/master/kitti_lidar_slam.gif)                 |
 |  [Graph SLAM from G2O dataset](https://docs.mola-slam.org/latest/demo-pose-graph-g2o-file.html)              |  ![](https://github.com/MOLAorg/static-media/blob/master/mola-demo-g2o-garage.gif)             |
 
 ## Building
