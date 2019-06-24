@@ -16,10 +16,8 @@ modules:
       use_incremental_solver: true
       # ------
       # Select state space representation for KeyFrame poses:
-      #state_vector: SE2
+      # See options in: https://docs.mola-slam.org/latest/concept-state-vector.html
       state_vector: SE3
-      #state_vector: DynSE2
-      #state_vector: DynSE3
       # --- constant velocity model params (see papers) ---
       const_vel_model_std_pos: 0.1  # [m]
       const_vel_model_std_vel: 0.5  # [m/s]
