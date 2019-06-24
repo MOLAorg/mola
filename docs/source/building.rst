@@ -18,12 +18,12 @@ Build dependencies
 - A C++17 compiler. Either gcc-7, clang-4 or MSVC 2017 are good.
 - CMake >=3.4
 - Mandatory libraries:
-  - MRPT >= 1.9.9
-  - GTSAM >= 4.0.0
-  - yaml-cpp (will use an embedded version if not found in the system)
+   - MRPT >= 1.9.9
+   - GTSAM >= 4.0.0
+   - yaml-cpp (will use an embedded version if not found in the system)
 - Optional libraries:
-  - opencv
-  - ros1
+   - opencv
+   - ros1
 
 Ubuntu
 ========

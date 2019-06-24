@@ -13,3 +13,4 @@ the key elements of a MOLA SLAM system.
   concept-mola-architecture
   concept-state-vector
   concept-slam-configuration-file
+  concept-module-directories-paths
