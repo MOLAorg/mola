@@ -12,6 +12,7 @@ MOLA
   building
   demos
   concepts
+  tutorials
   modules
   doxygen-index
 
@@ -19,8 +20,9 @@ MOLA
 `MOLA`_ is a Modular system for Localization and Mapping.
 
 Get started:
-
- - See :ref:`demos` for real examples to launch and run SLAM systems.
+ - See :ref:`concepts` for an overview of the system.
+ - See :ref:`demos` for real examples of how to launch and run SLAM systems.
+ - See :ref:`tutorials` to get a better insight into how MOLA modules work, how to write your own modules, etc.
  - See `videos`_ on YouTube.
 
 .. image:: mola-slam-representations.png

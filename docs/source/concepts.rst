@@ -1,10 +1,15 @@
+.. _concepts:
+
 =============
 Concepts
 =============
 
+These pages explain the theory underlying the MOLA architecture, as well as
+the key elements of a MOLA SLAM system.
+
 .. toctree::
   :maxdepth: 2
 
-  concept-mola-arquitecture
+  concept-mola-architecture
+  concept-state-vector
   concept-slam-configuration-file
-  concept-mola-cmake-commands
