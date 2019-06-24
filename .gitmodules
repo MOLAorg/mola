@@ -46,3 +46,6 @@
 [submodule "mola-slam-gtsam"]
 	path = modules/mola-slam-gtsam
 	url = https://github.com/MOLAorg/mola-slam-gtsam.git
+[submodule "mola-test-datasets"]
+	path = modules/mola-test-datasets
+	url = https://github.com/MOLAorg/mola-test-datasets.git

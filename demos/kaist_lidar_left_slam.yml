@@ -14,7 +14,7 @@ modules:
     #verbosity_level: INFO
     params:
       # true: use iSAM2
-      # false: use global levmarquartd
+      # false: use global Levenberg-Marquardt
       use_incremental_solver: true
       # iSAM2 additional update() steps. Set >0 to fasten convergence, at
       # the cost of more processing time for each timestep:

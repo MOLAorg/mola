@@ -15,7 +15,7 @@ modules:
     execution_rate: 10 # Hz
     params:
       # true: use iSAM2
-      # false: use global levmarquartd
+      # false: use global Levenberg-Marquardt
       use_incremental_solver: true
       # ------
       # Select state space representation for KeyFrame poses:
@@ -28,7 +28,7 @@ modules:
       const_vel_model_std_vel: 0.1  # [m/s]
       # ------
       # Save trajectory to file at end? useful for plots, error evaluation,...
-      save_trajectory_file_prefix: pose_graph_slam_result
+      #save_trajectory_file_prefix: pose_graph_slam_result
       # ------------------------
       # ------------------------
 # Setup of SLAM front-ends ====================================
@@ -40,7 +40,7 @@ modules:
     execution_rate: 20 # Hz
     params:
       # Dataset file to load:
-      g2o_file: ${HOME}/datasets-slam/parking-garage.g2o.txt
+      g2o_file: $(mola-dir mola-test-datasets)/g2o/parking-garage.g2o
       # ----------
 # Setup of World Model (the map) =====================================
   - name: map
