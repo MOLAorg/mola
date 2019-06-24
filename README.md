@@ -2,12 +2,15 @@
 
 
 # mola
-A Modular Optimization framework for Localization and mApping (MOLA)
+A Modular Optimization framework for Localization and mApping (MOLA).
 
 This repository holds the MOLA git [superproject](https://en.wikibooks.org/wiki/Git/Submodules_and_Superprojects).
-
 Refer to the [official documentation](https://docs.mola-slam.org/latest/) for
 build instructions, [demos](https://docs.mola-slam.org/latest/demos.html), API reference, etc.
+
+|             Demo                                                                                             |                                          Preview                                               |  
+|--------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+|  [Graph SLAM from G2O dataset](https://docs.mola-slam.org/latest/demo-pose-graph-g2o-file.html)              |  ![](https://github.com/MOLAorg/static-media/blob/master/mola-demo-g2o-garage.gif)             |
 
 ## Building
 Clone with:
@@ -25,6 +28,21 @@ Directories layout is as follows:
 * `externals`: All external depedencies
 * `modules`: All MOLA module projects.
 
+## Citation
+
+MOLA was presented in ([PDF](http://www.roboticsproceedings.org/rss15/p43.pdf)):
+
+```bibtex
+@INPROCEEDINGS{Blanco-Claraco-RSS-19, 
+    AUTHOR    = {Jose Luis Blanco-Claraco}, 
+    TITLE     = {A Modular Optimization Framework for Localization and Mapping}, 
+    BOOKTITLE = {Proceedings of Robotics: Science and Systems}, 
+    YEAR      = {2019}, 
+    ADDRESS   = {FreiburgimBreisgau, Germany}, 
+    MONTH     = {June}, 
+    DOI       = {10.15607/RSS.2019.XV.043} 
+} 
+```
 
 ## License
 MOLA is released under the GNU GPL v3 license, except noted otherwise in each individual module. Other options available upon request.
