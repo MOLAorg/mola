@@ -101,7 +101,15 @@ modules:
       max_dist_to_loop_closure: 30.0  # [m]
       max_nearby_align_checks: 5
       min_topo_dist_to_consider_loopclosure: 30
-      # Params for the MRPT ICP algoritm: See mrpt::slam::CICP for documentation
+      # ---------------------------------------------------------
+      # Instantiate one of the ICP algorithms.
+      # See available methods with:
+      #  mola-cli --rtti-children-of mp2p_icp::ICP_Base
+      #
+      icp_class: mp2p_icp::ICP_Horn_MultiCloud
+      #icp_class: mp2p_icp::ICP_OLAE
+      #
+      # And its params:
       # Case: WITH a good twist (velocity) model:
       icp_params_with_vel.maxIterations:  10    90
       icp_params_with_vel.thresholdDist:   1.0   0.50   # [meters]
