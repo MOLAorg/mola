@@ -15,11 +15,12 @@
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
+#include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
+#include <mrpt/opengl/CPlanarLaserScan.h>
 #include <mrpt/opengl/stock_objects.h>
 #include <mrpt/serialization/CArchive.h>
 #include <yaml-cpp/yaml.h>
@@ -203,6 +204,21 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                         o_velo->generatePointCloud();
                     xyzi.loadFromVelodyneScan(*o_velo);
                     xyzi.getAs3DObject(gl_pt);
+                }
+
+                if (auto o_2dscan = mrpt::ptr_cast<
+                        mrpt::obs::CObservation2DRangeScan>::from(obs);
+                    o_2dscan)
+                {
+                    mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
+                    auto o     = scene->getByName("pointcloud");
+                    auto gl_pt = mrpt::ptr_cast<CSetOfObjects>::from(o);
+
+                    // o_2dscan
+                    gl_pt->clear();
+                    auto gl_scan = mrpt::opengl::CPlanarLaserScan::Create();
+                    gl_scan->setScan(*o_2dscan);
+                    gl_pt->insert(gl_scan);
                 }
 
                 auto o_img =
