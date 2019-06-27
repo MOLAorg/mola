@@ -102,7 +102,9 @@ void RawlogDataset::spinOnce()
         MRPT_LOG_DEBUG_STREAM(
             "Publishing " << obs->GetRuntimeClass()->className
                           << " sensorLabel: " << obs->sensorLabel
-                          << " for t=" << t);
+                          << " for t=" << t << " observation timestamp="
+                          << mrpt::system::dateTimeLocalToString(
+                                 obs->timestamp));
     }
     MRPT_END
 }
