@@ -61,14 +61,14 @@ modules:
     name: lidar_fe
     launch_ignore: false
     raw_data_source: rawlog_input
-    raw_sensor_label: Velodyne1_SCAN
+    raw_sensor_label: SICK_FRONT_OBS
     params:
       # Minimum time (seconds) between scans for being attempted to be
       # aligned. Scans faster than this rate will be just silently ignored.
       min_time_between_scans: 0.01    # [seconds]
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
       # the map
-      min_dist_xyz_between_keyframes: 1.5   # [meters]
+      min_dist_xyz_between_keyframes: 3.0   # [meters]
       # Minimum rotation (in 3D space, yaw, pitch,roll, altogether) between
       # keyframes inserted into  the map:
       min_rotation_between_keyframes: 30.0  # [deg]
@@ -138,9 +138,9 @@ modules:
     execution_rate: 50 # Hz
     verbosity_level: INFO
     gui_preview_sensors:
-      - raw_sensor_label: Velodyne1_SCAN
+      - raw_sensor_label: SICK_FRONT_OBS
         decimation: 1
         win_pos: 5 5 400 400
     params:
-      rawlog_filename: ${MOLA_INPUT_RAWLOG}
+      rawlog_filename: $(mola-dir mola-test-datasets)/ual_dataset_2014_05_23_2dlaser_odo.rawlog
       time_warp_scale: 1.0
