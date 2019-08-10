@@ -18,6 +18,11 @@ def get_github_url(app, view, path):
         branch=app.config.edit_on_github_branch,
         path=path)
 
+# JLBC: New function added for MOLA
+def get_relative_path(doctree, app):
+    p = os.path.relpath(doctree.get('source'), app.builder.srcdir + '/../../')
+    return p
+# end-JLBC
 
 def html_page_context(app, pagename, templatename, context, doctree):
     if templatename != 'page.html':
@@ -27,7 +32,7 @@ def html_page_context(app, pagename, templatename, context, doctree):
         warnings.warn("edit_on_github_project not specified")
         return
 
-    path = os.path.relpath(doctree.get('source'), app.builder.srcdir)
+    path = get_relative_path(doctree, app)
     show_url = get_github_url(app, 'blob', path)
     edit_url = get_github_url(app, 'edit', path)
 

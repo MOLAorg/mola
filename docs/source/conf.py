@@ -50,7 +50,7 @@ extensions += ['doxyrest', 'cpplexer']
 html_last_updated_fmt = '%H:%M, %b %d, %Y'
 
 # For edit_on_github extension:
-edit_on_github_project = 'jlblanco/mola'
+edit_on_github_project = 'MOLAorg/mola'
 edit_on_github_branch = 'master'
 
 # Add any paths that contain templates here, relative to this directory.
