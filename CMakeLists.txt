@@ -53,11 +53,9 @@ add_subdirectory(externals)
 # MOLA modules:
 add_subdirectory(modules)
 
-# Docs:
-find_program(SPHINX_EXECUTABLE NAMES sphinx-build HINTS $ENV{SPHINX_DIR} PATH_SUFFIXES bin DOC "Sphinx documentation generator")
-if(SPHINX_EXECUTABLE)
-  add_subdirectory(docs)
-endif()
+# Docs: Don't build using CMake, but instead by means of a custom docs/Makefile script
+
+
 
 message(STATUS "==== MOLA configuration ====")
 message(STATUS "C++ compiler              : ${CMAKE_CXX_COMPILER}")
