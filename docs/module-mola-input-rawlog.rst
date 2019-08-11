@@ -2,7 +2,7 @@
 Module: mola-input-rawlog
 ========================================
 
-Parses an MRPT rawlog dataset and publishes it using the MOLAPI.
+Parses an MRPT rawlog dataset and publishes it using the MOLA API.
 
 
 .. index::
