@@ -68,7 +68,7 @@ To make sure the system works, you can run unit tests with:
     make test
 
 ======================
-Make MOLA reachable
+Add MOLA to PATH
 ======================
 
 Add the `build/bin` build subdirectory to the environment variable `PATH` to
@@ -88,11 +88,12 @@ Updating sources for rebuilding
 Since MOLA is under heavy development, it is expected that cloned repositories
 quickly get out of date.
 
-To get the latest version of all modules, run:
+To get the latest version of all modules, and clone recently added modules, run:
 
 .. code-block:: bash
 
     cd MOLA_SOURCE_ROOT_DIR
-    modules/pull-all-master.sh
+    git pull
+    git submodule update --init
 
 then rebuild as usual with `make`, `cmake --build .`, etc.
