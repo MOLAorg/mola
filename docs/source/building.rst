@@ -1,8 +1,8 @@
 .. _building:
 
-=============
-Building
-=============
+======================
+Building (first time)
+======================
 
 Get the sources
 -------------------
@@ -66,3 +66,33 @@ To make sure the system works, you can run unit tests with:
 .. code-block:: bash
 
     make test
+
+======================
+Make MOLA reachable
+======================
+
+Add the `build/bin` build subdirectory to the environment variable `PATH` to
+ease the invocation of MOLA commands and demos.
+For example, if `MOLA_BINARY_DIR` is `$HOME/code/mola`, run the next command to
+automatically add its build directory to PATH when opening a console:
+
+.. code-block:: bash
+
+    echo 'set $PATH=$PATH:$HOME/code/mola/build/bin' >> ~/.bashrc
+
+
+==================================
+Updating sources for rebuilding
+==================================
+
+Since MOLA is under heavy development, it is expected that cloned repositories
+quickly get out of date.
+
+To get the latest version of all modules, run:
+
+.. code-block:: bash
+
+    cd MOLA_SOURCE_ROOT_DIR
+    modules/pull-all-master.sh
+
+then rebuild as usual with `make`, `cmake --build .`, etc.
