@@ -1,8 +1,9 @@
 ========================================
-Module: mola-sensor-rawlog
+Module: mola-input-rawlog
 ========================================
 
-Write me!
+Parses an MRPT rawlog dataset and publishes it using the MOLAPI.
+
 
 .. index::
    single: mola-sensor-rawlog
