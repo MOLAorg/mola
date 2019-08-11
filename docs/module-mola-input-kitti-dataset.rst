@@ -2,7 +2,7 @@
 Module: mola-input-kitti-dataset
 ========================================
 
-Write me!
+Reads from a KITTI odometry/SLAM dataset.
 
 
 .. index::
