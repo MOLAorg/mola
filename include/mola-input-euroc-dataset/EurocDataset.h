@@ -45,7 +45,7 @@ using euroc_dataset_t   = std::multimap<euroc_timestamp_t, SensorEntry>;
  * - `imu0`: An ADIS16448 IMU sensor
  * - Ground truth poses
  *
- * \ingroup mola_sensor_euroc_dataset_grp */
+ * \ingroup mola_input_euroc_dataset_grp */
 class EurocDataset : public RawDataSourceBase
 {
     DEFINE_MRPT_OBJECT(EurocDataset)

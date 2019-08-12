@@ -10,7 +10,7 @@
  * @date   Jan 11, 2019
  */
 
-/** \defgroup mola_sensor_euroc_dataset_grp mola_sensor_euroc_dataset_grp.
+/** \defgroup mola_input_euroc_dataset_grp mola_input_euroc_dataset_grp.
  * RawDataSource from Euroc odometry/SLAM datasets.
  *
  *
