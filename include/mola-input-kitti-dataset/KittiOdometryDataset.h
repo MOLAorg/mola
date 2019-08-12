@@ -26,7 +26,7 @@ namespace mola
  * - `lidar`: Velodyne 3D LIDAR
  * - Ground truth poses
  *
- * \ingroup mola_sensor_kitti_dataset_grp */
+ * \ingroup mola_input_kitti_dataset_grp */
 class KittiOdometryDataset : public RawDataSourceBase
 {
     DEFINE_MRPT_OBJECT(KittiOdometryDataset)

@@ -10,7 +10,7 @@
  * @date   Nov 29, 2018
  */
 
-/** \defgroup mola_sensor_kitti_dataset_grp mola-input-kitti-dataset.
+/** \defgroup mola_input_kitti_dataset_grp mola-input-kitti-dataset.
  * RawDataSource from Kitti odometry/SLAM datasets.
  *
  *
