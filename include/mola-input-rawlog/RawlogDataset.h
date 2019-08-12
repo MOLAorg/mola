@@ -19,7 +19,7 @@ namespace mola
 {
 /**
  *
- * \ingroup mola_sensor_rawlog_grp */
+ * \ingroup mola_input_rawlog_grp */
 class RawlogDataset : public RawDataSourceBase
 {
     DEFINE_MRPT_OBJECT(RawlogDataset)

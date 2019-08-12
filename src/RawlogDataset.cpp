@@ -10,7 +10,7 @@
  * @date   Feb 15, 2019
  */
 
-/** \defgroup mola_sensor_rawlog_grp mola_sensor_rawlog_grp.
+/** \defgroup mola_input_rawlog_grp mola_input_rawlog_grp.
  * RawDataSource for datasets in MRPT rawlog format
  *
  */
