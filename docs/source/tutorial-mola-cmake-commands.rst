@@ -18,6 +18,20 @@ The following CMake functions are defined by `mola-common`.
     # standard CMake find_package().
 
 
+`mola_add_executable()`
+-----------------------------------
+
+.. code-block:: cmake
+
+    # mola_add_executable(
+    #	TARGET name
+    #	SOURCES ${SRC_FILES}
+    #	[LINK_LIBRARIES lib1 lib2]
+    #	)
+    #
+    # Defines a MOLA executable
+
+
 
 `mola_add_library()`
 -----------------------------------
@@ -34,15 +48,12 @@ The following CMake functions are defined by `mola-common`.
     # Defines a MOLA library
 
 
-`mola_add_executable()`
+`mola_find_package_or_return()`
 -----------------------------------
 
 .. code-block:: cmake
 
-    # mola_add_executable(
-    #	TARGET name
-    #	SOURCES ${SRC_FILES}
-    #	[LINK_LIBRARIES lib1 lib2]
-    #	)
+    # mola_find_package_or_return(package_name)
     #
-    # Defines a MOLA executable
+    # Calls find_package(package_name QUIET), and if it is not found, prints a
+    # descriptive message and call "return()" to exit the current cmake script.
