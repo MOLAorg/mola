@@ -129,7 +129,7 @@ modules:
         win_pos: 5 410 400 130
     params:
       subscribe:
-        - topic: /velodyne
+        - topic: /velodyne_points
           type: PointCloud2
           output_sensor_label: lidar
           #queue_size: 100
