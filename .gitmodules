@@ -49,3 +49,6 @@
 [submodule "mola-test-datasets"]
 	path = modules/mola-test-datasets
 	url = https://github.com/MOLAorg/mola-test-datasets.git
+[submodule "mola-input-ros1"]
+	path = modules/mola-input-ros1
+	url = https://github.com/MOLAorg/mola-input-ros1.git

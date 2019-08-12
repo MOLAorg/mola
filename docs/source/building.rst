@@ -1,8 +1,11 @@
 .. _building:
 
 ======================
-Building (first time)
+Building
 ======================
+
+1. First-time build
+====================
 
 Get the sources
 -------------------
@@ -23,10 +26,12 @@ Build dependencies
    - yaml-cpp (will use an embedded version if not found in the system)
 - Optional libraries:
    - opencv
-   - ros1
+   - ros1: roscpp, sensor-msgs
 
+-------
 Ubuntu
-========
+-------
+
 Install all dependencies in Ubuntu systems with:
 
 .. code-block:: bash
@@ -48,6 +53,12 @@ Install all dependencies in Ubuntu systems with:
       libboost-regex-dev
     sudo apt install libyaml-cpp-dev
 
+    # ROS1 (Optional)
+    # To install from the official Ubuntu repository (under /usr):
+    sudo apt install libroscpp-dev libsensor-msgs-dev
+    # Alternatively, install a particular ROS distribution (under /opt) and
+    # source the corresponding setup.bash file before invoking cmake:
+
 
 Compile
 ---------------------
@@ -67,8 +78,7 @@ To make sure the system works, you can run unit tests with:
 
     make test
 
-======================
-Add MOLA to PATH
+2. Add MOLA to PATH
 ======================
 
 Add the `build/bin` build subdirectory to the environment variable `PATH` to
@@ -81,9 +91,8 @@ automatically add its build directory to PATH when opening a console:
     echo 'set $PATH=$PATH:$HOME/code/mola/build/bin' >> ~/.bashrc
 
 
-==================================
-Updating sources for rebuilding
-==================================
+3. Updating sources for rebuilding
+====================================
 
 Since MOLA is under heavy development, it is expected that cloned repositories
 quickly get out of date.
