@@ -47,6 +47,7 @@ function(process_module_dir dir)
 		endif()
 
 		# Now, process the module:
+		message(STATUS ">> Processing: ${dir}")
 		add_subdirectory(${dir})
 	endif()
 endfunction()
