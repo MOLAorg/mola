@@ -46,7 +46,7 @@ void InputROS1::initialize(const std::string& cfg_block)
 
     // Init ROS subsystem
     ros::M_string remappings;
-    ros::init(remappings, "InputROS1");
+    ros::init(remappings, "InputROS1", ros::init_options::NoSigintHandler);
 
     /* NodeHandle is the main access point to communications with the ROS
      * system. The first NodeHandle constructed will fully initialize this node,
