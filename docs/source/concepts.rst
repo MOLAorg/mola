@@ -14,3 +14,4 @@ the key elements of a MOLA SLAM system.
   concept-state-vector
   concept-slam-configuration-file
   concept-module-directories-paths
+  concept-simulation-real-time

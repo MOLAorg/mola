@@ -5,7 +5,7 @@ SLAM state vector
 =============================================
 
 SLAM approaches can be classified by many criteria. Refer, for example,
-to `_cadena2016ppf`_ for a recent survey.
+to `cadena2016ppf`_ for a recent survey.
 
 Regarding the state space representation, we find two fundamental approaches:
 continuous-time SLAM (which was relatively recent), and the omnipresent
