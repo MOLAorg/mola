@@ -35,6 +35,7 @@ Ubuntu
 Install all dependencies in Ubuntu systems with:
 
 .. code-block:: bash
+
     # **ONLY** if you use Ubuntu 16.04: Upgrade to gcc-7:
     # Follow instructions in:
     # https://gist.github.com/jlblancoc/99521194aba975286c80f93e47966dc5
