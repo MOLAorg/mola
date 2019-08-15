@@ -19,7 +19,7 @@ Clone the main project git superproject with:
 Build dependencies
 -----------------------
 - A C++17 compiler. Either gcc-7, clang-4 or MSVC 2017 are good.
-- CMake >=3.4
+- CMake >=3.9
 - Mandatory libraries:
    - MRPT >= 1.9.9
    - GTSAM >= 4.0.0
@@ -36,9 +36,11 @@ Install all dependencies in Ubuntu systems with:
 
 .. code-block:: bash
 
-    # **ONLY** if you use Ubuntu 16.04: Upgrade to gcc-7:
-    # Follow instructions in:
+    # **ONLY** if you use Ubuntu 16.04: 
+    # 1) Upgrade to gcc-7: Follow instructions in
     # https://gist.github.com/jlblancoc/99521194aba975286c80f93e47966dc5
+    # 2) Upgrade to CMake 2.9 or newer. Download and build CMake from sources.
+
 
     # MRPT >1.9.9, for now from this PPA (or build from sources if preferred):
     sudo add-apt-repository ppa:joseluisblancoc/mrpt
