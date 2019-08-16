@@ -39,9 +39,7 @@ release = u'v0.1'
 # ones.
 extensions = [
     'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig',
-    'sphinx.ext.githubpages',
-    'edit_on_github'
+    'sphinx.ext.ifconfig'
 ]
 
 extensions += ['doxyrest', 'cpplexer']
@@ -49,9 +47,13 @@ extensions += ['doxyrest', 'cpplexer']
 # Show build time
 html_last_updated_fmt = '%H:%M, %b %d, %Y'
 
-# For edit_on_github extension:
-edit_on_github_project = 'MOLAorg/mola'
-edit_on_github_branch = 'master'
+# For edit on github:
+html_context = {
+  'display_github': True,
+  'github_user': 'MOLAorg',
+  'github_repo': 'mola',
+  'github_version': 'master/docs/source/'
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

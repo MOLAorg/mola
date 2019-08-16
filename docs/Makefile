@@ -9,6 +9,7 @@ export PATH := $(HOME)/code/doxyrest_b/build/doxyrest/bin/Release:$(PATH)
 .PHONY: clean
 clean:
 	rm -fr html
+	rm -fr source/xml-dir
 
 .PHONY: all
 all: 
