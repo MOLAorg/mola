@@ -18,6 +18,11 @@
 #include <mola-input-ros1/InputROS1.h>
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/maps/CPointsMapXYZI.h>
+#include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/ros1bridge/point_cloud2.h>
+#include <mrpt/ros1bridge/time.h>
 #include <mrpt/system/filesystem.h>
 #include <yaml-cpp/yaml.h>
 
@@ -138,7 +143,26 @@ void InputROS1::callbackOnPointCloud2(
     MRPT_START
     ProfilerEntry tle(profiler_, "callbackOnPointCloud2");
 
-    MRPT_TODO("continue here");
+    const std::set<std::string> fields = mrpt::ros1bridge::extractFields(*o);
+
+    CObservation::Ptr obs;
+
+    if (fields.count("intensity"))
+    {
+        auto p = mrpt::maps::CPointsMapXYZI::Create();
+        if (!mrpt::ros1bridge::fromROS(*o, *p))
+            throw std::runtime_error("Error converting ros->mrpt(?)");
+
+        auto obs_pc         = mrpt::obs::CObservationPointCloud::Create();
+        obs_pc->timestamp   = mrpt::ros1bridge::fromROS(o->header.stamp);
+        obs_pc->sensorLabel = outSensorLabel;
+        obs_pc->pointcloud  = p;
+
+        obs = obs_pc;
+    }
+
+    // Send:
+    if (obs) this->sendObservationsToFrontEnds(obs);
 
     MRPT_END
 }

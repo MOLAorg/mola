@@ -17,6 +17,7 @@ project(mola-input-ros1 LANGUAGES CXX)
 find_package(mola-common REQUIRED)
 # find dependencies:
 find_package(mrpt-maps REQUIRED)
+find_package(mrpt-ros1bridge REQUIRED)
 
 find_mola_package(mola-kernel)
 
@@ -40,6 +41,7 @@ mola_add_library(
 	PRIVATE_LINK_LIBRARIES
 		mola-kernel
 		mrpt::maps
+		mrpt::ros1bridge
 		${roscpp_LIBRARIES}
 		${sensor_msgs_LIBRARIES}
 )
