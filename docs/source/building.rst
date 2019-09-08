@@ -63,8 +63,9 @@ Install all dependencies in Ubuntu systems with:
 Ubuntu (16.04)
 -----------------
 
-MOLA will also support building under Ubuntu 16.04 Xenial until its EOL,
-although some additional steps are required for this version:
+.. note::
+    MOLA will also support building under Ubuntu 16.04 Xenial until its EOL,
+    although some additional steps are required for this version:
 
 1) Upgrade to gcc-7: Follow instructions here: https://gist.github.com/jlblancoc/99521194aba975286c80f93e47966dc5
 
