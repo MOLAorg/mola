@@ -17,10 +17,19 @@
 
 namespace mola
 {
+/** For use in parseYaml() */
+struct YAMLParseOptions
+{
+    bool doIncludes{true};  //!< "$include{}"s
+    bool doCmdRuns{true};  //!< "$()"s
+    bool doEnvVars{true};  //!< "${}"s
+};
+
 /** Parses: system run expressions `$(cmd)`, environment variables `${VAR}`.
  * \ingroup mola_kernel_grp
  */
-std::string parseYaml(const std::string& text);
+std::string parseYaml(
+    const std::string& text, const YAMLParseOptions& opts = YAMLParseOptions());
 
 /** Converts a yamlcpp node into a string
  * \ingroup mola_kernel_grp

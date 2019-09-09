@@ -156,18 +156,19 @@ static std::string parseIncludes(const std::string& text)
     MRPT_TRY_END
 }
 
-std::string mola::parseYaml(const std::string& text)
+std::string mola::parseYaml(
+    const std::string& text, const YAMLParseOptions& opts)
 {
-    std::string s;
+    std::string s = text;
 
     // 1) Parse "$include{}"s
-    s = parseIncludes(text);
+    if (opts.doIncludes) s = parseIncludes(s);
 
     // 2) Parse "$()"s
-    s = parseCmdRuns(s);
+    if (opts.doCmdRuns) s = parseCmdRuns(s);
 
     // 3) Parse "${}"s
-    s = parseEnvVars(s);
+    if (opts.doEnvVars) s = parseEnvVars(s);
 
     return s;
 }
