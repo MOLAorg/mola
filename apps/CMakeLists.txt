@@ -26,3 +26,12 @@ mola_add_executable(
 	LINK_LIBRARIES
 		mola-launcher
 )
+
+mola_add_executable(
+	TARGET  mola-yaml-parser
+	SOURCES mola-yaml-parser.cpp
+	LINK_LIBRARIES
+	mola-kernel
+	yaml-cpp
+	mrpt::tclap
+)

@@ -10,10 +10,12 @@ Module: mola-launcher
 .. index::
    single: mola-cli
 
+.. _mola_cli:
+
 Application: ``mola-cli``
 ##########################
 
-``mola-cli``  is the most-common entry point to the MOLA system for users.
+``mola-cli`` is the most-common entry point to the MOLA system for users.
 Refer to :ref:`demos` for real examples to launch and run SLAM systems.
 
 -------------
@@ -101,6 +103,8 @@ Example: To list all known ICP algorithms:
 .. index::
    single: mola-dir
 
+.. _mola_dir:
+
 Application: ``mola-dir``
 ##########################
 
@@ -124,6 +128,61 @@ Note: To list all known shared directories of modules, use:
 .. code-block:: none
 
     mola-cli --list-module-shared-dirs
+
+----
+
+.. index::
+   single: mola-yaml-parser
+
+.. _mola_yaml_parser:
+
+Application: ``mola-yaml-parser``
+###################################
+
+``mola-yaml-parser`` is a CLI program that parses YAML files using MOLA-specific
+extensions (see :ref:`yaml_extensions`), and outputs the result to ``cout``.
+
+-------------
+SYNOPSIS
+-------------
+
+.. code-block:: none
+
+    USAGE:
+
+       mola-yaml-parser  [--no-env-vars] [--no-cmd-runs] [--no-includes] [--]
+                         [--version] [-h] <YAML files>
+
+    Where:
+
+       --no-env-vars
+         Disables solving YAML `${xxx}`s (Default: NO)
+
+       --no-cmd-runs
+         Disables solving YAML `$(cmd)`s (Default: NO)
+
+       --no-includes
+         Disables solving YAML `$include{}`s (Default: NO)
+
+       --,  --ignore_rest
+         Ignores the rest of the labeled arguments following this flag.
+
+       --version
+         Displays version information and exits.
+
+       -h,  --help
+         Displays usage information and exits.
+
+       <YAML files>
+         (required)  Input YAML file (required) (*.yml)
+
+
+Example:
+
+.. code-block:: none
+
+    mola-yaml-parser --no-env-vars demos/kitti_lidar_slam.yml
+
 
 
 ----
