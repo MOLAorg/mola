@@ -33,6 +33,7 @@ Notes:
   - ``CLASS_NAME1``: The C++ class name of one of the modules registered in the MOLA system.
   - ``INSTANCE_NAME1``: Arbitrary name of this instance of the module. All names must be unique in a SLAM system.
 
+.. _yaml_extensions:
 
 YAML extensions
 =================
