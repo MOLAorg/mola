@@ -17,7 +17,12 @@ project(mola-input-ros1 LANGUAGES CXX)
 find_package(mola-common REQUIRED)
 # find dependencies:
 find_package(mrpt-maps REQUIRED)
-find_package(mrpt-ros1bridge REQUIRED)
+
+find_package(mrpt-ros1bridge QUIET)
+if (NOT mrpt-ros1bridge_FOUND)
+	message(STATUS "*NOTE*: Module mola-input-ros1 will NOT be built due to missing dependency mrpt-ros1bridge. Set mrpt-ros1bridge_DIR to enable it.")
+	return()
+endif()
 
 find_mola_package(mola-kernel)
 
