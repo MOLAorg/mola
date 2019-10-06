@@ -1,3 +1,5 @@
+.. _mola-input-kitti-dataset:
+
 ========================================
 Module: mola-input-kitti-dataset
 ========================================
