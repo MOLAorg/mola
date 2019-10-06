@@ -1,3 +1,5 @@
+.. _mola-input-euroc-dataset:
+
 ==================================
 Module: mola-input-euroc-dataset
 ==================================
