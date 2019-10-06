@@ -1,3 +1,5 @@
+.. _mola-launcher:
+
 ======================
 Module: mola-launcher
 ======================
