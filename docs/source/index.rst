@@ -13,11 +13,14 @@ MOLA
   demos
   concepts
   tutorials
+  supported-sensors
   modules
   doxygen-index
 
 
-`MOLA`_ is a Modular system for Localization and Mapping.
+.. rst-class:: fa fa-github
+
+  `MOLA`_ is a Modular system for Localization and Mapping.
 
 Get started:
  - See :ref:`concepts` for an overview of the system.
