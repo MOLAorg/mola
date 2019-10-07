@@ -34,9 +34,12 @@ find_package(mola-common REQUIRED)
 
 # GTSAM:
 find_package(GTSAM QUIET)
+if (GTSAM_FOUND)
+	message(STATUS "GTSAM found version: ${GTSAM_VERSION}")
+endif()
 if (NOT GTSAM_FOUND)
   message(FATAL_ERROR
-    " *** GTSAM was not found ***\n"
+    " *** GTSAM>=4.0.2 was not found ***\n"
     "Please, install GTSAM or build from sources and set the cmake variable GTSAM_DIR to the build directory.\n"
     "In Ubuntu, the easiest solution is to install gtsam from: https://launchpad.net/~joseluisblancoc/+archive/ubuntu/gtsam-develop"
   )

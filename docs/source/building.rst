@@ -22,7 +22,7 @@ Build dependencies
 - CMake >=3.9
 - Mandatory libraries:
    - MRPT >= 1.9.9
-   - GTSAM >= 4.0.0
+   - GTSAM >= 4.0.2
    - yaml-cpp (will use an embedded version if not found in the system)
 - Optional libraries:
    - opencv
