@@ -17,7 +17,7 @@
 using namespace mola;
 
 // arguments: classname, parent class, namespace
-IMPLEMENTS_SERIALIZABLE_NS_PREFIX(FactorRelativePose3, FactorBase, mola);
+IMPLEMENTS_SERIALIZABLE(FactorRelativePose3, FactorBase, mola);
 
 mola::id_t FactorRelativePose3::edge_indices(const std::size_t i) const
 {

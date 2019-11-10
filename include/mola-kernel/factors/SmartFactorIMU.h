@@ -23,7 +23,7 @@ class BackEndBase;
  */
 class SmartFactorIMU : public FactorBase
 {
-    DEFINE_SERIALIZABLE(SmartFactorIMU)
+    DEFINE_SERIALIZABLE(SmartFactorIMU, mola)
 
    public:
     SmartFactorIMU() = default;

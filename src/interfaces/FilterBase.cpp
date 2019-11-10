@@ -16,7 +16,7 @@
 using namespace mola;
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(FilterBase, ExecutableBase, mola);
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT(FilterBase, ExecutableBase, mola)
 
 FilterBase::FilterBase() = default;
 

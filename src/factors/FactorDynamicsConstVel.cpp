@@ -16,7 +16,7 @@
 using namespace mola;
 
 // arguments: classname, parent class, namespace
-IMPLEMENTS_SERIALIZABLE_NS_PREFIX(FactorDynamicsConstVel, FactorBase, mola);
+IMPLEMENTS_SERIALIZABLE(FactorDynamicsConstVel, FactorBase, mola);
 
 mola::id_t FactorDynamicsConstVel::edge_indices(const std::size_t i) const
 {

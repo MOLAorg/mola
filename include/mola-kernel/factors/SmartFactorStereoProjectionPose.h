@@ -26,7 +26,7 @@ class BackEndBase;
  */
 class SmartFactorStereoProjectionPose : public FactorBase
 {
-    DEFINE_SERIALIZABLE(SmartFactorStereoProjectionPose)
+    DEFINE_SERIALIZABLE(SmartFactorStereoProjectionPose, mola)
 
    public:
     struct StereoObservation

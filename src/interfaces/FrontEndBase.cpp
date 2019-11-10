@@ -18,7 +18,7 @@
 using namespace mola;
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(FrontEndBase, ExecutableBase, mola);
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT(FrontEndBase, ExecutableBase, mola)
 
 FrontEndBase::FrontEndBase() = default;
 
@@ -59,7 +59,8 @@ void FrontEndBase::initialize_common(const std::string& cfg_block)
     // Search for SLAM backend:
     auto fnd_bckends = ExecutableBase::findService<BackEndBase>();
     if (fnd_bckends.empty())
-    { MRPT_LOG_WARN("No SLAM back-end found in the system."); } else
+    { MRPT_LOG_WARN("No SLAM back-end found in the system."); }
+    else
     {
         if (fnd_bckends.size() > 1)
         {

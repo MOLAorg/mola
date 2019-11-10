@@ -17,7 +17,7 @@
 using namespace mola;
 
 // arguments: classname, parent class, namespace
-IMPLEMENTS_SERIALIZABLE_NS_PREFIX(FactorStereoProjectionPose, FactorBase, mola);
+IMPLEMENTS_SERIALIZABLE(FactorStereoProjectionPose, FactorBase, mola);
 
 std::size_t FactorStereoProjectionPose::edge_count() const { return 1; }
 mola::id_t  FactorStereoProjectionPose::edge_indices(const std::size_t i) const

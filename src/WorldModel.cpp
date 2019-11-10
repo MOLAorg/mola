@@ -36,11 +36,11 @@ std::string MOLA_MAP_STORAGE_DIR =
     mrpt::get_env<std::string>("MOLA_MAP_STORAGE_DIR", "/tmp");
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(WorldModel, ExecutableBase, mola);
+IMPLEMENTS_MRPT_OBJECT(WorldModel, ExecutableBase, mola)
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_SERIALIZABLE_NS_PREFIX(
-    WorldModelData, mrpt::serialization::CSerializable, mola);
+IMPLEMENTS_SERIALIZABLE(
+    WorldModelData, mrpt::serialization::CSerializable, mola)
 
 // =============== WorldModel ===============
 WorldModel::WorldModel()

@@ -24,7 +24,7 @@ namespace mola
  */
 class FactorRelativePose3 : public FactorBase
 {
-    DEFINE_SERIALIZABLE(FactorRelativePose3)
+    DEFINE_SERIALIZABLE(FactorRelativePose3, mola)
 
    public:
     FactorRelativePose3() = default;

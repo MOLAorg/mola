@@ -18,7 +18,7 @@
 using namespace mola;
 
 // arguments: class, parent class, namespace
-IMPLEMENTS_VIRTUAL_SERIALIZABLE_NS_PREFIX(
+IMPLEMENTS_VIRTUAL_SERIALIZABLE(
     EntityBase, mrpt::serialization::CSerializable, mola);
 
 EntityBase::EntityBase()  = default;

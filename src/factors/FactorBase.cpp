@@ -16,8 +16,8 @@
 using namespace mola;
 
 // arguments: class, parent class, namespace
-IMPLEMENTS_VIRTUAL_SERIALIZABLE_NS_PREFIX(
-    FactorBase, mrpt::serialization::CSerializable, mola);
+IMPLEMENTS_VIRTUAL_SERIALIZABLE(
+    FactorBase, mrpt::serialization::CSerializable, mola)
 
 FactorBase::~FactorBase() = default;
 

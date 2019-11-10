@@ -22,7 +22,7 @@ namespace mola
  */
 class FactorDynamicsConstVel : public FactorBase
 {
-    DEFINE_SERIALIZABLE(FactorDynamicsConstVel)
+    DEFINE_SERIALIZABLE(FactorDynamicsConstVel, mola)
 
    public:
     FactorDynamicsConstVel() = default;

@@ -22,7 +22,7 @@ namespace mola
  */
 class LandmarkPoint3 : public EntityBase
 {
-    DEFINE_SERIALIZABLE(LandmarkPoint3);
+    DEFINE_SERIALIZABLE(LandmarkPoint3, mola)
 
    public:
     mrpt::math::TPoint3D point;

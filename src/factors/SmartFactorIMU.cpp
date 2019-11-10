@@ -17,7 +17,7 @@
 using namespace mola;
 
 // arguments: classname, parent class, namespace
-IMPLEMENTS_SERIALIZABLE_NS_PREFIX(SmartFactorIMU, FactorBase, mola);
+IMPLEMENTS_SERIALIZABLE(SmartFactorIMU, FactorBase, mola);
 
 SmartFactorIMU::SmartFactorIMU(BackEndBase* slam_backend)
     : slam_backend_(slam_backend)

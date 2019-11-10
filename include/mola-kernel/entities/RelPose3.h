@@ -22,7 +22,7 @@ namespace mola
  */
 class RelPose3 : public EntityRelativeBase
 {
-    DEFINE_SERIALIZABLE(RelPose3);
+    DEFINE_SERIALIZABLE(RelPose3, mola)
 
    public:
     /** The up-to-date value of this entity. */

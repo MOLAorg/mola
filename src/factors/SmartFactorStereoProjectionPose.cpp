@@ -18,8 +18,7 @@
 using namespace mola;
 
 // arguments: classname, parent class, namespace
-IMPLEMENTS_SERIALIZABLE_NS_PREFIX(
-    SmartFactorStereoProjectionPose, FactorBase, mola);
+IMPLEMENTS_SERIALIZABLE(SmartFactorStereoProjectionPose, FactorBase, mola);
 
 SmartFactorStereoProjectionPose::SmartFactorStereoProjectionPose(
     double sigma_xleft, double sigma_xright, double sigma_y,

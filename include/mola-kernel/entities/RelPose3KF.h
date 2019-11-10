@@ -24,7 +24,7 @@ namespace mola
  */
 class RelPose3KF : public EntityRelativeBase, public KeyFrameBase
 {
-    DEFINE_SERIALIZABLE(RelPose3KF);
+    DEFINE_SERIALIZABLE(RelPose3KF, mola)
 
    public:
     /** The up-to-date value of this entity. */

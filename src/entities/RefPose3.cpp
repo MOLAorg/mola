@@ -16,7 +16,7 @@
 using namespace mola;
 
 // arguments: classname, parent class, namespace
-IMPLEMENTS_SERIALIZABLE_NS_PREFIX(RefPose3, EntityBase, mola);
+IMPLEMENTS_SERIALIZABLE(RefPose3, EntityBase, mola);
 
 // Implementation of the CSerializable virtual interface:
 uint8_t RefPose3::serializeGetVersion() const { return 0; }

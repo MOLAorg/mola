@@ -15,8 +15,7 @@
 #include <mutex>
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(
-    ExecutableBase, mrpt::rtti::CObject, mola);
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT(ExecutableBase, mrpt::rtti::CObject, mola)
 
 using namespace mola;
 

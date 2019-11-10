@@ -29,7 +29,7 @@ struct StereoObservation
  */
 class FactorStereoProjectionPose : public FactorBase
 {
-    DEFINE_SERIALIZABLE(FactorStereoProjectionPose)
+    DEFINE_SERIALIZABLE(FactorStereoProjectionPose, mola)
 
    public:
     FactorStereoProjectionPose() = default;

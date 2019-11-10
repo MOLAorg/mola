@@ -19,7 +19,7 @@
 using namespace mola;
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_VIRTUAL_MRPT_OBJECT_NS_PREFIX(BackEndBase, ExecutableBase, mola);
+IMPLEMENTS_VIRTUAL_MRPT_OBJECT(BackEndBase, ExecutableBase, mola)
 
 BackEndBase::BackEndBase() = default;
 

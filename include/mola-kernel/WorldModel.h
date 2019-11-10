@@ -31,7 +31,7 @@ using entity_connected_factors_t = mola::fast_map<id_t, mola::fast_set<fid_t>>;
  */
 class WorldModelData : public mrpt::serialization::CSerializable
 {
-    DEFINE_SERIALIZABLE(WorldModelData)
+    DEFINE_SERIALIZABLE(WorldModelData, mola)
    public:
     struct EntitiesContainer;
     struct FactorsContainer;
@@ -63,7 +63,7 @@ class WorldModelData : public mrpt::serialization::CSerializable
  */
 class WorldModel : public ExecutableBase
 {
-    DEFINE_MRPT_OBJECT(WorldModel)
+    DEFINE_MRPT_OBJECT(WorldModel, mola)
 
    public:
     WorldModel();

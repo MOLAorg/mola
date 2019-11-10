@@ -25,7 +25,7 @@ namespace mola
  */
 class RefPose3 : public EntityBase
 {
-    DEFINE_SERIALIZABLE(RefPose3);
+    DEFINE_SERIALIZABLE(RefPose3, mola)
 
    public:
 };
