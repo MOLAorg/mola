@@ -29,7 +29,7 @@ namespace mola
  * \ingroup mola_input_kitti_dataset_grp */
 class KittiOdometryDataset : public RawDataSourceBase
 {
-    DEFINE_MRPT_OBJECT(KittiOdometryDataset)
+    DEFINE_MRPT_OBJECT(KittiOdometryDataset, mola)
 
    public:
     KittiOdometryDataset();
