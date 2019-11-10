@@ -48,7 +48,7 @@ using euroc_dataset_t   = std::multimap<euroc_timestamp_t, SensorEntry>;
  * \ingroup mola_input_euroc_dataset_grp */
 class EurocDataset : public RawDataSourceBase
 {
-    DEFINE_MRPT_OBJECT(EurocDataset)
+    DEFINE_MRPT_OBJECT(EurocDataset, mola)
 
    public:
     EurocDataset();
