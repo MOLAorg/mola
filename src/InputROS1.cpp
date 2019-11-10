@@ -29,7 +29,7 @@
 using namespace mola;
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_MRPT_OBJECT_NS_PREFIX(InputROS1, RawDataSourceBase, mola);
+IMPLEMENTS_MRPT_OBJECT(InputROS1, RawDataSourceBase, mola)
 
 MRPT_INITIALIZER(do_register_InputROS1) { MOLA_REGISTER_MODULE(InputROS1); }
 

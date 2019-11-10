@@ -23,7 +23,7 @@ namespace mola
  * \ingroup mola_input_ros1_grp */
 class InputROS1 : public RawDataSourceBase
 {
-    DEFINE_MRPT_OBJECT(InputROS1)
+    DEFINE_MRPT_OBJECT(InputROS1, mola)
 
    public:
     InputROS1();
