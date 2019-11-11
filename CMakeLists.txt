@@ -33,7 +33,7 @@ set(mola-common_DIR ${CMAKE_BINARY_DIR})
 find_package(mola-common REQUIRED)
 
 # GTSAM:
-find_package(GTSAM QUIET)
+find_package(GTSAM)
 if (GTSAM_FOUND)
 	message(STATUS "GTSAM found version: ${GTSAM_VERSION}")
 endif()
