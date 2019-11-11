@@ -13,6 +13,7 @@ jobs:
             add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
             apt-get install libmrpt-dev -y
             apt-get install libgtsam-dev -y
+            apt-get install libboost-serialization-dev libboost-system-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-date-time-dev libboost-timer-dev libboost-chrono-dev libboost-regex-dev -y
       - checkout
       - run:
           name: "Pull Submodules"
