@@ -12,8 +12,8 @@
  */
 
 #include <mola-kernel/yaml_helpers.h>
+#include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/core/exceptions.h>
-#include <mrpt/otherlibs/tclap/CmdLine.h>
 #include <mrpt/system/filesystem.h>
 #include <yaml-cpp/yaml.h>
 #include <iostream>

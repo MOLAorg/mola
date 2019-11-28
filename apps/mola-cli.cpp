@@ -13,7 +13,7 @@
 
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
-#include <mrpt/otherlibs/tclap/CmdLine.h>
+#include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/rtti/CObject.h>
 #include <csignal>  // sigaction
 #include <cstdlib>
