@@ -24,7 +24,7 @@
 
 #include <mrpt/core/exceptions.h>
 #include <mrpt/math/CMatrixFixed.h>
-#include <mrpt/otherlibs/tclap/CmdLine.h>
+#include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/poses/CPose3DInterpolator.h>
 #include <mrpt/system/filesystem.h>
