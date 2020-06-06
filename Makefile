@@ -2,6 +2,7 @@
 # This Makefile is *NOT* the build makefile, just a helper script!
 
 .DEFAULT_GOAL := help
+.PHONY: clean build
 
 help:
 	@echo "Use: make TARGET. Available targets:"
@@ -16,10 +17,11 @@ git_update:
 
 
 cmake_init:
-	mkdir build
-	cd build
-	cmake ..
+	cmake -S. -Bbuild
 
 build:
-	make -C build
+	cmake --build build --parallel
+
+clean:
+	rm -fr build || true
 
