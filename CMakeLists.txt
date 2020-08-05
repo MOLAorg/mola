@@ -16,14 +16,14 @@ project(mola-viz LANGUAGES CXX)
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola-common REQUIRED)
 # find dependencies:
-find_package(MRPT 1.9.9 REQUIRED COMPONENTS gui opengl)
+find_package(mrpt-gui REQUIRED)
+find_package(mrpt-opengl REQUIRED)
 find_mola_package(mola-kernel)
 
 # -----------------------
 # define lib:
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
 file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
-
 
 mola_add_library(
 	TARGET ${PROJECT_NAME}

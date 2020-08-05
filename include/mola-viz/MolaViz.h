@@ -13,7 +13,6 @@
 
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/WorkerThreadsPool.h>
-#include <mrpt/obs/CObservationIMU.h>
 
 namespace mola
 {
