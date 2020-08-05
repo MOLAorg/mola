@@ -52,3 +52,6 @@
 [submodule "mola-input-ros1"]
 	path = modules/mola-input-ros1
 	url = https://github.com/MOLAorg/mola-input-ros1.git
+[submodule "modules/mola-viz"]
+	path = modules/mola-viz
+	url = https://github.com/MOLAorg/mola-viz.git
