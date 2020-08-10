@@ -16,6 +16,8 @@
 
 using namespace mola;
 
+MRPT_TODO("Remove file when mrpt v2.0.5 is released");
+
 void WorkerThreadsPool::clear()
 {
     {
