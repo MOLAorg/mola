@@ -17,13 +17,41 @@
 #include <mola-kernel/yaml_helpers.h>
 #include <mola-viz/MolaViz.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/opengl/CGridPlaneXY.h>
 #include <yaml-cpp/yaml.h>
 
 using namespace mola;
 
+IMPLEMENTS_MRPT_OBJECT(MolaViz, ExecutableBase, mola)
+
 MRPT_INITIALIZER(do_register_MolaViz) { MOLA_REGISTER_MODULE(MolaViz); }
 
-MolaViz::MolaViz() = default;
+MolaViz*                     MolaViz::instance_ = nullptr;
+std::shared_mutex            MolaViz::instanceMtx_;
+const MolaViz::window_name_t MolaViz::DEFAULT_WINDOW_NAME = "main";
+
+MolaViz::MolaViz() { nanogui::init(); }
+
+MolaViz::~MolaViz()
+{
+    instanceMtx_.lock();
+    instance_ = nullptr;
+    instanceMtx_.unlock();
+
+    nanogui::leave();
+    if (guiThread_.joinable()) guiThread_.join();
+
+    nanogui::shutdown();
+}
+
+bool     MolaViz::IsRunning() { return Instance() != nullptr; }
+MolaViz* MolaViz::Instance()
+{
+    instanceMtx_.lock_shared();
+    auto ret = instance_;
+    instanceMtx_.unlock_shared();
+    return ret;
+}
 
 void MolaViz::initialize(const std::string& cfg_block)
 {
@@ -34,13 +62,65 @@ void MolaViz::initialize(const std::string& cfg_block)
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
 
+    // Mark as initialized and up:
+    instanceMtx_.lock();
+    instance_ = this;
+    instanceMtx_.unlock();
+
+    // Open first GUI window:
+    auto w = create_and_add_window(DEFAULT_WINDOW_NAME);
+
+    guiThread_ = std::thread(&MolaViz::gui_thread, this);
+
     MRPT_END
 }
 
 void MolaViz::spinOnce()
 {
-    MRPT_START
-    //
+    // MRPT_START
+    // xx
+    // MRPT_END
+}
 
-    MRPT_END
+mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(
+    const window_name_t& name)
+{
+    MRPT_LOG_DEBUG_FMT("Creating new window `%s`", name.c_str());
+
+    mrpt::gui::CDisplayWindowGUI_Params cp;
+    cp.maximized   = true;
+    windows_[name] = mrpt::gui::CDisplayWindowGUI::Create(name, 1000, 800, cp);
+
+    auto& win = windows_[name];
+
+    // Add a background scene:
+    auto scene = mrpt::opengl::COpenGLScene::Create();
+
+    scene->insert(mrpt::opengl::CGridPlaneXY::Create());
+
+    {
+        std::lock_guard<std::mutex> lck(win->background_scene_mtx);
+        win->background_scene = std::move(scene);
+    }
+
+    win->performLayout();
+    auto& cam = win->camera();
+    cam.setCameraPointing(8.0f, .0f, .0f);
+    cam.setAzimuthDegrees(110.0f);
+    cam.setElevationDegrees(15.0f);
+    cam.setZoomDistance(20.0f);
+
+    win->drawAll();
+    win->setVisible(true);
+
+    return win;
+}
+
+void MolaViz::gui_thread()
+{
+    MRPT_LOG_DEBUG("gui_thread() started.");
+
+    nanogui::mainloop(10 /*refresh Hz*/);
+
+    MRPT_LOG_DEBUG("gui_thread() quitted.");
 }
