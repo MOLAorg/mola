@@ -30,7 +30,7 @@ MolaViz*                     MolaViz::instance_ = nullptr;
 std::shared_mutex            MolaViz::instanceMtx_;
 const MolaViz::window_name_t MolaViz::DEFAULT_WINDOW_NAME = "main";
 
-MolaViz::MolaViz() { nanogui::init(); }
+MolaViz::MolaViz() {}
 
 MolaViz::~MolaViz()
 {
@@ -40,8 +40,6 @@ MolaViz::~MolaViz()
 
     nanogui::leave();
     if (guiThread_.joinable()) guiThread_.join();
-
-    nanogui::shutdown();
 }
 
 bool     MolaViz::IsRunning() { return Instance() != nullptr; }
@@ -66,9 +64,6 @@ void MolaViz::initialize(const std::string& cfg_block)
     instanceMtx_.lock();
     instance_ = this;
     instanceMtx_.unlock();
-
-    // Open first GUI window:
-    auto w = create_and_add_window(DEFAULT_WINDOW_NAME);
 
     guiThread_ = std::thread(&MolaViz::gui_thread, this);
 
@@ -120,7 +115,14 @@ void MolaViz::gui_thread()
 {
     MRPT_LOG_DEBUG("gui_thread() started.");
 
+    nanogui::init();
+
+    // Open first GUI window:
+    auto w = create_and_add_window(DEFAULT_WINDOW_NAME);
+
     nanogui::mainloop(10 /*refresh Hz*/);
+
+    nanogui::shutdown();
 
     MRPT_LOG_DEBUG("gui_thread() quitted.");
 }
