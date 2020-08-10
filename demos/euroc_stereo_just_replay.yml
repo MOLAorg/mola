@@ -20,3 +20,7 @@ modules:
       base_dir: ${EUROC_BASE_DIR}
       sequence: vicon_room1/V1_01_easy/
       time_warp_scale: 1.0
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
