@@ -17,6 +17,7 @@
 
 #include <mola-input-ros1/InputROS1.h>
 #include <mola-kernel/yaml_helpers.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/maps/CSimplePointsMap.h>
@@ -24,7 +25,6 @@
 #include <mrpt/ros1bridge/point_cloud2.h>
 #include <mrpt/ros1bridge/time.h>
 #include <mrpt/system/filesystem.h>
-#include <yaml-cpp/yaml.h>
 
 using namespace mola;
 
@@ -43,7 +43,7 @@ void InputROS1::initialize(const std::string& cfg_block)
     ProfilerEntry tle(profiler_, "initialize");
 
     // Mandatory parameters:
-    auto c = YAML::Load(cfg_block);
+    auto c = mrpt::containers::yaml::FromText(cfg_block);
 
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
@@ -69,8 +69,10 @@ void InputROS1::initialize(const std::string& cfg_block)
             "topic, thus this is understood as a fatal error and will abort.");
     }
 
-    for (auto topic : ds_subscribe)
+    for (auto topicItem : ds_subscribe.asSequence())
     {
+        auto topic = mrpt::containers::yaml(topicItem.asMap());
+
         ENSURE_YAML_ENTRY_EXISTS(topic, "topic");
         ENSURE_YAML_ENTRY_EXISTS(topic, "type");
         ENSURE_YAML_ENTRY_EXISTS(topic, "output_sensor_label");
@@ -79,7 +81,7 @@ void InputROS1::initialize(const std::string& cfg_block)
         const auto type       = topic["type"].as<std::string>();
         const auto output_sensor_label =
             topic["output_sensor_label"].as<std::string>();
-        const auto queue_size = topic["queue_size"].as<int>(100);
+        const auto queue_size = topic.getOrDefault<int>("queue_size", 100);
 
         if (type == "PointCloud2")
         {
