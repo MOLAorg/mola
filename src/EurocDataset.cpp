@@ -19,11 +19,11 @@
 #include <mola-input-euroc-dataset/EurocDataset.h>
 #include <mola-kernel/variant_helper.h>
 #include <mola-kernel/yaml_helpers.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
-#include <yaml-cpp/yaml.h>
 #include <Eigen/Dense>
 #include <fstream>
 // Eigen must be before csv.h
@@ -49,7 +49,7 @@ void EurocDataset::initialize(const std::string& cfg_block)
     ProfilerEntry tle(profiler_, "initialize");
 
     // Mandatory parameters:
-    auto c = YAML::Load(cfg_block);
+    auto c = mrpt::containers::yaml::FromText(cfg_block);
 
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
@@ -107,7 +107,7 @@ void EurocDataset::initialize(const std::string& cfg_block)
         const auto fil_calib =
             seq_dir_ + "/cam"s + std::to_string(cam_id) + "/sensor.yaml"s;
         ASSERT_FILE_EXISTS_(fil_calib);
-        auto cal = YAML::LoadFile(fil_calib);
+        auto cal = mrpt::containers::yaml::FromFile(fil_calib);
 
         // Camera pose:
         ENSURE_YAML_ENTRY_EXISTS(cal, "T_BS");
@@ -121,9 +121,10 @@ void EurocDataset::initialize(const std::string& cfg_block)
 
         mrpt::math::CMatrixDouble44 HM;
 
-        auto itN = cam_pose.begin();
+        auto itN = cam_pose.asSequence().begin();
         for (int r = 0; r < 4; r++)
-            for (int c = 0; c < 4; c++, ++itN) HM(r, c) = itN->as<double>();
+            for (int col = 0; col < 4; col++, ++itN)
+                HM(r, col) = itN->as<double>();
 
         // EUROC uses as body frame the IMU coordinates,
         // with +X pointing UP, +Y pointing left.
@@ -134,7 +135,7 @@ void EurocDataset::initialize(const std::string& cfg_block)
 
         // Camera intrinsics:
         auto intrinsics = cal["intrinsics"];
-        auto itI        = intrinsics.begin();
+        auto itI        = intrinsics.asSequence().begin();
 
         const double fx = (itI++)->as<double>();
         const double fy = (itI++)->as<double>();
@@ -147,7 +148,7 @@ void EurocDataset::initialize(const std::string& cfg_block)
             cal["distortion_model"].as<std::string>() == "radial-tangential");
 
         auto dists = cal["distortion_coefficients"];
-        auto itD   = dists.begin();
+        auto itD   = dists.asSequence().begin();
         // k1 k2 p1 p1
         const double k1 = (itD++)->as<double>();
         const double k2 = (itD++)->as<double>();
