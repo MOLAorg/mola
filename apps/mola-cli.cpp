@@ -12,8 +12,8 @@
  */
 
 #include <mola-launcher/MolaLauncherApp.h>
-#include <mrpt/core/exceptions.h>
 #include <mrpt/3rdparty/tclap/CmdLine.h>
+#include <mrpt/core/exceptions.h>
 #include <mrpt/rtti/CObject.h>
 #include <csignal>  // sigaction
 #include <cstdlib>
@@ -90,7 +90,7 @@ static int mola_cli_launch_slam()
     }
     const auto file_yml = arg_yaml_cfg.getValue();
 
-    YAML::Node cfg = YAML::LoadFile(file_yml);
+    auto cfg = mrpt::containers::yaml::FromFile(file_yml);
 
     app.profiler_.enable(
         arg_enable_profiler.isSet() || arg_enable_profiler_whole.isSet());

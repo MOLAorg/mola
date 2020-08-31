@@ -120,7 +120,7 @@ void MolaLauncherApp::scanAndLoadLibraries()
     MRPT_TRY_END
 }
 
-void MolaLauncherApp::setup(const YAML::Node& cfg_in)
+void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg_in)
 {
     MRPT_TRY_START
 
@@ -143,7 +143,7 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
         "Preprocessed input YAML configuration file:\n"
         << parsed_cfg);
 
-    YAML::Node cfg = YAML::Load(parsed_cfg);
+    auto cfg = mrpt::containers::yaml::FromText(parsed_cfg);
 
     MRPT_LOG_DEBUG_STREAM(
         "Using the following configuration:\n"
@@ -176,18 +176,21 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
         const auto& sectGenerator = section.second;
 
         ASSERTMSG_(
-            cfg[sectName], "Missing YAML required entry: `" + sectName + "`");
+            cfg.has(sectName),
+            "Missing YAML required entry: `" + sectName + "`");
         const auto& cfg_blk = cfg[sectName];
 
         // Create each module instance in this section:
-        for (const auto& ds : cfg_blk)
+        for (const auto& dsMap : cfg_blk.asSequence())
         {
+            const auto ds = mrpt::containers::yaml(dsMap);
+
             ENSURE_YAML_ENTRY_EXISTS(ds, "type");
             ENSURE_YAML_ENTRY_EXISTS(ds, "name");
             ENSURE_YAML_ENTRY_EXISTS(ds, "params");
 
             // Allow quickly disabling sections:
-            if (ds["launch_ignore"] && ds["launch_ignore"].as<bool>()) continue;
+            if (ds.getOrDefault("launch_ignore", false)) continue;
 
             const auto ds_label = ds["name"].as<std::string>();
             ASSERTMSG_(!ds_label.empty(), "`name` cannot be empty!");
@@ -217,7 +220,8 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             // Inherit verbosity level:
             auto verb_level = this->getMinLoggingLevel();
             // override it if present:
-            const auto verbLvl = ds["verbosity_level"].as<std::string>("");
+            const auto verbLvl =
+                ds.getOrDefault<std::string>("verbosity_level", "");
             if (!verbLvl.empty())
             {
                 verb_level = mrpt::typemeta::TEnumType<
@@ -228,7 +232,8 @@ void MolaLauncherApp::setup(const YAML::Node& cfg_in)
             // Default logger name, can be changed in initilize() if desired
             const auto logName = ds_classname + std::string(":") + ds_label;
             info.impl->setLoggerName(logName);
-            info.execution_rate  = ds["execution_rate"].as<double>(1.0);
+            info.execution_rate =
+                ds.getOrDefault<double>("execution_rate", 1.0);
             info.launch_priority = info.impl->launchOrderPriority();
 
             info.impl->setModuleInstanceName(logName);

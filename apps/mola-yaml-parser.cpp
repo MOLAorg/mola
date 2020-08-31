@@ -13,9 +13,9 @@
 
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/3rdparty/tclap/CmdLine.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/filesystem.h>
-#include <yaml-cpp/yaml.h>
 #include <iostream>
 
 // Declare supported cli switches ===========
@@ -42,7 +42,7 @@ int main(int argc, char** argv)
         ASSERT_FILE_EXISTS_(filName);
 
         // Load & parse YAML file:
-        YAML::Node root = YAML::LoadFile(filName);
+        auto root = mrpt::containers::yaml::FromFile(filName);
 
         // MOLA-specific parsing:
         mola::YAMLParseOptions options;

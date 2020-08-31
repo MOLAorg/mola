@@ -12,9 +12,9 @@
 #pragma once
 
 #include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/system/CTimeLogger.h>
-#include <yaml-cpp/yaml.h>
 #include <atomic>
 #include <condition_variable>
 #include <map>
@@ -41,7 +41,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      * factories. Modules must be named "libmola*" to be loaded.
      * \sa addPathModuleLibs, scanAndLoadLibraries
      */
-    void setup(const YAML::Node& cfg);
+    void setup(const mrpt::containers::yaml& cfg);
 
     /** (Blocking call) Launch sensor and worker threads and enters into an
      * infinite loop executing the SLAM system, until shutdown() is called
