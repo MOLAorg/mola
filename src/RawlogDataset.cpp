@@ -19,7 +19,7 @@
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/system/filesystem.h>
-#include <yaml-cpp/yaml.h>
+#include <mrpt/containers/yaml.h>
 
 using namespace mola;
 
@@ -41,7 +41,7 @@ void RawlogDataset::initialize(const std::string& cfg_block)
     ProfilerEntry tle(profiler_, "initialize");
 
     // Mandatory parameters:
-    auto c = YAML::Load(cfg_block);
+    auto c = mrpt::containers::yaml::FromText(cfg_block);
 
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
