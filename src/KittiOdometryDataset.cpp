@@ -18,13 +18,13 @@
 
 #include <mola-input-kitti-dataset/KittiOdometryDataset.h>
 #include <mola-kernel/yaml_helpers.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
-#include <yaml-cpp/yaml.h>
 #include <Eigen/Dense>
 
 using namespace mola;
@@ -83,7 +83,7 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg_block);
 
     // Mandatory parameters:
-    auto c = YAML::Load(cfg_block);
+    auto c = mrpt::containers::yaml::FromText(cfg_block);
 
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
@@ -95,11 +95,12 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
 
     // Optional params with default values:
-    time_warp_scale_ = cfg["time_warp_scale"].as<double>(time_warp_scale_);
-    publish_lidar_   = cfg["publish_lidar"].as<bool>(publish_lidar_);
+    time_warp_scale_ =
+        cfg.getOrDefault<double>("time_warp_scale", time_warp_scale_);
+    publish_lidar_ = cfg.getOrDefault<bool>("publish_lidar", publish_lidar_);
     for (unsigned int i = 0; i < 4; i++)
-        publish_image_[i] = cfg[mrpt::format("publish_image_%u", i)].as<bool>(
-            publish_image_[i]);
+        publish_image_[i] = cfg.getOrDefault<bool>(
+            mrpt::format("publish_image_%u", i), publish_image_[i]);
 
     // Make list of all existing files and preload everything we may need later
     // to quickly replay the dataset in realtime:
@@ -154,7 +155,7 @@ void KittiOdometryDataset::initialize(const std::string& cfg_block)
     ASSERT_FILE_EXISTS_(fil_calib);
 
     // Load projection matrices:
-    auto calib = YAML::LoadFile(fil_calib);
+    auto calib = mrpt::containers::yaml::FromFile(fil_calib);
     ENSURE_YAML_ENTRY_EXISTS(calib, "P0");
     ENSURE_YAML_ENTRY_EXISTS(calib, "P1");
     ENSURE_YAML_ENTRY_EXISTS(calib, "P2");
