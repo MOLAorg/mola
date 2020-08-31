@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mrpt/containers/yaml.h>
 #include <sstream>
 #include <string>
 #include "macro_helpers.h"
@@ -31,32 +32,27 @@ struct YAMLParseOptions
 std::string parseYaml(
     const std::string& text, const YAMLParseOptions& opts = YAMLParseOptions());
 
-/** Converts a yamlcpp node into a string
+/** Converts a yaml node into a string
  * \ingroup mola_kernel_grp
  */
-template <class YAML_CLASS>
-inline std::string yaml2string(const YAML_CLASS& cfg)
-{
-    std::stringstream ss;
-    ss << cfg;
-    return ss.str();
-}
+std::string yaml2string(const mrpt::containers::yaml& cfg);
 
 #define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
-    ASSERTMSG_(_c[_name], "Missing YAML required entry: `" _name "`")
+    ASSERTMSG_(_c.has(_name), "Missing YAML required entry: `" _name "`")
 
 /** Loads (optional) variable named "_varname" from the YAML config named `cfg`
  * into the variable `_param_str._varname` */
 #define YAML_LOAD_OPT3(_param_str, _varname, _type) \
-    _param_str._varname = cfg[#_varname].as<_type>(_param_str._varname)
+    _param_str._varname =                           \
+        cfg.getOrDefault<_type>(#_varname, _param_str._varname)
 
 #define YAML_LOAD_OPT2(_varname, _type) \
-    _varname = cfg[#_varname].as<_type>(_varname)
+    _varname = cfg.getOrDefault<_type>(#_varname, _varname)
 
 /** Use `YAML_LOAD_MEMBER_OPT(foo,double);` to load YAML var `foo` into `foo_`
  */
 #define YAML_LOAD_MEMBER_OPT(_varname, _type) \
-    _varname##_ = cfg[#_varname].as<_type>(_varname##_)
+    _varname##_ = cfg.getOrDefault<_type>(#_varname, _varname##_)
 
 /** Loads (required) variable named "_varname" from the YAML config named `cfg`
  * into the variable `_param_str._varname` */

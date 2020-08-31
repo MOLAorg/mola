@@ -11,17 +11,34 @@
  */
 
 #include <mola-kernel/yaml_helpers.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/filesystem.h>
 #include <mrpt/system/os.h>
 #include <mrpt/system/string_utils.h>
-#include <yaml-cpp/yaml.h>
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
 
 // The format of MOLA YAML files is explained in:
 // https://docs.mola-slam.org/latest/concept-slam-configuration-file.html
+
+using mrpt::containers::yaml;
+
+static std::string trimWSNL(const std::string& s)
+{
+    std::string str = s;
+    mrpt::system::trim(str);
+    str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
+    str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
+    return str;
+}
+std::string mola::yaml2string(const mrpt::containers::yaml& cfg)
+{
+    std::stringstream ss;
+    ss << cfg;
+    return ss.str();
+}
 
 static std::string parseEnvVars(const std::string& text)
 {
@@ -88,21 +105,20 @@ static std::string parseCmdRuns(const std::string& text)
             cmd.c_str());
     }
     // Clear whitespaces:
-    cmdOut = mrpt::system::trim(cmdOut);
-    cmdOut.erase(std::remove(cmdOut.begin(), cmdOut.end(), '\r'), cmdOut.end());
-    cmdOut.erase(std::remove(cmdOut.begin(), cmdOut.end(), '\n'), cmdOut.end());
+    cmdOut = trimWSNL(cmdOut);
 
     return parseCmdRuns(pre + cmdOut + post.substr(post_end + 1));
     MRPT_TRY_END
 }
 
-static void recursiveParseNodeForIncludes(YAML::Node& n)
+static void recursiveParseNodeForIncludes(yaml::node_t& n)
 {
-    if (n.IsScalar())
+    if (n.isScalar())
     {
         //
-        std::string text  = n.as<std::string>();
-        const auto  start = text.find("$include{");
+        std::string text = n.as<std::string>();
+
+        const auto start = text.find("$include{");
         if (start == std::string::npos) return;
 
         const std::string pre  = text.substr(0, start);
@@ -118,7 +134,7 @@ static void recursiveParseNodeForIncludes(YAML::Node& n)
 
         auto expr = post.substr(0, post_end);
         // Solve for possible variables, etc:
-        expr = mrpt::system::trim(mola::parseYaml(expr));
+        expr = trimWSNL(mola::parseYaml(expr));
 
         // Read external file:
         if (!mrpt::system::fileExists(expr))
@@ -129,18 +145,25 @@ static void recursiveParseNodeForIncludes(YAML::Node& n)
                 expr.c_str());
         }
 
-        YAML::Node filData = YAML::LoadFile(expr);
+        if (getenv("VERBOSE"))
+            std::cout << "[recursiveParseNodeForIncludes] Including yaml from `"
+                      << expr << "`\n";
+
+        auto filData = yaml::FromFile(expr);
 
         // Replace contents:
         n = std::move(filData);
+
+        if (getenv("VERBOSE"))
+            std::cout << "[recursiveParseNodeForIncludes] Include done ok.\n";
     }
-    else if (n.IsSequence())
+    else if (n.isSequence())
     {
-        for (auto e : n) recursiveParseNodeForIncludes(e);
+        for (auto& e : n.asSequence()) recursiveParseNodeForIncludes(e);
     }
-    else if (n.IsMap())
+    else if (n.isMap())
     {
-        for (auto e : n) recursiveParseNodeForIncludes(e.second);
+        for (auto& e : n.asMap()) recursiveParseNodeForIncludes(e.second);
     }
 }
 
@@ -148,8 +171,9 @@ static std::string parseIncludes(const std::string& text)
 {
     MRPT_TRY_START
 
-    YAML::Node root = YAML::Load(text);
-    recursiveParseNodeForIncludes(root);
+    yaml root = yaml::FromText(text);
+
+    recursiveParseNodeForIncludes(root.node());
 
     return mola::yaml2string(root);
 

@@ -24,7 +24,7 @@
 #include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/serialization/CArchive.h>
 #include <mrpt/system/filesystem.h>
-#include <yaml-cpp/yaml.h>
+#include <mrpt/containers/yaml.h>
 #include <deque>
 #include <map>
 #include <numeric>  // iota()
@@ -233,7 +233,7 @@ void WorldModel::initialize(const std::string& cfg_block)
     MRPT_TRY_START
 
     // Load params:
-    auto c   = YAML::Load(cfg_block);
+    auto c   = mrpt::containers::yaml::FromText(cfg_block);
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
 

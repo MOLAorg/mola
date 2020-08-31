@@ -13,7 +13,7 @@
 #include <mola-kernel/WorldModel.h>
 #include <mola-kernel/interfaces/BackEndBase.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
-#include <yaml-cpp/yaml.h>
+#include <mrpt/containers/yaml.h>
 #include <iostream>
 
 using namespace mola;

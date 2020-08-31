@@ -12,7 +12,7 @@
 
 #include <mola-kernel/interfaces/FrontEndBase.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
-#include <yaml-cpp/yaml.h>
+#include <mrpt/containers/yaml.h>
 #include <iostream>
 
 using namespace mola;
@@ -25,12 +25,12 @@ FrontEndBase::FrontEndBase() = default;
 void FrontEndBase::initialize_common(const std::string& cfg_block)
 {
     MRPT_TRY_START
-    auto cfg = YAML::Load(cfg_block);
+    auto cfg = mrpt::containers::yaml::FromText(cfg_block);
 
     // Optional parameter: derived classes may use it or not, so don't throw
     // an exception if not found.
     raw_sensor_label_ =
-        cfg["raw_sensor_label"].as<std::string>(raw_sensor_label_);
+        cfg.getOrDefault<std::string>("raw_sensor_label", raw_sensor_label_);
 
     MRPT_TODO("Enable multiple source modules, comma sep list, etc.");
     auto ds_source = cfg["raw_data_source"];

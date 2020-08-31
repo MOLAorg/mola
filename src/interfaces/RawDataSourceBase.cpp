@@ -13,6 +13,7 @@
 #include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mola-kernel/yaml_helpers.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
@@ -23,7 +24,6 @@
 #include <mrpt/opengl/CPlanarLaserScan.h>
 #include <mrpt/opengl/stock_objects.h>
 #include <mrpt/serialization/CArchive.h>
-#include <yaml-cpp/yaml.h>
 #include <iostream>
 
 using namespace mola;
@@ -47,18 +47,20 @@ RawDataSourceBase::RawDataSourceBase() = default;
 void RawDataSourceBase::initialize_common(const std::string& cfg_block)
 {
     MRPT_TRY_START
-    auto cfg = YAML::Load(cfg_block);
+    const auto cfg = mrpt::containers::yaml::FromText(cfg_block);
 
     // Handle optional sensor preview GUI:
-    auto ds_preview = cfg["gui_preview_sensors"];
-    if (ds_preview)
+    if (cfg.has("gui_preview_sensors"))
     {
-        for (auto sensor : ds_preview)
+        auto ds_preview = cfg["gui_preview_sensors"];
+        for (auto s : ds_preview.asSequence())
         {
-            ENSURE_YAML_ENTRY_EXISTS(sensor, "raw_sensor_label");
-            const auto label   = sensor["raw_sensor_label"].as<std::string>();
-            const auto decim   = sensor["decimation"].as<unsigned int>(1);
-            const auto win_pos = sensor["win_pos"].as<std::string>("");
+            const auto sensor = mrpt::containers::yaml(s);
+            const auto label  = sensor["raw_sensor_label"].as<std::string>();
+            const auto decim =
+                sensor.getOrDefault<unsigned int>("decimation", 1);
+            const auto win_pos =
+                sensor.getOrDefault<std::string>("win_pos", "");
 
             ASSERTMSG_(
                 sensor_preview_gui_.find(label) == sensor_preview_gui_.end(),
@@ -76,10 +78,9 @@ void RawDataSourceBase::initialize_common(const std::string& cfg_block)
     }
 
     // Handle optional export to rawlog file
-    auto export_to_rawlog = cfg["export_to_rawlog"];
-    if (export_to_rawlog)
+    if (auto fil = cfg.getOrDefault<std::string>("export_to_rawlog", "");
+        !fil.empty())
     {
-        const auto fil = export_to_rawlog.as<std::string>();
         MRPT_LOG_INFO_STREAM("Exporting to rawlog file: " << fil);
         if (!export_to_rawlog_out_.open(fil))
             THROW_EXCEPTION_FMT("Error opening for write: `%s`", fil.c_str());
