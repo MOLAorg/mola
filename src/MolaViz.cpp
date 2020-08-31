@@ -18,7 +18,7 @@
 #include <mola-viz/MolaViz.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
-#include <yaml-cpp/yaml.h>
+#include <mrpt/containers/yaml.h>
 
 using namespace mola;
 
@@ -56,7 +56,7 @@ void MolaViz::initialize(const std::string& cfg_block)
     MRPT_START
 
     // Load:
-    auto c   = YAML::Load(cfg_block);
+    auto c   = mrpt::containers::yaml::FromText(cfg_block);
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
 
