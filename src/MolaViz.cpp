@@ -16,9 +16,9 @@
 
 #include <mola-kernel/yaml_helpers.h>
 #include <mola-viz/MolaViz.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
-#include <mrpt/containers/yaml.h>
 
 using namespace mola;
 
@@ -125,4 +125,22 @@ void MolaViz::gui_thread()
     nanogui::shutdown();
 
     MRPT_LOG_DEBUG("gui_thread() quitted.");
+}
+
+nanogui::ref<nanogui::Window> MolaViz::create_subwindow(
+    const std::string& title, const std::string& parentWindow)
+{
+    MRPT_LOG_DEBUG_STREAM(
+        "create_subwindow() title='" << title << "' inside toplevel '"
+                                     << parentWindow << "'");
+
+    ASSERT_(windows_.count(parentWindow));
+    auto topWin = windows_.at(parentWindow);
+    ASSERT_(topWin);
+
+    nanogui::ref<nanogui::Window> subw =
+        topWin->nanogui_screen()->add<nanogui::Window>(title);
+    subw->setLayout(new nanogui::BoxLayout(nanogui::Orientation::Vertical));
+
+    return subw;
 }

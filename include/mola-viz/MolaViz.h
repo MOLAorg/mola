@@ -11,8 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mola-kernel/interfaces/VizInterface.h>
+#include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/gui/CDisplayWindowGUI.h>
 #include <shared_mutex>
 
@@ -21,7 +22,7 @@ namespace mola
 /** MOLA GUI and visualization API
  *
  */
-class MolaViz : public ExecutableBase
+class MolaViz : public ExecutableBase, public VizInterface
 {
     DEFINE_MRPT_OBJECT(MolaViz, mola)
 
@@ -43,10 +44,14 @@ class MolaViz : public ExecutableBase
     static bool     IsRunning();
     static MolaViz* Instance();
 
+    nanogui::ref<nanogui::Window> create_subwindow(
+        const std::string& title,
+        const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+
     /** @} */
 
    private:
-    // mola::WorkerThreadsPool worker_pool_{1};
+    // mrpt::WorkerThreadsPool worker_pool_{1};
     static MolaViz*          instance_;
     static std::shared_mutex instanceMtx_;
 
