@@ -86,7 +86,7 @@ class LazyLoadResource
 
     std::string         external_filename_;
     mola::id_t          parent_entity_id_{INVALID_ID};
-    mutable std::string cached_abs_fil;
-    mutable bool        cached_file_ok{false};
+    mutable std::string cached_abs_fil_;
+    mutable bool        cached_file_ok_{false};
 };
 }  // namespace mola

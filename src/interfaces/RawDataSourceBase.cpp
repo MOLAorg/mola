@@ -10,11 +10,11 @@
  * @date   Nov 21, 2018
  */
 
-#include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
+#include <mola-kernel/interfaces/VizInterface.h>
 #include <mola-kernel/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
-#include <mrpt/gui/CDisplayWindow3D.h>
+#include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservationImage.h>
@@ -27,19 +27,21 @@
 #include <iostream>
 
 using namespace mola;
-using mrpt::gui::CDisplayWindow3D;
+
+MRPT_TODO("Move sensor-specific rendering to MolaViz module");
 
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_VIRTUAL_MRPT_OBJECT(RawDataSourceBase, ExecutableBase, mola)
 
-static WorkerThreadsPool gui_updater_threadpool(1 /* 1 thread */);
+static mrpt::WorkerThreadsPool gui_updater_threadpool(1 /* 1 thread */);
 
 struct RawDataSourceBase::SensorViewerImpl
 {
-    unsigned int          decimation{1}, decim_counter{0};
-    std::string           sensor_label;
-    std::string           win_pos;  //!< "[x,y,width,height]"
-    CDisplayWindow3D::Ptr win;
+    unsigned int decimation{1}, decim_counter{0};
+    std::string  sensor_label;
+    std::string  win_pos;  //!< "[x,y,width,height]"
+
+    nanogui::ref<nanogui::Window> win;
 };
 
 RawDataSourceBase::RawDataSourceBase() = default;
@@ -146,7 +148,16 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                 COpenGLScene::Ptr scene;
                 if (!sv->win)
                 {
-                    sv->win = CDisplayWindow3D::Create(sv->sensor_label);
+                    // Create subwindow now:
+                    auto vizMods = this->findService<mola::VizInterface>();
+                    ASSERTMSG_(
+                        !vizMods.empty(),
+                        "Could not find a running MolaViz module");
+
+                    auto viz =
+                        std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
+
+                    sv->win = viz->create_subwindow(sv->sensor_label);
 
                     // Replace and resize, if user provided "win_pos":
                     if (!sv->win_pos.empty())
@@ -156,21 +167,24 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                         // parse: "x y w h"
                         if ((ss >> x) && (ss >> y) && (ss >> w) && (ss >> h))
                         {
-                            sv->win->setPos(x, y);
-                            sv->win->resize(w, h);
+                            sv->win->setPosition({x, y});
+                            sv->win->setSize({w, h});
                         }
                     }
 
-                    mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
+#if 0
+                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
                     scene->insert(stock_objects::CornerXYZSimple(1.0f, 4.0f));
                     auto o = CSetOfObjects::Create();
                     o->setName("pointcloud");
                     scene->insert(o);
+#endif
                 }
 
                 // Update rendered object:
                 MRPT_TODO("Make new registry of renderizable objects,...");
 
+#if 0
                 // temp code ----
                 if (auto o_points =
                         mrpt::ptr_cast<mrpt::obs::CObservationPointCloud>::from(
@@ -228,6 +242,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
                 // Force repaint:
                 sv->win->repaint();
+#endif
             }
             catch (const std::exception& e)
             {

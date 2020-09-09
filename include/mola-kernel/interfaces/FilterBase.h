@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/interfaces/RawDataConsumer.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
+#include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/system/COutputLogger.h>
 
 namespace mola
@@ -46,7 +46,7 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     void onNewObservation(CObservation::Ptr& o) override;
 
    private:
-    WorkerThreadsPool thread_pool_;
+    mrpt::WorkerThreadsPool thread_pool_;
 };
 
 }  // namespace mola

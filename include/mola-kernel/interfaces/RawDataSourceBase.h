@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/WorkerThreadsPool.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/interfaces/RawDataConsumer.h>
+#include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/pimpl.h>
 #include <mrpt/io/CFileGZOutputStream.h>
@@ -56,7 +56,7 @@ class RawDataSourceBase : public mola::ExecutableBase
 
     /** used to optionally export captured observations to an MRPT rawlog */
     mrpt::io::CFileGZOutputStream export_to_rawlog_out_;
-    mola::WorkerThreadsPool       worker_pool_export_rawlog_{1};
+    mrpt::WorkerThreadsPool       worker_pool_export_rawlog_{1};
 
     struct SensorViewerImpl;
     /** Optional real-time GUI view of sensor data. Viewers indexed by

@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/WorkerThreadsPool.h>
+#include <mrpt/core/WorkerThreadsPool.h>
 #include <mola-kernel/WorldModel.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mrpt/core/Clock.h>
@@ -141,7 +141,7 @@ class BackEndBase : public ExecutableBase
    protected:
     WorldModel::Ptr worldmodel_;
 
-    WorkerThreadsPool slam_be_threadpool_{2};
+    mrpt::WorkerThreadsPool slam_be_threadpool_{2};
 };
 
 }  // namespace mola

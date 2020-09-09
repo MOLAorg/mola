@@ -26,21 +26,19 @@ std::string LazyLoadResource::EXTERNAL_BASE_DIR{""};
 
 const std::string& LazyLoadResource::buildAbsoluteFilePath() const
 {
-    MRPT_TODO("Handle the case when f is already absolute");
+    if (cached_file_ok_) return cached_abs_fil_;
 
-    if (cached_file_ok) return cached_abs_fil;
-
-    cached_abs_fil = mrpt::format(
+    cached_abs_fil_ = mrpt::format(
         "ent_%06lu_%s", static_cast<long unsigned>(parent_entity_id_),
         external_filename_.c_str());
 
-    cached_abs_fil = mrpt::system::fileNameStripInvalidChars(cached_abs_fil);
+    cached_abs_fil_ = mrpt::system::fileNameStripInvalidChars(cached_abs_fil_);
 
     ASSERT_(!EXTERNAL_BASE_DIR.empty());
-    cached_abs_fil = EXTERNAL_BASE_DIR + cached_abs_fil;
+    cached_abs_fil_ = EXTERNAL_BASE_DIR + cached_abs_fil_;
 
-    cached_file_ok = true;
-    return cached_abs_fil;
+    cached_file_ok_ = true;
+    return cached_abs_fil_;
 }
 
 void LazyLoadResource::set(
@@ -48,7 +46,7 @@ void LazyLoadResource::set(
 {
     data_              = source;
     external_filename_ = f;
-    cached_file_ok     = false;
+    cached_file_ok_    = false;
 }
 
 void LazyLoadResource::load() const
