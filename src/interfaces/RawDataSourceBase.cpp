@@ -271,6 +271,8 @@ void RawDataSourceBase::prepareObservationBeforeFrontEnds(
 
     using namespace mrpt::obs;
 
+    MRPT_TODO("Make these operations optional and disabled by default");
+
     // for delay-load data:
     obs->load();
 
