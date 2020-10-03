@@ -1,0 +1,38 @@
+Source: mola
+Section: science
+Priority: optional
+Maintainer: José Luis Blanco Claraco <joseluisblancoc@gmail.com>
+Build-Depends: debhelper (>= 12),
+	cmake,
+	libmrpt-dev (>= 2.1.0)
+Standards-Version: 4.5.0
+Homepage: https://github.com/MOLAorg/mola
+
+Package: libmola1
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Multi-Arch: same
+Description: MOLA - libraries
+ MOLA modules.
+
+Package: libmola-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends},libmola1 (= ${binary:Version})
+Description: MOLA - modules development packages
+ This package provides headers and libraries for development.
+
+Package: mola-common
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends}
+Description: MOLA - Example datasets and launch files
+ This package provides example datasets and launch files.
+
+Package: mola-cli
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: mola-common (= ${source:Version})
+Description: MOLA - mola-cli main app
+ This package provides a set of console and GUI applications.
