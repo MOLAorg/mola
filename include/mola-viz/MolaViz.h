@@ -44,7 +44,7 @@ class MolaViz : public ExecutableBase, public VizInterface
     static bool     IsRunning();
     static MolaViz* Instance();
 
-    nanogui::ref<nanogui::Window> create_subwindow(
+    nanogui::Window* create_subwindow(
         const std::string& title,
         const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 

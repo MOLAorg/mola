@@ -127,9 +127,14 @@ void MolaViz::gui_thread()
     MRPT_LOG_DEBUG("gui_thread() quitted.");
 }
 
-nanogui::ref<nanogui::Window> MolaViz::create_subwindow(
+nanogui::Window* MolaViz::create_subwindow(
     const std::string& title, const std::string& parentWindow)
 {
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    MRPT_TODO(
+        "*Important* Remove sleep, send this as a task to be run in "
+        "gui_thread");
+
     MRPT_LOG_DEBUG_STREAM(
         "create_subwindow() title='" << title << "' inside toplevel '"
                                      << parentWindow << "'");
@@ -138,8 +143,7 @@ nanogui::ref<nanogui::Window> MolaViz::create_subwindow(
     auto topWin = windows_.at(parentWindow);
     ASSERT_(topWin);
 
-    nanogui::ref<nanogui::Window> subw =
-        topWin->nanogui_screen()->add<nanogui::Window>(title);
+    auto subw = topWin->createManagedSubWindow(title);
     subw->setLayout(new nanogui::BoxLayout(nanogui::Orientation::Vertical));
 
     return subw;
