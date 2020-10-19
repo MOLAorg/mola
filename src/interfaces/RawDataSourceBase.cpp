@@ -41,7 +41,7 @@ struct RawDataSourceBase::SensorViewerImpl
     std::string  sensor_label;
     std::string  win_pos;  //!< "[x,y,width,height]"
 
-    nanogui::ref<nanogui::Window> win;
+    nanogui::Window* win = nullptr;
 };
 
 RawDataSourceBase::RawDataSourceBase() = default;
