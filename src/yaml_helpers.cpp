@@ -185,6 +185,8 @@ std::string mola::parseYaml(
 {
     std::string s = text;
 
+    MRPT_TODO("Possible bug: #$include{} shouldn't be parsed");
+
     // 1) Parse "$include{}"s
     if (opts.doIncludes) s = parseIncludes(s);
 
