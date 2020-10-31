@@ -9,8 +9,8 @@ else
   echo "Error: intended for use from within a git repository"
   exit 1
 fi
-MRPT_SNAPSHOT_VERSION=$(date -d @$SOURCE_DATE_EPOCH +%Y%m%d-%H%M)
+MOLA_SNAPSHOT_VERSION=$(date -d @$SOURCE_DATE_EPOCH +%Y%m%d-%H%M)
 
-MRPT_SNAPSHOT_VERSION+="-git-"
-MRPT_SNAPSHOT_VERSION+=`git rev-parse --short=8 HEAD`
-MRPT_SNAPSHOT_VERSION+="-"
+MOLA_SNAPSHOT_VERSION+="-git-"
+MOLA_SNAPSHOT_VERSION+=`git rev-parse --short=8 HEAD`
+MOLA_SNAPSHOT_VERSION+="-"

@@ -4,7 +4,8 @@ Priority: optional
 Maintainer: José Luis Blanco Claraco <joseluisblancoc@gmail.com>
 Build-Depends: debhelper (>= 12),
 	cmake,
-	libmrpt-dev (>= 2.1.0)
+	libmrpt-dev (>= 2.1.0),
+	libgtsam-dev (>= 4.0.2)
 Standards-Version: 4.5.0
 Homepage: https://github.com/MOLAorg/mola
 
@@ -19,7 +20,8 @@ Description: MOLA - libraries
 Package: libmola-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, libmola@MOLA_VER_MM@ (= ${binary:Version})
+Depends: ${misc:Depends}, libmola@MOLA_VER_MM@ (= ${binary:Version}),
+         libmrpt-dev
 Description: MOLA - modules development packages
  This package provides headers and libraries for development.
 
