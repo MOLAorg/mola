@@ -11,11 +11,8 @@ DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
 DEB_TARGET_MULTIARCH ?= $(shell dpkg-architecture -qDEB_TARGET_MULTIARCH)
 
 CMAKE_FLAGS = \
-	-DCMAKE_INSTALL_PREFIX="$(CURDIR)/debian/usr/" \
 	-DCMAKE_INSTALL_LIBDIR="lib/$(DEB_TARGET_MULTIARCH)" \
-	-DCMAKE_VERBOSE_MAKEFILE=ON \
 	-DCMAKE_BUILD_TYPE=Release  \
-	-DCMAKE_VERBOSE_MAKEFILE=ON \
 	$(CMAKE_ARCH_FLAGS)
 
 # Don't set: CMAKE_SKIP_RPATH=ON --> it makes unit tests to fail,
@@ -39,11 +36,6 @@ override_dh_auto_configure:
 	env
 	# Autoconfigure step:
 	dh_auto_configure -- $(CMAKE_FLAGS)
-
-override_dh_auto_test-arch:
-	# Tests for arch-dependent :
-	echo "[override_dh_auto_test-arch]"
-	dh_auto_build -O--buildsystem=cmake -- test -j1
 
 override_dh_missing:
 	dh_missing --list-missing

@@ -8,7 +8,7 @@ Build-Depends: debhelper (>= 12),
 Standards-Version: 4.5.0
 Homepage: https://github.com/MOLAorg/mola
 
-Package: libmola1
+Package: libmola0.1
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -19,20 +19,13 @@ Description: MOLA - libraries
 Package: libmola-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends},libmola1 (= ${binary:Version})
+Depends: ${misc:Depends}, libmola0.1 (= ${binary:Version})
 Description: MOLA - modules development packages
  This package provides headers and libraries for development.
 
-Package: mola-common
-Architecture: all
-Multi-Arch: foreign
-Depends: ${misc:Depends}
-Description: MOLA - Example datasets and launch files
- This package provides example datasets and launch files.
-
 Package: mola-cli
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmola0.1 (= ${binary:Version})
 Recommends: mola-common (= ${source:Version})
 Description: MOLA - mola-cli main app
  This package provides a set of console and GUI applications.
