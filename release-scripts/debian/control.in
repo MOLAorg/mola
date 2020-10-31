@@ -8,7 +8,7 @@ Build-Depends: debhelper (>= 12),
 Standards-Version: 4.5.0
 Homepage: https://github.com/MOLAorg/mola
 
-Package: libmola0.1
+Package: libmola@MOLA_VER_MM@
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -19,12 +19,12 @@ Description: MOLA - libraries
 Package: libmola-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, libmola0.1 (= ${binary:Version})
+Depends: ${misc:Depends}, libmola@MOLA_VER_MM@ (= ${binary:Version})
 Description: MOLA - modules development packages
  This package provides headers and libraries for development.
 
 Package: mola-cli
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmola0.1 (= ${binary:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmola@MOLA_VER_MM@ (= ${binary:Version})
 Description: MOLA - mola-cli main app
  This package provides a set of console and GUI applications.
