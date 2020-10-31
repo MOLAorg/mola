@@ -26,6 +26,5 @@ Description: MOLA - modules development packages
 Package: mola-cli
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libmola0.1 (= ${binary:Version})
-Recommends: mola-common (= ${source:Version})
 Description: MOLA - mola-cli main app
  This package provides a set of console and GUI applications.
