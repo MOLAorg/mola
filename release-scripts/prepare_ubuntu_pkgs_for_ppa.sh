@@ -35,7 +35,7 @@ MOLASRC=`pwd`
 if [ -z "${MOLA_DEB_DIR}" ]; then
   export MOLA_DEB_DIR="$HOME/mola_debian"
 fi
-MOLA_EXTERN_DEBIAN_DIR="$MOLASRC/packaging/debian/"
+MOLA_EXTERN_DEBIAN_DIR="$MOLASRC/release-scripts/debian/"
 EMAIL4DEB="Jose Luis Blanco Claraco <joseluisblancoc@gmail.com>"
 
 # Clean out dirs:
@@ -57,7 +57,7 @@ do
   # Call the standard "prepare_debian.sh" script:
   # -------------------------------------------------------------------
   cd ${MOLASRC}
-  bash scripts/prepare_debian.sh -s -u -h -d ${DEBIAN_DIST} ${EMBED_EIGEN_FLAG}
+  bash release-scripts/prepare_debian.sh -s -d ${DEBIAN_DIST} ${EMBED_EIGEN_FLAG}
 
   CUR_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   source $CUR_SCRIPT_DIR/prepare_debian_gen_snapshot_version.sh # populate MOLA_SNAPSHOT_VERSION
