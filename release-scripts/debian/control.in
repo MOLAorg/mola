@@ -2,7 +2,7 @@ Source: mola
 Section: science
 Priority: optional
 Maintainer: José Luis Blanco Claraco <joseluisblancoc@gmail.com>
-Build-Depends: debhelper (>= 12),
+Build-Depends: debhelper,
 	cmake,
 	libmrpt-dev (>= 2.1.0),
 	libgtsam-dev
