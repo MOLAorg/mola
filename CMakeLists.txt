@@ -32,4 +32,8 @@ mola_add_library(
 		mola-kernel
 		mrpt::gui
 		mrpt::opengl
+	CMAKE_DEPENDENCIES
+		mola-kernel
+		mrpt-gui
+		mrpt-opengl
 )
