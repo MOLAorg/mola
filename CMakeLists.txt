@@ -32,6 +32,8 @@ mola_add_library(
 		gtsam
 		mrpt::gui   #TODO: remove after mapviz!
 		mrpt::maps  #TODO: remove after mapviz!
+	CMAKE_DEPENDENCIES
+		mrpt-obs
 )
 
 if ("$ENV{VERBOSE}")
