@@ -34,4 +34,8 @@ mola_add_library(
 		mola-kernel
 		mrpt::obs
 		mrpt::math
+	CMAKE_DEPENDENCIES
+		mola-kernel
+		mrpt-obs
+		mrpt-math
 )
