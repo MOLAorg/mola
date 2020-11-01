@@ -37,6 +37,8 @@ mola_add_library(
 	PRIVATE_LINK_LIBRARIES
 		mrpt::maps
 		mrpt::math
+	CMAKE_DEPENDENCIES
+		mola-kernel
 )
 
 # ----------------------
