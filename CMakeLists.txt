@@ -49,4 +49,8 @@ mola_add_library(
 		mrpt::ros1bridge
 		${roscpp_LIBRARIES}
 		${sensor_msgs_LIBRARIES}
+	CMAKE_DEPENDENCIES
+		mola-kernel
+		mrpt-maps
+		roscpp
 )
