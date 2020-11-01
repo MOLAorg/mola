@@ -35,6 +35,8 @@ mola_add_library(
 		mola-kernel
 	PRIVATE_LINK_LIBRARIES
 		${CMAKE_DL_LIBS} # To be able to load DLLs/.so's
+	CMAKE_DEPENDENCIES
+		mola-kernel
 )
 
 target_compile_definitions(${PROJECT_NAME}
