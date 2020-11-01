@@ -125,6 +125,9 @@ gpg --export --export-options export-minimal --armor > debian/upstream/signing-k
 mv debian/control.in debian/control
 sed -i "s/@MOLA_VER_MM@/${MOLA_VER_MM}/g" debian/control
 
+# Parse libmolaM.M.install.in:
+mv debian/libmolaM.M.install.in debian/libmola${MOLA_VER_MM}.install
+
 # Strip my custom files...
 rm debian/*.new || true
 
