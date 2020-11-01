@@ -41,11 +41,13 @@ The following CMake functions are defined by `mola-common`.
     # mola_add_library(
     #	TARGET name
     #	SOURCES ${SRC_FILES}
-    #	[PUBLIC_LINK_LIBRARIES lib1 lib2]
-    #	[PRIVATE_LINK_LIBRARIES lib3 lib4]
+    #	[PUBLIC_LINK_LIBRARIES lib1 lib2 ...]
+    #	[PRIVATE_LINK_LIBRARIES lib3 lib4 ...]
+    # [CMAKE_DEPENDENCIES dep1 dep2...]
     #	)
     #
-    # Defines a MOLA library
+    # Defines a MOLA library. CMAKE_DEPENDENCIES enumerates those cmake packages
+    # that must be find_package()'d in this library's xxx-config.cmake script.
 
 
 `mola_find_package_or_return()`
