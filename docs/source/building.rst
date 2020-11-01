@@ -21,9 +21,8 @@ Build dependencies
 - A C++17 compiler. Either gcc-7, clang-4 or MSVC 2017 are good.
 - CMake >=3.9
 - Mandatory libraries:
-   - MRPT >= 1.9.9
+   - MRPT >= 2.1.0
    - GTSAM >= 4.0.2
-   - yaml-cpp (will use an embedded version if not found in the system)
 - Optional libraries:
    - opencv
    - ros1: roscpp, sensor-msgs
@@ -36,7 +35,7 @@ Install all dependencies in Ubuntu systems with:
 
 .. code-block:: bash
 
-    # MRPT >1.9.9, for now from this PPA (or build from sources if preferred):
+    # MRPT >2.1.0, for now from this PPA (or build from sources if preferred):
     sudo add-apt-repository ppa:joseluisblancoc/mrpt
     sudo apt update
     sudo apt install libmrpt-dev mrpt-apps
@@ -46,12 +45,11 @@ Install all dependencies in Ubuntu systems with:
     sudo apt update
     sudo apt install libgtsam-dev
 
-    # Boost, yaml-cpp, etc:
+    # Boost, etc:
     sudo apt install libboost-serialization-dev libboost-system-dev \
       libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev \
       libboost-date-time-dev libboost-timer-dev libboost-chrono-dev \
       libboost-regex-dev
-    sudo apt install libyaml-cpp-dev
 
     # ROS1 (Optional)
     # To install from the official Ubuntu repository (under /usr):
@@ -80,20 +78,19 @@ Ubuntu (16.04)
 
 .. code-block:: bash
 
-    # MRPT >1.9.9, for now from this PPA (or build from sources if preferred):
-    sudo add-apt-repository ppa:joseluisblancoc/mrpt
+    # MRPT >2.1.0, for now from this PPA (or build from sources if preferred):
+    sudo add-apt-repository ppa:joseluisblancoc/mrpt-xenial
     sudo apt update
     sudo apt install libmrpt-dev mrpt-apps
 
     # Make sure you don't have another version of GTSAM:
     sudo apt remove libgtsam-dev
 
-    # Boost, yaml-cpp, etc:
+    # Boost, etc:
     sudo apt install libboost-serialization-dev libboost-system-dev \
       libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev \
       libboost-date-time-dev libboost-timer-dev libboost-chrono-dev \
       libboost-regex-dev
-    sudo apt install libyaml-cpp-dev
 
     # ROS1 (Optional)
     # To install from the official Ubuntu repository (under /usr):
