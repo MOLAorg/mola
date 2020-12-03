@@ -16,6 +16,7 @@
 #include <mrpt/system/filesystem.h>
 #include <mrpt/system/os.h>
 #include <mrpt/system/string_utils.h>
+
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -40,7 +41,8 @@ std::string mola::yaml2string(const mrpt::containers::yaml& cfg)
     return ss.str();
 }
 
-static std::string parseEnvVars(const std::string& text)
+static std::string parseEnvVars(
+    const std::string& text, const mola::YAMLParseOptions& opts)
 {
     MRPT_TRY_START
 
@@ -70,11 +72,12 @@ static std::string parseEnvVars(const std::string& text)
             varname.c_str());
     }
 
-    return parseEnvVars(pre + varvalue + post.substr(post_end + 1));
+    return parseEnvVars(pre + varvalue + post.substr(post_end + 1), opts);
     MRPT_TRY_END
 }
 
-static std::string parseCmdRuns(const std::string& text)
+static std::string parseCmdRuns(
+    const std::string& text, const mola::YAMLParseOptions& opts)
 {
     MRPT_TRY_START
 
@@ -107,11 +110,12 @@ static std::string parseCmdRuns(const std::string& text)
     // Clear whitespaces:
     cmdOut = trimWSNL(cmdOut);
 
-    return parseCmdRuns(pre + cmdOut + post.substr(post_end + 1));
+    return parseCmdRuns(pre + cmdOut + post.substr(post_end + 1), opts);
     MRPT_TRY_END
 }
 
-static void recursiveParseNodeForIncludes(yaml::node_t& n)
+static void recursiveParseNodeForIncludes(
+    yaml::node_t& n, const mola::YAMLParseOptions& opts)
 {
     if (n.isScalar())
     {
@@ -151,29 +155,30 @@ static void recursiveParseNodeForIncludes(yaml::node_t& n)
 
         auto filData = yaml::FromFile(expr);
 
-        // Replace contents:
-        n = std::move(filData);
+        // Handle possible recursive expressions & replace contents:
+        n = yaml::FromText(mola::parseYaml(mola::yaml2string(filData), opts));
 
         if (getenv("VERBOSE"))
             std::cout << "[recursiveParseNodeForIncludes] Include done ok.\n";
     }
     else if (n.isSequence())
     {
-        for (auto& e : n.asSequence()) recursiveParseNodeForIncludes(e);
+        for (auto& e : n.asSequence()) recursiveParseNodeForIncludes(e, opts);
     }
     else if (n.isMap())
     {
-        for (auto& e : n.asMap()) recursiveParseNodeForIncludes(e.second);
+        for (auto& e : n.asMap()) recursiveParseNodeForIncludes(e.second, opts);
     }
 }
 
-static std::string parseIncludes(const std::string& text)
+static std::string parseIncludes(
+    const std::string& text, const mola::YAMLParseOptions& opts)
 {
     MRPT_TRY_START
 
     yaml root = yaml::FromText(text);
 
-    recursiveParseNodeForIncludes(root.node());
+    recursiveParseNodeForIncludes(root.node(), opts);
 
     return mola::yaml2string(root);
 
@@ -188,13 +193,13 @@ std::string mola::parseYaml(
     MRPT_TODO("Possible bug: #$include{} shouldn't be parsed");
 
     // 1) Parse "$include{}"s
-    if (opts.doIncludes) s = parseIncludes(s);
+    if (opts.doIncludes) s = parseIncludes(s, opts);
 
     // 2) Parse "$()"s
-    if (opts.doCmdRuns) s = parseCmdRuns(s);
+    if (opts.doCmdRuns) s = parseCmdRuns(s, opts);
 
     // 3) Parse "${}"s
-    if (opts.doEnvVars) s = parseEnvVars(s);
+    if (opts.doEnvVars) s = parseEnvVars(s, opts);
 
     return s;
 }
