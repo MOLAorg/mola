@@ -88,4 +88,5 @@ workflows:
   build:
     jobs:
       - full-u18.04-bionic
+      - full-u20.04-focal
       - clang-u18.04-bionic
