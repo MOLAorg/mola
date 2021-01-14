@@ -25,7 +25,7 @@ class VizInterface
     virtual ~VizInterface() = default;
 
     /** Returned object is owned by the VizInterface, do NOT delete it. */
-    virtual nanogui::Window* create_subwindow(
+    virtual void create_subwindow(
         const std::string& title, const std::string& parentWindow = "main") = 0;
 
    protected:

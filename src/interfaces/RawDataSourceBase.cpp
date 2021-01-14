@@ -157,10 +157,11 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                     auto viz =
                         std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
 
-                    sv->win = viz->create_subwindow(sv->sensor_label);
+                    // sv->win =
+                    viz->create_subwindow(sv->sensor_label);
 
                     // Replace and resize, if user provided "win_pos":
-                    if (!sv->win_pos.empty())
+                    if (sv->win && !sv->win_pos.empty())
                     {
                         int                x = 0, y = 0, w = 400, h = 300;
                         std::istringstream ss(sv->win_pos);
