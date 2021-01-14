@@ -2,7 +2,7 @@
 #        A Modular Optimization framework for Localization and mApping
 #                               (MOLA)
 #
-# Copyright (C) 2018-2019, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
+# Copyright (C) 2018-2021, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
 # All rights reserved.
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
@@ -60,12 +60,9 @@ add_subdirectory(modules)
 
 # Docs: Don't build using CMake, but instead by means of a custom docs/Makefile script
 
-
-
-message(STATUS "==== MOLA configuration ====")
-message(STATUS "C++ compiler              : ${CMAKE_CXX_COMPILER}")
+message(STATUS "========================= MOLA configuration ======================")
+message(STATUS "C++ Compiler              : ${CMAKE_CXX_COMPILER} Version: ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "CMake generator           : ${CMAKE_GENERATOR}")
 message(STATUS "CMake build tool          : ${CMAKE_BUILD_TOOL}")
-message(STATUS "Compiler                  : ${CMAKE_CXX_COMPILER} Version: ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "Sphinx (for docs)         : ${SPHINX_EXECUTABLE}")
-message(STATUS "============================")
+message(STATUS "===================================================================")
