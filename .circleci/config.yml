@@ -12,7 +12,7 @@ jobs:
             add-apt-repository ppa:joseluisblancoc/mrpt -y
             add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
             apt-get install libmrpt-dev -y
-            apt-get install libgtsam-dev -y
+            apt-get install libgtsam-dev libboost-all-dev -y
       - checkout
       - run:
           name: "Pull Submodules"
@@ -21,7 +21,33 @@ jobs:
       - run:
           name: Generate cmake files
           command: |
-            dpkg --listfiles libgtsam-dev  | grep cmake
+            cmake -H. -Bbuild
+      - run: make -C build
+      - run: make CTEST_OUTPUT_ON_FAILURE=1 test -C build
+#      - run: make gcov -C build
+#      - run: make -C build
+#      - run: bash <(curl -s https://codecov.io/bash) -X gcov -y .codecov.yml -s build
+  full-u20.04-focal:
+    docker:
+      - image: mrpt/mrpt-build-env:full-focal
+    steps:
+      - run:
+          name: "Install dependencies"
+          command: |
+            apt-get update
+            apt-get install software-properties-common -y
+            add-apt-repository ppa:joseluisblancoc/mrpt -y
+            add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+            apt-get install libmrpt-dev -y
+            apt-get install libgtsam-dev libboost-all-dev -y
+      - checkout
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init --recursive
+      - run:
+          name: Generate cmake files
+          command: |
             cmake -H. -Bbuild
       - run: make -C build
       - run: make CTEST_OUTPUT_ON_FAILURE=1 test -C build
@@ -40,7 +66,7 @@ jobs:
             add-apt-repository ppa:joseluisblancoc/mrpt -y
             add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
             apt-get install libmrpt-dev -y
-            apt-get install libgtsam-dev -y
+            apt-get install libgtsam-dev libboost-all-dev -y
       - checkout
       - run:
           name: "Pull Submodules"
