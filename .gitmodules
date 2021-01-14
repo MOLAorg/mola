@@ -52,3 +52,6 @@
 [submodule "modules/mola-viz"]
 	path = modules/mola-viz
 	url = https://github.com/MOLAorg/mola-viz.git
+[submodule "modules/mola-yaml"]
+	path = modules/mola-yaml
+	url = https://github.com/MOLAorg/mola-yaml.git
