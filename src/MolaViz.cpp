@@ -14,7 +14,7 @@
  * C++ library for main MOLA GUI
  */
 
-#include <mola-kernel/yaml_helpers.h>
+#include <mola-yaml/yaml_helpers.h>
 #include <mola-viz/MolaViz.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
