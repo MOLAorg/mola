@@ -18,13 +18,13 @@
 #include <mola-kernel/entities/KeyFrameBase.h>
 #include <mola-kernel/lock_helper.h>
 #include <mola-kernel/variant_helper.h>
-#include <mola-kernel/yaml_helpers.h>
+#include <mola-yaml/yaml_helpers.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/get_env.h>
 #include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/serialization/CArchive.h>
 #include <mrpt/system/filesystem.h>
-#include <mrpt/containers/yaml.h>
 #include <deque>
 #include <map>
 #include <numeric>  // iota()
