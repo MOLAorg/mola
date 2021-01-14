@@ -44,9 +44,22 @@ class MolaViz : public ExecutableBase, public VizInterface
     static bool     IsRunning();
     static MolaViz* Instance();
 
-    nanogui::Window* create_subwindow(
+    void create_subwindow(
         const std::string& title,
         const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+
+    /** Updates the contents of a subwindow from a given object, typically a
+     * mrpt::obs::CObservation, but custom handlers can be installed for
+     * arbitrary classes.
+     *
+     * Depending on the object class RTTI, the corresponding handler is called.
+     *
+     * \return false if no handler is found for the given object.
+     *
+     * \sa
+     */
+    bool subwindow_update_visualization(
+        const std::string& subWindowTitle, const mrpt::rtti::CObject::Ptr& obj);
 
     /** @} */
 
@@ -62,6 +75,10 @@ class MolaViz : public ExecutableBase, public VizInterface
 
     std::thread guiThread_;
     void        gui_thread();
+
+    using task_queue_t = std::vector<std::function<void(void)>>;
+    task_queue_t guiThreadPendingTasks_;
+    std::mutex   guiThreadPendingTasksMtx_;
 };
 
 }  // namespace mola

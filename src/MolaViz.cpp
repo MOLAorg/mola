@@ -14,10 +14,11 @@
  * C++ library for main MOLA GUI
  */
 
-#include <mola-yaml/yaml_helpers.h>
 #include <mola-viz/MolaViz.h>
+#include <mola-yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/core/lock_helper.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 
 using namespace mola;
@@ -120,31 +121,58 @@ void MolaViz::gui_thread()
     // Open first GUI window:
     auto w = create_and_add_window(DEFAULT_WINDOW_NAME);
 
-    nanogui::mainloop(10 /*refresh Hz*/);
+    // Tasks pending to be run before each refresh:
+    w->setLoopCallback([this]() {
+        // Get a copy of the tasks:
+        task_queue_t tasks;
+        auto         lck       = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+        tasks                  = std::move(guiThreadPendingTasks_);
+        guiThreadPendingTasks_ = task_queue_t();
+        lck.unlock();
+
+        // Run them:
+        for (auto& t : tasks)
+        {
+            try
+            {
+                t();
+            }
+            catch (const std::exception& e)
+            {
+                MRPT_LOG_ERROR_STREAM(
+                    "Exception in tasks sent to GUI thread:\n"
+                    << e.what());
+            }
+        }
+    });
+
+    nanogui::mainloop(100 /*refresh milliseconds*/);
 
     nanogui::shutdown();
 
     MRPT_LOG_DEBUG("gui_thread() quitted.");
 }
 
-nanogui::Window* MolaViz::create_subwindow(
+bool MolaViz::subwindow_update_visualization(
+    const std::string& subWindowTitle, const mrpt::rtti::CObject::Ptr& obj)
+{
+    return false;
+}
+
+void MolaViz::create_subwindow(
     const std::string& title, const std::string& parentWindow)
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    MRPT_TODO(
-        "*Important* Remove sleep, send this as a task to be run in "
-        "gui_thread");
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.emplace_back([=]() {
+        MRPT_LOG_DEBUG_STREAM(
+            "create_subwindow() title='" << title << "' inside toplevel '"
+                                         << parentWindow << "'");
 
-    MRPT_LOG_DEBUG_STREAM(
-        "create_subwindow() title='" << title << "' inside toplevel '"
-                                     << parentWindow << "'");
+        ASSERT_(windows_.count(parentWindow));
+        auto topWin = windows_.at(parentWindow);
+        ASSERT_(topWin);
 
-    ASSERT_(windows_.count(parentWindow));
-    auto topWin = windows_.at(parentWindow);
-    ASSERT_(topWin);
-
-    auto subw = topWin->createManagedSubWindow(title);
-    subw->setLayout(new nanogui::BoxLayout(nanogui::Orientation::Vertical));
-
-    return subw;
+        auto subw = topWin->createManagedSubWindow(title);
+        subw->setLayout(new nanogui::BoxLayout(nanogui::Orientation::Vertical));
+    });
 }
