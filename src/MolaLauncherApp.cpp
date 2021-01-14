@@ -16,7 +16,7 @@
 
 #include <mola-kernel/interfaces/FrontEndBase.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
-#include <mola-kernel/yaml_helpers.h>
+#include <mola-yaml/yaml_helpers.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/core/get_env.h>

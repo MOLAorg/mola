@@ -11,7 +11,7 @@
  * @date   Sep 9, 2019
  */
 
-#include <mola-kernel/yaml_helpers.h>
+#include <mola-yaml/yaml_helpers.h>
 #include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
