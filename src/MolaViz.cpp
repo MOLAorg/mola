@@ -131,6 +131,7 @@ void MolaViz::gui_thread()
         lck.unlock();
 
         // Run them:
+        auto lckHandlers = mrpt::lockHelper(guiHandlersMtx_);
         for (auto& t : tasks)
         {
             try
@@ -140,10 +141,11 @@ void MolaViz::gui_thread()
             catch (const std::exception& e)
             {
                 MRPT_LOG_ERROR_STREAM(
-                    "Exception in tasks sent to GUI thread:\n"
+                    "Exception in task sent to GUI thread:\n"
                     << e.what());
             }
         }
+        lckHandlers.unlock();
     });
 
     nanogui::mainloop(100 /*refresh milliseconds*/);
@@ -153,26 +155,73 @@ void MolaViz::gui_thread()
     MRPT_LOG_DEBUG("gui_thread() quitted.");
 }
 
-bool MolaViz::subwindow_update_visualization(
-    const std::string& subWindowTitle, const mrpt::rtti::CObject::Ptr& obj)
+std::future<bool> MolaViz::subwindow_update_visualization(
+    const mrpt::rtti::CObject::Ptr& obj, const std::string& subWindowTitle,
+    const std::string& parentWindow)
 {
-    return false;
+    using return_type = bool;
+
+    auto task = std::make_shared<std::packaged_task<return_type()>>([=]() {
+        const char* objClassName = obj->GetRuntimeClass()->className;
+
+        MRPT_LOG_DEBUG_STREAM(
+            "subwindow_update_visualization() title='"
+            << subWindowTitle << "' obj of class: '" << objClassName << "'");
+
+        // Get subwindow:
+        ASSERT_(subWindows_.count(parentWindow));
+        auto topWin = subWindows_.at(parentWindow);
+        ASSERT_(topWin.count(subWindowTitle));
+        auto subWin = topWin.at(subWindowTitle);
+        ASSERT_(subWin != nullptr);
+
+        // Get object GUI handler:
+        // (Note: guiHandlersMtx_ is already locked by main render thread
+        // calling me)
+        if (auto itHandler = guiHandlers_.find(objClassName);
+            itHandler != guiHandlers_.end())
+        {
+            // Update GUI with object:
+            itHandler->second(obj, subWin);
+            return true;
+        }
+        else
+        {
+            // No handler for this class:
+            MRPT_LOG_DEBUG_STREAM(
+                "subwindow_update_visualization() No known handler for obj of "
+                "class: '"
+                << objClassName << "'");
+
+            return false;
+        }
+    });
+
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+    return task->get_future();
 }
 
-void MolaViz::create_subwindow(
-    const std::string& title, const std::string& parentWindow)
+std::future<nanogui::Window*> MolaViz::create_subwindow(
+    const std::string& subWindowTitle, const std::string& parentWindow)
 {
-    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
-    guiThreadPendingTasks_.emplace_back([=]() {
+    using return_type = nanogui::Window*;
+
+    auto task = std::make_shared<std::packaged_task<return_type()>>([=]() {
         MRPT_LOG_DEBUG_STREAM(
-            "create_subwindow() title='" << title << "' inside toplevel '"
-                                         << parentWindow << "'");
+            "create_subwindow() title='"
+            << subWindowTitle << "' inside toplevel '" << parentWindow << "'");
 
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow);
         ASSERT_(topWin);
 
-        auto subw = topWin->createManagedSubWindow(title);
+        auto subw = topWin->createManagedSubWindow(subWindowTitle);
         subw->setLayout(new nanogui::BoxLayout(nanogui::Orientation::Vertical));
+        return subw;
     });
+
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+    return task->get_future();
 }

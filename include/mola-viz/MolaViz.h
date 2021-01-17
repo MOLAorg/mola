@@ -15,7 +15,10 @@
 #include <mola-kernel/interfaces/VizInterface.h>
 #include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/gui/CDisplayWindowGUI.h>
+#include <future>
+#include <memory>
 #include <shared_mutex>
+#include <vector>
 
 namespace mola
 {
@@ -37,15 +40,17 @@ class MolaViz : public ExecutableBase, public VizInterface
 
     /** @name mola-viz main API
      * @{ */
-    using window_name_t = std::string;
+    using window_name_t    = std::string;
+    using subwindow_name_t = std::string;
 
     const static window_name_t DEFAULT_WINDOW_NAME;
 
     static bool     IsRunning();
     static MolaViz* Instance();
 
-    void create_subwindow(
-        const std::string& title,
+    /** Returned object is owned by the VizInterface, do NOT delete it. */
+    std::future<nanogui::Window*> create_subwindow(
+        const std::string& subWindowTitle,
         const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
     /** Updates the contents of a subwindow from a given object, typically a
@@ -58,8 +63,20 @@ class MolaViz : public ExecutableBase, public VizInterface
      *
      * \sa
      */
-    bool subwindow_update_visualization(
-        const std::string& subWindowTitle, const mrpt::rtti::CObject::Ptr& obj);
+    std::future<bool> subwindow_update_visualization(
+        const mrpt::rtti::CObject::Ptr& obj, const std::string& subWindowTitle,
+        const std::string& parentWindow = DEFAULT_WINDOW_NAME);
+
+    /** @} */
+
+    /** @name mola-viz GUI update handlers registry
+     * @{ */
+
+    using update_handler_t =
+        std::function<void(const mrpt::rtti::CObject::Ptr&, nanogui::Window*)>;
+    using class_name_t = std::string;
+    std::map<class_name_t, update_handler_t> guiHandlers_;
+    std::mutex                               guiHandlersMtx_;
 
     /** @} */
 
@@ -72,11 +89,13 @@ class MolaViz : public ExecutableBase, public VizInterface
         const window_name_t& name);
 
     std::map<window_name_t, mrpt::gui::CDisplayWindowGUI::Ptr> windows_;
+    std::map<window_name_t, std::map<subwindow_name_t, nanogui::Window*>>
+        subWindows_;
 
     std::thread guiThread_;
     void        gui_thread();
 
-    using task_queue_t = std::vector<std::function<void(void)>>;
+    using task_queue_t = std::vector<std::function<void()>>;
     task_queue_t guiThreadPendingTasks_;
     std::mutex   guiThreadPendingTasksMtx_;
 };
