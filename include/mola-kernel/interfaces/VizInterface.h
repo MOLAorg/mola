@@ -12,6 +12,7 @@
 #pragma once
 
 #include <mrpt/gui/CDisplayWindowGUI.h>  // nanogui
+#include <future>
 
 namespace mola
 {
@@ -24,9 +25,16 @@ class VizInterface
     VizInterface()          = default;
     virtual ~VizInterface() = default;
 
-    /** Returned object is owned by the VizInterface, do NOT delete it. */
-    virtual void create_subwindow(
+    // ===============================
+    // See class MolaViz for docs
+    // ===============================
+
+    virtual std::future<nanogui::Window*> create_subwindow(
         const std::string& title, const std::string& parentWindow = "main") = 0;
+
+    virtual std::future<bool> subwindow_update_visualization(
+        const mrpt::rtti::CObject::Ptr& obj, const std::string& subWindowTitle,
+        const std::string& parentWindow = "main") = 0;
 
    protected:
 };

@@ -144,21 +144,22 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                 if (++sv->decim_counter < sv->decimation) return;
                 sv->decim_counter = 0;
 
+                // Create subwindow now:
+                auto vizMods = this->findService<mola::VizInterface>();
+                ASSERTMSG_(
+                    !vizMods.empty(),
+                    "Could not find a running MolaViz module");
+
+                auto viz =
+                    std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
+
                 // Create GUI upon first call:
                 COpenGLScene::Ptr scene;
                 if (!sv->win)
                 {
-                    // Create subwindow now:
-                    auto vizMods = this->findService<mola::VizInterface>();
-                    ASSERTMSG_(
-                        !vizMods.empty(),
-                        "Could not find a running MolaViz module");
-
-                    auto viz =
-                        std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
-
-                    // sv->win =
-                    viz->create_subwindow(sv->sensor_label);
+                    // get std::future and wait for it:
+                    auto fut = viz->create_subwindow(sv->sensor_label);
+                    sv->win  = fut.get();
 
                     // Replace and resize, if user provided "win_pos":
                     if (sv->win && !sv->win_pos.empty())
@@ -182,8 +183,10 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 #endif
                 }
 
-                // Update rendered object:
-                MRPT_TODO("Make new registry of renderizable objects,...");
+                // Update the GUI:
+                // (We don't need to wait for the future result, just move on)
+                // auto fut =
+                viz->subwindow_update_visualization(obs, sv->sensor_label);
 
 #if 0
                 // temp code ----
