@@ -8,9 +8,16 @@ MOLA
 .. toctree::
   :maxdepth: 2
   :hidden:
+  :caption: Quickstart
 
   building
   demos
+
+.. toctree::
+  :maxdepth: 2
+  :hidden:
+  :caption: Guide
+
   concepts
   tutorials
   supported-sensors
@@ -51,4 +58,3 @@ Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`

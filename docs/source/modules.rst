@@ -11,6 +11,7 @@ MOLA modules are kept as git submodules under ``${MOLA_ROOT}/modules``.
 .. toctree::
   :maxdepth: 2
 
+  module-mola-common
   module-mola-kernel
   module-mola-launcher
   module-mola-fe-g2o-dataset
@@ -23,3 +24,4 @@ MOLA modules are kept as git submodules under ``${MOLA_ROOT}/modules``.
   module-mola-input-ros1
   module-mola-lidar-segmentation
   module-mola-slam-gtsam
+  module-mola-yaml
