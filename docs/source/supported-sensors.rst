@@ -1,8 +1,8 @@
 .. _supported_sensors:
 
-==================
-Supported sensors
-==================
+======================
+Sensors and datasets
+======================
 
 This page lists the possibilities to feed SLAM algorithms with sensory data
 in the MOLA framework.
