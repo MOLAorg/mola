@@ -13,6 +13,7 @@
  */
 
 #include <mola-yaml/yaml_helpers.h>
+
 #include <iostream>
 
 static void test_yaml2string()
@@ -61,6 +62,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
         test_yaml2string();
         test_parseSimple();
         // test_parseEnvSimple();
+
+        std::cout << "Test successful." << std::endl;
     }
     catch (std::exception& e)
     {
