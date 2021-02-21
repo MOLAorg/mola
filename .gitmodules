@@ -55,3 +55,6 @@
 [submodule "modules/mola-yaml"]
 	path = modules/mola-yaml
 	url = https://github.com/MOLAorg/mola-yaml.git
+[submodule "modules/mola-slam-rhodes"]
+	path = modules/mola-slam-rhodes
+	url = https://github.com/MOLAorg/mola-slam-rhodes.git
