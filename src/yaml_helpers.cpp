@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------
  *   A Modular Optimization framework for Localization and mApping  (MOLA)
- * Copyright (C) 2018-2019 Jose Luis Blanco, University of Almeria
+ * Copyright (C) 2018-2021 Jose Luis Blanco, University of Almeria
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
@@ -19,7 +19,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <experimental/filesystem>
 #include <iostream>
+
+namespace fs = std::experimental::filesystem;
 
 // The format of MOLA YAML files is explained in:
 // https://docs.mola-slam.org/latest/concept-slam-configuration-file.html
@@ -59,7 +62,7 @@ static std::string trimWSNL(const std::string& s)
     str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
     return str;
 }
-std::string mola::yaml2string(const mrpt::containers::yaml& cfg)
+std::string mola::yaml_to_string(const mrpt::containers::yaml& cfg)
 {
     std::stringstream ss;
     ss << cfg;
@@ -163,14 +166,27 @@ static void recursiveParseNodeForIncludes(
 
         auto expr = post.substr(0, post_end);
         // Solve for possible variables, etc:
-        expr = trimWSNL(mola::parseYaml(expr));
+        expr = trimWSNL(mola::parse_yaml(expr));
+
+        // Relative vs absolute paths:
+        std::string newIncludeBaseDir = opts.includesBasePath;
+        if (!opts.includesBasePath.empty())
+        {
+            fs::path f = expr;
+            if (f.is_relative())
+            {
+                f    = fs::path(opts.includesBasePath) / f;
+                expr = f;
+
+                newIncludeBaseDir = fs::path(f).remove_filename();
+            }
+        }
 
         // Read external file:
         if (!mrpt::system::fileExists(expr))
         {
             THROW_EXCEPTION_FMT(
-                "Error: cannot find $include{}'d YAML file with absolute path "
-                "`%s`",
+                "Error: cannot find $include{}'d YAML file with path `%s`",
                 expr.c_str());
         }
 
@@ -181,7 +197,11 @@ static void recursiveParseNodeForIncludes(
         auto filData = yaml::FromFile(expr);
 
         // Handle possible recursive expressions & replace contents:
-        n = yaml::FromText(mola::parseYaml(mola::yaml2string(filData), opts));
+        auto newOpts             = opts;
+        newOpts.includesBasePath = newIncludeBaseDir;
+
+        n = yaml::FromText(
+            mola::parse_yaml(mola::yaml_to_string(filData), newOpts));
 
         if (getenv("VERBOSE"))
             std::cout << "[recursiveParseNodeForIncludes] Include done ok.\n";
@@ -205,17 +225,22 @@ static std::string parseIncludes(
 
     recursiveParseNodeForIncludes(root.node(), opts);
 
-    return mola::yaml2string(root);
+    return mola::yaml_to_string(root);
 
     MRPT_TRY_END
 }
 
-std::string mola::parseYaml(
+mrpt::containers::yaml mola::parse_yaml(
+    const mrpt::containers::yaml& input, const mola::YAMLParseOptions& opts)
+{
+    return mrpt::containers::yaml::FromText(
+        parse_yaml(yaml_to_string(input), opts));
+}
+
+std::string mola::parse_yaml(
     const std::string& text, const YAMLParseOptions& opts)
 {
     std::string s = text;
-
-    MRPT_TODO("Possible bug: #$include{} shouldn't be parsed");
 
     // 1) Parse "$include{}"s
     if (opts.doIncludes) s = parseIncludes(s, opts);
@@ -227,4 +252,22 @@ std::string mola::parseYaml(
     if (opts.doEnvVars) s = parseEnvVars(s, opts);
 
     return s;
+}
+
+/* This is equivalent to calling mrpt::containers::yaml::FromFile(), setting the
+ * relative path in YAMLParseOptions, calling parseYaml(), and reparsing as a
+ * mrpt::containers::yaml class again. \sa parseYaml
+ */
+mrpt::containers::yaml mola::load_yaml_file(
+    const std::string& fileName, const YAMLParseOptions& opts)
+{
+    MRPT_START
+    const auto rawYaml = mrpt::containers::yaml::FromFile(fileName);
+
+    auto optsMod             = opts;
+    optsMod.includesBasePath = mrpt::system::extractFileDirectory(fileName);
+
+    return mrpt::containers::yaml::FromText(
+        parse_yaml(yaml_to_string(rawYaml), optsMod));
+    MRPT_END
 }

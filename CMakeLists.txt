@@ -2,7 +2,7 @@
 #        A Modular Optimization framework for Localization and mApping
 #                               (MOLA)
 #
-# Copyright (C) 2018-2019, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
+# Copyright (C) 2018-2021, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
 # All rights reserved.
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
@@ -23,6 +23,10 @@ find_package(MRPT 2.1.0 REQUIRED COMPONENTS containers system)
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
 file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 
+# Use C++17 filesystem lib:
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+find_package(Filesystem REQUIRED)
+
 mola_add_library(
 	TARGET ${PROJECT_NAME}
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
@@ -30,6 +34,7 @@ mola_add_library(
 		mrpt::containers
 	PRIVATE_LINK_LIBRARIES
 		mrpt::system
+		CXX::Filesystem  # the C++>=17 std lib
 	CMAKE_DEPENDENCIES
 		mrpt-containers
 		mrpt-system

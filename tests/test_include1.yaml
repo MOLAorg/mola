@@ -1,0 +1,4 @@
+# test
+---
+params:
+    $include{test1.yaml}

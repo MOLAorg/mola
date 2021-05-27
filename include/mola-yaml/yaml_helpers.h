@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------
  *   A Modular Optimization framework for Localization and mApping  (MOLA)
- * Copyright (C) 2018-2019 Jose Luis Blanco, University of Almeria
+ * Copyright (C) 2018-2021 Jose Luis Blanco, University of Almeria
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
@@ -13,6 +13,7 @@
 
 #include <mola-yaml/macro_helpers.h>
 #include <mrpt/containers/yaml.h>
+
 #include <sstream>
 #include <string>
 
@@ -27,16 +28,36 @@ struct YAMLParseOptions
     bool doIncludes{true};  //!< "$include{}"s
     bool doCmdRuns{true};  //!< "$()"s
     bool doEnvVars{true};  //!< "${}"s
+
+    /** If not empty, base reference path which respect to "$include{}"s are
+     * specified. Automatically filled in by load_yaml_file() */
+    std::string includesBasePath;
 };
 
 /** Parses: system run expressions `$(cmd)`, environment variables `${VAR}`.
  */
-std::string parseYaml(
+[[nodiscard]] std::string parse_yaml(
     const std::string& text, const YAMLParseOptions& opts = YAMLParseOptions());
+
+/** \overload (Version taking an mrpt::containers::yaml as input and output)
+ */
+[[nodiscard]] mrpt::containers::yaml parse_yaml(
+    const mrpt::containers::yaml& input,
+    const YAMLParseOptions&       opts = YAMLParseOptions());
+
+/** Loads and parses a YAML file.
+ *
+ * This is equivalent to calling mrpt::containers::yaml::FromFile(), setting the
+ * relative path in YAMLParseOptions, calling parseYaml(), and reparsing as a
+ * mrpt::containers::yaml class again. \sa parseYaml
+ */
+[[nodiscard]] mrpt::containers::yaml load_yaml_file(
+    const std::string&      fileName,
+    const YAMLParseOptions& opts = YAMLParseOptions());
 
 /** Converts a yaml node into a string
  */
-std::string yaml2string(const mrpt::containers::yaml& cfg);
+[[nodiscard]] std::string yaml_to_string(const mrpt::containers::yaml& cfg);
 
 #define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
     ASSERTMSG_(_c.has(_name), "Missing YAML required entry: `" _name "`")
