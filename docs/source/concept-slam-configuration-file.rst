@@ -44,7 +44,7 @@ Include other files: ``$include{xxx}``
 -----------------------------------------
 The contents of any entry with the syntax ``$include{/path/to/other/file.yml}``
 will be replaced by the actual contents of the given file, which should be given
-in either absolute path (recommended), or relative to the current working directory.
+in either absolute path, or relative to the current YAML file being parsed.
 
 .. code-block:: yaml
 
@@ -53,6 +53,8 @@ in either absolute path (recommended), or relative to the current working direct
         #...
         params:                 # Other module-specific parameters
           $include{$(mola-dir module-name)/params/xxxx.yaml}
+        config:
+          $include{params/xxxx.yaml}
 
 
 Replace environment variables: ``${foo}``
