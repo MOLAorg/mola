@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------
  *   A Modular Optimization framework for Localization and mApping  (MOLA)
- * Copyright (C) 2018-2019 Jose Luis Blanco, University of Almeria
+ * Copyright (C) 2018-2021 Jose Luis Blanco, University of Almeria
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
@@ -16,8 +16,8 @@
 
 #include <mola-kernel/interfaces/FrontEndBase.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
-#include <mola-yaml/yaml_helpers.h>
 #include <mola-launcher/MolaLauncherApp.h>
+#include <mola-yaml/yaml_helpers.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/core/get_env.h>
 #include <mrpt/system/CDirectoryExplorer.h>
@@ -25,9 +25,11 @@
 #include <mrpt/system/filesystem.h>
 #include <mrpt/system/memory.h>
 #include <mrpt/system/string_utils.h>
+
 #include <chrono>
 #include <iostream>
 #include <thread>
+
 #include "MolaDLL_Loader.h"
 
 using namespace mola;
@@ -135,10 +137,10 @@ void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg_in)
         profiler_dtor_save_stats_.emplace(profiler_);
 
     // Parse YAML env variables, custom commands, etc:
-    const std::string org_cfg = mola::yaml2string(cfg_in);
+    const std::string org_cfg = mola::yaml_to_string(cfg_in);
     MRPT_LOG_DEBUG_STREAM("Raw input YAML configuration file:\n" << org_cfg);
 
-    const std::string parsed_cfg = mola::parseYaml(org_cfg);
+    const std::string parsed_cfg = mola::parse_yaml(org_cfg);
     MRPT_LOG_DEBUG_STREAM(
         "Preprocessed input YAML configuration file:\n"
         << parsed_cfg);
@@ -202,7 +204,7 @@ void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg_in)
 
             InfoPerRunningThread& info = running_threads_[ds_label];
             // Make a copy of the YAML config block:
-            info.yaml_cfg_block = mola::yaml2string(ds);
+            info.yaml_cfg_block = mola::yaml_to_string(ds);
             info.name           = ds_label;
             MRPT_LOG_INFO_STREAM(
                 "Instantiating module `" << ds_label << "` of type `"

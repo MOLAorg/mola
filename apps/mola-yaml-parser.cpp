@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------
  *   A Modular Optimization framework for Localization and mApping  (MOLA)
- * Copyright (C) 2018-2019 Jose Luis Blanco, University of Almeria
+ * Copyright (C) 2018-2021 Jose Luis Blanco, University of Almeria
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 
@@ -16,6 +16,7 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/filesystem.h>
+
 #include <iostream>
 
 // Declare supported cli switches ===========
@@ -39,10 +40,6 @@ int main(int argc, char** argv)
         if (!cmd.parse(argc, argv)) return 1;  // should exit.
 
         const auto filName = arg_input_files.getValue();
-        ASSERT_FILE_EXISTS_(filName);
-
-        // Load & parse YAML file:
-        auto root = mrpt::containers::yaml::FromFile(filName);
 
         // MOLA-specific parsing:
         mola::YAMLParseOptions options;
@@ -50,11 +47,11 @@ int main(int argc, char** argv)
         if (arg_no_cmd_runs.isSet()) options.doCmdRuns = false;
         if (arg_no_env_vars.isSet()) options.doEnvVars = false;
 
-        const std::string parsedTxt =
-            mola::parseYaml(mola::yaml2string(root), options);
+        auto d = mola::load_yaml_file(filName);
 
         // Dump output:
-        std::cout << parsedTxt << std::endl;
+        d.printAsYAML(std::cout);
+        std::cout << std::endl;
 
         return 0;
     }
