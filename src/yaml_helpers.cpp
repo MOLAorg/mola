@@ -19,10 +19,15 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <experimental/filesystem>
 #include <iostream>
 
+#if STD_FS_IS_EXPERIMENTAL
+#include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
 
 // The format of MOLA YAML files is explained in:
 // https://docs.mola-slam.org/latest/concept-slam-configuration-file.html
