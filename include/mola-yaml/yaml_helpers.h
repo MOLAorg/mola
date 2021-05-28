@@ -60,7 +60,10 @@ struct YAMLParseOptions
 [[nodiscard]] std::string yaml_to_string(const mrpt::containers::yaml& cfg);
 
 #define ENSURE_YAML_ENTRY_EXISTS(_c, _name) \
-    ASSERTMSG_(_c.has(_name), "Missing YAML required entry: `" _name "`")
+    ASSERTMSG_(                             \
+        _c.has(_name),                      \
+        mrpt::format(                       \
+            "Missing YAML required entry: `%s`", std::string(_name).c_str()))
 
 /** Loads (optional) variable named "_varname" from the YAML config named `cfg`
  * into the variable `_param_str._varname` */
