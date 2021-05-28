@@ -11,13 +11,14 @@
  */
 #pragma once
 
-#include <mrpt/core/WorkerThreadsPool.h>
 #include <mola-kernel/WorldModel.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mrpt/core/Clock.h>
+#include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/img/TCamera.h>  // TODO: Remove after unused below
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/obs/CSensoryFrame.h>
+
 #include <future>
 #include <optional>
 
@@ -141,7 +142,8 @@ class BackEndBase : public ExecutableBase
    protected:
     WorldModel::Ptr worldmodel_;
 
-    mrpt::WorkerThreadsPool slam_be_threadpool_{2};
+    mrpt::WorkerThreadsPool slam_be_threadpool_{
+        2, mrpt::WorkerThreadsPool::POLICY_FIFO, "slam_backend"};
 };
 
 }  // namespace mola

@@ -57,9 +57,12 @@ class RawDataSourceBase : public mola::ExecutableBase
 
     /** used to optionally export captured observations to an MRPT rawlog */
     mrpt::io::CFileGZOutputStream export_to_rawlog_out_;
-    mrpt::WorkerThreadsPool       worker_pool_export_rawlog_{1};
+    mrpt::WorkerThreadsPool       worker_pool_export_rawlog_{
+        1, mrpt::WorkerThreadsPool::POLICY_FIFO, "worker_pool_export_rawlog"};
 
-    mrpt::WorkerThreadsPool gui_updater_threadpool_{1 /* 1 thread */};
+    mrpt::WorkerThreadsPool gui_updater_threadpool_{
+        1 /* 1 thread */, mrpt::WorkerThreadsPool::POLICY_FIFO,
+        "gui_updater_threadpool"};
 
     struct SensorViewerImpl;
     /** Optional real-time GUI view of sensor data. Viewers indexed by
