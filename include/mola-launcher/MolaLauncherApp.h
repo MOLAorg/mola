@@ -15,6 +15,7 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/system/CTimeLogger.h>
+
 #include <atomic>
 #include <condition_variable>
 #include <map>
@@ -180,6 +181,8 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
 
     /** Set to true to command all running threads to exit */
     std::atomic_bool threads_must_end_{false};
+    std::thread::id  spin_thread_id_;
+    std::atomic_bool spin_is_running_{false};
 
     /** Paths to search for libraries (libmola-xxx.{so,dll}).
      * Used in setup(), can be added to via addPathModuleLibs() */
@@ -199,12 +202,31 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     template <typename T>
     void stopAllThreadsOfType()
     {
+        // signal them to end:
         for (auto& th : running_threads_)
         {
             InfoPerRunningThread& rds = th.second;
             if (auto p = dynamic_cast<T*>(rds.impl.get()); p != nullptr)
+            {
+                if (!rds.executor.joinable() || rds.this_thread_must_end)
+                    continue;  // nothing to do
+
                 rds.this_thread_must_end = true;
+                MRPT_LOG_DEBUG_FMT(
+                    "stopAllThreadsOfType<>: Requesting end of thread '%s'.",
+                    rds.name.c_str());
+                // and wait for them:
+                if (rds.executor.joinable())
+                {
+                    rds.executor.join();
+                    MRPT_LOG_DEBUG_FMT(
+                        "stopAllThreadsOfType<>: thread '%s' successfully "
+                        "ended.",
+                        rds.name.c_str());
+                }
+            }
         }
+        MRPT_LOG_DEBUG("stopAllThreadsOfType<> done.");
     }
 };
 

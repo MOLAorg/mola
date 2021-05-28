@@ -67,36 +67,52 @@ MolaLauncherApp::MolaLauncherApp()
 MolaLauncherApp::~MolaLauncherApp()
 {
     if (running_threads_.empty()) return;
-
     this->shutdown();
-
-    MRPT_LOG_INFO_STREAM(
-        "Shutting down " << running_threads_.size() << " module threads...");
-    for (auto& ds : running_threads_)
-        if (ds.second.executor.joinable()) ds.second.executor.join();
-    MRPT_LOG_INFO("Done.");
-    running_threads_.clear();
-
-    using namespace std::chrono_literals;
-    std::this_thread::sleep_for(100ms);
 }
 
+// Ordered shut down:
 void MolaLauncherApp::shutdown()
 {
     using namespace std::chrono_literals;
 
-    // Ordered shut down:
+    MRPT_LOG_INFO_STREAM(
+        "shutdown(): Shutting down " << running_threads_.size()
+                                     << " module threads...");
 
     // Stop data sources first
+    MRPT_LOG_DEBUG("shutdown(): stopping RawDataSourceBase modules.");
     stopAllThreadsOfType<RawDataSourceBase>();
-    std::this_thread::sleep_for(200ms);
+    std::this_thread::sleep_for(50ms);
 
     // Front ends next:
+    MRPT_LOG_DEBUG("shutdown(): stopping FrontEndBase modules.");
     stopAllThreadsOfType<FrontEndBase>();
-    std::this_thread::sleep_for(300ms);
+    std::this_thread::sleep_for(50ms);
 
     // End all threads:
+    MRPT_LOG_DEBUG("shutdown(): stopping all other modules.");
+    for (auto& ds : running_threads_)
+    {
+        if (ds.second.executor.joinable())
+        {
+            ds.second.this_thread_must_end = true;
+            MRPT_LOG_DEBUG_FMT(
+                "shutdown(): stopping '%s'.", ds.second.name.c_str());
+            ds.second.executor.join();
+        }
+    }
+    MRPT_LOG_INFO("shutdown(): Done.");
+    running_threads_.clear();
+
     threads_must_end_ = true;
+    // we need to wait for the end of spin, only if we are now in a different
+    // thread:
+    if (std::this_thread::get_id() != spin_thread_id_)
+    {
+        MRPT_LOG_DEBUG("shutdown(): Waiting for the end of spin().");
+        while (spin_is_running_) { std::this_thread::sleep_for(10ms); }
+        MRPT_LOG_DEBUG("shutdown(): spin() ended.");
+    }
 }
 
 void MolaLauncherApp::addPathModuleLibs(const std::string& path)
@@ -263,6 +279,21 @@ void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg_in)
 
 void MolaLauncherApp::spin()
 {
+    struct RunningGuard
+    {
+        RunningGuard(
+            const std::function<void()>& runAtStart,
+            const std::function<void()>& runAtEnd)
+            : runAtEnd_(runAtEnd)
+        {
+            runAtStart();
+        }
+        const std::function<void()> runAtEnd_;
+    };
+    RunningGuard runningGuard(
+        [this]() { spin_is_running_ = true; },
+        [this]() { spin_is_running_ = false; });
+
     MRPT_TRY_START
 
     // Launch working threads:
@@ -303,11 +334,12 @@ void MolaLauncherApp::spin()
     MRPT_LOG_INFO(
         "Entering main SLAM/localization loop..."
         "(CTRL+C from mola-cli to stop)");
+
+    spin_thread_id_ = std::this_thread::get_id();
     while (!threads_must_end_)
     {
         using namespace std::chrono_literals;
-        std::this_thread::sleep_for(500ms);
-
+        std::this_thread::sleep_for(200ms);
         internal_spin_tasks();
     }
     MRPT_LOG_INFO("Main SLAM/localization loop ended.");
@@ -378,9 +410,9 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
             << mrpt::exception_to_str(e));
         threads_must_end_ = true;
     }
-    using namespace std::chrono_literals;
+    // using namespace std::chrono_literals;
     // Give time for all threads to end:
-    std::this_thread::sleep_for(250ms);
+    // std::this_thread::sleep_for(25ms);
 }
 
 ExecutableBase::Ptr MolaLauncherApp::nameServerImpl(const std::string& name)
