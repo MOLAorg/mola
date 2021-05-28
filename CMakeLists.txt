@@ -62,6 +62,7 @@ add_subdirectory(modules)
 
 message(STATUS "========================= MOLA configuration ======================")
 message(STATUS "C++ Compiler              : ${CMAKE_CXX_COMPILER} Version: ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "CMake version             : ${CMAKE_VERSION}")
 message(STATUS "CMake generator           : ${CMAKE_GENERATOR}")
 message(STATUS "CMake build tool          : ${CMAKE_BUILD_TOOL}")
 message(STATUS "Sphinx (for docs)         : ${SPHINX_EXECUTABLE}")
