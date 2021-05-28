@@ -25,6 +25,7 @@
 #include <mrpt/system/filesystem.h>
 #include <mrpt/system/memory.h>
 #include <mrpt/system/string_utils.h>
+#include <mrpt/system/thread_name.h>
 
 #include <chrono>
 #include <iostream>
@@ -324,6 +325,9 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
         MRPT_LOG_DEBUG_STREAM(
             "Thread started for module named `"
             << rds.name << "` (launch priority=" << rds.launch_priority << ")");
+
+        // Set thread name (for debuggers)
+        mrpt::system::thread_name(rds.name);
 
         // Ensure that modules initialize one by one, if so defined:
         std::unique_ptr<std::unique_lock<std::mutex>> lock;
