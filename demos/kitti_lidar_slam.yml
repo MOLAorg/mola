@@ -5,6 +5,11 @@
 # -----------------------------------------------------------------------------
 
 modules:
+# Setup of visualizer =====================================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
 # Setup of SLAM back-end =====================================
   - type: mola::ASLAM_gtsam
     name: backend
