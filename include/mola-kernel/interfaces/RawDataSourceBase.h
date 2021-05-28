@@ -18,6 +18,7 @@
 #include <mrpt/core/pimpl.h>
 #include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/obs/CObservation.h>
+
 #include <functional>
 #include <memory>
 
@@ -31,7 +32,7 @@ class RawDataSourceBase : public mola::ExecutableBase
 
    public:
     RawDataSourceBase();
-    virtual ~RawDataSourceBase() = default;
+    virtual ~RawDataSourceBase();
 
     /** Attach this object to a consumer. A shared_ptr is created to keep a
      * reference to the object. */
@@ -57,6 +58,8 @@ class RawDataSourceBase : public mola::ExecutableBase
     /** used to optionally export captured observations to an MRPT rawlog */
     mrpt::io::CFileGZOutputStream export_to_rawlog_out_;
     mrpt::WorkerThreadsPool       worker_pool_export_rawlog_{1};
+
+    mrpt::WorkerThreadsPool gui_updater_threadpool_{1 /* 1 thread */};
 
     struct SensorViewerImpl;
     /** Optional real-time GUI view of sensor data. Viewers indexed by

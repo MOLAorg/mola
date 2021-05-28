@@ -14,16 +14,15 @@
 #include <mola-kernel/interfaces/VizInterface.h>
 #include <mola-yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
-#include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
-#include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/CPlanarLaserScan.h>
 #include <mrpt/opengl/stock_objects.h>
 #include <mrpt/serialization/CArchive.h>
+
 #include <iostream>
 
 using namespace mola;
@@ -32,8 +31,6 @@ MRPT_TODO("Move sensor-specific rendering to MolaViz module");
 
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_VIRTUAL_MRPT_OBJECT(RawDataSourceBase, ExecutableBase, mola)
-
-static mrpt::WorkerThreadsPool gui_updater_threadpool(1 /* 1 thread */);
 
 struct RawDataSourceBase::SensorViewerImpl
 {
@@ -45,6 +42,16 @@ struct RawDataSourceBase::SensorViewerImpl
 };
 
 RawDataSourceBase::RawDataSourceBase() = default;
+
+RawDataSourceBase::~RawDataSourceBase()
+{
+    if (!gui_updater_threadpool_.pendingTasks()) return;
+
+    MRPT_LOG_INFO_STREAM(
+        "Dtor called while gui_updater_threadpool_ still has "
+        << gui_updater_threadpool_.pendingTasks() << " tasks. Aborting them.");
+    gui_updater_threadpool_.clear();
+}
 
 void RawDataSourceBase::initialize_common(const std::string& cfg_block)
 {
@@ -138,6 +145,8 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
         auto func = [this, sv, obs]() {
             try
             {
+                ProfilerEntry pe(profiler_, "send to viz lambda");
+
                 using namespace mrpt::opengl;
 
                 // GUI update decimation:
@@ -154,7 +163,6 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                     std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
 
                 // Create GUI upon first call:
-                COpenGLScene::Ptr scene;
                 if (!sv->win)
                 {
                     // get std::future and wait for it:
@@ -256,7 +264,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
             }
         };
 
-        gui_updater_threadpool.enqueue(func);
+        gui_updater_threadpool_.enqueue(func);
     }
 
     MRPT_TRY_END
