@@ -15,6 +15,7 @@
 #include <mola-kernel/interfaces/VizInterface.h>
 #include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/gui/CDisplayWindowGUI.h>
+
 #include <future>
 #include <memory>
 #include <shared_mutex>
@@ -65,20 +66,27 @@ class MolaViz : public ExecutableBase, public VizInterface
      */
     std::future<bool> subwindow_update_visualization(
         const mrpt::rtti::CObject::Ptr& obj, const std::string& subWindowTitle,
-        const std::string& parentWindow = DEFAULT_WINDOW_NAME);
+        const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
     /** @} */
 
     /** @name mola-viz GUI update handlers registry
      * @{ */
 
-    using update_handler_t =
-        std::function<void(const mrpt::rtti::CObject::Ptr&, nanogui::Window*)>;
-    using class_name_t = std::string;
-    std::map<class_name_t, update_handler_t> guiHandlers_;
-    std::mutex                               guiHandlersMtx_;
+    using update_handler_t = std::function<void(
+        const mrpt::rtti::CObject::Ptr&, nanogui::Window* subWin,
+        window_name_t parentWin, MolaViz* instance)>;
+    using class_name_t     = std::string;
+
+    static void register_gui_handler(
+        class_name_t className, update_handler_t handler);
 
     /** @} */
+
+    void markWindowForReLayout(const window_name_t& name)
+    {
+        guiThreadMustReLayoutTheseWindows_.insert(name);
+    }
 
    private:
     // mrpt::WorkerThreadsPool worker_pool_{1};
@@ -96,8 +104,9 @@ class MolaViz : public ExecutableBase, public VizInterface
     void        gui_thread();
 
     using task_queue_t = std::vector<std::function<void()>>;
-    task_queue_t guiThreadPendingTasks_;
-    std::mutex   guiThreadPendingTasksMtx_;
+    task_queue_t            guiThreadPendingTasks_;
+    std::set<window_name_t> guiThreadMustReLayoutTheseWindows_;
+    std::mutex              guiThreadPendingTasksMtx_;
 };
 
 }  // namespace mola
