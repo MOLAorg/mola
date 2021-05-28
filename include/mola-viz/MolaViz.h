@@ -13,7 +13,6 @@
 
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/interfaces/VizInterface.h>
-#include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/gui/CDisplayWindowGUI.h>
 
 #include <future>
@@ -89,7 +88,6 @@ class MolaViz : public ExecutableBase, public VizInterface
     }
 
    private:
-    // mrpt::WorkerThreadsPool worker_pool_{1};
     static MolaViz*          instance_;
     static std::shared_mutex instanceMtx_;
 

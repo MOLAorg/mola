@@ -22,6 +22,7 @@
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/stock_objects.h>
+#include <mrpt/system/thread_name.h>
 
 using namespace mola;
 
@@ -154,6 +155,8 @@ void MolaViz::gui_thread()
 {
     MRPT_LOG_DEBUG("gui_thread() started.");
 
+    mrpt::system::thread_name("MolaViz::gui_thread");
+
     nanogui::init();
 
     // Open first GUI window:
@@ -194,9 +197,16 @@ void MolaViz::gui_thread()
             windows_.at(winName)->performLayout();
     });
 
+    // A call to "nanogui::leave()" is required to end the infinite loop
+    // in mainloop:
     nanogui::mainloop(100 /*refresh milliseconds*/);
 
+    // Tidy up:
     nanogui::shutdown();
+
+    // Delete all OpenGL memory from this same thread:
+    windows_.clear();
+    subWindows_.clear();
 
     MRPT_LOG_DEBUG("gui_thread() quitted.");
 }
