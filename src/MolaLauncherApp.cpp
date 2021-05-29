@@ -331,9 +331,11 @@ void MolaLauncherApp::spin()
 
     // Main SLAM/Localization infinite loop
     // -------------------------------------------
-    MRPT_LOG_INFO(
-        "Entering main SLAM/localization loop..."
-        "(CTRL+C from mola-cli to stop)");
+    // clang-format off
+    MRPT_LOG_INFO("==========================================================================");
+    MRPT_LOG_INFO("Entering main SLAM/localization loop >>>>CTRL+C from mola-cli to stop<<<<");
+    MRPT_LOG_INFO("==========================================================================");
+    // clang-format on
 
     spin_thread_id_ = std::this_thread::get_id();
     while (!threads_must_end_)
