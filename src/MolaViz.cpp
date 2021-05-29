@@ -298,8 +298,8 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
             ASSERT_(topWin);
 
             auto subw = topWin->createManagedSubWindow(subWindowTitle);
-            subw->setLayout(
-                new nanogui::BoxLayout(nanogui::Orientation::Vertical));
+            subw->setLayout(new nanogui::GroupLayout(2, 2));
+            // BoxLayout(nanogui::Orientation::Vertical));
 
             // add to list of subwindows too:
             subWindows_[parentWindow][subWindowTitle] = subw;
@@ -328,8 +328,14 @@ void gui_handler_images(
     if (w->children().size() == 1)
     {
         // Guess window size:
-        MRPT_TODO("Guess if we need to decimate subwindow size");
-        const int winW = obj->image.getWidth(), winH = obj->image.getHeight();
+        int winW = obj->image.getWidth(), winH = obj->image.getHeight();
+
+        // Guess if we need to decimate subwindow size:
+        while (winW > 512 || winH > 512)
+        {
+            winW /= 2;
+            winH /= 2;
+        }
 
         glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
         glControl->setSize({winW, winH});
@@ -346,6 +352,9 @@ void gui_handler_images(
             dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
     }
     ASSERT_(glControl != nullptr);
+
+    // This overcomes a bug in MRPT 2.3.1, fixed in 2.3.2:
+    obj->image.loadFromFile(obj->image.getExternalStorageFileAbsolutePath());
 
     auto lck = mrpt::lockHelper(glControl->scene_mtx);
     glControl->scene->getViewport()->setImageView(obj->image);
