@@ -5,10 +5,13 @@
 # -----------------------------------------------------------------------------
 
 modules:
-# Offline or online sensory data sources =====================
+  # =====================
+  # EurocDataset
+  # =====================
   - name: euroc_input
     type: mola::EurocDataset
     execution_rate: 50 # Hz
+    # (The following requires creating a MolaViz instance)
     gui_preview_sensors:
       - raw_sensor_label: cam0
         decimation: 1
@@ -19,8 +22,11 @@ modules:
     params:
       base_dir: ${EUROC_BASE_DIR}
       sequence: vicon_room1/V1_01_easy/
-      time_warp_scale: 0.1 # 1.0
+      time_warp_scale: 1.0
+  # =====================
+  # MolaViz
+  # =====================
   - name: viz
     type: mola::MolaViz
-    verbosity_level: DEBUG
+    #verbosity_level: DEBUG
     params: ~ # none
