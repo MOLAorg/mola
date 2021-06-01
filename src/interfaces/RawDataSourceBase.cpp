@@ -115,10 +115,11 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
     }
     else
     {
-        MRPT_LOG_THROTTLE_WARN(
+        MRPT_LOG_THROTTLE_WARN_FMT(
             10.0,
-            "[sendObservationsToFrontEnds] Dropping observation: no consumer "
-            "is attached.");
+            "[sendObservationsToFrontEnds] Dropping observation '%s': no "
+            "consumer is attached.",
+            obs->sensorLabel.c_str());
     }
 
     // if we are storing data to .rawlog, enqueue it in the specific worker
