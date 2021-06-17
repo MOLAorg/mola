@@ -100,9 +100,16 @@ static std::string parseEnvVars(
         varvalue = std::string(v);
     else
     {
-        THROW_EXCEPTION_FMT(
-            "YAML parseEnvVars(): Undefined variable found: ${%s}",
-            varname.c_str());
+        // Handle special variable names:
+        // ${CURRENT_YAML_FILE_PATH}
+        if (varname == "CURRENT_YAML_FILE_PATH")
+            varvalue = opts.includesBasePath;
+        else
+        {
+            THROW_EXCEPTION_FMT(
+                "YAML parseEnvVars(): Undefined variable found: ${%s}",
+                varname.c_str());
+        }
     }
 
     return parseEnvVars(pre + varvalue + post.substr(post_end + 1), opts);
