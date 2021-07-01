@@ -136,4 +136,3 @@ modules:
 #        - topic: /velodyne2
 #          type: PointCloud2
 #          output_sensor_label: lidar2
-
