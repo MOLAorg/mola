@@ -5,7 +5,9 @@
 # -----------------------------------------------------------------------------
 
 modules:
-# Offline or online sensory data sources =====================
+  # =====================
+  # KaistDataset
+  # =====================
   - type: mola::KaistDataset
     name: kaist_input
     execution_rate: 50 # Hz
@@ -25,3 +27,10 @@ modules:
       publish_odometry: true
       publish_VLP_left: true
       publish_VLP_right: true
+  # =====================
+  # MolaViz
+  # =====================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
