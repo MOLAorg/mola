@@ -17,6 +17,7 @@ project(mola-viz LANGUAGES CXX)
 find_package(mola-common REQUIRED)
 # find dependencies:
 find_package(mrpt-gui REQUIRED)
+find_package(mrpt-maps REQUIRED)
 find_package(mrpt-opengl REQUIRED)
 find_mola_package(mola-kernel)
 
@@ -32,6 +33,7 @@ mola_add_library(
 		mola-kernel
 		mrpt::gui
 		mrpt::opengl
+		mrpt::maps
 	CMAKE_DEPENDENCIES
 		mola-kernel
 		mrpt-gui

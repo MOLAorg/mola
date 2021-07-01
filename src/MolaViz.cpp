@@ -20,9 +20,12 @@
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/obs/CObservationImage.h>
+#include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
+#include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/stock_objects.h>
 #include <mrpt/system/thread_name.h>
+#include <mrpt/version.h>
 
 using namespace mola;
 
@@ -43,7 +46,13 @@ struct HandlersContainer
     HandlersContainer() = default;
 };
 
+// CObservationImage
 void gui_handler_images(
+    const mrpt::rtti::CObject::Ptr&, nanogui::Window*,
+    MolaViz::window_name_t parentWin, MolaViz* instance);
+
+// CObservationPointCloud
+void gui_handler_point_cloud(
     const mrpt::rtti::CObject::Ptr&, nanogui::Window*,
     MolaViz::window_name_t parentWin, MolaViz* instance);
 
@@ -55,6 +64,8 @@ MRPT_INITIALIZER(do_register_MolaViz)
     // Register GUI handlers for common sensor types:
     MolaViz::register_gui_handler(
         "mrpt::obs::CObservationImage", &gui_handler_images);
+    MolaViz::register_gui_handler(
+        "mrpt::obs::CObservationPointCloud", &gui_handler_point_cloud);
 }
 
 MolaViz*                     MolaViz::instance_ = nullptr;
@@ -313,6 +324,7 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
     return task->get_future();
 }
 
+// CObservationImage
 void gui_handler_images(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
     MolaViz::window_name_t parentWin, MolaViz* instance)
@@ -353,9 +365,59 @@ void gui_handler_images(
     }
     ASSERT_(glControl != nullptr);
 
+#if MRPT_VERSION <= 0x232
     // This overcomes a bug in MRPT 2.3.1, fixed in 2.3.2:
     obj->image.loadFromFile(obj->image.getExternalStorageFileAbsolutePath());
+#endif
 
     auto lck = mrpt::lockHelper(glControl->scene_mtx);
     glControl->scene->getViewport()->setImageView(obj->image);
+}
+
+// CObservationPointCloud
+void gui_handler_point_cloud(
+    const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
+    MolaViz::window_name_t parentWin, MolaViz* instance)
+{
+    auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationPointCloud>(o);
+    if (!obj) return;
+    if (!obj->pointcloud) return;
+
+    MRPT_TODO("Add more info abot the PC");
+
+    obj->load();
+
+    mrpt::gui::MRPT2NanoguiGLCanvas*       glControl;
+    mrpt::opengl::CPointCloudColoured::Ptr glPc;
+    if (w->children().size() == 1)
+    {
+        // Reuse from past iterations:
+        glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
+
+        auto lck = mrpt::lockHelper(glControl->scene_mtx);
+
+        glControl->scene = mrpt::opengl::COpenGLScene::Create();
+
+        glPc = mrpt::opengl::CPointCloudColoured::Create();
+        glControl->scene->insert(glPc);
+
+        glPc->setPointSize(3.0);
+        instance->markWindowForReLayout(parentWin);
+    }
+    else
+    {
+        // Create on first use:
+        glControl =
+            dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
+        auto lck = mrpt::lockHelper(glControl->scene_mtx);
+
+        glPc =
+            glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
+    }
+    ASSERT_(glControl != nullptr);
+    ASSERT_(glPc);
+
+    auto lck = mrpt::lockHelper(glControl->scene_mtx);
+    glPc->loadFromPointsMap(obj->pointcloud.get());
+    // glPc->recolorizeByCoordinate();
 }
