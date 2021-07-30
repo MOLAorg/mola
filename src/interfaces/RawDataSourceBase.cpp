@@ -16,7 +16,6 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
-#include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/CPlanarLaserScan.h>
@@ -126,7 +125,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
     // thread:
     if (export_to_rawlog_out_.is_open())
     {
-        worker_pool_export_rawlog_.enqueue(
+        auto fut = worker_pool_export_rawlog_.enqueue(
             [this](mrpt::obs::CObservation::Ptr& o) {
                 if (!o) return;
                 auto a = mrpt::serialization::archiveFrom(
@@ -182,14 +181,6 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                             sv->win->setSize({w, h});
                         }
                     }
-
-#if 0
-                     mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
-                    scene->insert(stock_objects::CornerXYZSimple(1.0f, 4.0f));
-                    auto o = CSetOfObjects::Create();
-                    o->setName("pointcloud");
-                    scene->insert(o);
-#endif
                 }
 
                 // Update the GUI:
@@ -199,22 +190,6 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
 #if 0
                 // temp code ----
-                if (auto o_points =
-                        mrpt::ptr_cast<mrpt::obs::CObservationPointCloud>::from(
-                            obs);
-                    o_points && o_points->pointcloud)
-                {
-                    mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
-                    auto o     = scene->getByName("pointcloud");
-                    auto gl_pt = mrpt::ptr_cast<CSetOfObjects>::from(o);
-
-                    // o_points
-                    gl_pt->clear();
-                    o_points->pointcloud->renderOptions.point_size = 1.0f;
-                    o_points->pointcloud->getAs3DObject(gl_pt);
-                    gl_pt->setPose(o_points->sensorPose);
-                }
-
                 if (auto o_velo = mrpt::ptr_cast<
                         mrpt::obs::CObservationVelodyneScan>::from(obs);
                     o_velo)
@@ -247,14 +222,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                     gl_scan->setScan(*o_2dscan);
                     gl_pt->insert(gl_scan);
                 }
-
-                auto o_img =
-                    mrpt::ptr_cast<mrpt::obs::CObservationImage>::from(obs);
-                if (o_img) { sv->win->setImageView(o_img->image); }
                 // temp code ----
-
-                // Force repaint:
-                sv->win->repaint();
 #endif
             }
             catch (const std::exception& e)
@@ -265,7 +233,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
             }
         };
 
-        gui_updater_threadpool_.enqueue(func);
+        auto fut = gui_updater_threadpool_.enqueue(func);
     }
 
     MRPT_TRY_END

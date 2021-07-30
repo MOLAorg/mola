@@ -40,7 +40,7 @@ class RawDataSourceBase : public mola::ExecutableBase
 
     /** Loads common parameters for all RDS. Called by launcher just before
      * initialize(). */
-    void initialize_common(const std::string& cfg_block);
+    void initialize_common(const std::string& cfg_block) override;
 
    protected:
     /** Send an observation to the associated target front-ends */

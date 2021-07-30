@@ -13,6 +13,7 @@
 #include <mola-kernel/interfaces/FrontEndBase.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/containers/yaml.h>
+
 #include <iostream>
 
 using namespace mola;
@@ -33,10 +34,15 @@ void FrontEndBase::initialize_common(const std::string& cfg_block)
         cfg.getOrDefault<std::string>("raw_sensor_label", raw_sensor_label_);
 
     MRPT_TODO("Enable multiple source modules, comma sep list, etc.");
-    auto ds_source = cfg["raw_data_source"];
-    if (ds_source)
+    if (cfg.has("raw_data_source"))
     {
+        auto ds_source = cfg["raw_data_source"];
+
         const auto src_name = ds_source.as<std::string>();
+
+        MRPT_LOG_DEBUG_STREAM(
+            "initialize_common(): raw sensor input: " << raw_sensor_label_
+                                                      << " @ " << src_name);
 
         ASSERT_(this->nameServer_);
 
