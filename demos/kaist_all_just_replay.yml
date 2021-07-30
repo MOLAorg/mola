@@ -12,7 +12,7 @@ modules:
     name: kaist_input
     execution_rate: 50 # Hz
     #verbosity_level: INFO
-    export_to_rawlog: kaist_${KAIST_SEQ}.rawlog
+    #export_to_rawlog: kaist_${KAIST_SEQ}.rawlog
     gui_preview_sensors:
       - raw_sensor_label: VLP_left
         decimation: 1
