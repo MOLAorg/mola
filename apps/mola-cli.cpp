@@ -15,6 +15,7 @@
 #include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/rtti/CObject.h>
+
 #include <csignal>  // sigaction
 #include <cstdlib>
 #include <iostream>
@@ -166,8 +167,14 @@ int mola_cli_list_modules()
 int mola_cli_list_module_shared_dirs()
 {
     const auto mod2path_lst = app.scanForModuleSharedDirectories();
+
+    int longestName = 1;
     for (const auto& p : mod2path_lst)
-        std::cout << p.first << ": " << p.second << "\n";
+        mrpt::keep_max<int>(longestName, p.first.size());
+
+    for (const auto& p : mod2path_lst)
+        std::cout << mrpt::format(
+            "%-*s : %s\n", longestName, p.first.c_str(), p.second.c_str());
 
     return 0;
 }
