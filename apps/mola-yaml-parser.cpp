@@ -11,6 +11,7 @@
  * @date   Sep 9, 2019
  */
 
+#include <mola-kernel/pretty_print_exception.h>
 #include <mola-yaml/yaml_helpers.h>
 #include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/containers/yaml.h>
@@ -57,8 +58,9 @@ int main(int argc, char** argv)
     }
     catch (std::exception& e)
     {
-        std::cerr << "[mola-yaml-parser] Exit due to exception:\n"
-                  << mrpt::exception_to_str(e) << std::endl;
+        mola::pretty_print_exception(
+            e, "[mola-yaml-parser] Exit due to exception:");
+
         return 1;
     }
 }

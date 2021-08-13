@@ -11,8 +11,10 @@
  * @date   Jun 24, 2019
  */
 
+#include <mola-kernel/pretty_print_exception.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
+
 #include <iostream>
 
 int main(int argc, char** argv)
@@ -42,8 +44,7 @@ int main(int argc, char** argv)
     }
     catch (std::exception& e)
     {
-        std::cerr << "[mola-dir] Exit due to exception:\n"
-                  << mrpt::exception_to_str(e) << std::endl;
+        mola::pretty_print_exception(e, "[mola-dir] Exit due to exception:");
         return 1;
     }
 }

@@ -11,6 +11,7 @@
  * @date   Nov 28, 2018
  */
 
+#include <mola-kernel/pretty_print_exception.h>
 #include <mola-launcher/MolaLauncherApp.h>
 #include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/core/exceptions.h>
@@ -211,8 +212,7 @@ int main(int argc, char** argv)
     }
     catch (std::exception& e)
     {
-        std::cerr << "[mola-cli] Exit due to exception:\n"
-                  << mrpt::exception_to_str(e) << std::endl;
+        mola::pretty_print_exception(e, "[mola-cli] Exit due to exception:");
         return 1;
     }
 }
