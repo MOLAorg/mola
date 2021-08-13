@@ -6,14 +6,30 @@
 
 modules:
 # Offline or online sensory data sources =====================
+  # =====================
+  # RawlogDataset
+  # =====================
   - name: rawlog_input
     type: mola::RawlogDataset
-    execution_rate: 50 # Hz
+    execution_rate: 150 # Hz
     #verbosity_level: INFO
     gui_preview_sensors:
-      - raw_sensor_label: Velodyne1_SCAN
+      - raw_sensor_label: LPS_DN_RAW
         decimation: 1
         win_pos: 5 5 400 400
+      - raw_sensor_label: LPS_UP_RAW
+        decimation: 1
+        win_pos: 5 5 400 400
+      - raw_sensor_label: HOKUYO_UXo
+        decimation: 1
+        win_pos: 0 0 500 200 # [x,y,width,height]
     params:
       rawlog_filename: ${MOLA_INPUT_RAWLOG}
       time_warp_scale: 1.0
+  # =====================
+  # MolaViz
+  # =====================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
