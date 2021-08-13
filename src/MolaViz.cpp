@@ -19,6 +19,9 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/lock_helper.h>
+#include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/obs/CObservation2DRangeScan.h>
+#include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
@@ -66,6 +69,10 @@ MRPT_INITIALIZER(do_register_MolaViz)
         "mrpt::obs::CObservationImage", &gui_handler_images);
     MolaViz::register_gui_handler(
         "mrpt::obs::CObservationPointCloud", &gui_handler_point_cloud);
+    MolaViz::register_gui_handler(
+        "mrpt::obs::CObservation3DRangeScan", &gui_handler_point_cloud);
+    MolaViz::register_gui_handler(
+        "mrpt::obs::CObservation2DRangeScan", &gui_handler_point_cloud);
 }
 
 MolaViz*                     MolaViz::instance_ = nullptr;
@@ -309,8 +316,9 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
             ASSERT_(topWin);
 
             auto subw = topWin->createManagedSubWindow(subWindowTitle);
-            subw->setLayout(new nanogui::GroupLayout(2, 2));
-            // BoxLayout(nanogui::Orientation::Vertical));
+            subw->setLayout(new nanogui::GridLayout(
+                nanogui::Orientation::Vertical, 1, nanogui::Alignment::Fill, 2,
+                2));
 
             // add to list of subwindows too:
             subWindows_[parentWindow][subWindowTitle] = subw;
@@ -322,6 +330,33 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
     guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
     guiThreadMustReLayoutTheseWindows_.insert(parentWindow);
     return task->get_future();
+}
+
+void gui_handler_show_common_sensor_info(
+    const mrpt::obs::CObservation& obs, nanogui::Window* w)
+{
+    auto glControl =
+        dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
+    if (!glControl) return;
+    if (!glControl->scene) return;
+
+    auto glView = glControl->scene->getViewport();
+    if (!glView) return;
+
+    constexpr unsigned int TXT_ID_TIMESTAMP = 0;
+
+    mrpt::opengl::TFontParams fp;
+    fp.color        = {1.0f, 1.0f, 1.0f};
+    fp.draw_shadow  = true;
+    fp.shadow_color = {0.0f, 0.0f, 0.0f};
+    fp.vfont_scale  = 8;
+
+    glView->addTextMessage(
+        2, 2,
+        mrpt::format(
+            "Timestamp: %s",
+            mrpt::system::dateTimeToString(obs.timestamp).c_str()),
+        TXT_ID_TIMESTAMP, fp);
 }
 
 // CObservationImage
@@ -372,20 +407,20 @@ void gui_handler_images(
 
     auto lck = mrpt::lockHelper(glControl->scene_mtx);
     glControl->scene->getViewport()->setImageView(obj->image);
+
+    gui_handler_show_common_sensor_info(*obj, w);
 }
 
 // CObservationPointCloud
+// CObservation2DRangeScan
+// CObservation3DRangeScan
 void gui_handler_point_cloud(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
     MolaViz::window_name_t parentWin, MolaViz* instance)
 {
-    auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationPointCloud>(o);
-    if (!obj) return;
-    if (!obj->pointcloud) return;
+    using namespace mrpt::obs;
 
-    MRPT_TODO("Add more info abot the PC");
-
-    obj->load();
+    MRPT_TODO("Show more info abot the PC");
 
     mrpt::gui::MRPT2NanoguiGLCanvas*       glControl;
     mrpt::opengl::CPointCloudColoured::Ptr glPc;
@@ -418,6 +453,40 @@ void gui_handler_point_cloud(
     ASSERT_(glPc);
 
     auto lck = mrpt::lockHelper(glControl->scene_mtx);
-    glPc->loadFromPointsMap(obj->pointcloud.get());
-    // glPc->recolorizeByCoordinate();
+
+    if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
+        objPc)
+    {
+        if (!objPc->pointcloud) return;
+        objPc->load();
+        glPc->loadFromPointsMap(objPc->pointcloud.get());
+
+        gui_handler_show_common_sensor_info(*objPc, w);
+    }
+    else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
+             obj3D)
+    {
+        obj3D->load();
+
+        mrpt::obs::T3DPointsProjectionParams pp;
+        pp.takeIntoAccountSensorPoseOnRobot = true;
+
+        obj3D->unprojectInto(*glPc, pp);
+        gui_handler_show_common_sensor_info(*obj3D, w);
+    }
+    else if (auto obj2D = std::dynamic_pointer_cast<CObservation2DRangeScan>(o);
+             obj2D)
+    {
+        mrpt::maps::CSimplePointsMap auxMap;
+        auxMap.insertObservationPtr(obj2D);
+        glPc->loadFromPointsMap(&auxMap);
+
+        gui_handler_show_common_sensor_info(*obj2D, w);
+    }
+    else
+        return;
+
+    // viz options:
+    const auto bb = glPc->getBoundingBox();
+    glPc->recolorizeByCoordinate(bb.min.z, bb.max.z);
 }
