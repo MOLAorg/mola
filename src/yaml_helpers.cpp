@@ -37,7 +37,6 @@ namespace fs = std::filesystem;
 
 using mrpt::containers::yaml;
 
-// Shared code w/ MOLA (to refactor to avoid duplicated code)
 static std::string::size_type findClosing(
     size_t pos, const std::string& s, const char searchEndChar,
     const char otherStartChar)
@@ -57,6 +56,16 @@ static std::string::size_type findClosing(
 
     // not found:
     return std::string::npos;
+}
+
+// "foo|bar" -> {"foo","bar"}
+static std::tuple<std::string, std::string> splitVerticalBar(
+    const std::string& s)
+{
+    const auto posBar = s.find("|");
+    if (posBar == std::string::npos) return {s, {}};
+
+    return {s.substr(0, posBar), s.substr(posBar + 1)};
 }
 
 static std::string trimWSNL(const std::string& s)
@@ -93,7 +102,10 @@ static std::string parseEnvVars(
             static_cast<unsigned int>(start), text.c_str());
     }
 
-    const auto  varname = post.substr(0, post_end);
+    const auto varnameOrg = post.substr(0, post_end);
+
+    const auto [varname, defaultValue] = splitVerticalBar(varnameOrg);
+
     std::string varvalue;
     const char* v = ::getenv(varname.c_str());
     if (v != nullptr)
@@ -104,10 +116,14 @@ static std::string parseEnvVars(
         // ${CURRENT_YAML_FILE_PATH}
         if (varname == "CURRENT_YAML_FILE_PATH")
             varvalue = opts.includesBasePath;
+        else if (!defaultValue.empty())
+        {
+            varvalue = defaultValue;
+        }
         else
         {
             THROW_EXCEPTION_FMT(
-                "YAML parseEnvVars(): Undefined variable found: ${%s}",
+                "YAML parseEnvVars(): Undefined environment variable: ${%s}",
                 varname.c_str());
         }
     }
