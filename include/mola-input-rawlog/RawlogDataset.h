@@ -42,7 +42,8 @@ class RawlogDataset : public RawDataSourceBase
     double                  time_warp_scale_{1.0};
 
     void doReadAhead();
-    std::map<mrpt::Clock::time_point, mrpt::obs::CObservation::Ptr> read_ahead_;
+    std::multimap<mrpt::Clock::time_point, mrpt::obs::CObservation::Ptr>
+        read_ahead_;
 };
 
 }  // namespace mola

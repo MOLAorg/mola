@@ -17,9 +17,11 @@
 
 #include <mola-input-rawlog/RawlogDataset.h>
 #include <mola-yaml/yaml_helpers.h>
-#include <mrpt/core/initializer.h>
-#include <mrpt/system/filesystem.h>
 #include <mrpt/containers/yaml.h>
+#include <mrpt/core/initializer.h>
+#include <mrpt/obs/CActionCollection.h>
+#include <mrpt/obs/CSensoryFrame.h>
+#include <mrpt/system/filesystem.h>
 
 using namespace mola;
 
@@ -123,20 +125,41 @@ void RawlogDataset::doReadAhead()
         try
         {
             const auto obj = rawlog_arch.ReadObject();
-            auto       obs = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obj);
-            if (!obs)
-                throw std::runtime_error(
-                    "Rawlog file can contain CObservation objects only.");
-
-            read_ahead_[obs->getTimeStamp()] = std::move(obs);
+            if (auto obs =
+                    std::dynamic_pointer_cast<mrpt::obs::CObservation>(obj);
+                obs)
+            {  // Single observation:
+                read_ahead_.emplace(obs->getTimeStamp(), std::move(obs));
+            }
+            else  //
+                if (auto sf =
+                        std::dynamic_pointer_cast<mrpt::obs::CSensoryFrame>(
+                            obj);
+                    sf)
+            {
+                for (const auto& o : *sf)
+                    read_ahead_.emplace(o->getTimeStamp(), o);
+            }
+            else if (auto acts = std::dynamic_pointer_cast<
+                         mrpt::obs::CActionCollection>(obj);
+                     acts)
+            {
+                // odometry actions: ignore
+            }
+            else
+                THROW_EXCEPTION_FMT(
+                    "Rawlog file can contain classes: "
+                    "CObservation|CSensoryFrame|CActionCollection, but class "
+                    "'%s' found.",
+                    obj->GetRuntimeClass()->className);
         }
         catch (const mrpt::serialization::CExceptionEOF&)
         {
             return;  // EOF reached.
         }
-        catch (...)
+        catch (const std::exception&)
         {
-            return;  // EOF reached?
+            throw;
         }
     }
 
