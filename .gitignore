@@ -2,4 +2,15 @@
 # for qtcreator
 CMakeLists.txt.user*
 *.pyc
+
+# docs:
 docs/html
+docs/source/struct*.rst
+docs/source/namespace*.rst
+docs/source/page*.rst
+docs/source/group*.rst
+docs/source/class*.rst
+docs/source/enum*.rst
+docs/source/doxygen-index.rst
+docs/source/global.rst
+docs/source/xml-dir/

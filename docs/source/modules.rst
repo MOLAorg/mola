@@ -22,6 +22,6 @@ MOLA modules are kept as git submodules under ``${MOLA_ROOT}/modules``.
   module-mola-input-kaist-dataset
   module-mola-input-rawlog
   module-mola-input-ros1
-  module-mola-lidar-segmentation
   module-mola-slam-gtsam
   module-mola-yaml
+  module-mp2p-icp
