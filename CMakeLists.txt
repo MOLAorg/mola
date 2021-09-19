@@ -11,14 +11,13 @@
 cmake_minimum_required(VERSION 3.4)
 
 # Tell CMake we'll use C++ for use in its tests/flags
-project(mola-foo LANGUAGES CXX)
+project(mola-imu-preintegration LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola-common REQUIRED)
 
 # find CMake dependencies:
-find_package(mrpt-tclap)
-#find_package(mrpt-poses)
+find_package(mrpt-obs)
 
 # Find MOLA packages:
 find_mola_package(mola-kernel)
@@ -34,18 +33,7 @@ mola_add_library(
 	PUBLIC_LINK_LIBRARIES
 		mola-kernel
 	PRIVATE_LINK_LIBRARIES
-		mrpt::core
+		mrpt::obs
 	CMAKE_DEPENDENCIES
 		mola-kernel
-)
-
-# ----------------------
-# define app target:
-mola_add_executable(
-	TARGET  mola-myapp
-	SOURCES apps/mola-myapp.cpp
-	LINK_LIBRARIES
-		mrpt::tclap
-		#mrpt::poses
-		${PROJECT_NAME}
 )

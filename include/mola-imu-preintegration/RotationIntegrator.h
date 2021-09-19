@@ -4,33 +4,29 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   Foo.h
- * @brief  XXX
- * @author XXX
- * @date   XXX
+ * @file   RotationIntegrator.h
+ * @brief  Integrator of IMU angular velocity readings.
+ * @author Jose Luis Blanco Claraco
+ * @date   Sep 19, 2021
  */
 #pragma once
 
-//#include <mola-kernel/interfaces/RawDataSourceBase.h>
+#include <mrpt/containers/yaml.h>
 
 namespace mola
 {
 /** Write me!
  *
- * \ingroup mola_foo_grp
+ * \ingroup mola_imu_preintegration_grp
  */
-class Foo // : public RawDataSourceBase
+class RotationIntegrator
 {
-    //DEFINE_MRPT_OBJECT(Foo, mola)
-
    public:
-    Foo() = default;
-    //~Foo() override = default; 
+    RotationIntegrator()  = default;
+    ~RotationIntegrator() = default;
 
-    // See docs in base class
-//    void initialize(const std::string& cfg_block) override;
-//    void spinOnce() override;
-
+    void initialize(const std::string& cfg_block);
+    //    void spinOnce() override;
 };
 
 }  // namespace mola

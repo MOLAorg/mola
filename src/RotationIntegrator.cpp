@@ -4,30 +4,24 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   Foo.cpp
- * @brief  XXX
- * @author XXX
- * @date   XXX
+ * @file   RotationIntegrator.cpp
+ * @brief  Integrator of IMU angular velocity readings.
+ * @author Jose Luis Blanco Claraco
+ * @date   Sep 19, 2021
  */
 
-/** \defgroup mola_foo_grp mola-foo
+/** \defgroup mola_imu_preintegration_grp mola-imu-preintegration
  * Write me!
  *
  */
 
-#include <mola-foo/Foo.h>
+#include <mola-imu-preintegration/RotationIntegrator.h>
 //#include <mrpt/containers/yaml.h>
 //#include <mrpt/core/initializer.h>
 
 using namespace mola;
 
-// Uncomment if you define RTTI/Serializable classes:
-/*
-// arguments: class_name, parent_class, class namespace
-IMPLEMENTS_MRPT_OBJECT(Foo, RawDataSourceBase, mola)
-
-MRPT_INITIALIZER(do_register_Foo)
+void RotationIntegrator::initialize(const std::string& cfg_block)
 {
-    MOLA_REGISTER_MODULE(Foo);
+    //
 }
-*/
