@@ -35,7 +35,7 @@ MRPT_INITIALIZER(do_register_RawlogDataset)
 
 RawlogDataset::RawlogDataset() = default;
 
-void RawlogDataset::initialize(const std::string& cfg_block)
+void RawlogDataset::initialize(const Yaml& c)
 {
     using namespace std::string_literals;
 
@@ -43,8 +43,6 @@ void RawlogDataset::initialize(const std::string& cfg_block)
     ProfilerEntry tle(profiler_, "initialize");
 
     // Mandatory parameters:
-    auto c = mrpt::containers::yaml::FromText(cfg_block);
-
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg);
