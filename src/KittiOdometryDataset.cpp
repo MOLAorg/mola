@@ -25,6 +25,7 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
+
 #include <Eigen/Dense>
 
 using namespace mola;
@@ -75,16 +76,14 @@ static void parse_calib_line(
     MRPT_TRY_END
 }
 
-void KittiOdometryDataset::initialize(const std::string& cfg_block)
+void KittiOdometryDataset::initialize(const Yaml& c)
 {
     MRPT_START
     ProfilerEntry tle(profiler_, "initialize");
 
-    MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg_block);
+    MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << c);
 
     // Mandatory parameters:
-    auto c = mrpt::containers::yaml::FromText(cfg_block);
-
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
 
