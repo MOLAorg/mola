@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola-kernel/Yaml.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/interfaces/RawDataConsumer.h>
 #include <mrpt/core/WorkerThreadsPool.h>
@@ -40,7 +41,7 @@ class RawDataSourceBase : public mola::ExecutableBase
 
     /** Loads common parameters for all RDS. Called by launcher just before
      * initialize(). */
-    void initialize_common(const std::string& cfg_block) override;
+    void initialize_common(const Yaml& cfg) override;
 
    protected:
     /** Send an observation to the associated target front-ends */

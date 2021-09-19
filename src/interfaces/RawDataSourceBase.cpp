@@ -52,10 +52,9 @@ RawDataSourceBase::~RawDataSourceBase()
     gui_updater_threadpool_.clear();
 }
 
-void RawDataSourceBase::initialize_common(const std::string& cfg_block)
+void RawDataSourceBase::initialize_common(const Yaml& cfg)
 {
     MRPT_TRY_START
-    const auto cfg = mrpt::containers::yaml::FromText(cfg_block);
 
     // Handle optional sensor preview GUI:
     if (cfg.has("gui_preview_sensors"))

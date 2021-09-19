@@ -12,6 +12,7 @@
 #pragma once
 
 #include <mola-kernel/WorldModel.h>
+#include <mola-kernel/Yaml.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/core/WorkerThreadsPool.h>
@@ -39,7 +40,7 @@ class BackEndBase : public ExecutableBase
 
     /** Loads common parameters for all back-ends. Called by launcher just
      * before initialize(). */
-    void initialize_common(const std::string& cfg_block);
+    void initialize_common(const Yaml& cfg);
 
     /** @name User interface for a SLAM back-end
      *{ */

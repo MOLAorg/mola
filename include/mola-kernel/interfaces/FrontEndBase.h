@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola-kernel/Yaml.h>
 #include <mola-kernel/interfaces/BackEndBase.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/interfaces/RawDataConsumer.h>
@@ -39,7 +40,7 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
 
     /** Loads common parameters for all front-ends. Called by launcher just
      * before initialize(). */
-    void initialize_common(const std::string& cfg_block);
+    void initialize_common(const Yaml& cfg);
 
    protected:
     /** The name of the sensor to subscribe to, from the YAML config file

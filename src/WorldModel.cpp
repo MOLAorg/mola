@@ -25,6 +25,7 @@
 #include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/serialization/CArchive.h>
 #include <mrpt/system/filesystem.h>
+
 #include <deque>
 #include <map>
 #include <numeric>  // iota()
@@ -228,12 +229,11 @@ using FactorsContainerFastMap = ContainerFastMap<
 
 }  // namespace mola
 
-void WorldModel::initialize(const std::string& cfg_block)
+void WorldModel::initialize(const Yaml& c)
 {
     MRPT_TRY_START
 
     // Load params:
-    auto c   = mrpt::containers::yaml::FromText(cfg_block);
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
 
@@ -386,12 +386,13 @@ const annotations_data_t& WorldModel::entity_annotations_by_id(
     entity_get_base(e).load();
 
     std::visit(
-        overloaded{[&ret](const EntityBase& b) { ret = &b.annotations_; },
-                   [&ret](const EntityOther& o) {
-                       ASSERT_(o);
-                       ret = &o->annotations_;
-                   },
-                   [](std::monostate) {}},
+        overloaded{
+            [&ret](const EntityBase& b) { ret = &b.annotations_; },
+            [&ret](const EntityOther& o) {
+                ASSERT_(o);
+                ret = &o->annotations_;
+            },
+            [](std::monostate) {}},
         e);
 
     if (!ret) { THROW_EXCEPTION("Empty variant!"); }

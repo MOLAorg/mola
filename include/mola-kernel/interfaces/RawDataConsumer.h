@@ -11,7 +11,9 @@
  */
 #pragma once
 
+#include <mola-kernel/Yaml.h>
 #include <mrpt/obs/CObservation.h>
+
 #include <memory>
 
 namespace mola

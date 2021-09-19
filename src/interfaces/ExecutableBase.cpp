@@ -12,6 +12,7 @@
 
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/lock_helper.h>
+
 #include <mutex>
 
 // arguments: class_name, parent_class, class namespace
@@ -43,14 +44,14 @@ ExecutableBase::~ExecutableBase()
 }
 
 /** This should be reimplemented to read all the required parameters */
-void ExecutableBase::initialize(const std::string& cfg_block)
+void ExecutableBase::initialize(const Yaml& cfg)
 {
-    if (!cfg_block.empty())
+    if (!cfg.empty())
     {
         MRPT_LOG_WARN_STREAM(
             "`initialize()` not reimplemented by derived class. "
             "Ignoring YAML config block:\n"
-            << cfg_block);
+            << cfg);
     }
 }
 

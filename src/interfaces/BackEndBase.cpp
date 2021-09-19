@@ -14,6 +14,7 @@
 #include <mola-kernel/interfaces/BackEndBase.h>
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/containers/yaml.h>
+
 #include <iostream>
 
 using namespace mola;
@@ -23,7 +24,7 @@ IMPLEMENTS_VIRTUAL_MRPT_OBJECT(BackEndBase, ExecutableBase, mola)
 
 BackEndBase::BackEndBase() = default;
 
-void BackEndBase::initialize_common([[maybe_unused]] const std::string& cfg)
+void BackEndBase::initialize_common([[maybe_unused]] const Yaml& cfg)
 {
     MRPT_TRY_START
 

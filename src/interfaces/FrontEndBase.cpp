@@ -23,10 +23,9 @@ IMPLEMENTS_VIRTUAL_MRPT_OBJECT(FrontEndBase, ExecutableBase, mola)
 
 FrontEndBase::FrontEndBase() = default;
 
-void FrontEndBase::initialize_common(const std::string& cfg_block)
+void FrontEndBase::initialize_common(const Yaml& cfg)
 {
     MRPT_TRY_START
-    auto cfg = mrpt::containers::yaml::FromText(cfg_block);
 
     // Optional parameter: derived classes may use it or not, so don't throw
     // an exception if not found.

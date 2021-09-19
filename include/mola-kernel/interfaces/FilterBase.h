@@ -39,7 +39,7 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     /** @} */
 
     // Virtual interface of any RawDataSource
-    void initialize(const std::string& cfg_block) override;
+    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
     // Virtual interface of any RawDataConsumer

@@ -11,9 +11,11 @@
  */
 #pragma once
 
+#include <mola-kernel/Yaml.h>
 #include <mrpt/rtti/CObject.h>
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/system/CTimeLogger.h>
+
 #include <functional>
 #include <memory>
 #include <optional>
@@ -47,8 +49,8 @@ class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
 
     /** @name Virtual interface of any ExecutableBase
      *{ */
-    virtual void initialize_common(const std::string& cfg_block) = 0;
-    virtual void initialize(const std::string& cfg_block);
+    virtual void initialize_common(const Yaml& cfg) = 0;
+    virtual void initialize(const Yaml& cfg);
     virtual void spinOnce() = 0;
 
     /** Modules will be initialized in the order determined by:

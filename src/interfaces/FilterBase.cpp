@@ -11,6 +11,7 @@
  */
 
 #include <mola-kernel/interfaces/FilterBase.h>
+
 #include <iostream>
 
 using namespace mola;
@@ -21,14 +22,14 @@ IMPLEMENTS_VIRTUAL_MRPT_OBJECT(FilterBase, ExecutableBase, mola)
 FilterBase::FilterBase() = default;
 
 // Virtual interface of any RawDataSource
-void FilterBase::initialize(const std::string& cfg_block)
+void FilterBase::initialize(const Yaml& cfg)
 {
-    if (!cfg_block.empty())
+    if (!cfg.empty())
     {
         MRPT_LOG_WARN_STREAM(
             "`initialize()` not reimplemented by derived class. "
             "Ignoring YAML config block:\n"
-            << cfg_block);
+            << cfg);
     }
 }
 

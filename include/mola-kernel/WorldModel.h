@@ -14,9 +14,11 @@
 #include <mola-kernel/Entity.h>
 #include <mola-kernel/Factor.h>
 #include <mola-kernel/FastAllocator.h>
+#include <mola-kernel/Yaml.h>
 #include <mola-kernel/id.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mrpt/serialization/CSerializable.h>
+
 #include <map>
 #include <shared_mutex>
 
@@ -69,8 +71,8 @@ class WorldModel : public ExecutableBase
     WorldModel();
 
     // Virtual interface of any ExecutableBase. See base docs:
-    void initialize_common(const std::string&) override {}
-    void initialize(const std::string& cfg_block) override;
+    void initialize_common(const Yaml&) override {}
+    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
     /** The WorldModel is launched first, before most other modules. */
