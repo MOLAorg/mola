@@ -34,8 +34,8 @@ class MolaViz : public ExecutableBase, public VizInterface
     ~MolaViz() override;
 
     // See docs in base class
-    void initialize_common(const std::string&) override {}
-    void initialize(const std::string& cfg_block) override;
+    void initialize_common(const Yaml&) override {}
+    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
     /** @name mola-viz main API

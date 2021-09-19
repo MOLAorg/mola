@@ -108,12 +108,11 @@ MolaViz* MolaViz::Instance()
     return ret;
 }
 
-void MolaViz::initialize(const std::string& cfg_block)
+void MolaViz::initialize(const Yaml& c)
 {
     MRPT_START
 
     // Load:
-    auto c   = mrpt::containers::yaml::FromText(cfg_block);
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
 
