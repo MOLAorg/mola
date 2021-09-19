@@ -24,6 +24,7 @@
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
+
 #include <Eigen/Dense>
 #include <fstream>
 // Eigen must be before csv.h
@@ -41,7 +42,7 @@ MRPT_INITIALIZER(do_register_EurocDataset)
 
 EurocDataset::EurocDataset() = default;
 
-void EurocDataset::initialize(const std::string& cfg_block)
+void EurocDataset::initialize(const Yaml& c)
 {
     using namespace std::string_literals;
 
@@ -49,8 +50,6 @@ void EurocDataset::initialize(const std::string& cfg_block)
     ProfilerEntry tle(profiler_, "initialize");
 
     // Mandatory parameters:
-    auto c = mrpt::containers::yaml::FromText(cfg_block);
-
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg);
@@ -255,21 +254,22 @@ void EurocDataset::spinOnce()
             mrpt::Clock::fromDouble(dataset_next_->first * 1e-9);
 
         std::visit(
-            overloaded{[&](std::monostate&) {
-                           THROW_EXCEPTION("Un-initialized entry!");
-                       },
-                       [&](SensorCamera& cam) {
-                           build_dataset_entry_obs(cam);
-                           cam.obs->timestamp = obs_tim;
-                           this->sendObservationsToFrontEnds(cam.obs);
-                           cam.obs.reset();  // free mem
-                       },
-                       [&](SensorIMU& imu) {
-                           build_dataset_entry_obs(imu);
-                           imu.obs->timestamp = obs_tim;
-                           this->sendObservationsToFrontEnds(imu.obs);
-                           imu.obs.reset();  // free mem
-                       }},
+            overloaded{
+                [&](std::monostate&) {
+                    THROW_EXCEPTION("Un-initialized entry!");
+                },
+                [&](SensorCamera& cam) {
+                    build_dataset_entry_obs(cam);
+                    cam.obs->timestamp = obs_tim;
+                    this->sendObservationsToFrontEnds(cam.obs);
+                    cam.obs.reset();  // free mem
+                },
+                [&](SensorIMU& imu) {
+                    build_dataset_entry_obs(imu);
+                    imu.obs->timestamp = obs_tim;
+                    this->sendObservationsToFrontEnds(imu.obs);
+                    imu.obs.reset();  // free mem
+                }},
             dataset_next_->second);
 
         // Advance:

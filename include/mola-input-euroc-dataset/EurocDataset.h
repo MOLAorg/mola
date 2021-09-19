@@ -55,7 +55,7 @@ class EurocDataset : public RawDataSourceBase
     ~EurocDataset() override = default;
 
     // See docs in base class
-    void initialize(const std::string& cfg_block) override;
+    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
    private:
