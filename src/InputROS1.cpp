@@ -35,7 +35,7 @@ MRPT_INITIALIZER(do_register_InputROS1) { MOLA_REGISTER_MODULE(InputROS1); }
 
 InputROS1::InputROS1() = default;
 
-void InputROS1::initialize(const std::string& cfg_block)
+void InputROS1::initialize(const Yaml& c)
 {
     using namespace std::string_literals;
 
@@ -43,8 +43,6 @@ void InputROS1::initialize(const std::string& cfg_block)
     ProfilerEntry tle(profiler_, "initialize");
 
     // Mandatory parameters:
-    auto c = mrpt::containers::yaml::FromText(cfg_block);
-
     ENSURE_YAML_ENTRY_EXISTS(c, "params");
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg);
