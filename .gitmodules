@@ -55,3 +55,6 @@
 [submodule "modules/mola-slam-rhodes"]
 	path = modules/mola-slam-rhodes
 	url = https://github.com/MOLAorg/mola-slam-rhodes.git
+[submodule "modules/mola-imu-preintegration"]
+	path = modules/mola-imu-preintegration
+	url = git@github.com:MOLAorg/mola-imu-preintegration.git
