@@ -139,7 +139,7 @@ void MolaLauncherApp::scanAndLoadLibraries()
     MRPT_TRY_END
 }
 
-void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg_in)
+void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg)
 {
     MRPT_TRY_START
 
@@ -152,17 +152,6 @@ void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg_in)
     // Enable save to stat files at dtor:
     if (profiler_.isEnabledKeepWholeHistory())
         profiler_dtor_save_stats_.emplace(profiler_);
-
-    // Parse YAML env variables, custom commands, etc:
-    const std::string org_cfg = mola::yaml_to_string(cfg_in);
-    MRPT_LOG_DEBUG_STREAM("Raw input YAML configuration file:\n" << org_cfg);
-
-    const std::string parsed_cfg = mola::parse_yaml(org_cfg);
-    MRPT_LOG_DEBUG_STREAM(
-        "Preprocessed input YAML configuration file:\n"
-        << parsed_cfg);
-
-    auto cfg = mrpt::containers::yaml::FromText(parsed_cfg);
 
     MRPT_LOG_DEBUG_STREAM(
         "Using the following configuration:\n"
@@ -221,7 +210,7 @@ void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg_in)
 
             InfoPerRunningThread& info = running_threads_[ds_label];
             // Make a copy of the YAML config block:
-            info.yaml_cfg_block = mola::yaml_to_string(ds);
+            info.yaml_cfg_block = ds;
             info.name           = ds_label;
             MRPT_LOG_INFO_STREAM(
                 "Instantiating module `" << ds_label << "` of type `"

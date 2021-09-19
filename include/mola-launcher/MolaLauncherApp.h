@@ -152,7 +152,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
    private:
     struct InfoPerRunningThread
     {
-        std::string         yaml_cfg_block;
+        Yaml                yaml_cfg_block;
         ExecutableBase::Ptr impl;
         std::thread         executor;
         std::string         name;
