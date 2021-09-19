@@ -21,7 +21,7 @@
 
 using namespace mola;
 
-void RotationIntegrator::initialize(const std::string& cfg_block)
+void RotationIntegrator::initialize(const Yaml& cfg)
 {
     //
 }

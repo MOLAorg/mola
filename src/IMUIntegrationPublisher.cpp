@@ -13,17 +13,23 @@
  */
 
 #include <mola-imu-preintegration/IMUIntegrationPublisher.h>
-//#include <mrpt/containers/yaml.h>
-//#include <mrpt/core/initializer.h>
 
 using namespace mola;
 
-void IMUIntegrationPublisher::initialize(const std::string& cfg_block)
+// arguments: class_name, parent_class, class namespace
+IMPLEMENTS_MRPT_OBJECT(IMUIntegrationPublisher, ExecutableBase, mola)
+
+void IMUIntegrationPublisher::initialize(const Yaml& cfg)
 {
     //
 }
 
 void IMUIntegrationPublisher::onNewObservation(CObservation::Ptr& o)
+{
+    //
+}
+
+void IMUIntegrationPublisher::spinOnce()
 {
     //
 }

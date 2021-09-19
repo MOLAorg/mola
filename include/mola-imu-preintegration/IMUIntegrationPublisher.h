@@ -30,8 +30,16 @@ class IMUIntegrationPublisher : public RawDataConsumer, public ExecutableBase
     ~IMUIntegrationPublisher() override = default;
 
     // See docs in base class
-    void initialize(const std::string& cfg_block) override;
+    void initialize_common(const Yaml& cfg) override {}
+    void initialize(const Yaml& cfg) override;
+    void spinOnce() override;
+
+    /** @name Virtual interface of any RawDataConsumer
+     *{ */
+
     void onNewObservation(CObservation::Ptr& o) override;
+
+    /** @} */
 };
 
 }  // namespace mola

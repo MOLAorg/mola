@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mrpt/containers/yaml.h>
+#include <mola-kernel/Yaml.h>
 
 namespace mola
 {
@@ -25,7 +25,7 @@ class RotationIntegrator
     RotationIntegrator()  = default;
     ~RotationIntegrator() = default;
 
-    void initialize(const std::string& cfg_block);
+    void initialize(const Yaml& cfg);
     //    void spinOnce() override;
 };
 
