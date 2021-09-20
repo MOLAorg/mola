@@ -12,12 +12,18 @@
  */
 #pragma once
 
+#include <mola-imu-preintegration/IMUIntegrator.h>
 #include <mola-kernel/interfaces/ExecutableBase.h>
 #include <mola-kernel/interfaces/RawDataConsumer.h>
 
 namespace mola
 {
-/** Write me!
+/** A MOLA node running an IMUIntegrator inside.
+ *  Must be configured to subscribe to an IMU source.
+ *
+ * See IMUIntegrationParams for a list of related papers explaining the methods
+ * and parameters.
+ *
  *
  * \ingroup mola_imu_preintegration_grp
  */
@@ -30,7 +36,7 @@ class IMUIntegrationPublisher : public RawDataConsumer, public ExecutableBase
     ~IMUIntegrationPublisher() override = default;
 
     // See docs in base class
-    void initialize_common(const Yaml& cfg) override {}
+    void initialize_common([[maybe_unused]] const Yaml& cfg) override {}
     void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
@@ -40,6 +46,9 @@ class IMUIntegrationPublisher : public RawDataConsumer, public ExecutableBase
     void onNewObservation(CObservation::Ptr& o) override;
 
     /** @} */
+
+   private:
+    IMUIntegrator integrator_;
 };
 
 }  // namespace mola
