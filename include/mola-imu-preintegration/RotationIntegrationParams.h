@@ -55,8 +55,8 @@ class RotationIntegrationParams
 
     /// If provided, defines an IMU placed at a pose different than the
     /// vehicle origin of coordinates (Default: IMU used as reference of the
-    /// vehicle frame).
-    std::optional<mrpt::poses::CPose3D> sensorLocationInVehicle;
+    /// vehicle frame, i.e. sensorPose = SE(3) identity I_{4x4}).
+    std::optional<mrpt::poses::CPose3D> sensorPose;
 };
 
 }  // namespace mola

@@ -13,6 +13,8 @@
 #include <mola-imu-preintegration/RotationIntegrator.h>
 #include <mrpt/poses/Lie/SO.h>
 
+#include <iostream>  // REMOVE!
+
 using namespace mola;
 
 void RotationIntegrator::initialize(const Yaml& cfg)
@@ -53,8 +55,8 @@ mrpt::math::CMatrixDouble33 mola::incremental_rotation(
     TVector3D correctedW = w - params.gyroBias;
 
     // Translate to vehicle frame:
-    if (params.sensorLocationInVehicle.has_value())
-        correctedW = params.sensorLocationInVehicle->rotateVector(correctedW);
+    if (params.sensorPose.has_value())
+        correctedW = params.sensorPose->rotateVector(correctedW);
 
     // Integrate:
     const TVector3D w_dt = correctedW * dt;
