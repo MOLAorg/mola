@@ -26,7 +26,7 @@
 	path = modules/mola-input-kaist-dataset
 	url = https://github.com/MOLAorg/mola-input-kaist-dataset.git
 [submodule "mp2p_icp"]
-	path = externals/mp2p_icp
+	path = modules/mp2p_icp
 	url = https://github.com/MOLAorg/mp2p_icp.git
 [submodule "mola-common"]
 	path = modules/mola-common
