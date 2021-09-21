@@ -37,3 +37,8 @@ mola_add_library(
 	CMAKE_DEPENDENCIES
 		mola-kernel
 )
+
+# -----------------------
+# define tests:
+enable_testing()
+add_subdirectory(tests)

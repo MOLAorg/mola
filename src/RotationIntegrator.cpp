@@ -20,7 +20,7 @@ void RotationIntegrator::initialize(const Yaml& cfg)
     reset_integration();
 
     // Load params:
-    params_.loadFrom(cfg);
+    params_.load_from(cfg);
 }
 
 void RotationIntegrator::reset_integration()
@@ -32,7 +32,7 @@ void RotationIntegrator::reset_integration()
 void RotationIntegrator::integrate_measurement(
     const mrpt::math::TVector3D& w, double dt)
 {
-    const auto incrR = IncrementalRotation(w, params_, dt);
+    const auto incrR = mola::incremental_rotation(w, params_, dt);
 
     // Update integration state:
     state_.deltaTij_ += dt;
@@ -41,10 +41,11 @@ void RotationIntegrator::integrate_measurement(
     // TODO: Update Jacobian
 }
 
-mrpt::math::CMatrixDouble33 RotationIntegrator::IncrementalRotation(
+mrpt::math::CMatrixDouble33 mola::incremental_rotation(
     const mrpt::math::TVector3D& w, const RotationIntegrationParams& params,
-    double                                           dt,
-    mrpt::optional_ref<mrpt::math::CMatrixDouble33>& D_incrR_integratedOmega)
+    double dt,
+    const mrpt::optional_ref<mrpt::math::CMatrixDouble33>&
+        D_incrR_integratedOmega)
 {
     using mrpt::math::TVector3D;
 

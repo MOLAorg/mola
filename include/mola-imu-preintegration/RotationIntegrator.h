@@ -25,6 +25,14 @@ namespace mola
  * See IMUIntegrationParams for a list of related papers explaining the methods
  * and parameters.
  *
+ * Usage:
+ * - (1) Call initialize() or set the required parameters directly in params_.
+ * - (2) Integrate measurements with integrate_measurement()
+ * - (3) Repeat (2) N times as needed.
+ * - (4) Take the estimation up to this point with current_integration_state()
+ *       and reset with reset_integration() if you create a new key-frame.
+ * - (5) Go to (2).
+ *
  * \note Initially based in part on GTSAM sources gtsam::PreintegratedRotation.
  *
  * \sa IMUIntegrator
@@ -59,7 +67,8 @@ class RotationIntegrator
 
     /**
      * @brief Initializes the object and reads all parameters from a YAML node.
-     * @param cfg a YAML node with a dictionary of parameters to load from.
+     * @param cfg a YAML node with a dictionary of parameters to load from, as
+     * expected by RotationIntegrationParams (see its docs).
      */
     void initialize(const Yaml& cfg);
 
@@ -82,20 +91,22 @@ class RotationIntegrator
 
     /** @} */
 
-    /**
-     * Static auxiliary method: it takes a gyroscope measurement of the angular
-     * velocity (ω) and integrates it forward in time for a period dt [s] as:
-     *
-     *  Rot = Exp((ω-ω_{bias})·dt)
-     */
-    static mrpt::math::CMatrixDouble33 IncrementalRotation(
-        const mrpt::math::TVector3D& w, const RotationIntegrationParams& params,
-        double dt,
-        mrpt::optional_ref<mrpt::math::CMatrixDouble33>&
-            D_incrR_integratedOmega = std::nullopt);
-
    private:
     IntegrationState state_;
 };
+
+/**
+ * This takes a gyroscope measurement of the angular
+ * velocity (ω) and integrates it forward in time for a period dt [s] as:
+ *
+ *  Rot = Exp((ω-ω_{bias})·dt)
+ *
+ * \ingroup mola_imu_preintegration_grp
+ */
+mrpt::math::CMatrixDouble33 incremental_rotation(
+    const mrpt::math::TVector3D& w, const RotationIntegrationParams& params,
+    double dt,
+    const mrpt::optional_ref<mrpt::math::CMatrixDouble33>&
+        D_incrR_integratedOmega = std::nullopt);
 
 }  // namespace mola

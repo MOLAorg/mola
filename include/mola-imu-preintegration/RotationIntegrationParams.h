@@ -43,7 +43,7 @@ class RotationIntegrationParams
     ~RotationIntegrationParams() = default;
 
     /// Loads all parameters from a YAML map node.
-    void loadFrom(const Yaml& cfg);
+    void load_from(const Yaml& cfg);
 
     /// Gyroscope (initial or constant) bias, in the local IMU frame of
     /// reference (units: rad/s).

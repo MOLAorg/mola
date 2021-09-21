@@ -14,7 +14,7 @@
 
 using namespace mola;
 
-void RotationIntegrationParams::loadFrom(const Yaml& cfg)
+void RotationIntegrationParams::load_from(const Yaml& cfg)
 {
-    //
+    THROW_EXCEPTION("TODO");
 }
