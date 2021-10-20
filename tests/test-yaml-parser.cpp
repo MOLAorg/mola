@@ -97,8 +97,8 @@ static void test_parseIncludes()
     }
 }
 
-MRPT_TODO("Possible bug: #$include{} shouldn't be parsed");
-MRPT_TODO("bug: #${var} shouldn't be parsed");
+MRPT_TODO("Possible bug: #$include{} shouldn't be parsed")
+MRPT_TODO("bug: #${var} shouldn't be parsed")
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
