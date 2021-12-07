@@ -15,6 +15,7 @@
 #include <mrpt/core/Clock.h>
 #include <mrpt/img/TCamera.h>
 #include <mrpt/math/TPose3D.h>
+
 #include <array>
 
 namespace mola
@@ -46,6 +47,7 @@ class KittiOdometryDataset : public RawDataSourceBase
     std::size_t             replay_next_tim_index_{0};
     bool                    replay_started_{false};
     bool                    publish_lidar_{true};
+    bool                    publish_ground_truth_{true};
     std::array<bool, 4>     publish_image_{{true, true, true, true}};
     double                  time_warp_scale_{1.0};
     std::array<mrpt::img::TCamera, 4>  cam_intrinsics_;
@@ -53,6 +55,7 @@ class KittiOdometryDataset : public RawDataSourceBase
 
     std::array<std::vector<std::string>, 4>             lst_image_;
     std::vector<std::string>                            lst_velodyne_;
+    mrpt::math::CMatrixDouble                           groundTruthPoses_;
     std::map<std::size_t, mrpt::obs::CObservation::Ptr> read_ahead_lidar_obs_;
     std::map<std::size_t, std::array<mrpt::obs::CObservation::Ptr, 4>>
         read_ahead_image_obs_;

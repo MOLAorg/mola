@@ -78,6 +78,8 @@ static void parse_calib_line(
 
 void KittiOdometryDataset::initialize(const Yaml& c)
 {
+    using namespace std::string_literals;
+
     MRPT_START
     ProfilerEntry tle(profiler_, "initialize");
 
@@ -90,13 +92,17 @@ void KittiOdometryDataset::initialize(const Yaml& c)
     YAML_LOAD_MEMBER_REQ(base_dir, std::string);
     YAML_LOAD_MEMBER_REQ(sequence, std::string);
 
-    seq_dir_ = base_dir_ + "/sequences/" + sequence_;
+    seq_dir_ = base_dir_ + "/sequences/"s + sequence_;
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
 
     // Optional params with default values:
     time_warp_scale_ =
         cfg.getOrDefault<double>("time_warp_scale", time_warp_scale_);
     publish_lidar_ = cfg.getOrDefault<bool>("publish_lidar", publish_lidar_);
+
+    publish_ground_truth_ =
+        cfg.getOrDefault<bool>("publish_ground_truth", publish_ground_truth_);
+
     for (unsigned int i = 0; i < 4; i++)
         publish_image_[i] = cfg.getOrDefault<bool>(
             mrpt::format("publish_image_%u", i), publish_image_[i]);
@@ -116,6 +122,25 @@ void KittiOdometryDataset::initialize(const Yaml& c)
     }
     const auto N = lst_timestamps_.size();
     MRPT_LOG_DEBUG_STREAM("Dataset timesteps: " << N);
+
+    // Load ground truth poses, if available:
+    const auto gtFile = base_dir_ + "/gt-poses/"s + sequence_ + ".txt"s;
+    if (mrpt::system::fileExists(gtFile))
+    {
+        groundTruthPoses_.loadFromTextFile(gtFile);
+
+        ASSERT_EQUAL_(groundTruthPoses_.cols(), 12U);
+        ASSERT_EQUAL_(
+            static_cast<size_t>(groundTruthPoses_.rows()),
+            lst_timestamps_.size());
+
+        MRPT_LOG_INFO("Ground truth poses: Found");
+    }
+    else
+    {
+        MRPT_LOG_WARN_STREAM(
+            "Ground truth poses: not found. Expected file: " << gtFile);
+    }
 
     // Odometry datasets:
     // Images  : "000000.png"
@@ -296,6 +321,27 @@ void KittiOdometryDataset::spinOnce()
             auto o       = read_ahead_image_obs_[replay_next_tim_index_][i];
             o->timestamp = obs_tim;
             this->sendObservationsToFrontEnds(o);
+        }
+
+        if (publish_ground_truth_ &&
+            replay_next_tim_index_ <
+                static_cast<size_t>(groundTruthPoses_.rows()))
+        {
+            // Get GT pose:
+            // Transform poses: the file are poses of the vehicle (in Kitti
+            // datasets, the reference is the Velodyne), but the GT files are
+            // given for the cam0!
+
+            // Transform them:
+
+            // Velodyne is the (0,0,0) of the vehicle.
+            // image_0 pose wrt velo is "Tr":
+
+            Eigen::Matrix4d gt;
+            gt.setIdentity();
+            gt.block<3, 4>(0, 0) =
+                Eigen::Map<Eigen::Matrix<double, 3, 4, Eigen::RowMajor>>(
+                    groundTruthPoses_.row(replay_next_tim_index_).data());
         }
 
         // Free memory in read-ahead buffers:
