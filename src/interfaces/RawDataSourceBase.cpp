@@ -26,8 +26,6 @@
 
 using namespace mola;
 
-MRPT_TODO("Move sensor-specific rendering to MolaViz module");
-
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_VIRTUAL_MRPT_OBJECT(RawDataSourceBase, ExecutableBase, mola)
 
@@ -60,7 +58,7 @@ void RawDataSourceBase::initialize_common(const Yaml& cfg)
     if (cfg.has("gui_preview_sensors"))
     {
         auto ds_preview = cfg["gui_preview_sensors"];
-        for (auto s : ds_preview.asSequence())
+        for (const auto& s : ds_preview.asSequence())
         {
             const auto sensor = mrpt::containers::yaml(s);
             const auto label  = sensor["raw_sensor_label"].as<std::string>();
@@ -186,43 +184,6 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
                 // (We don't need to wait for the future result, just move on)
                 // auto fut =
                 viz->subwindow_update_visualization(obs, sv->sensor_label);
-
-#if 0
-                // temp code ----
-                if (auto o_velo = mrpt::ptr_cast<
-                        mrpt::obs::CObservationVelodyneScan>::from(obs);
-                    o_velo)
-                {
-                    mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
-                    auto o     = scene->getByName("pointcloud");
-                    auto gl_pt = mrpt::ptr_cast<CSetOfObjects>::from(o);
-
-                    // o_velo
-                    gl_pt->clear();
-                    mrpt::maps::CPointsMapXYZI xyzi;
-                    xyzi.renderOptions.point_size = 1.0f;
-                    if (o_velo->point_cloud.size() == 0)
-                        o_velo->generatePointCloud();
-                    xyzi.loadFromVelodyneScan(*o_velo);
-                    xyzi.getAs3DObject(gl_pt);
-                }
-
-                if (auto o_2dscan = mrpt::ptr_cast<
-                        mrpt::obs::CObservation2DRangeScan>::from(obs);
-                    o_2dscan)
-                {
-                    mrpt::gui::CDisplayWindow3DLocker lck(*sv->win, scene);
-                    auto o     = scene->getByName("pointcloud");
-                    auto gl_pt = mrpt::ptr_cast<CSetOfObjects>::from(o);
-
-                    // o_2dscan
-                    gl_pt->clear();
-                    auto gl_scan = mrpt::opengl::CPlanarLaserScan::Create();
-                    gl_scan->setScan(*o_2dscan);
-                    gl_pt->insert(gl_scan);
-                }
-                // temp code ----
-#endif
             }
             catch (const std::exception& e)
             {
