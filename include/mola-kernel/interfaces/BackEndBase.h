@@ -98,8 +98,9 @@ class BackEndBase : public ExecutableBase
     std::future<void> advertiseUpdatedLocalization(
         const AdvertiseUpdatedLocalization_Input& l)
     {
+        const auto copyOfL = l;
         return slam_be_threadpool_.enqueue(
-            &BackEndBase::doAdvertiseUpdatedLocalization, this, l);
+            [this, copyOfL]() { doAdvertiseUpdatedLocalization(copyOfL); });
     }
 
     /** @} */
@@ -137,7 +138,7 @@ class BackEndBase : public ExecutableBase
     virtual ProposeKF_Output doAddKeyFrame(const ProposeKF_Input& i) = 0;
     virtual AddFactor_Output doAddFactor(Factor& f)                  = 0;
     virtual void             doAdvertiseUpdatedLocalization(
-                    AdvertiseUpdatedLocalization_Input l) = 0;
+                    const AdvertiseUpdatedLocalization_Input& l) = 0;
     /** @} */
 
    protected:

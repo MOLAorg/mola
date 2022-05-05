@@ -241,12 +241,10 @@ void WorldModel::initialize(const Yaml& c)
 
     // Create map container:
     MRPT_TODO("Switch between container type per cfg");
-    data_.entities_ = std::unique_ptr<WorldModelData::EntitiesContainer>(
-        new EntitiesContainerFastMap);
-    ASSERT_(data_.entities_);
+    data_.entities_ = std::make_unique<EntitiesContainerFastMap>();
+    data_.factors_  = std::unique_ptr<FactorsContainerFastMap>();
 
-    data_.factors_ = std::unique_ptr<WorldModelData::FactorsContainer>(
-        new FactorsContainerFastMap);
+    ASSERT_(data_.entities_);
     ASSERT_(data_.factors_);
 
     MRPT_TRY_END

@@ -42,7 +42,7 @@ void FilterBase::spinOnce()
 // Virtual interface of any RawDataConsumer
 void FilterBase::onNewObservation(CObservation::Ptr& o)
 {
-    thread_pool_.enqueue(
+    const auto obsFut = thread_pool_.enqueue(
         [this](CObservation::Ptr& in) {
             try
             {
