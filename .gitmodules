@@ -61,3 +61,6 @@
 [submodule "modules/mp2p_icp"]
 	path = modules/mp2p_icp
 	url = https://github.com/MOLAorg/mp2p_icp.git
+[submodule "externals/evo"]
+	path = externals/evo
+	url = https://github.com/MichaelGrupp/evo.git
