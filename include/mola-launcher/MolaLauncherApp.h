@@ -135,7 +135,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
     /** Time profiler. It's enabled/disabled status will be inherited (by
      * default, unless set otherwise in their YAML config files) by all
      * modules created upon the call to setup() */
-    mrpt::system::CTimeLogger profiler_{"MolaLauncherApp"};
+    mrpt::system::CTimeLogger profiler_{true, "MolaLauncherApp"};
 
     /** Enabled from mola-cli with `--profiler-whole` to save full profile stats
      * to .m files at program end.
