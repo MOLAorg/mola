@@ -8,7 +8,6 @@
 # ------------------------------------------------------------------------------
 
 # Minimum CMake version, limited by:
-#   CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS (>=3.5)
 #   cxx_std_17 feature (>=3.9)
 cmake_minimum_required(VERSION 3.9)
 
@@ -16,6 +15,19 @@ cmake_minimum_required(VERSION 3.9)
 project(mola LANGUAGES CXX)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
+# Enforce selecting one of a set of valid cmake build types:
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(default_build_type "Release")
+	message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+	set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+		STRING "Choose the type of build." FORCE)
+endif()
+# Set the possible values of build type for cmake-gui
+if (DEFINED CACHE{CMAKE_BUILD_TYPE})
+	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+		"Debug" "Release" "MinSizeRel" "RelWithDebInfo" "Coverage" "SanitizeAddress" "SanitizeThread")
+endif()
 
 # Include std cmake scripts:
 include(CheckCXXCompilerFlag) # for check_cxx_compiler_flag()
