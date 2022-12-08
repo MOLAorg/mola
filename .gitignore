@@ -14,3 +14,4 @@ docs/source/enum*.rst
 docs/source/doxygen-index.rst
 docs/source/global.rst
 docs/source/xml-dir/
+.vscode
