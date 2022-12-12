@@ -322,7 +322,7 @@ void MolaLauncherApp::spin()
     // -------------------------------------------
     // clang-format off
     MRPT_LOG_INFO("==========================================================================");
-    MRPT_LOG_INFO("Entering main SLAM/localization loop >>>>CTRL+C from mola-cli to stop<<<<");
+    MRPT_LOG_INFO("Entering main SLAM/localization loop >>>>CTRL+C for mola-cli to stop<<<<");
     MRPT_LOG_INFO("==========================================================================");
     // clang-format on
 
