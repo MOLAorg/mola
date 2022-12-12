@@ -78,7 +78,7 @@ class MolaViz : public ExecutableBase, public VizInterface
     using class_name_t     = std::string;
 
     static void register_gui_handler(
-        class_name_t className, update_handler_t handler);
+        class_name_t name, update_handler_t handler);
 
     /** @} */
 

@@ -79,12 +79,11 @@ MolaViz*                     MolaViz::instance_ = nullptr;
 std::shared_mutex            MolaViz::instanceMtx_;
 const MolaViz::window_name_t MolaViz::DEFAULT_WINDOW_NAME = "main";
 
-void MolaViz::register_gui_handler(
-    class_name_t className, update_handler_t handler)
+void MolaViz::register_gui_handler(class_name_t name, update_handler_t handler)
 {
-    auto& hc                   = HandlersContainer::Instance();
-    auto  lck                  = mrpt::lockHelper(hc.guiHandlersMtx_);
-    hc.guiHandlers_[className] = handler;
+    auto& hc              = HandlersContainer::Instance();
+    auto  lck             = mrpt::lockHelper(hc.guiHandlersMtx_);
+    hc.guiHandlers_[name] = handler;
 }
 
 MolaViz::MolaViz() {}
@@ -216,7 +215,7 @@ void MolaViz::gui_thread()
 
     // A call to "nanogui::leave()" is required to end the infinite loop
     // in mainloop:
-    nanogui::mainloop(100 /*refresh milliseconds*/);
+    nanogui::mainloop(25 /*refresh milliseconds*/);
 
     // Tidy up:
     nanogui::shutdown();
@@ -321,6 +320,43 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
 
             // add to list of subwindows too:
             subWindows_[parentWindow][subWindowTitle] = subw;
+
+            // Reduce size button:
+            subw->buttonPanel()
+                ->add<nanogui::Button>("", ENTYPO_ICON_RESIZE_100_PERCENT)
+                ->setCallback([subw, topWin]() {
+                    if (auto glControl =
+                            dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(
+                                subw->children().at(1));
+                        glControl)
+                    {
+                        auto s = glControl->size();
+                        s.x() *= 0.75;
+                        s.y() *= 0.75;
+                        glControl->setSize(s);
+                        glControl->setFixedSize(s);
+                    }
+                    topWin->performLayout();
+                });
+
+            // Enlarge button:
+            subw->buttonPanel()
+                ->add<nanogui::Button>("", ENTYPO_ICON_RESIZE_FULL_SCREEN)
+                ->setCallback([subw, topWin]() {
+                    if (auto glControl =
+                            dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(
+                                subw->children().at(1));
+                        glControl)
+                    {
+                        auto s = glControl->size();
+                        s.x() *= 1.25;
+                        s.y() *= 1.25;
+                        glControl->setSize(s);
+                        glControl->setFixedSize(s);
+                    }
+
+                    topWin->performLayout();
+                });
 
             return subw;
         });
