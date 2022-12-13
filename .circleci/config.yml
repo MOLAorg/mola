@@ -37,9 +37,9 @@ jobs:
             apt-get update
             apt-get install software-properties-common -y
             add-apt-repository ppa:joseluisblancoc/mrpt -y
-            add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+            add-apt-repository ppa:borglab/gtsam-develop -y
             apt-get install libmrpt-dev -y
-            apt-get install libgtsam-dev libboost-all-dev -y
+            apt-get install libgtsam-no-tbb-unstable-dev libgtsam-no-tbb-dev -y
       - checkout
       - run:
           name: "Pull Submodules"
@@ -64,9 +64,9 @@ jobs:
             apt-get update
             apt-get install software-properties-common -y
             add-apt-repository ppa:joseluisblancoc/mrpt -y
-            add-apt-repository ppa:joseluisblancoc/gtsam-develop -y
+            add-apt-repository ppa:borglab/gtsam-develop -y
             apt-get install libmrpt-dev -y
-            apt-get install libgtsam-dev libboost-all-dev -y
+            apt-get install libgtsam-no-tbb-unstable-dev libgtsam-no-tbb-dev -y
       - checkout
       - run:
           name: "Pull Submodules"
