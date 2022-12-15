@@ -25,6 +25,9 @@
 
 namespace mola
 {
+/** 0-based indices of observations in a dataset */
+using timestep_t = std::size_t;
+
 /** Virtual base for raw-observation data sources (sensors, dataset parsers,...)
  * \ingroup mola_kernel_grp */
 class RawDataSourceBase : public mola::ExecutableBase
