@@ -155,7 +155,9 @@ void KittiOdometryDataset::initialize(const Yaml& c)
 
     MRPT_LOG_INFO_STREAM(
         "Velodyne pointclouds: "
-        << (!lst_velodyne_.empty() ? "Found" : "Not found"));
+        << (!lst_velodyne_.empty()
+                ? "Found ("s + std::to_string(lst_velodyne_.size()) + ")"s
+                : "Not found"));
 
     for (unsigned int i = 0; i < 4; i++)
     {
@@ -168,7 +170,10 @@ void KittiOdometryDataset::initialize(const Yaml& c)
 
         MRPT_LOG_INFO_STREAM(
             "Camera channel `image_"
-            << i << "`: " << (!lst_image_[i].empty() ? "Found" : "Not found"));
+            << i << "`: "
+            << (!lst_image_[i].empty()
+                    ? "Found ("s + std::to_string(lst_image_[i].size()) + ")"s
+                    : "Not found"));
 
         // Override user choice if not possible to publish images:
         if (lst_image_[i].empty()) publish_image_[i] = false;
@@ -252,12 +257,16 @@ void KittiOdometryDataset::initialize(const Yaml& c)
                      << T);
     }
 
+    initialized_ = true;
+
     MRPT_END
 }  // end initialize()
 
 void KittiOdometryDataset::spinOnce()
 {
     MRPT_START
+
+    ASSERT_(initialized_);
 
     ProfilerEntry tleg(profiler_, "spinOnce");
 
@@ -373,7 +382,7 @@ void KittiOdometryDataset::spinOnce()
 }
 
 void KittiOdometryDataset::load_img(
-    const unsigned int cam_idx, const std::size_t step)
+    const unsigned int cam_idx, const timestep_t step)
 {
     MRPT_START
 
@@ -406,7 +415,7 @@ void KittiOdometryDataset::load_img(
     MRPT_END
 }
 
-void KittiOdometryDataset::load_lidar(const std::size_t step)
+void KittiOdometryDataset::load_lidar(timestep_t step)
 {
     MRPT_START
     // Already loaded?
@@ -435,4 +444,36 @@ void KittiOdometryDataset::load_lidar(const std::size_t step)
     read_ahead_lidar_obs_[step] = std::move(o);
 
     MRPT_END
+}
+
+mrpt::obs::CObservationPointCloud::Ptr KittiOdometryDataset::getPointCloud(
+    timestep_t step)
+{
+    ASSERT_(initialized_);
+    ASSERT_LT_(step, lst_timestamps_.size());
+
+    load_lidar(step);
+    auto o = std::dynamic_pointer_cast<mrpt::obs::CObservationPointCloud>(
+        read_ahead_lidar_obs_.at(step));
+    ASSERT_(o);
+    return o;
+}
+
+std::shared_ptr<mrpt::obs::CObservationImage> KittiOdometryDataset::getImage(
+    const unsigned int cam_idx, timestep_t step)
+{
+    ASSERT_(initialized_);
+    ASSERT_LT_(step, lst_timestamps_.size());
+
+    load_img(cam_idx, step);
+    auto o = std::dynamic_pointer_cast<mrpt::obs::CObservationImage>(
+        read_ahead_image_obs_.at(step).at(cam_idx));
+    ASSERT_(o);
+    return o;
+}
+
+timestep_t KittiOdometryDataset::getTimestepCount() const
+{
+    ASSERT_(initialized_);
+    return lst_timestamps_.size();
 }
