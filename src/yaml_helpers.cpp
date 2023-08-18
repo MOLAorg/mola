@@ -10,7 +10,7 @@
  * @date   Nov 30, 2018
  */
 
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/filesystem.h>

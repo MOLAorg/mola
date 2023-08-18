@@ -1,7 +1,7 @@
 #Unit tests:
 mola_add_test(
-  TARGET  test-mola-yaml-parser
+  TARGET  test-mola_yaml-parser
   SOURCES test-yaml-parser.cpp
   LINK_LIBRARIES
-    mola-yaml
+    mola_yaml
 )

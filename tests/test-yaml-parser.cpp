@@ -12,7 +12,7 @@
  * @date   Jan 14, 2021
  */
 
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_yaml/yaml_helpers.h>
 
 #include <iostream>
 

@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-yaml/macro_helpers.h>
+#include <mola_yaml/macro_helpers.h>
 #include <mrpt/containers/yaml.h>
 
 #include <sstream>
