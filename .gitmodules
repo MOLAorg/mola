@@ -52,9 +52,6 @@
 [submodule "modules/mola-imu-preintegration"]
 	path = modules/mola-imu-preintegration
 	url = git@github.com:MOLAorg/mola-imu-preintegration.git
-[submodule "modules/mola-vision"]
-	path = modules/mola-vision
-	url = git@github.com:MOLAorg/mola-vision.git
 [submodule "modules/mp2p_icp"]
 	path = modules/mp2p_icp
 	url = https://github.com/MOLAorg/mp2p_icp.git
