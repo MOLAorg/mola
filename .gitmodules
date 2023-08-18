@@ -31,9 +31,6 @@
 [submodule "mola-fe-odometry"]
 	path = modules/mola-fe-odometry
 	url = https://github.com/MOLAorg/mola-fe-odometry.git
-[submodule "DBoW"]
-	path = externals/DBoW2/DBoW2
-	url = https://github.com/MOLAorg/DBoW2.git
 [submodule "mola-slam-gtsam"]
 	path = modules/mola-slam-gtsam
 	url = https://github.com/MOLAorg/mola-slam-gtsam.git
@@ -61,6 +58,3 @@
 [submodule "modules/mp2p_icp"]
 	path = modules/mp2p_icp
 	url = https://github.com/MOLAorg/mp2p_icp.git
-[submodule "externals/evo"]
-	path = externals/evo
-	url = https://github.com/MichaelGrupp/evo.git
