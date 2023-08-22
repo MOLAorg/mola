@@ -1,57 +1,6 @@
-[submodule "mola-kernel"]
-	path = modules/mola-kernel
-	url = https://github.com/MOLAorg/mola-kernel.git
-[submodule "mola-launcher"]
-	path = modules/mola-launcher
-	url = https://github.com/MOLAorg/mola-launcher.git
-[submodule "mola-input-kitti-dataset"]
-	path = modules/mola-input-kitti-dataset
-	url = https://github.com/MOLAorg/mola-input-kitti-dataset.git
-[submodule "mola-fe-lidar"]
-	path = modules/mola-fe-lidar
-	url = https://github.com/MOLAorg/mola-fe-lidar.git
-[submodule "mola-input-euroc-dataset"]
-	path = modules/mola-input-euroc-dataset
-	url = https://github.com/MOLAorg/mola-input-euroc-dataset.git
-[submodule "mola-fe-g2o-dataset"]
-	path = modules/mola-fe-g2o-dataset
-	url = https://github.com/MOLAorg/mola-fe-g2o-dataset.git
-[submodule "mola-input-rawlog"]
-	path = modules/mola-input-rawlog
-	url = https://github.com/MOLAorg/mola-input-rawlog.git
-[submodule "mola-input-hwdrivers"]
-	path = modules/mola-input-hwdrivers
-	url = https://github.com/MOLAorg/mola-input-hwdrivers.git
-[submodule "mola-input-kaist-dataset"]
-	path = modules/mola-input-kaist-dataset
-	url = https://github.com/MOLAorg/mola-input-kaist-dataset.git
 [submodule "mola-common"]
 	path = modules/mola_common
 	url = https://github.com/MOLAorg/mola_common.git
-[submodule "mola-fe-odometry"]
-	path = modules/mola-fe-odometry
-	url = https://github.com/MOLAorg/mola-fe-odometry.git
-[submodule "mola-slam-gtsam"]
-	path = modules/mola-slam-gtsam
-	url = https://github.com/MOLAorg/mola-slam-gtsam.git
-[submodule "mola-test-datasets"]
-	path = modules/mola-test-datasets
-	url = https://github.com/MOLAorg/mola-test-datasets.git
-[submodule "mola-input-ros1"]
-	path = modules/mola-input-ros1
-	url = https://github.com/MOLAorg/mola-input-ros1.git
-[submodule "modules/mola-viz"]
-	path = modules/mola-viz
-	url = https://github.com/MOLAorg/mola-viz.git
-[submodule "modules/mola-yaml"]
-	path = modules/mola-yaml
-	url = https://github.com/MOLAorg/mola-yaml.git
-[submodule "modules/mola-slam-rhodes"]
-	path = modules/mola-slam-rhodes
-	url = https://github.com/MOLAorg/mola-slam-rhodes.git
-[submodule "modules/mola-imu-preintegration"]
-	path = modules/mola-imu-preintegration
-	url = git@github.com:MOLAorg/mola-imu-preintegration.git
 [submodule "modules/mp2p_icp"]
 	path = modules/mp2p_icp
 	url = https://github.com/MOLAorg/mp2p_icp.git
