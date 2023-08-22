@@ -17,6 +17,7 @@ jobs:
       - run:
           name: Build with colcon
           command: |
+            source /opt/ros/*/setup.bash
             colcon build --symlink-install
 workflows:
   version: 2
