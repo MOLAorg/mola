@@ -4,7 +4,7 @@ name: CI Build colcon
 on: [push, pull_request]
 
 jobs:
-  test_docker: # On Linux, iterates on all ROS 1 and ROS 2 distributions.
+  build_docker: # On Linux, iterates on all ROS 1 and ROS 2 distributions.
     runs-on: ubuntu-latest
     env:
       DEBIAN_FRONTEND: noninteractive
