@@ -12,6 +12,7 @@ jobs:
       - run:
           name: Install rosdep dependencies
           command: |
+            apt update # needed for rosdep - apt to get list of packages from ROS servers
             rosdep install --from-paths . --ignore-src -r -y
       - run:
           name: Build with colcon
