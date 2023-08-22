@@ -26,8 +26,8 @@
 	path = modules/mola-input-kaist-dataset
 	url = https://github.com/MOLAorg/mola-input-kaist-dataset.git
 [submodule "mola-common"]
-	path = modules/mola-common
-	url = https://github.com/MOLAorg/mola-common.git
+	path = modules/mola_common
+	url = https://github.com/MOLAorg/mola_common.git
 [submodule "mola-fe-odometry"]
 	path = modules/mola-fe-odometry
 	url = https://github.com/MOLAorg/mola-fe-odometry.git
