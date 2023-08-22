@@ -1,0 +1,75 @@
+# Based on GTSAM file (by @ProfFan)
+name: CI Build colcon
+
+on: [push, pull_request]
+
+jobs:
+  test_docker: # On Linux, iterates on all ROS 1 and ROS 2 distributions.
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    strategy:
+      matrix:
+        # Github Actions requires a single row to be added to the build matrix.
+        # See https://help.github.com/en/articles/workflow-syntax-for-github-actions.
+        ros_distribution:
+          - noetic
+          - humble
+          - iron
+          - rolling
+
+        # Define the Docker image(s) associated with each ROS distribution.
+        # The include syntax allows additional variables to be defined, like
+        # docker_image in this case. See documentation:
+        # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#example-including-configurations-in-a-matrix-build
+        #
+        # Platforms are defined in REP 3 and REP 2000:
+        # https://ros.org/reps/rep-0003.html
+        # https://ros.org/reps/rep-2000.html
+        include:
+          # Noetic Ninjemys (May 2020 - May 2025)
+          - docker_image: ubuntu:focal
+            ros_distribution: noetic
+            ros_version: 1
+
+          # Humble Hawksbill (May 2022 - May 2027)
+          - docker_image: ubuntu:jammy
+            ros_distribution: humble
+            ros_version: 2
+
+          # Iron Irwini (May 2023 - November 2024)
+          - docker_image: ubuntu:jammy
+            ros_distribution: iron
+            ros_version: 2
+
+          # Rolling Ridley (No End-Of-Life)
+          - docker_image: ubuntu:jammy
+            ros_distribution: rolling
+            ros_version: 2
+
+    container:
+      image: ${{ matrix.docker_image }}
+
+    steps:
+      - name: Checkout
+        run: |
+          apt-get -y update
+          apt-get -y install git
+          git clone https://github.com/$GITHUB_REPOSITORY.git --recursive "$GITHUB_WORKSPACE"
+
+      - name: setup ROS environment
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: ${{ matrix.ros_distribution }}
+
+      - name: Install rosdep dependencies
+        run: |
+          . /opt/ros/*/setup.sh
+          rosdep update
+          rosdep install --from-paths . --ignore-src -r -y
+
+      - name: Build with colcon
+        run: |
+          . /opt/ros/*/setup.sh
+          env
+          MAKEFLAGS="-j2" colcon build --symlink-install --parallel-workers 2 --event-handlers console_direct+

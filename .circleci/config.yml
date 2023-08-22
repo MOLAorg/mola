@@ -18,7 +18,7 @@ jobs:
           name: Build with colcon
           command: |
             source /opt/ros/*/setup.bash
-            colcon build --symlink-install
+            MAKEFLAGS="-j2" colcon build --symlink-install  --parallel-workers 2 --event-handlers console_direct+
 workflows:
   version: 2
   build:
