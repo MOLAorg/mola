@@ -2,7 +2,7 @@ version: 2
 jobs:
   ros-rolling-u22.04:
     docker:
-      - image: ros/ros:rolling-ros-base
+      - image: ros:rolling-ros-base
     steps:
       - checkout
       - run:
