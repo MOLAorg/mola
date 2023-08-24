@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_yaml</name>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <description>YAML helper library common to MOLA modules</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>
