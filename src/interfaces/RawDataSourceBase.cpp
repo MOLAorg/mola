@@ -12,7 +12,7 @@
 
 #include <mola-kernel/interfaces/RawDataSourceBase.h>
 #include <mola-kernel/interfaces/VizInterface.h>
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>

@@ -28,14 +28,14 @@ mola_add_library(
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
 	PUBLIC_LINK_LIBRARIES
 		mrpt::obs
-		mola-yaml
+		mola_yaml
 	PRIVATE_LINK_LIBRARIES
 		gtsam
 		mrpt::gui   #TODO: remove after mapviz!
 		mrpt::maps  #TODO: remove after mapviz!
 	CMAKE_DEPENDENCIES
 		mrpt-obs
-		mola-yaml
+		mola_yaml
 )
 
 if ("$ENV{VERBOSE}")

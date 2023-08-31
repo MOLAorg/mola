@@ -18,7 +18,7 @@
 #include <mola-kernel/entities/KeyFrameBase.h>
 #include <mola-kernel/lock_helper.h>
 #include <mola-kernel/variant_helper.h>
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/get_env.h>
 #include <mrpt/io/CFileGZInputStream.h>
