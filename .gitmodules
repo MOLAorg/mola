@@ -7,3 +7,12 @@
 [submodule "modules/mola_yaml"]
 	path = modules/mola_yaml
 	url = https://github.com/MOLAorg/mola_yaml.git
+[submodule "modules/mola_input_kitti_dataset"]
+	path = modules/mola_input_kitti_dataset
+	url = https://github.com/MOLAorg/mola_input_kitti_dataset.git
+[submodule "modules/mola_input_euroc_dataset"]
+	path = modules/mola_input_euroc_dataset
+	url = https://github.com/MOLAorg/mola_input_euroc_dataset.git
+[submodule "modules/mola_kernel"]
+	path = modules/mola_kernel
+	url = https://github.com/MOLAorg/mola_kernel.git
