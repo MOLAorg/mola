@@ -16,6 +16,7 @@
   <license>BSD</license>
 
   <depend>mola_common</depend>
+  <depend>mola_yaml</depend>
   <depend>mrpt2</depend>
 
   <doc_depend>doxygen</doc_depend>
