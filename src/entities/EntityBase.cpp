@@ -10,9 +10,9 @@
  * @date   Nov 26, 2018
  */
 
-#include <mola-kernel/Entity.h>
-#include <mola-kernel/entities/EntityBase.h>
-#include <mola-kernel/variant_helper.h>
+#include <mola_kernel/Entity.h>
+#include <mola_kernel/entities/EntityBase.h>
+#include <mola_kernel/variant_helper.h>
 #include <mrpt/serialization/CArchive.h>
 
 using namespace mola;

@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/Yaml.h>
-#include <mola-kernel/interfaces/ExecutableBase.h>
-#include <mola-kernel/interfaces/RawDataConsumer.h>
+#include <mola_kernel/Yaml.h>
+#include <mola_kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/interfaces/RawDataConsumer.h>
 #include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/pimpl.h>

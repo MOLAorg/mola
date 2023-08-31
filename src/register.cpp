@@ -10,8 +10,8 @@
  * @date   Jun 22, 2019
  */
 
-#include <mola-kernel/Factor.h>
-#include <mola-kernel/WorldModel.h>
+#include <mola_kernel/Factor.h>
+#include <mola_kernel/WorldModel.h>
 #include <mrpt/core/initializer.h>
 
 using namespace mola;

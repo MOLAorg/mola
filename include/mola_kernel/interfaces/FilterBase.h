@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include <mola-kernel/interfaces/RawDataConsumer.h>
-#include <mola-kernel/interfaces/RawDataSourceBase.h>
+#include <mola_kernel/interfaces/RawDataConsumer.h>
+#include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/system/COutputLogger.h>
 

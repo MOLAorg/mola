@@ -10,7 +10,7 @@
  * @date   Jan 08, 2019
  */
 
-#include <mola-kernel/factors/FactorRelativePose3.h>
+#include <mola_kernel/factors/FactorRelativePose3.h>
 #include <mrpt/math/CMatrixD.h>
 #include <mrpt/serialization/CArchive.h>
 

@@ -11,9 +11,10 @@
  */
 #pragma once
 
-#include <mola-kernel/factors/FactorBase.h>
+#include <mola_kernel/factors/FactorBase.h>
 #include <mrpt/img/TPixelCoord.h>
 #include <mrpt/math/TPose3D.h>
+
 #include <deque>
 
 namespace mola

@@ -13,11 +13,11 @@
 /** \defgroup mola_kernel_grp mola-kernel: MOLA data types and interfaces
  */
 
-#include <mola-kernel/FastAllocator.h>
-#include <mola-kernel/WorldModel.h>
-#include <mola-kernel/entities/KeyFrameBase.h>
-#include <mola-kernel/lock_helper.h>
-#include <mola-kernel/variant_helper.h>
+#include <mola_kernel/FastAllocator.h>
+#include <mola_kernel/WorldModel.h>
+#include <mola_kernel/entities/KeyFrameBase.h>
+#include <mola_kernel/lock_helper.h>
+#include <mola_kernel/variant_helper.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/get_env.h>

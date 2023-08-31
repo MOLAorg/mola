@@ -10,8 +10,8 @@
  * @date   Dec 11, 2018
  */
 
-#include <mola-kernel/interfaces/FrontEndBase.h>
-#include <mola-kernel/interfaces/RawDataSourceBase.h>
+#include <mola_kernel/interfaces/FrontEndBase.h>
+#include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/containers/yaml.h>
 
 #include <iostream>
@@ -64,7 +64,9 @@ void FrontEndBase::initialize_common(const Yaml& cfg)
     // Search for SLAM backend:
     auto fnd_bckends = ExecutableBase::findService<BackEndBase>();
     if (fnd_bckends.empty())
-    { MRPT_LOG_WARN("No SLAM back-end found in the system."); }
+    {
+        MRPT_LOG_WARN("No SLAM back-end found in the system.");
+    }
     else
     {
         if (fnd_bckends.size() > 1)

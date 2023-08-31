@@ -11,8 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/entities/entities-common.h>
+#include <mola_kernel/entities/entities-common.h>
 #include <mrpt/math/TPose3D.h>
+
 #include <array>
 #include <variant>
 

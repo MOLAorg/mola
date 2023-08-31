@@ -10,7 +10,7 @@
  * @date   Jan 08, 2019
  */
 
-#include <mola-kernel/factors/FactorDynamicsConstVel.h>
+#include <mola_kernel/factors/FactorDynamicsConstVel.h>
 #include <mrpt/serialization/CArchive.h>
 
 using namespace mola;

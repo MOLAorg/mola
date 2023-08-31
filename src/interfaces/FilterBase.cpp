@@ -10,7 +10,7 @@
  * @date   Dec 11, 2018
  */
 
-#include <mola-kernel/interfaces/FilterBase.h>
+#include <mola_kernel/interfaces/FilterBase.h>
 
 #include <iostream>
 

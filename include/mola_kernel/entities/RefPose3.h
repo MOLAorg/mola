@@ -4,31 +4,30 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RelPose3KF.h
+ * @file   RefPose3.h
  * @brief
  * @author Jose Luis Blanco Claraco
  * @date   Jan 08, 2019
  */
 #pragma once
 
-#include <mola-kernel/entities/EntityRelativeBase.h>
-#include <mola-kernel/entities/KeyFrameBase.h>
-#include <mrpt/math/TPose3D.h>
+#include <mola_kernel/entities/EntityBase.h>
 
 namespace mola
 {
-/** A relative SE(3) keyframe, holding a relative SE(3) pose wrt to the base
- * frame.
- * This entity is also a key-frame.
+/** A Reference SE(3) keyframe.
+ * Does not hold raw observations.
+ * This kind of frame is used as "coordinate origin" for both, absolute and
+ * relative maps (submaps). Global SLAM frameworks should have only one entity
+ * of this class, submapping approaches will have several instances.
+ *
  * \ingroup mola_kernel_grp
  */
-class RelPose3KF : public EntityRelativeBase, public KeyFrameBase
+class RefPose3 : public EntityBase
 {
-    DEFINE_SERIALIZABLE(RelPose3KF, mola)
+    DEFINE_SERIALIZABLE(RefPose3, mola)
 
    public:
-    /** The up-to-date value of this entity. */
-    mrpt::math::TPose3D relpose_value;
 };
 
 }  // namespace mola

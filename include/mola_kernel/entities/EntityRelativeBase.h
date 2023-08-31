@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/entities/EntityBase.h>
+#include <mola_kernel/entities/EntityBase.h>
 
 namespace mola
 {

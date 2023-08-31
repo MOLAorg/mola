@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/Yaml.h>
+#include <mola_kernel/Yaml.h>
 #include <mrpt/rtti/CObject.h>
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/system/CTimeLogger.h>

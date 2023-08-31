@@ -10,8 +10,8 @@
  * @date   Jan 28, 2019
  */
 
-#include <mola-kernel/factors/SmartFactorIMU.h>
-#include <mola-kernel/interfaces/BackEndBase.h>
+#include <mola_kernel/factors/SmartFactorIMU.h>
+#include <mola_kernel/interfaces/BackEndBase.h>
 #include <mrpt/serialization/CArchive.h>
 
 using namespace mola;

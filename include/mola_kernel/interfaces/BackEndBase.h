@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include <mola-kernel/WorldModel.h>
-#include <mola-kernel/Yaml.h>
-#include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/WorldModel.h>
+#include <mola_kernel/Yaml.h>
+#include <mola_kernel/interfaces/ExecutableBase.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/img/TCamera.h>  // TODO: Remove after unused below

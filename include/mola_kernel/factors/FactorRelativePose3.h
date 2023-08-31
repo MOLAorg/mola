@@ -11,9 +11,10 @@
  */
 #pragma once
 
-#include <mola-kernel/factors/FactorBase.h>
+#include <mola_kernel/factors/FactorBase.h>
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/math/TPose3D.h>
+
 #include <optional>
 
 namespace mola

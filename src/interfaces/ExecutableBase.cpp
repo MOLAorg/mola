@@ -10,8 +10,8 @@
  * @date   Dec 14, 2018
  */
 
-#include <mola-kernel/interfaces/ExecutableBase.h>
-#include <mola-kernel/lock_helper.h>
+#include <mola_kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/lock_helper.h>
 
 #include <mutex>
 

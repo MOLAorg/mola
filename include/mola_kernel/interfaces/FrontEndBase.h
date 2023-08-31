@@ -11,10 +11,10 @@
  */
 #pragma once
 
-#include <mola-kernel/Yaml.h>
-#include <mola-kernel/interfaces/BackEndBase.h>
-#include <mola-kernel/interfaces/ExecutableBase.h>
-#include <mola-kernel/interfaces/RawDataConsumer.h>
+#include <mola_kernel/Yaml.h>
+#include <mola_kernel/interfaces/BackEndBase.h>
+#include <mola_kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/interfaces/RawDataConsumer.h>
 
 namespace mola
 {

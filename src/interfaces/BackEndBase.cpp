@@ -10,9 +10,9 @@
  * @date   Dec 21, 2018
  */
 
-#include <mola-kernel/WorldModel.h>
-#include <mola-kernel/interfaces/BackEndBase.h>
-#include <mola-kernel/interfaces/RawDataSourceBase.h>
+#include <mola_kernel/WorldModel.h>
+#include <mola_kernel/interfaces/BackEndBase.h>
+#include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/containers/yaml.h>
 
 #include <iostream>

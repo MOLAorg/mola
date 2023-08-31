@@ -10,7 +10,7 @@
  * @date   Jan 19, 2019
  */
 
-#include <mola-kernel/LazyLoadResource.h>
+#include <mola_kernel/LazyLoadResource.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/io/CFileGZOutputStream.h>

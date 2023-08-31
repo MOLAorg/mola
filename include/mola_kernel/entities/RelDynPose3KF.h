@@ -4,29 +4,33 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   RelPose3.h
+ * @file   RelDynPose3KF.h
  * @brief
  * @author Jose Luis Blanco Claraco
  * @date   Jan 08, 2019
  */
 #pragma once
 
-#include <mola-kernel/entities/EntityRelativeBase.h>
+#include <mola_kernel/entities/EntityRelativeBase.h>
+#include <mola_kernel/entities/KeyFrameBase.h>
 #include <mrpt/math/TPose3D.h>
+#include <mrpt/math/TTwist3D.h>
 
 namespace mola
 {
-/** A relative SE(3) pose (e.g. a sensor pose wrt the vehicle)
- *
+/** A relative "dynamic" pose: SE(3) pose + velocity vector.
+ * Both the pose and the velocity vector are given in the frame of the base KF.
+ * This entity is also a key-frame.
  * \ingroup mola_kernel_grp
  */
-class RelPose3 : public EntityRelativeBase
+class RelDynPose3KF : public EntityRelativeBase, public KeyFrameBase
 {
-    DEFINE_SERIALIZABLE(RelPose3, mola)
+    DEFINE_SERIALIZABLE(RelDynPose3KF, mola)
 
    public:
     /** The up-to-date value of this entity. */
-    mrpt::math::TPose3D relpose_value;
+    mrpt::math::TPose3D  relpose_value;
+    mrpt::math::TTwist3D twist_value;
 };
 
 }  // namespace mola

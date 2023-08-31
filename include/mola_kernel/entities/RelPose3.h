@@ -4,24 +4,29 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   entities-common.h
- * @brief  Includes all headers for common types of world-model entities
+ * @file   RelPose3.h
+ * @brief
  * @author Jose Luis Blanco Claraco
  * @date   Jan 08, 2019
  */
 #pragma once
 
-#include <memory>
-
-#include <mola-kernel/entities/LandmarkPoint3.h>
-#include <mola-kernel/entities/RefPose3.h>
-#include <mola-kernel/entities/RelDynPose3KF.h>
-#include <mola-kernel/entities/RelPose3.h>
-#include <mola-kernel/entities/RelPose3KF.h>
+#include <mola_kernel/entities/EntityRelativeBase.h>
+#include <mrpt/math/TPose3D.h>
 
 namespace mola
 {
-/** Placeholder for generic entity of user-defined types */
-using EntityOther = std::shared_ptr<EntityBase>;
+/** A relative SE(3) pose (e.g. a sensor pose wrt the vehicle)
+ *
+ * \ingroup mola_kernel_grp
+ */
+class RelPose3 : public EntityRelativeBase
+{
+    DEFINE_SERIALIZABLE(RelPose3, mola)
+
+   public:
+    /** The up-to-date value of this entity. */
+    mrpt::math::TPose3D relpose_value;
+};
 
 }  // namespace mola

@@ -10,8 +10,8 @@
  * @date   Jan 28, 2019
  */
 
-#include <mola-kernel/Entity.h>
-#include <mola-kernel/variant_helper.h>
+#include <mola_kernel/Entity.h>
+#include <mola_kernel/variant_helper.h>
 
 using namespace mola;
 
@@ -19,12 +19,13 @@ EntityBase& mola::entity_get_base(Entity& e)
 {
     EntityBase* ret = nullptr;
     std::visit(
-        overloaded{[&ret](EntityBase& b) { ret = &b; },
-                   [&ret](EntityOther& o) {
-                       ASSERT_(o);
-                       ret = o.get();
-                   },
-                   [](std::monostate) {}},
+        overloaded{
+            [&ret](EntityBase& b) { ret = &b; },
+            [&ret](EntityOther& o) {
+                ASSERT_(o);
+                ret = o.get();
+            },
+            [](std::monostate) {}},
         e);
 
     if (!ret) THROW_EXCEPTION("entity_get_base(): Empty variant.");
@@ -36,12 +37,13 @@ const EntityBase& mola::entity_get_base(const Entity& e)
 {
     const EntityBase* ret = nullptr;
     std::visit(
-        overloaded{[&ret](const EntityBase& b) { ret = &b; },
-                   [&ret](const EntityOther& o) {
-                       ASSERT_(o);
-                       ret = o.get();
-                   },
-                   [](std::monostate) {}},
+        overloaded{
+            [&ret](const EntityBase& b) { ret = &b; },
+            [&ret](const EntityOther& o) {
+                ASSERT_(o);
+                ret = o.get();
+            },
+            [](std::monostate) {}},
         e);
 
     if (!ret) THROW_EXCEPTION("entity_get_base(): Empty variant.");

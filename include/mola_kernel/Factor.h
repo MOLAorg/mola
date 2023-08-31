@@ -11,7 +11,8 @@
  */
 #pragma once
 
-#include <mola-kernel/factors/factors-common.h>
+#include <mola_kernel/factors/factors-common.h>
+
 #include <variant>
 
 namespace mola

@@ -10,7 +10,7 @@
  * @date   Aug 13, 2021
  */
 
-#include <mola-kernel/pretty_print_exception.h>
+#include <mola_kernel/pretty_print_exception.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/os.h>
 #include <mrpt/system/string_utils.h>

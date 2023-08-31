@@ -11,10 +11,11 @@
  */
 #pragma once
 
-#include <mola-kernel/LazyLoadResource.h>
-#include <mola-kernel/id.h>
+#include <mola_kernel/LazyLoadResource.h>
+#include <mola_kernel/id.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/serialization/CSerializable.h>
+
 #include <map>
 
 namespace mola

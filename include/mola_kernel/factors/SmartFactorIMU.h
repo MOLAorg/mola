@@ -11,7 +11,8 @@
  */
 #pragma once
 
-#include <mola-kernel/factors/FactorBase.h>
+#include <mola_kernel/factors/FactorBase.h>
+
 #include <deque>
 
 namespace mola

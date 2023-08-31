@@ -10,7 +10,7 @@
  * @date   Jan 08, 2019
  */
 
-#include <mola-kernel/factors/FactorBase.h>
+#include <mola_kernel/factors/FactorBase.h>
 #include <mrpt/serialization/CArchive.h>
 
 using namespace mola;

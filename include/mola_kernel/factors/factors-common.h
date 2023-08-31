@@ -11,13 +11,13 @@
  */
 #pragma once
 
-#include <memory>
+#include <mola_kernel/factors/FactorDynamicsConstVel.h>
+#include <mola_kernel/factors/FactorRelativePose3.h>
+#include <mola_kernel/factors/FactorStereoProjectionPose.h>
+#include <mola_kernel/factors/SmartFactorIMU.h>
+#include <mola_kernel/factors/SmartFactorStereoProjectionPose.h>
 
-#include <mola-kernel/factors/FactorDynamicsConstVel.h>
-#include <mola-kernel/factors/FactorRelativePose3.h>
-#include <mola-kernel/factors/FactorStereoProjectionPose.h>
-#include <mola-kernel/factors/SmartFactorIMU.h>
-#include <mola-kernel/factors/SmartFactorStereoProjectionPose.h>
+#include <memory>
 
 namespace mola
 {

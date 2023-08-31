@@ -11,12 +11,12 @@
  */
 #pragma once
 
-#include <mola-kernel/Entity.h>
-#include <mola-kernel/Factor.h>
-#include <mola-kernel/FastAllocator.h>
-#include <mola-kernel/Yaml.h>
-#include <mola-kernel/id.h>
-#include <mola-kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/Entity.h>
+#include <mola_kernel/Factor.h>
+#include <mola_kernel/FastAllocator.h>
+#include <mola_kernel/Yaml.h>
+#include <mola_kernel/id.h>
+#include <mola_kernel/interfaces/ExecutableBase.h>
 #include <mrpt/serialization/CSerializable.h>
 
 #include <map>

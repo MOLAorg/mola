@@ -10,8 +10,8 @@
  * @date   Jan 08, 2019
  */
 
-#include <mola-kernel/factors/FactorStereoProjectionPose.h>
-#include <mola-kernel/interfaces/BackEndBase.h>
+#include <mola_kernel/factors/FactorStereoProjectionPose.h>
+#include <mola_kernel/interfaces/BackEndBase.h>
 #include <mrpt/serialization/CArchive.h>
 
 using namespace mola;

@@ -10,7 +10,7 @@
  * @date   Jan 08, 2019
  */
 
-#include <mola-kernel/entities/RelPose3.h>
+#include <mola_kernel/entities/RelPose3.h>
 #include <mrpt/serialization/CArchive.h>
 
 using namespace mola;

@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/id.h>
+#include <mola_kernel/id.h>
 #include <mrpt/serialization/CSerializable.h>
 
 namespace mola
