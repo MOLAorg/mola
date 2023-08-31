@@ -16,7 +16,7 @@
  *
  */
 
-#include <mola-input-kitti-dataset/KittiOdometryDataset.h>
+#include <mola_input_kitti_dataset/KittiOdometryDataset.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>

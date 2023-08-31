@@ -11,10 +11,10 @@
 cmake_minimum_required(VERSION 3.4)
 
 # Tell CMake we'll use C++ for use in its tests/flags
-project(mola-input-kitti-dataset LANGUAGES CXX)
+project(mola_input_kitti_dataset LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
-find_package(mola-common REQUIRED)
+find_package(mola_common REQUIRED)
 
 # find dependencies:
 find_package(mrpt-math) # for MRPT Eigen utilities
@@ -22,7 +22,7 @@ find_package(mrpt-maps)
 find_package(mrpt-poses)
 find_package(mrpt-tclap)
 
-find_mola_package(mola-kernel)
+find_mola_package(mola_kernel)
 
 # -----------------------
 # define lib:
@@ -33,12 +33,12 @@ mola_add_library(
 	TARGET ${PROJECT_NAME}
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
 	PUBLIC_LINK_LIBRARIES
-		mola-kernel
+		mola_kernel
 	PRIVATE_LINK_LIBRARIES
 		mrpt::maps
 		mrpt::math
 	CMAKE_DEPENDENCIES
-		mola-kernel
+		mola_kernel
 )
 
 # ----------------------
