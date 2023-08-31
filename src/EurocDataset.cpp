@@ -16,8 +16,8 @@
  *
  */
 
-#include <mola-input-euroc-dataset/EurocDataset.h>
-#include <mola-kernel/variant_helper.h>
+#include <mola_input_euroc_dataset/EurocDataset.h>
+#include <mola_kernel/variant_helper.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
