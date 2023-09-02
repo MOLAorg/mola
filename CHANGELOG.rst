@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.1 (2023-09-02)
+------------------
 
 * Add virtual interface for dataset groundtruth
 * Update copyright date
