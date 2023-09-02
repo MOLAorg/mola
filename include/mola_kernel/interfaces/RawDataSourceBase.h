@@ -19,6 +19,7 @@
 #include <mrpt/core/pimpl.h>
 #include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/obs/CObservation.h>
+#include <mrpt/poses/CPose3DInterpolator.h>
 
 #include <functional>
 #include <memory>
@@ -28,8 +29,12 @@ namespace mola
 /** 0-based indices of observations in a dataset */
 using timestep_t = std::size_t;
 
-/** Virtual base for raw-observation data sources (sensors, dataset parsers,...)
- * \ingroup mola_kernel_grp */
+/** We reuse mrpt::poses::CPose3DInterpolator as a time-indexed map of SE(3)
+ * poses */
+using trajectory_t = mrpt::poses::CPose3DInterpolator;
+
+/** Virtual base for raw-observation data sources (sensors, dataset
+ * parsers,...) \ingroup mola_kernel_grp */
 class RawDataSourceBase : public mola::ExecutableBase
 {
     DEFINE_VIRTUAL_MRPT_OBJECT(RawDataSourceBase)
@@ -50,6 +55,23 @@ class RawDataSourceBase : public mola::ExecutableBase
      * file.
      */
     void initialize_common(const Yaml& cfg) override;
+
+    /** For real sensors, this will always return false.
+     *  For datasets, this returns true if a groundtruth is available
+     *  for the vehicle trajectory.
+     *  \sa getGroundTruthTrajectory()
+     */
+    virtual bool hasGroundTruthTrajectory() const { return false; }
+
+    /** If hasGroundTruthTrajectory() returns true, this returns the dataset
+     *  groundtruth for the vehicle trajectory.
+     *
+     *  Note that timestamps for datasets are not wall-clock time ("now"), but
+     *  old timestamps of when original observations were grabbed.
+     *
+     *  \sa hasGroundTruthTrajectory()
+     */
+    virtual trajectory_t getGroundTruthTrajectory() const { return {}; }
 
    protected:
     /** Send an observation to the associated target front-ends */
