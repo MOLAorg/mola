@@ -134,6 +134,26 @@ void KittiOdometryDataset::initialize(const Yaml& c)
             static_cast<size_t>(groundTruthPoses_.rows()),
             lst_timestamps_.size());
 
+        // Convert into the format expected by MOLA generic interface:
+        mrpt::math::CMatrixDouble44 m = mrpt::math::CMatrixDouble44::Identity();
+        const auto cam0Pose           = mrpt::poses::CPose3D(cam_poses_.at(0));
+
+        for (size_t i = 0; i < lst_timestamps_.size(); i++)
+        {
+            for (int j = 0; j < 12; j++) m[j] = groundTruthPoses_(i, j);
+
+            // ground truth is for cam0:
+            const auto gtCam0Pose =
+                mrpt::poses::CPose3D::FromHomogeneousMatrix(m);
+
+            // Convert it to the vehicle frame, for consistency with all MOLA
+            // datasets:
+            const auto gtPose = gtCam0Pose - cam0Pose;
+
+            groundTruthTrajectory_.insert(
+                mrpt::Clock::fromDouble(lst_timestamps_.at(i)), gtPose);
+        }
+
         MRPT_LOG_INFO("Ground truth poses: Found");
     }
     else
@@ -309,9 +329,7 @@ void KittiOdometryDataset::spinOnce()
         // Save one single timestamp for all observations, since they are in
         // theory shynchronized in the Kitti datasets:
         const auto obs_tim =
-            replay_begin_time_ +
-            std::chrono::microseconds(static_cast<unsigned long>(
-                1e6 * lst_timestamps_[replay_next_tim_index_]));
+            mrpt::Clock::fromDouble(lst_timestamps_[replay_next_tim_index_]);
 
         if (publish_lidar_)
         {

@@ -46,6 +46,14 @@ class KittiOdometryDataset : public RawDataSourceBase
     // See docs in base class
     void initialize(const Yaml& cfg) override;
     void spinOnce() override;
+    bool hasGroundTruthTrajectory() const override
+    {
+        return !groundTruthTrajectory_.empty();
+    }
+    trajectory_t getGroundTruthTrajectory() const override
+    {
+        return groundTruthTrajectory_;
+    }
 
     /** Direct programatic access to dataset observations */
     std::shared_ptr<mrpt::obs::CObservationPointCloud> getPointCloud(
@@ -72,6 +80,7 @@ class KittiOdometryDataset : public RawDataSourceBase
     std::array<std::vector<std::string>, 4>            lst_image_;
     std::vector<std::string>                           lst_velodyne_;
     mrpt::math::CMatrixDouble                          groundTruthPoses_;
+    trajectory_t                                       groundTruthTrajectory_;
     std::map<timestep_t, mrpt::obs::CObservation::Ptr> read_ahead_lidar_obs_;
     std::map<timestep_t, std::array<mrpt::obs::CObservation::Ptr, 4>>
         read_ahead_image_obs_;
