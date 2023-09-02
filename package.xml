@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_input_euroc_dataset</name>
-  <version>0.2.0</version>
+  <version>0.2.1</version>
   <description>Offline RawDataSource from EUROC SLAM datasets</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>
