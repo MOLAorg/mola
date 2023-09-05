@@ -12,7 +12,7 @@
 #pragma once
 
 #include <mola_imu_preintegration/RotationIntegrationParams.h>
-#include <mola_kernel/Yaml.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/optional_ref.h>
 
 namespace mola
@@ -70,7 +70,7 @@ class RotationIntegrator
      * @param cfg a YAML node with a dictionary of parameters to load from, as
      * expected by RotationIntegrationParams (see its docs).
      */
-    void initialize(const Yaml& cfg);
+    void initialize(const mrpt::containers::yaml& cfg);
 
     /** Resets the integrator state to an initial state.
      *  \sa currentIntegrationState

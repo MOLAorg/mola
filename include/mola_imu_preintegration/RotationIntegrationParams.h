@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include <mola_kernel/Yaml.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/math/TPoint3D.h>
 #include <mrpt/poses/CPose3D.h>
@@ -43,7 +43,7 @@ class RotationIntegrationParams
     ~RotationIntegrationParams() = default;
 
     /// Loads all parameters from a YAML map node.
-    void load_from(const Yaml& cfg);
+    void load_from(const mrpt::containers::yaml& cfg);
 
     /// Gyroscope (initial or constant) bias, in the local IMU frame of
     /// reference (units: rad/s).

@@ -29,7 +29,7 @@ sensorLocationInVehicle:
 static void test_rotation_integration()
 {
     mola::RotationIntegrator ri;
-    ri.initialize(mola::Yaml::FromText(yamlRotIntParams1));
+    ri.initialize(mrpt::containers::yaml::FromText(yamlRotIntParams1));
 
     ASSERT_EQUAL_(ri.params_.gyroBias.x, -1.0e-4);
     ASSERT_EQUAL_(ri.params_.gyroBias.y, +2.0e-4);

@@ -11,12 +11,12 @@
  * @date   Sep 18, 2021
  */
 
-#include <mola_imu_preintegration/IMUIntegrationPublisher.h>
+//#include <mola_imu_preintegration/IMUIntegrationPublisher.h>
 #include <mrpt/core/initializer.h>
 
-using namespace mola;
+// using namespace mola;
 
-MRPT_INITIALIZER(do_register_Foo)
+MRPT_INITIALIZER(do_register_imu_preintegration)
 {
-    MOLA_REGISTER_MODULE(IMUIntegrationPublisher);
+    //  MOLA_REGISTER_MODULE(IMUIntegrationPublisher);
 }

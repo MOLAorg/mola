@@ -11,7 +11,7 @@
 cmake_minimum_required(VERSION 3.4)
 
 # Tell CMake we'll use C++ for use in its tests/flags
-project(mola-imu-preintegration LANGUAGES CXX)
+project(mola_imu_preintegration LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola_common REQUIRED)
@@ -30,8 +30,9 @@ file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 mola_add_library(
 	TARGET ${PROJECT_NAME}
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
-	#PUBLIC_LINK_LIBRARIES
-	#	mola_common
+	PUBLIC_LINK_LIBRARIES
+		mrpt::containers
+		mrpt::poses
 	PRIVATE_LINK_LIBRARIES
 		mrpt::obs
 	CMAKE_DEPENDENCIES
