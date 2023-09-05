@@ -15,8 +15,8 @@
  *
  */
 
-#include <mola-input-rawlog/RawlogDataset.h>
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_input_rawlog/RawlogDataset.h>
+#include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/obs/CActionCollection.h>

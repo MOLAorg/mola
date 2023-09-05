@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/interfaces/RawDataSourceBase.h>
+#include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/serialization/CArchive.h>
 
