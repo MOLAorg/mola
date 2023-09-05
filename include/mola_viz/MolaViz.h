@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include <mola-kernel/interfaces/ExecutableBase.h>
-#include <mola-kernel/interfaces/VizInterface.h>
+#include <mola_kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/interfaces/VizInterface.h>
 #include <mrpt/gui/CDisplayWindowGUI.h>
 
 #include <future>

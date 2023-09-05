@@ -11,15 +11,15 @@
 cmake_minimum_required(VERSION 3.4)
 
 # Tell CMake we'll use C++ for use in its tests/flags
-project(mola-viz LANGUAGES CXX)
+project(mola_viz LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
-find_package(mola-common REQUIRED)
+find_package(mola_common REQUIRED)
 # find dependencies:
 find_package(mrpt-gui REQUIRED)
 find_package(mrpt-maps REQUIRED)
 find_package(mrpt-opengl REQUIRED)
-find_mola_package(mola-kernel)
+find_mola_package(mola_kernel)
 
 # -----------------------
 # define lib:
@@ -30,12 +30,12 @@ mola_add_library(
 	TARGET ${PROJECT_NAME}
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
 	PUBLIC_LINK_LIBRARIES
-		mola-kernel
+		mola_kernel
 		mrpt::gui
 		mrpt::opengl
 		mrpt::maps
 	CMAKE_DEPENDENCIES
-		mola-kernel
+		mola_kernel
 		mrpt-gui
 		mrpt-opengl
 )
