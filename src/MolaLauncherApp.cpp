@@ -14,10 +14,10 @@
  * systems
  */
 
-#include <mola-kernel/interfaces/FrontEndBase.h>
-#include <mola-kernel/interfaces/RawDataSourceBase.h>
-#include <mola-launcher/MolaLauncherApp.h>
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_kernel/interfaces/FrontEndBase.h>
+#include <mola_kernel/interfaces/RawDataSourceBase.h>
+#include <mola_launcher/MolaLauncherApp.h>
+#include <mola_yaml/yaml_helpers.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/core/get_env.h>
 #include <mrpt/system/CDirectoryExplorer.h>

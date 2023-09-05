@@ -11,8 +11,8 @@
  * @date   Jun 24, 2019
  */
 
-#include <mola-kernel/pretty_print_exception.h>
-#include <mola-launcher/MolaLauncherApp.h>
+#include <mola_kernel/pretty_print_exception.h>
+#include <mola_launcher/MolaLauncherApp.h>
 #include <mrpt/core/exceptions.h>
 
 #include <iostream>

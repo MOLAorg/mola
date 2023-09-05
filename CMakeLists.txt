@@ -11,15 +11,15 @@
 cmake_minimum_required(VERSION 3.4)
 
 # Tell CMake we'll use C++ for use in its tests/flags
-project(mola-launcher LANGUAGES CXX)
+project(mola_launcher LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
-find_package(mola-common REQUIRED)
+find_package(mola_common REQUIRED)
 
 # find dependencies:
 find_package(mrpt-core)
 
-find_mola_package(mola-kernel)
+find_mola_package(mola_kernel)
 
 # -----------------------
 # define lib:
@@ -32,11 +32,11 @@ mola_add_library(
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
 	PUBLIC_LINK_LIBRARIES
 		mrpt::core
-		mola-kernel
+		mola_kernel
 	PRIVATE_LINK_LIBRARIES
 		${CMAKE_DL_LIBS} # To be able to load DLLs/.so's
 	CMAKE_DEPENDENCIES
-		mola-kernel
+		mola_kernel
 )
 
 target_compile_definitions(${PROJECT_NAME}

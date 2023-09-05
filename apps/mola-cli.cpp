@@ -11,9 +11,9 @@
  * @date   Nov 28, 2018
  */
 
-#include <mola-kernel/pretty_print_exception.h>
-#include <mola-launcher/MolaLauncherApp.h>
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_kernel/pretty_print_exception.h>
+#include <mola_launcher/MolaLauncherApp.h>
+#include <mola_yaml/yaml_helpers.h>
 #include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/rtti/CObject.h>
