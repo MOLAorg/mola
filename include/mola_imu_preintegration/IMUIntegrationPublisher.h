@@ -12,9 +12,9 @@
  */
 #pragma once
 
-#include <mola-imu-preintegration/IMUIntegrator.h>
-#include <mola-kernel/interfaces/ExecutableBase.h>
-#include <mola-kernel/interfaces/RawDataConsumer.h>
+#include <mola_imu_preintegration/IMUIntegrator.h>
+#include <mola_kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/interfaces/RawDataConsumer.h>
 
 namespace mola
 {

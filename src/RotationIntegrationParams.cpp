@@ -10,11 +10,11 @@
  * @date   Sep 20, 2021
  */
 
-#include <mola-imu-preintegration/RotationIntegrationParams.h>
+#include <mola_imu_preintegration/RotationIntegrationParams.h>
 
 using namespace mola;
 
-void RotationIntegrationParams::load_from(const Yaml& cfg)
+void RotationIntegrationParams::load_from(const mrpt::containers::yaml& cfg)
 {
     gyroBias = mrpt::math::TVector3D::FromVector(
         cfg["gyroBias"].toStdVector<double>());

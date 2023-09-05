@@ -4,23 +4,24 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   IMUIntegrationParams.h
- * @brief  Parameters for IMU preintegration.
+ * @file   RotationIntegrationParams.h
+ * @brief  Parameters for angular velocity integration.
  * @author Jose Luis Blanco Claraco
- * @date   Sep 19, 2021
+ * @date   Sep 20, 2021
  */
 
 #pragma once
 
-#include <mola-imu-preintegration/RotationIntegrationParams.h>
-#include <mola-kernel/Yaml.h>
+#include <mola_kernel/Yaml.h>
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/math/TPoint3D.h>
+#include <mrpt/poses/CPose3D.h>
+
+#include <optional>
 
 namespace mola
 {
-/** Parameters needed by IMU preintegration classes, when integrating both,
- * acceleration and rotation.
+/** Parameters needed when integrating IMU rotation only.
  *
  *  Refer to:
  *  - Crassidis, J. L. (2006). Sigma-point Kalman filtering for integrated GPS
@@ -35,29 +36,27 @@ namespace mola
  *
  * \ingroup mola_imu_preintegration_grp
  */
-class IMUIntegrationParams
+class RotationIntegrationParams
 {
    public:
-    IMUIntegrationParams()  = default;
-    ~IMUIntegrationParams() = default;
+    RotationIntegrationParams()  = default;
+    ~RotationIntegrationParams() = default;
 
     /// Loads all parameters from a YAML map node.
-    void loadFrom(const Yaml& cfg);
+    void load_from(const Yaml& cfg);
 
-    /// Parameters for gyroscope integration:
-    RotationIntegrationParams rotationParams;
+    /// Gyroscope (initial or constant) bias, in the local IMU frame of
+    /// reference (units: rad/s).
+    mrpt::math::TVector3D gyroBias = {.0, .0, .0};
 
-    /// Gravity vector (units are m/s²), in the global frame of coordinates.
-    mrpt::math::TVector3D gravityVector = {0, 0, -9.81};
-
-    /// Accelerometer covariance (units of sigma are m/s²/√Hz )
-    mrpt::math::CMatrixDouble33 accCov =
+    /// Gyroscope covariance (units of sigma are rad/s/√Hz )
+    mrpt::math::CMatrixDouble33 gyroCov =
         mrpt::math::CMatrixDouble33::Identity();
 
-    /// Integration covariance: jerk, that is, how much acceleration can change
-    /// over time:
-    mrpt::math::CMatrixDouble33 integrationCov =
-        mrpt::math::CMatrixDouble33::Identity();
+    /// If provided, defines an IMU placed at a pose different than the
+    /// vehicle origin of coordinates (Default: IMU used as reference of the
+    /// vehicle frame, i.e. sensorPose = SE(3) identity I_{4x4}).
+    std::optional<mrpt::poses::CPose3D> sensorPose;
 };
 
 }  // namespace mola

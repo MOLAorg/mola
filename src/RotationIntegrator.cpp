@@ -10,14 +10,14 @@
  * @date   Sep 20, 2021
  */
 
-#include <mola-imu-preintegration/RotationIntegrator.h>
+#include <mola_imu_preintegration/RotationIntegrator.h>
 #include <mrpt/poses/Lie/SO.h>
 
 #include <iostream>  // REMOVE!
 
 using namespace mola;
 
-void RotationIntegrator::initialize(const Yaml& cfg)
+void RotationIntegrator::initialize(const mrpt::containers::yaml& cfg)
 {
     reset_integration();
 

@@ -11,7 +11,7 @@
  * @date   Sep 18, 2021
  */
 
-#include <mola-imu-preintegration/IMUIntegrationPublisher.h>
+#include <mola_imu_preintegration/IMUIntegrationPublisher.h>
 #include <mrpt/core/initializer.h>
 
 using namespace mola;

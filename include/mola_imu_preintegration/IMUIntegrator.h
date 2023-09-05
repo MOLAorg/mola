@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mola-kernel/Yaml.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/math/TPoint3D.h>
 #include <mrpt/math/TTwist3D.h>
 
@@ -34,7 +34,7 @@ class IMUIntegrator
      * @brief initialize
      * @param cfg
      */
-    void initialize(const Yaml& cfg);
+    void initialize(const mrpt::containers::yaml& cfg);
     //    void spinOnce() override;
 
    private:

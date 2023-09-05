@@ -14,13 +14,13 @@ cmake_minimum_required(VERSION 3.4)
 project(mola-imu-preintegration LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
-find_package(mola-common REQUIRED)
+find_package(mola_common REQUIRED)
 
 # find CMake dependencies:
 find_package(mrpt-obs)
 
 # Find MOLA packages:
-find_mola_package(mola-kernel)
+#find_mola_package(mola-kernel)
 
 # -----------------------
 # define lib:
@@ -30,12 +30,12 @@ file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 mola_add_library(
 	TARGET ${PROJECT_NAME}
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
-	PUBLIC_LINK_LIBRARIES
-		mola-kernel
+	#PUBLIC_LINK_LIBRARIES
+	#	mola_common
 	PRIVATE_LINK_LIBRARIES
 		mrpt::obs
 	CMAKE_DEPENDENCIES
-		mola-kernel
+		mola_common
 )
 
 # -----------------------

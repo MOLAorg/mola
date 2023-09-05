@@ -11,7 +11,7 @@
  * @date   Sep 21, 2021
  */
 
-#include <mola-imu-preintegration/RotationIntegrator.h>
+#include <mola_imu_preintegration/RotationIntegrator.h>
 #include <mrpt/poses/Lie/SE.h>
 
 #include <iostream>

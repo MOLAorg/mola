@@ -12,14 +12,14 @@
  * @date   Sep 18, 2021
  */
 
-#include <mola-imu-preintegration/IMUIntegrationPublisher.h>
+#include <mola_imu_preintegration/IMUIntegrationPublisher.h>
 
 using namespace mola;
 
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(IMUIntegrationPublisher, ExecutableBase, mola)
 
-void IMUIntegrationPublisher::initialize(const Yaml& cfg)
+void IMUIntegrationPublisher::initialize(const mrpt::containers::yaml& cfg)
 {
     //
 }

@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include <mola-imu-preintegration/RotationIntegrationParams.h>
-#include <mola-kernel/Yaml.h>
+#include <mola_imu_preintegration/RotationIntegrationParams.h>
+#include <mola_kernel/Yaml.h>
 #include <mrpt/core/optional_ref.h>
 
 namespace mola

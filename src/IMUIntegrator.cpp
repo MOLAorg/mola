@@ -18,13 +18,13 @@
  * readings and emit relative pose updates with respect to the last keyframe.
  */
 
-#include <mola-imu-preintegration/IMUIntegrator.h>
+#include <mola_imu_preintegration/IMUIntegrator.h>
 //#include <mrpt/containers/yaml.h>
 //#include <mrpt/core/initializer.h>
 
 using namespace mola;
 
-void IMUIntegrator::initialize(const Yaml& cfg)
+void IMUIntegrator::initialize(const mrpt::containers::yaml& cfg)
 {
     //
 }

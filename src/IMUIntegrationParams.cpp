@@ -10,6 +10,6 @@
  * @date   Sep 19, 2021
  */
 
-#include <mola-imu-preintegration/IMUIntegrationParams.h>
+#include <mola_imu_preintegration/IMUIntegrationParams.h>
 
 using namespace mola;
