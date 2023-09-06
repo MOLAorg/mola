@@ -67,6 +67,14 @@ class MolaViz : public ExecutableBase, public VizInterface
         const mrpt::rtti::CObject::Ptr& obj, const std::string& subWindowTitle,
         const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
+    /** Update (or adds if not found) a 3D object in the main 3D view area.
+     */
+    std::future<bool> update_3d_object(
+        const std::string&                                  objName,
+        const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+        const std::string& viewportName = "main",
+        const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+
     /** @} */
 
     /** @name mola-viz GUI update handlers registry

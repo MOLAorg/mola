@@ -368,6 +368,56 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
     return task->get_future();
 }
 
+std::future<bool> MolaViz::update_3d_object(
+    const std::string&                                  objName,
+    const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+    const std::string& viewportName, const std::string& parentWindow)
+{
+    using return_type = bool;
+
+    auto task = std::make_shared<std::packaged_task<return_type()>>(
+        [this, objName, obj, viewportName, parentWindow]() {
+            MRPT_LOG_DEBUG_STREAM(
+                "update_3d_object() objName='" << objName << "'");
+
+            ASSERT_(windows_.count(parentWindow));
+            auto topWin = windows_.at(parentWindow);
+            ASSERT_(topWin);
+
+            // No need to acquire the mutex, since this task will be run
+            // in the proper moment in the proper thread:
+            ASSERT_(topWin->background_scene);
+
+            mrpt::opengl::CSetOfObjects::Ptr glContainer;
+
+            if (auto o =
+                    topWin->background_scene->getByName(objName, viewportName);
+                o)
+            {
+                glContainer =
+                    std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+                ASSERT_(glContainer);
+            }
+            else
+            {
+                glContainer = mrpt::opengl::CSetOfObjects::Create();
+                glContainer->setName(objName);
+                topWin->background_scene->insert(glContainer, viewportName);
+            }
+
+            // Move user contents:
+            glContainer->clear();
+            for (const auto& o : *obj) glContainer->insert(o);
+
+            return true;
+        });
+
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+    guiThreadMustReLayoutTheseWindows_.insert(parentWindow);
+    return task->get_future();
+}
+
 void gui_handler_show_common_sensor_info(
     const mrpt::obs::CObservation& obs, nanogui::Window* w)
 {
@@ -526,3 +576,23 @@ void gui_handler_point_cloud(
     const auto bb = glPc->getBoundingBox();
     glPc->recolorizeByCoordinate(bb.min.z, bb.max.z);
 }
+
+#if 0
+// Visualize GT:
+if (1)
+{
+    auto vizMods = this->findService<mola::VizInterface>();
+    ASSERTMSG_(!vizMods.empty(), "Could not find a running MolaViz module");
+
+    auto viz = std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
+
+    auto glObjs   = mrpt::opengl::CSetOfObjects::Create();
+    auto glCorner = mrpt::opengl::stock_objects::CornerXYZSimple(2.0);
+    glCorner->enableShowName();
+    glCorner->setName("GT");
+    glCorner->setPose(it->second);
+    glObjs->insert(glCorner);
+
+    viz->update_3d_object("ground_truth", glObjs);
+}
+#endif
