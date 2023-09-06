@@ -34,7 +34,7 @@ class RawDataConsumer
     /** To be called whenever a new observation arrives. It should return as
      * fast as possible, enqueuing the data for processing in another thread.
      */
-    virtual void onNewObservation(CObservation::Ptr& o) = 0;
+    virtual void onNewObservation(const CObservation::Ptr& o) = 0;
     /** @} */
 };
 

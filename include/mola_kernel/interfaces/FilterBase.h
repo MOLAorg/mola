@@ -35,7 +35,7 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     /** To be called for each incoming observation. Process it and return
      * the modified observation.
      */
-    virtual CObservation::Ptr doFilter(CObservation::Ptr& o) = 0;
+    virtual CObservation::Ptr doFilter(const CObservation::Ptr& o) = 0;
     /** @} */
 
     // Virtual interface of any RawDataSource
@@ -43,7 +43,7 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     void spinOnce() override;
 
     // Virtual interface of any RawDataConsumer
-    void onNewObservation(CObservation::Ptr& o) override;
+    void onNewObservation(const CObservation::Ptr& o) override;
 
    private:
     mrpt::WorkerThreadsPool thread_pool_;
