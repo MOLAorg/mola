@@ -23,6 +23,7 @@
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/obs/CObservationRobotPose.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 
@@ -122,47 +123,6 @@ void KittiOdometryDataset::initialize(const Yaml& c)
     }
     const auto N = lst_timestamps_.size();
     MRPT_LOG_DEBUG_STREAM("Dataset timesteps: " << N);
-
-    // Load ground truth poses, if available:
-    const auto gtFile = base_dir_ + "/gt-poses/"s + sequence_ + ".txt"s;
-    if (mrpt::system::fileExists(gtFile))
-    {
-        groundTruthPoses_.loadFromTextFile(gtFile);
-
-        ASSERT_EQUAL_(groundTruthPoses_.cols(), 12U);
-        ASSERT_EQUAL_(
-            static_cast<size_t>(groundTruthPoses_.rows()),
-            lst_timestamps_.size());
-
-        // Convert into the format expected by MOLA generic interface:
-        mrpt::math::CMatrixDouble44 m = mrpt::math::CMatrixDouble44::Identity();
-        const auto cam0PoseInv        = -mrpt::poses::CPose3D(cam_poses_.at(0));
-
-        for (size_t i = 0; i < lst_timestamps_.size(); i++)
-        {
-            for (int row = 0, ij_idx = 0; row < 3; row++)
-                for (int col = 0; col < 4; col++, ij_idx++)
-                    m(row, col) = groundTruthPoses_(i, ij_idx);
-
-            // ground truth is for cam0:
-            const auto gtCam0Pose =
-                mrpt::poses::CPose3D::FromHomogeneousMatrix(m);
-
-            // Convert it to the vehicle frame, for consistency with all MOLA
-            // datasets:
-            const auto gtPose = gtCam0Pose + cam0PoseInv;
-
-            groundTruthTrajectory_.insert(
-                mrpt::Clock::fromDouble(lst_timestamps_.at(i)), gtPose);
-        }
-
-        MRPT_LOG_INFO("Ground truth poses: Found");
-    }
-    else
-    {
-        MRPT_LOG_WARN_STREAM(
-            "Ground truth poses: not found. Expected file: " << gtFile);
-    }
 
     // Odometry datasets:
     // Images  : "000000.png"
@@ -279,6 +239,51 @@ void KittiOdometryDataset::initialize(const Yaml& c)
                      << T);
     }
 
+    // Load ground truth poses, if available:
+    const auto gtFile = base_dir_ + "/gt-poses/"s + sequence_ + ".txt"s;
+    if (mrpt::system::fileExists(gtFile))
+    {
+        groundTruthPoses_.loadFromTextFile(gtFile);
+
+        ASSERT_EQUAL_(groundTruthPoses_.cols(), 12U);
+        ASSERT_EQUAL_(
+            static_cast<size_t>(groundTruthPoses_.rows()),
+            lst_timestamps_.size());
+
+        // Convert into the format expected by MOLA generic interface:
+        mrpt::math::CMatrixDouble44 m = mrpt::math::CMatrixDouble44::Identity();
+        const auto cam0PoseInv        = -mrpt::poses::CPose3D(cam_poses_.at(0));
+
+        using namespace mrpt::literals;  // _deg
+        const auto axisChange = mrpt::poses::CPose3D::FromYawPitchRoll(
+            -90.0_deg, 0.0_deg, -90.0_deg);
+
+        for (size_t i = 0; i < lst_timestamps_.size(); i++)
+        {
+            for (int row = 0, ij_idx = 0; row < 3; row++)
+                for (int col = 0; col < 4; col++, ij_idx++)
+                    m(row, col) = groundTruthPoses_(i, ij_idx);
+
+            // ground truth is for cam0:
+            const auto gtCam0Pose =
+                mrpt::poses::CPose3D::FromHomogeneousMatrix(m);
+
+            // Convert it to the vehicle frame, for consistency with all MOLA
+            // datasets:
+            const auto gtPose = axisChange + gtCam0Pose + cam0PoseInv;
+
+            groundTruthTrajectory_.insert(
+                mrpt::Clock::fromDouble(lst_timestamps_.at(i)), gtPose);
+        }
+
+        MRPT_LOG_INFO("Ground truth poses: Found");
+    }
+    else
+    {
+        MRPT_LOG_WARN_STREAM(
+            "Ground truth poses: not found. Expected file: " << gtFile);
+    }
+
     initialized_ = true;
 
     MRPT_END
@@ -353,24 +358,21 @@ void KittiOdometryDataset::spinOnce()
         }
 
         if (publish_ground_truth_ &&
-            replay_next_tim_index_ <
-                static_cast<size_t>(groundTruthPoses_.rows()))
+            replay_next_tim_index_ < groundTruthTrajectory_.size())
         {
-            // Get GT pose:
-            // Transform poses: the file are poses of the vehicle (in Kitti
-            // datasets, the reference is the Velodyne), but the GT files are
-            // given for the cam0!
+            // Get GT pose: it's already stored and correctly transformed
+            // into groundTruthTrajectory_:
+            auto it = groundTruthTrajectory_.begin();
+            std::advance(it, replay_next_tim_index_);
 
-            // Transform them:
+            // Publish as robot pose observation:
+            auto o         = mrpt::obs::CObservationRobotPose::Create();
+            o->sensorLabel = "ground_truth";
+            o->pose.mean   = mrpt::poses::CPose3D(it->second);
+            // o->pose.cov? don't use
+            o->timestamp = obs_tim;
 
-            // Velodyne is the (0,0,0) of the vehicle.
-            // image_0 pose wrt velo is "Tr":
-
-            Eigen::Matrix4d gt;
-            gt.setIdentity();
-            gt.block<3, 4>(0, 0) =
-                Eigen::Map<Eigen::Matrix<double, 3, 4, Eigen::RowMajor>>(
-                    groundTruthPoses_.row(replay_next_tim_index_).data());
+            this->sendObservationsToFrontEnds(o);
         }
 
         // Free memory in read-ahead buffers:
