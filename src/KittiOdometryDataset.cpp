@@ -136,11 +136,13 @@ void KittiOdometryDataset::initialize(const Yaml& c)
 
         // Convert into the format expected by MOLA generic interface:
         mrpt::math::CMatrixDouble44 m = mrpt::math::CMatrixDouble44::Identity();
-        const auto cam0Pose           = mrpt::poses::CPose3D(cam_poses_.at(0));
+        const auto cam0PoseInv        = -mrpt::poses::CPose3D(cam_poses_.at(0));
 
         for (size_t i = 0; i < lst_timestamps_.size(); i++)
         {
-            for (int j = 0; j < 12; j++) m[j] = groundTruthPoses_(i, j);
+            for (int row = 0, ij_idx = 0; row < 3; row++)
+                for (int col = 0; col < 4; col++, ij_idx++)
+                    m(row, col) = groundTruthPoses_(i, ij_idx);
 
             // ground truth is for cam0:
             const auto gtCam0Pose =
@@ -148,7 +150,7 @@ void KittiOdometryDataset::initialize(const Yaml& c)
 
             // Convert it to the vehicle frame, for consistency with all MOLA
             // datasets:
-            const auto gtPose = gtCam0Pose - cam0Pose;
+            const auto gtPose = gtCam0Pose + cam0PoseInv;
 
             groundTruthTrajectory_.insert(
                 mrpt::Clock::fromDouble(lst_timestamps_.at(i)), gtPose);
