@@ -4,7 +4,7 @@
      side-by-side to ROS packages in a catkin/ament environment.
 -->
 <package format="3">
-  <name>mola_viz</name>
+  <name>mola_launcher</name>
   <version>0.2.1</version>
   <description>Launcher app for MOLA systems</description>
 
