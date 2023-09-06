@@ -95,7 +95,7 @@ void RawDataSourceBase::initialize_common(const Yaml& cfg)
 }
 
 void RawDataSourceBase::sendObservationsToFrontEnds(
-    mrpt::obs::CObservation::Ptr& obs)
+    const mrpt::obs::CObservation::Ptr& obs)
 {
     MRPT_TRY_START
 
@@ -111,11 +111,19 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
     }
     else
     {
-        MRPT_LOG_THROTTLE_WARN_FMT(
-            10.0,
-            "[sendObservationsToFrontEnds] Dropping observation '%s': no "
-            "consumer is attached.",
-            obs->sensorLabel.c_str());
+        // double POD zero initialized by default:
+        thread_local std::map<std::string, double> lastWarnPerLabel;
+
+        double&      lastWarn = lastWarnPerLabel[obs->sensorLabel];
+        const double now      = mrpt::Clock::nowDouble();
+        if (now - lastWarn >= 10.0)
+        {
+            lastWarn = now;
+            MRPT_LOG_WARN_FMT(
+                "[sendObservationsToFrontEnds] Dropping observation '%s': no "
+                "consumer is attached.",
+                obs->sensorLabel.c_str());
+        }
     }
 
     // if we are storing data to .rawlog, enqueue it in the specific worker
@@ -123,7 +131,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
     if (export_to_rawlog_out_.is_open())
     {
         auto fut = worker_pool_export_rawlog_.enqueue(
-            [this](mrpt::obs::CObservation::Ptr& o) {
+            [this](const mrpt::obs::CObservation::Ptr& o) {
                 if (!o) return;
                 auto a = mrpt::serialization::archiveFrom(
                     this->export_to_rawlog_out_);
@@ -206,7 +214,7 @@ void RawDataSourceBase::attachToDataConsumer(RawDataConsumer& rdc)
 }
 
 void RawDataSourceBase::prepareObservationBeforeFrontEnds(
-    CObservation::Ptr& obs) const
+    const CObservation::Ptr& obs) const
 {
     MRPT_TRY_START
 

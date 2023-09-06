@@ -37,6 +37,12 @@ class VizInterface
         const mrpt::rtti::CObject::Ptr& obj, const std::string& subWindowTitle,
         const std::string& parentWindow = "main") = 0;
 
+    virtual std::future<bool> update_3d_object(
+        const std::string&                                  objName,
+        const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+        const std::string& viewportName = "main",
+        const std::string& parentWindow = "main") = 0;
+
    protected:
 };
 
