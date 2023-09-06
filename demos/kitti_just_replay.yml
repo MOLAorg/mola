@@ -11,7 +11,7 @@ modules:
   - type: mola::KittiOdometryDataset
     name: kitti_input
     execution_rate: 20 # Hz
-    verbosity_level: INFO
+    #verbosity_level: INFO
     gui_preview_sensors:
       - raw_sensor_label: lidar
         decimation: 1
@@ -29,6 +29,7 @@ modules:
       publish_lidar: true
       publish_image_0: true
       publish_image_1: true
+      publish_ground_truth: true
 
   # =====================
   # MolaViz
