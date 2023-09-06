@@ -16,7 +16,7 @@
  */
 
 #include <mola-input-ros1/InputROS1.h>
-#include <mola-yaml/yaml_helpers.h>
+#include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
