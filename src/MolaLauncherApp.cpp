@@ -35,8 +35,15 @@
 
 using namespace mola;
 
+static void safe_add_to_list(
+    const std::string& path, std::vector<std::string>& lst)
+{
+    if (mrpt::system::directoryExists(path)) lst.push_back(path);
+}
+
 static void from_env_var_to_list(
-    const std::string& env_var_name, std::vector<std::string>& lst)
+    const std::string& env_var_name, std::vector<std::string>& lst,
+    const std::string& subStringPattern = {})
 {
 #if defined(_WIN32)
     const auto delim = std::string(";");
@@ -49,19 +56,26 @@ static void from_env_var_to_list(
     mrpt::system::tokenize(additionalPaths, delim, pathList);
 
     // Append to list:
-    std::copy(pathList.begin(), pathList.end(), std::back_inserter(lst));
+    for (const auto& path : pathList)
+    {
+        if (!subStringPattern.empty() &&
+            path.find(subStringPattern) == std::string::npos)
+            continue;
+        safe_add_to_list(path, lst);
+    }
 }
 
 MolaLauncherApp::MolaLauncherApp()
     : mrpt::system::COutputLogger("MolaLauncherApp")
 {
     // Add build-time predefined path:
-    lib_search_paths_.emplace_back(BUILDTIME_MOLA_MODULES_LIB_PATH);
-    shared_search_paths_.emplace_back(BUILDTIME_MOLA_MODULES_SHARED_PATH);
+    safe_add_to_list(BUILDTIME_MOLA_MODULES_LIB_PATH, lib_search_paths_);
+    safe_add_to_list(BUILDTIME_MOLA_MODULES_SHARED_PATH, shared_search_paths_);
 
     // Add paths from environment variable:
     from_env_var_to_list("MOLA_MODULES_LIB_PATH", lib_search_paths_);
     from_env_var_to_list("MOLA_MODULES_SHARED_PATH", shared_search_paths_);
+    from_env_var_to_list("LD_LIBRARY_PATH", lib_search_paths_, "mola");
 }
 
 MolaLauncherApp::~MolaLauncherApp()
@@ -321,9 +335,9 @@ void MolaLauncherApp::spin()
     // Main SLAM/Localization infinite loop
     // -------------------------------------------
     // clang-format off
-    MRPT_LOG_INFO("==========================================================================");
-    MRPT_LOG_INFO("Entering main SLAM/localization loop >>>>CTRL+C for mola-cli to stop<<<<");
-    MRPT_LOG_INFO("==========================================================================");
+    MRPT_LOG_INFO("╔═══════════════════════════════════════╦═════════════════════════════════╗");
+    MRPT_LOG_INFO("║  Entering main MOLA application loop  ║ > CTRL+C for mola-cli to quit < ║");
+    MRPT_LOG_INFO("╚═══════════════════════════════════════╩═════════════════════════════════╝");
     // clang-format on
 
     spin_thread_id_ = std::this_thread::get_id();
