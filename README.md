@@ -1,5 +1,5 @@
-# mola-yaml
-YAML helper library common to MOLA modules
+# mola_yaml
+YAML helper library common to MOLA modules. A C++ library to parse YAML files with extended syntax allowing variable replacing, recursive `include`s of other YAML files, etc. 
 
 ## Build and install
 Refer to the [root MOLA repository](https://github.com/MOLAorg/mola).
