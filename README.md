@@ -57,3 +57,4 @@ MOLA was presented in ([PDF](http://www.roboticsproceedings.org/rss15/p43.pdf)):
 
 ## License
 MOLA is released under the GNU GPL v3 license, except noted otherwise in each individual module. Other options available upon request.
+Some modules are released under BSD-3.

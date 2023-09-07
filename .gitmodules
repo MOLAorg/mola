@@ -1,4 +1,4 @@
-[submodule "mola-common"]
+[submodule "modules/mola_common"]
 	path = modules/mola_common
 	url = https://github.com/MOLAorg/mola_common.git
 [submodule "modules/mp2p_icp"]
@@ -31,3 +31,6 @@
 [submodule "modules/mola_test_datasets"]
 	path = modules/mola_test_datasets
 	url = https://github.com/MOLAorg/mola_test_datasets.git
+[submodule "modules/mola_input_ros2"]
+	path = modules/mola_input_ros2
+	url = https://github.com/MOLAorg/mola_input_ros2.git
