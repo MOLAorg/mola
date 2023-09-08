@@ -34,3 +34,6 @@
 [submodule "modules/mola_input_ros2"]
 	path = modules/mola_input_ros2
 	url = https://github.com/MOLAorg/mola_input_ros2.git
+[submodule "modules/mola_demos"]
+	path = modules/mola_demos
+	url = https://github.com/MOLAorg/mola_demos.git
