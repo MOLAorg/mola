@@ -65,7 +65,7 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
 
         // Subscribe to topics as described by MOLA YAML parameters:
         auto ds_subscribe = cfg["subscribe"];
-        if (!ds_subscribe)
+        if (!ds_subscribe.isSequence() || ds_subscribe.asSequence().empty())
         {
             throw std::runtime_error(
                 "No topic found for subscription under YAML entry `subscribe`. "
@@ -76,7 +76,7 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
 
         for (auto topicItem : ds_subscribe.asSequence())
         {
-            auto topic = mrpt::containers::yaml(topicItem.asMap());
+            auto topic = mrpt::containers::yaml(topicItem);
 
             ENSURE_YAML_ENTRY_EXISTS(topic, "topic");
             ENSURE_YAML_ENTRY_EXISTS(topic, "type");
@@ -88,6 +88,10 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
                 topic["output_sensor_label"].as<std::string>();
             const auto queue_size = topic.getOrDefault<int>("queue_size", 100);
 
+            MRPT_LOG_DEBUG_STREAM(
+                "Creating ros2 subscriber for topic='" << topic_name << "' ("
+                                                       << type << ")");
+
             // Optional: fixed sensorPose (then ignores/don't need "tf" data):
             std::optional<mrpt::poses::CPose3D> fixedSensorPose;
             if (topic.has("fixed_sensor_pose"))
@@ -96,11 +100,14 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
                     topic["fixed_sensor_pose"].as<std::string>());
             }
 
+            MRPT_TODO("Expose QoS params!");
+            rclcpp::QoS qos = queue_size;
+
             if (type == "PointCloud2")
             {
                 subsPointCloud_.emplace_back(
                     node->create_subscription<sensor_msgs::msg::PointCloud2>(
-                        topic_name, queue_size,
+                        topic_name, qos,
                         [this, output_sensor_label, fixedSensorPose](
                             const sensor_msgs::msg::PointCloud2& o) {
                             this->callbackOnPointCloud2(
@@ -163,12 +170,14 @@ void InputROS2::spinOnce()
     MRPT_START
     ProfilerEntry tleg(profiler_, "spinOnce");
 
+#if 0
     if (!rclcpp::ok())
     {
         MRPT_LOG_THROTTLE_ERROR(
             5.0 /*seconds*/, "ROS 2 is in error state (rclcpp::ok()==false)");
         return;
     }
+#endif
 
     // Publish odometry?
     publishOdometry();
