@@ -30,6 +30,7 @@
 #include <mrpt/system/filesystem.h>
 
 #include <rclcpp/node.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 using namespace mola;
 
@@ -44,6 +45,7 @@ InputROS2::InputROS2() = default;
 void InputROS2::ros_node_thread_main(Yaml cfg)
 {
     using std::placeholders::_1;
+    using namespace std::string_literals;
 
     const char* NODE_NAME = "mola_input_ros2";
 
@@ -56,12 +58,20 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
         rclcpp::init(argc, argv);
         auto node = std::make_shared<rclcpp::Node>(NODE_NAME);
 
-        ros_clock_ = node->get_clock();
+        {
+            auto lck   = mrpt::lockHelper(ros_clock_mtx_);
+            ros_clock_ = node->get_clock();
+        }
 
         // TF:
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(ros_clock_);
+        tf_buffer_->setUsingDedicatedThread(true);
         tf_listener_ =
             std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+        // TODO: Expose QoS params?
+        rmw_qos_profile_t qosProfile;
+        qosProfile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
 
         // Subscribe to topics as described by MOLA YAML parameters:
         auto ds_subscribe = cfg["subscribe"];
@@ -74,9 +84,9 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
                 "abort.");
         }
 
-        for (auto topicItem : ds_subscribe.asSequence())
+        for (const auto& topicItem : ds_subscribe.asSequence())
         {
-            auto topic = mrpt::containers::yaml(topicItem);
+            const auto topic = mrpt::containers::yaml(topicItem);
 
             ENSURE_YAML_ENTRY_EXISTS(topic, "topic");
             ENSURE_YAML_ENTRY_EXISTS(topic, "type");
@@ -97,11 +107,13 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
             if (topic.has("fixed_sensor_pose"))
             {
                 fixedSensorPose = mrpt::poses::CPose3D::FromString(
-                    topic["fixed_sensor_pose"].as<std::string>());
+                    "["s + topic["fixed_sensor_pose"].as<std::string>() + "]"s);
             }
 
-            MRPT_TODO("Expose QoS params!");
-            rclcpp::QoS qos = queue_size;
+            qosProfile.depth = queue_size;
+            const auto qosInit =
+                rclcpp::QoSInitialization::from_rmw(qosProfile);
+            const rclcpp::QoS qos{qosInit, qosProfile};
 
             if (type == "PointCloud2")
             {
@@ -112,6 +124,16 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
                             const sensor_msgs::msg::PointCloud2& o) {
                             this->callbackOnPointCloud2(
                                 o, output_sensor_label, fixedSensorPose);
+                        }));
+            }
+            else if (type == "Odometry")
+            {
+                subsOdometry_.emplace_back(
+                    node->create_subscription<nav_msgs::msg::Odometry>(
+                        topic_name, qos,
+                        [this, output_sensor_label](
+                            const nav_msgs::msg::Odometry& o) {
+                            this->callbackOnOdometry(o, output_sensor_label);
                         }));
             }
             else
@@ -152,8 +174,7 @@ void InputROS2::initialize(const Yaml& c)
     // General params:
     YAML_LOAD_OPT(params_, base_link_frame, std::string);
     YAML_LOAD_OPT(params_, odom_frame, std::string);
-    YAML_LOAD_OPT(params_, odom_reference_frame, std::string);
-    YAML_LOAD_OPT(params_, publish_odometry, bool);
+    YAML_LOAD_OPT(params_, publish_odometry_from_tf, bool);
     YAML_LOAD_OPT(params_, wait_for_tf_timeout_milliseconds, int);
 
     // Launch ROS node:
@@ -229,7 +250,8 @@ void InputROS2::callbackOnPointCloud2(
         // Get pose from tf:
         bool ok = waitForTransform(
             obs_pc->sensorPose, o.header.frame_id, params_.base_link_frame,
-            o.header.stamp, params_.wait_for_tf_timeout_milliseconds);
+            o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
+            true /*print errors*/);
         ASSERTMSG_(
             ok,
             mrpt::format(
@@ -247,7 +269,7 @@ void InputROS2::callbackOnPointCloud2(
 bool InputROS2::waitForTransform(
     mrpt::poses::CPose3D& des, const std::string& target_frame,
     const std::string& source_frame, const rclcpp::Time& time,
-    const int timeoutMilliseconds)
+    const int timeoutMilliseconds, bool printErrors)
 {
     const rclcpp::Duration timeout(0, 1000 * timeoutMilliseconds);
     try
@@ -269,25 +291,63 @@ bool InputROS2::waitForTransform(
     }
     catch (const tf2::TransformException& ex)
     {
-        MRPT_LOG_ERROR(ex.what());
+        if (printErrors) MRPT_LOG_ERROR(ex.what());
         return false;
     }
 }
 
+void InputROS2::callbackOnOdometry(
+    const nav_msgs::msg::Odometry& o, const std::string& outSensorLabel)
+{
+    MRPT_START
+    ProfilerEntry tle(profiler_, "callbackOnOdometry");
+
+    auto obs         = mrpt::obs::CObservationOdometry::Create();
+    obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
+    obs->sensorLabel = outSensorLabel;
+    obs->odometry =
+        mrpt::poses::CPose2D(mrpt::ros2bridge::fromROS(o.pose.pose));
+
+    obs->hasVelocities       = true;
+    obs->velocityLocal.vx    = o.twist.twist.linear.x;
+    obs->velocityLocal.vy    = o.twist.twist.linear.y;
+    obs->velocityLocal.omega = o.twist.twist.angular.z;
+
+    // send it out:
+    this->sendObservationsToFrontEnds(obs);
+
+    MRPT_END
+}
+
 void InputROS2::publishOdometry()
 {
-    if (!params_.publish_odometry) return;
-    ASSERT_(ros_clock_);
+    if (!params_.publish_odometry_from_tf) return;
+
+    // Is the node already initialized?
+    {
+        auto lck = mrpt::lockHelper(ros_clock_mtx_);
+        if (!ros_clock_) return;  // nope...
+    }
 
     // Get pose from tf:
     mrpt::poses::CPose3D odomPose;
 
-    const auto now = ros_clock_->now();
+    // ros_clock_->now();
+    const auto now = rclcpp::Time();  // last one.
 
     bool odom_tf_ok = waitForTransform(
-        odomPose, params_.odom_frame, params_.odom_reference_frame, now,
-        params_.wait_for_tf_timeout_milliseconds);
-    ASSERT_(odom_tf_ok);
+        odomPose, params_.base_link_frame, params_.odom_frame, now,
+        params_.wait_for_tf_timeout_milliseconds, false /*dont print errors*/);
+    if (!odom_tf_ok)
+    {
+        MRPT_LOG_THROTTLE_WARN_FMT(
+            5.0,
+            "publish_odometry_from_tf=true, but could not resolve /tf for "
+            "odometry: "
+            "'%s'->'%s'",
+            params_.base_link_frame.c_str(), params_.odom_frame.c_str());
+        return;
+    }
 
     auto obs         = mrpt::obs::CObservationOdometry::Create();
     obs->sensorLabel = "odom";
