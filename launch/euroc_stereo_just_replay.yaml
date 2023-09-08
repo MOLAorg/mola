@@ -1,0 +1,32 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+#  an EUROC dataset reader. No actual SLAM or localization with this file!
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # EurocDataset
+  # =====================
+  - name: euroc_input
+    type: mola::EurocDataset
+    execution_rate: 50 # Hz
+    # (The following requires creating a MolaViz instance)
+    gui_preview_sensors:
+      - raw_sensor_label: cam0
+        decimation: 1
+        win_pos: 0 0 500 200 # [x,y,width,height]
+      - raw_sensor_label: cam1
+        decimation: 1
+        win_pos: 510 0 500 200 # [x,y,width,height]
+    params:
+      base_dir: ${EUROC_BASE_DIR}
+      sequence: vicon_room1/V1_01_easy/
+      time_warp_scale: 1.0
+  # =====================
+  # MolaViz
+  # =====================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none

@@ -1,0 +1,48 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# a 3D graph slam  (pose graph) without any real-sensor front-end.
+# To be fed with .g2o-like text files
+# -----------------------------------------------------------------------------
+
+modules:
+# Setup of SLAM back-end =====================================
+  - name: backend
+    # ASLAM_gtsam for SLAM in absolute coordinates
+    # RSLAM_gtsam for SLAM in relative coordinates
+    type: mola::ASLAM_gtsam
+    # The rate at which the SLAM solution will be recomputed
+    execution_rate: 10 # Hz
+    params:
+      # true: use iSAM2
+      # false: use global Levenberg-Marquardt
+      use_incremental_solver: true
+      # ------
+      # Select state space representation for KeyFrame poses:
+      # See options in: https://docs.mola-slam.org/latest/concept-state-vector.html
+      state_vector: SE3
+      # --- constant velocity model params (see papers) ---
+      const_vel_model_std_pos:   # [m]
+      const_vel_model_std_vel: 0.1  # [m/s]
+      # ------
+      # Save trajectory to file at end? useful for plots, error evaluation,...
+      #save_trajectory_file_prefix: pose_graph_slam_result
+      # ------------------------
+      # ------------------------
+# Setup of SLAM front-ends ====================================
+  - name: g2o_dataset_fe
+    type: mola::G2ODataset
+    # The execution rate for this module is the rate at which observations
+    # will be sent to the SLAM back-end. Change to modify the speed at which
+    # the map is being built.
+    execution_rate: 20 # Hz
+    params:
+      # Dataset file to load:
+      g2o_file: $(mola-dir mola-test-datasets)/g2o/parking-garage.g2o
+      # ----------
+# Setup of World Model (the map) =====================================
+  - name: map
+    type: mola::WorldModel
+    verbosity_level: INFO
+    params:
+      age_to_unload_keyframes: 1500000.0

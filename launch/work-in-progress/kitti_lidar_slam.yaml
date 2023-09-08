@@ -1,0 +1,51 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# a 3D LiDAR-SLAM problem, fed from a Kitti dataset.
+# -----------------------------------------------------------------------------
+
+modules:
+# Setup of visualizer =====================================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
+# Setup of SLAM back-end =====================================
+  - type: mola::ASLAM_gtsam
+    name: backend
+    execution_rate: 1 # Rate to update the SLAM solution [Hz]
+    #verbosity_level: INFO
+    params:  $include{$(mola-dir mola-slam-gtsam)/params/aslam-se3.yaml}
+# Setup of World Model (the map) =====================================
+  - type: mola::WorldModel
+    name: map
+    #verbosity_level: DEBUG
+    params:
+      # Age at which map keyframes will be unloaded from memory [s]
+      age_to_unload_keyframes: 25.0
+# Setup of SLAM front-ends ====================================
+  - type: mola::LidarOdometry
+    name: lidar_fe
+    raw_data_source: kitti_input
+    raw_sensor_label: lidar
+    #verbosity_level: DEBUG
+    params: $include{$(mola-dir mola-fe-lidar)/params/kitti-default.yaml}
+# Offline or online sensory data sources =====================
+  - type: mola::KittiOdometryDataset
+    name: kitti_input
+    execution_rate: 20 # Hz
+    verbosity_level: INFO
+    gui_preview_sensors:
+      - raw_sensor_label: lidar
+        decimation: 1
+        win_pos: 5 5 400 400
+      - raw_sensor_label: image_0
+        decimation: 1
+        win_pos: 5 410 400 130
+    params:
+      base_dir: ${KITTI_BASE_DIR}
+      sequence: ${KITTI_SEQ}
+      time_warp_scale: 1.0
+      publish_lidar: true
+      publish_image_0: true
+      publish_image_1: false

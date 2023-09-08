@@ -1,11 +1,11 @@
-.. _mola-foo:
+.. _mola_demos:
 
 ========================================
-Module: mola-foo
+Module: mola_demos
 ========================================
 
 Write me!
 
 .. index::
-   single: mola-foo
-   module: mola-foo
+   single: mola_demos
+   module: mola_demos

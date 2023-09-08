@@ -4,32 +4,21 @@
      side-by-side to ROS packages in a catkin/ament environment.
 -->
 <package format="3">
-  <name>mola_foo</name>
-  <version>x.y.z</version>
-  <description>mola_foo description</description>
+  <name>mola_demos</name>
+  <version>0.2.1</version>
+  <description>Demo and example launch files for MOLA</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>
 
   <url type="website">https://github.com/MOLAorg/</url>
 
-  <license>GPLv3</license>
+  <license>BSD</license>
 
-  <depend>mola_common</depend>
+<!-- <depend>mola_common</depend> -->
 
   <doc_depend>doxygen</doc_depend>
 
-  <!-- Minimum entries to release non-ament pkgs: -->
-  <buildtool_depend>cmake</buildtool_depend>
-  <export>
-    <build_type>cmake</build_type>
-  </export>
-  <!-- End -->
-
-  <!-- ============== OR ==============  -->
-
-  <!-- Entries for ament-based pkg -->
-<!--
   <build_depend>ros_environment</build_depend>
 
   <buildtool_depend>cmake</buildtool_depend>
@@ -43,7 +32,5 @@
   <export>
     <build_type>ament_cmake</build_type>
   </export>
-  -->
-  <!-- End -->
 
 </package>

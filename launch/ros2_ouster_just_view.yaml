@@ -1,0 +1,31 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# An input sensor from a ROS 2 topic, and the MOLA Visualizer.
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # MolaViz
+  # =====================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
+
+# Offline or online sensory data sources =====================
+# (TODO: Move to an include)
+  - type: mola::InputROS2
+    name: ros_input
+    execution_rate: 200 # Hz
+    #verbosity_level: INFO
+    gui_preview_sensors:
+      - raw_sensor_label: lidar_points
+        decimation: 1
+        win_pos: 5 5 400 400
+    params:
+      subscribe:
+        - topic: /ouster/points
+          type: PointCloud2
+          output_sensor_label: lidar_points
+          #queue_size: 100

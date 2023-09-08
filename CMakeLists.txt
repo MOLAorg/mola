@@ -15,54 +15,32 @@ if("$ENV{ROS_VERSION}" STREQUAL "2")
 endif()
 
 # Tell CMake we'll use C++ for use in its tests/flags
-project(mola-foo LANGUAGES CXX)
+project(mola_demos LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
-find_package(mola_common REQUIRED)
+#find_package(mola_common REQUIRED)
 
-# find CMake dependencies:
-#find_package(mrpt-core)
+# Instrumental lib:
+add_library(${PROJECT_NAME} INTERFACE)
 
-# Find MOLA packages:
-#find_mola_package(mola_kernel)
-
-# -----------------------
-# define lib:
-file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
-file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
-
-mola_add_library(
-	TARGET ${PROJECT_NAME}
-	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
-	PUBLIC_LINK_LIBRARIES
-		mola_kernel
-	PRIVATE_LINK_LIBRARIES
-		mrpt::core
-	CMAKE_DEPENDENCIES
-		mola_kernel
+# Install files:
+install(DIRECTORY
+  launch
+  DESTINATION
+    share/${PROJECT_NAME}
 )
 
-# ----------------------
-# define app target:
-mola_add_executable(
-	TARGET  mola-myapp
-	SOURCES apps/mola-myapp.cpp
-	LINK_LIBRARIES
-		mrpt::tclap
-		#mrpt::poses
-		${PROJECT_NAME}
-)
 
 # -----------------------------------------------------------------------------
 #  ROS2
 # -----------------------------------------------------------------------------
-#if (DETECTED_ROS2)
-#	# find dependencies
-#	find_package(ament_cmake REQUIRED)
-#
-#	#ament_target_dependencies(MY_TARGET
-#	#  rclcpp...
-#	#)
-#
-#	ament_package()
-#endif()
+if (DETECTED_ROS2)
+	# find dependencies
+	find_package(ament_cmake REQUIRED)
+
+	#ament_target_dependencies(MY_TARGET
+	#  rclcpp...
+	#)
+
+	ament_package()
+endif()
