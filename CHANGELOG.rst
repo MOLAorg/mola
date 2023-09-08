@@ -2,8 +2,8 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.2 (2023-09-08)
+------------------
 * Fix package name in docs
 * Contributors: Jose Luis Blanco-Claraco
 
