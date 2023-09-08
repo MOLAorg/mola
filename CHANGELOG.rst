@@ -2,8 +2,8 @@
 Changelog for package mola_imu_preintegration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.2 (2023-09-08)
+------------------
 * Update copyright year
 * Correct references to license
 * Ported to ROS2 colcon build system
