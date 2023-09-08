@@ -2,8 +2,8 @@
 Changelog for package mola_input_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.2 (2023-09-08)
+------------------
 * First complete public release
 * Contributors: Jose Luis Blanco-Claraco
 
