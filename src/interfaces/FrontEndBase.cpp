@@ -27,52 +27,59 @@ void FrontEndBase::initialize_common(const Yaml& cfg)
 {
     MRPT_TRY_START
 
-    // Optional parameter: derived classes may use it or not, so don't throw
-    // an exception if not found.
-    raw_sensor_label_ =
-        cfg.getOrDefault<std::string>("raw_sensor_label", raw_sensor_label_);
-
-    MRPT_TODO("Enable multiple source modules, comma sep list, etc.");
     if (cfg.has("raw_data_source"))
     {
         auto ds_source = cfg["raw_data_source"];
 
-        const auto src_name = ds_source.as<std::string>();
+        if (cfg.isSequence())
+        {
+            for (const auto& v : cfg.asSequence())
+                front_end_source_names_.insert(v.as<std::string>());
+        }
+        else
+        {
+            front_end_source_names_.insert(ds_source.as<std::string>());
+        }
 
-        MRPT_LOG_DEBUG_STREAM(
-            "initialize_common(): raw sensor input: " << raw_sensor_label_
-                                                      << " @ " << src_name);
+        for (const auto& src_name : front_end_source_names_)
+        {
+            MRPT_LOG_DEBUG_STREAM(
+                "initialize_common(): subscribing to '"
+                << src_name << "' for raw sensor input.");
 
-        ASSERT_(this->nameServer_);
+            ASSERT_(this->nameServer_);
 
-        auto data_src = nameServer_(src_name);
-        if (!data_src)
-            THROW_EXCEPTION_FMT(
-                "Cannot find data source module named `%s`", src_name.c_str());
+            auto data_src = nameServer_(src_name);
+            if (!data_src)
+                THROW_EXCEPTION_FMT(
+                    "Cannot find data source module named `%s`",
+                    src_name.c_str());
 
-        auto rdsb = std::dynamic_pointer_cast<RawDataSourceBase>(data_src);
-        if (!rdsb)
-            THROW_EXCEPTION_FMT(
-                "Could not cast data source module named `%s` to "
-                "RawDataSourceBase",
-                src_name.c_str());
+            auto rdsb = std::dynamic_pointer_cast<RawDataSourceBase>(data_src);
+            if (!rdsb)
+                THROW_EXCEPTION_FMT(
+                    "Could not cast data source module named `%s` to "
+                    "RawDataSourceBase",
+                    src_name.c_str());
 
-        // Subscribe:
-        rdsb->attachToDataConsumer(*this);
+            // Subscribe:
+            rdsb->attachToDataConsumer(*this);
+        }
     }
 
-    // Search for SLAM backend:
+    // Optional: attach to the SLAM backend:
     auto fnd_bckends = ExecutableBase::findService<BackEndBase>();
     if (fnd_bckends.empty())
     {
-        MRPT_LOG_WARN("No SLAM back-end found in the system.");
+        MRPT_LOG_DEBUG("No SLAM back-end found in the system.");
     }
     else
     {
         if (fnd_bckends.size() > 1)
         {
             MRPT_LOG_WARN(
-                "More than one SLAM back-end found in the system! Attaching to "
+                "More than one SLAM back-end found in the system! "
+                "Attaching to "
                 "first one.");
         }
         slam_backend_ = std::dynamic_pointer_cast<BackEndBase>(fnd_bckends[0]);
@@ -82,7 +89,7 @@ void FrontEndBase::initialize_common(const Yaml& cfg)
             slam_backend_->getModuleInstanceName().c_str());
     }
 
-    // Search for world model:
+    // Optional: attach to the world model.
     {
         auto wms = findService<WorldModel>();
         if (wms.size() == 1)
