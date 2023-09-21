@@ -66,6 +66,12 @@ void FrontEndBase::initialize_common(const Yaml& cfg)
             rdsb->attachToDataConsumer(*this);
         }
     }
+    else
+    {
+        MRPT_LOG_WARN(
+            "No 'raw_data_source' entry found in the YAML definition for a "
+            "FrontEndBase.");
+    }
 
     // Optional: attach to the SLAM backend:
     auto fnd_bckends = ExecutableBase::findService<BackEndBase>();
