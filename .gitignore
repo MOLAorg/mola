@@ -10,3 +10,4 @@ CTestTestfile.cmake
 build
 build-*
 CMakeLists.user*
+CMakeLists.txt.user
