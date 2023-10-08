@@ -458,8 +458,38 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
         obs->pointcloud,
         mrpt::format("Error loading kitti scan file: '%s'", f.c_str()));
 
-    // Pose: velodyne is at the origin of the vehicle coordinates in Kitti
-    // datasets.
+    // Correct wrong intrinsic calibration in the original kitti datasets:
+    // Refer to these works & implementations (on which this solution is based
+    // on):
+    // - IMLS-SLAM
+    // - CT-ICP
+    // - KISS-ICP
+
+    // We need to "elevate" each point by this angle:
+    using namespace mrpt::literals;  // _deg
+    constexpr double VERTICAL_ANGLE_OFFSET = 0.205_deg;
+
+    // Due to the ring-like, rotating nature of 3D LIDARs, we cannot do this
+    // in any more efficient way than go through the points one by one:
+    auto& xs = obs->pointcloud->getPointsBufferRef_x();
+    auto& ys = obs->pointcloud->getPointsBufferRef_y();
+    auto& zs = obs->pointcloud->getPointsBufferRef_z();
+
+    const Eigen::Vector3d uz(0., 0., 1.);
+    for (size_t i = 0; i < xs.size(); i++)
+    {
+        const Eigen::Vector3d pt(xs[i], ys[i], zs[i]);
+        const Eigen::Vector3d rotationVector = pt.cross(uz);
+
+        const auto aa = Eigen::AngleAxisd(
+            VERTICAL_ANGLE_OFFSET, rotationVector.normalized());
+        const Eigen::Vector3d newPt = aa * pt;
+
+        obs->pointcloud->setPoint(i, {newPt.x(), newPt.y(), newPt.z()});
+    }
+
+    // Pose: velodyne is at the origin of the vehicle coordinates in
+    // Kitti datasets.
     obs->sensorPose = mrpt::poses::CPose3D();
 
     auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
