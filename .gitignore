@@ -9,4 +9,5 @@ compile_commands.json
 CTestTestfile.cmake
 build
 build-*
-CMakeLists.user*
+.vscode
+CMakeLists.txt.user
