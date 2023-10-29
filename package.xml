@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<!-- This is a ROS package file, intended to allow this library to be built
+     side-by-side to ROS packages in a catkin/ament environment.
+-->
+<package format="3">
+  <name>mola_foo</name>
+  <version>x.y.z</version>
+  <description>mola_foo description</description>
+
+  <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>
+  <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>
+
+  <url type="website">https://github.com/MOLAorg/</url>
+
+  <license>GPLv3</license>
+
+  <depend>mola_common</depend>
+
+  <doc_depend>doxygen</doc_depend>
+
+  <!-- Minimum entries to release non-ament pkgs: -->
+  <buildtool_depend>cmake</buildtool_depend>
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+  <!-- End -->
+
+  <!-- ============== OR ==============  -->
+
+  <!-- Entries for ament-based pkg -->
+<!--
+  <build_depend>ros_environment</build_depend>
+
+  <buildtool_depend>cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_gtest</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <build_depend>ament_cmake_xmllint</build_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+  -->
+  <!-- End -->
+
+</package>
