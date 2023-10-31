@@ -31,6 +31,8 @@
 #include <mrpt/maps/CMetricMap.h>
 #include <mrpt/math/TPoint3D.h>
 
+#include <tuple>
+
 namespace mola
 {
 /** DualVoxelPointCloud: a pointcloud stored in two dual hash'ed voxel maps,
@@ -65,6 +67,22 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
     /** @} */
 
+    /** @name Data access API
+     *  @{ */
+    // clear(): available in base class
+
+    /** Insert one point into the dual voxel map */
+    void insertPoint(const mrpt::math::TPoint3Df& pt);
+
+    /** Query for the closest neighbor of a given point.
+     *  \return true if nearest neighbor was found.
+     */
+    bool nn_find_nearest(
+        const mrpt::math::TPoint3Df& queryPoint,
+        mrpt::math::TPoint3Df& outNearest, float& outDistanceSquared);
+
+    /** @} */
+
     /** @name Data structures and compile-time parameters
      *  @{ */
 
@@ -79,14 +97,27 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
     struct VoxelData
     {
-        vector_sso<mrpt::math::TPoint3Df, SSO_LENGTH> points;
+       public:
+        const auto& points() const { return points_; }
+
+        void insertPoint(const mrpt::math::TPoint3Df& p);
+
+        /** Gets the mean of all points in the voxel. Throws if empty. */
+        const mrpt::math::TPoint3Df& mean() const;
+
+       private:
+        vector_sso<mrpt::math::TPoint3Df, SSO_LENGTH> points_;
+        mutable std::optional<mrpt::math::TPoint3Df>  mean_;
     };
 
     struct VoxelNNData
     {
         // We can store pointers safely, since the unordered_map container
         // does not invalidate them.
-        vector_sso<const VoxelData*, SSO_LENGTH_NN> points;
+        std::unordered_map<
+            index3d_t, std::optional<std::reference_wrapper<const VoxelData>>,
+            index3d_hash>
+            nodes;
     };
     /** @} */
 
@@ -111,6 +142,10 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
     /** @} */
 
+    using voxel_map_t = std::unordered_map<index3d_t, VoxelData, index3d_hash>;
+
+    const voxel_map_t& voxels() const { return voxels_; }
+
    public:
     // Interface for use within a mrpt::maps::CMultiMetricMap:
     MAP_DEFINITION_START(DualVoxelPointCloud)
@@ -124,41 +159,20 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
    private:
     float    decimation_size_      = 0.20f;
     float    max_nn_radius_        = 0.60f;
+    float    max_nn_radius_sqr_    = max_nn_radius_ * max_nn_radius_;
     uint32_t max_points_per_voxel_ = 0;
 
-    int32_t nn_to_decim_ratio_     = 3;  // ceiling of nn_radius / decim_size
-    int32_t nn_to_decim_ratio_sqr_ = 3 * 3;  // precomputed square() of above
+    int32_t nn_to_decim_ratio_ = 3;  // ceiling of nn_radius / decim_size
 
     /** Decimation voxel map */
-    std::unordered_map<index3d_t, VoxelData, index3d_hash> voxels_;
+    voxel_map_t voxels_;
 
     /** Nearest-neighbor voxel map */
     std::unordered_map<index3d_t, VoxelNNData, index3d_hash> voxelsNN_;
 
-    inline int32_t x2idx_main(float x) const
+    inline int32_t coord2idx(float xyz) const
     {
-        return mrpt::round(x / decimation_size_);
-    }
-    inline int32_t y2idx_main(float y) const
-    {
-        return mrpt::round(y / decimation_size_);
-    }
-    inline int32_t z2idx_main(float z) const
-    {
-        return mrpt::round(z / decimation_size_);
-    }
-
-    inline int32_t x2idx_nn(float x) const
-    {
-        return x2idx_main(x) / nn_to_decim_ratio_;
-    }
-    inline int32_t y2idx_nn(float y) const
-    {
-        return y2idx_main(y) / nn_to_decim_ratio_;
-    }
-    inline int32_t z2idx_nn(float z) const
-    {
-        return z2idx_main(z) / nn_to_decim_ratio_;
+        return mrpt::round(xyz / decimation_size_);
     }
 
    protected:

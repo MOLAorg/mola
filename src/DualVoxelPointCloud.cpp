@@ -109,6 +109,29 @@ void DualVoxelPointCloud::serializeFrom(
     // cache reset?
 }
 
+// VoxelData
+
+const mrpt::math::TPoint3Df& DualVoxelPointCloud::VoxelData::mean() const
+{
+    if (!mean_)
+    {
+        ASSERT_(!points_.empty());
+
+        mrpt::math::TPoint3Df m = {0, 0, 0};
+        for (const auto& v : points_) m += v;
+        m *= 1.0f / points_.size();
+        mean_.emplace(m);
+    }
+
+    return mean_.value();
+}
+
+void DualVoxelPointCloud::VoxelData::insertPoint(const mrpt::math::TPoint3Df& p)
+{
+    mean_.reset();
+    points_.push_back(p);
+}
+
 // Ctor:
 DualVoxelPointCloud::DualVoxelPointCloud(
     float decimation_size, float max_nn_radius, uint32_t max_points_per_voxel)
@@ -123,12 +146,11 @@ void DualVoxelPointCloud::setVoxelProperties(
 {
     decimation_size_      = decimation_size;
     max_nn_radius_        = max_nn_radius;
+    max_nn_radius_sqr_    = mrpt::square(max_nn_radius_);
     max_points_per_voxel_ = max_points_per_voxel;
 
     nn_to_decim_ratio_ =
         static_cast<int32_t>(std::ceil(max_nn_radius_ / decimation_size_));
-
-    nn_to_decim_ratio_sqr_ = nn_to_decim_ratio_ * nn_to_decim_ratio_;
 
     // clear all:
     internal_clear();
@@ -184,4 +206,71 @@ void DualVoxelPointCloud::saveMetricMapRepresentationToFile(
 {
     //
     THROW_EXCEPTION("TODO");
+}
+
+void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
+{
+    // Get voxel indices:
+    const index3d_t idxPoint = {
+        coord2idx(pt.x), coord2idx(pt.y), coord2idx(pt.z)};
+
+    // 1) Insert into decimation voxel map:
+    auto& v = voxels_[idxPoint];
+    v.insertPoint(pt);
+
+    // 2) Insert this voxel into the list of neighbors for all
+    //    voxels in the nearby volume:
+    for (int32_t iz = -nn_to_decim_ratio_; iz <= nn_to_decim_ratio_; iz++)
+    {
+        for (int32_t iy = -nn_to_decim_ratio_; iy <= nn_to_decim_ratio_; iy++)
+        {
+            for (int32_t ix = -nn_to_decim_ratio_; ix <= nn_to_decim_ratio_;
+                 ix++)
+            {
+                const index3d_t nnIdxs = {
+                    idxPoint.cx_ + ix, idxPoint.cy_ + iy, idxPoint.cz_ + iz};
+
+                VoxelNNData& nnNode = voxelsNN_[nnIdxs];
+                nnNode.nodes[idxPoint].emplace(v);  // save reference
+            }
+        }
+    }
+}
+
+bool DualVoxelPointCloud::nn_find_nearest(
+    const mrpt::math::TPoint3Df& queryPoint, mrpt::math::TPoint3Df& outNearest,
+    float& outDistanceSquared)
+{
+    // Get voxel indices:
+    const index3d_t idxPoint = {
+        coord2idx(queryPoint.x), coord2idx(queryPoint.y),
+        coord2idx(queryPoint.z)};
+
+    auto itNN = voxelsNN_.find(idxPoint);
+    if (itNN == voxelsNN_.end()) return false;
+
+    // Keep closest only:
+    outDistanceSquared = max_nn_radius_sqr_ * 1.01;  // larger than maximum
+
+    for (const auto& voxelRef : itNN->second.nodes)
+    {
+        const auto& node = voxelRef.second.value().get();
+
+        float distSqr = .0f;
+        for (const auto& pt : node.points())
+        {
+            distSqr += mrpt::square(queryPoint.x - pt.x);
+            if (distSqr > outDistanceSquared) continue;
+            distSqr += mrpt::square(queryPoint.y - pt.y);
+            if (distSqr > outDistanceSquared) continue;
+            distSqr += mrpt::square(queryPoint.z - pt.z);
+            if (distSqr > outDistanceSquared) continue;
+
+            // This is better:
+            outDistanceSquared = distSqr;
+            outNearest         = pt;
+        }
+    }
+
+    return outDistanceSquared < max_nn_radius_sqr_;
 }
