@@ -38,16 +38,16 @@ struct index3d_t
 {
     index3d_t() = default;
 
-    index3d_t(int32_t cx, int32_t cy, int32_t cz) noexcept
-        : cx_(cx), cy_(cy), cz_(cz)
+    index3d_t(int32_t Cx, int32_t Cy, int32_t Cz) noexcept
+        : cx(Cx), cy(Cy), cz(Cz)
     {
     }
 
-    int32_t cx_ = 0, cy_ = 0, cz_ = 0;
+    int32_t cx = 0, cy = 0, cz = 0;
 
     bool operator==(const index3d_t& o) const noexcept
     {
-        return cx_ == o.cx_ && cy_ == o.cy_ && cz_ == o.cz_;
+        return cx == o.cx && cy == o.cy && cz == o.cz;
     }
 };
 
@@ -57,17 +57,17 @@ struct index3d_hash
     {
         std::size_t res = 17;
 
-        res = res * 31 + std::hash<int32_t>()(k.cx_);
-        res = res * 31 + std::hash<int32_t>()(k.cy_);
-        res = res * 31 + std::hash<int32_t>()(k.cz_);
+        res = res * 31 + std::hash<int32_t>()(k.cx);
+        res = res * 31 + std::hash<int32_t>()(k.cy);
+        res = res * 31 + std::hash<int32_t>()(k.cz);
         return res;
     }
     // k1 < k2?
     bool operator()(const index3d_t& k1, const index3d_t& k2) const noexcept
     {
-        if (k1.cx_ != k2.cx_) return k1.cx_ < k2.cx_;
-        if (k1.cy_ != k2.cy_) return k1.cy_ < k2.cy_;
-        return k1.cz_ < k2.cz_;
+        if (k1.cx != k2.cx) return k1.cx < k2.cx;
+        if (k1.cy != k2.cy) return k1.cy < k2.cy;
+        return k1.cz < k2.cz;
     }
 };
 

@@ -27,11 +27,15 @@
 
 #include <mola_metric_maps/DualVoxelPointCloud.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
+#include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
+#include <mrpt/opengl/CPointCloud.h>
+#include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/serialization/CArchive.h>  // serialization
+#include <mrpt/system/os.h>
 
 #include <cmath>
 
@@ -101,7 +105,7 @@ void DualVoxelPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
     out.WriteAs<uint32_t>(voxels_.size());
     for (const auto& kv : voxels_)
     {
-        out << kv.first.cx_ << kv.first.cy_ << kv.first.cz_;
+        out << kv.first.cx << kv.first.cy << kv.first.cz;
         const auto& pts = kv.second.points();
         out.WriteAs<uint32_t>(pts.size());
         for (const auto& pt : pts) out << pt.x << pt.y << pt.z;
@@ -129,7 +133,7 @@ void DualVoxelPointCloud::serializeFrom(
             for (uint32_t i = 0; i < nVoxels; i++)
             {
                 index3d_t idx;
-                in >> idx.cx_ >> idx.cy_ >> idx.cz_;
+                in >> idx.cx >> idx.cy >> idx.cz;
 
                 auto& v = voxels_[idx];
 
@@ -150,7 +154,8 @@ void DualVoxelPointCloud::serializeFrom(
             MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
     };
 
-    // any cache reset?
+    // cache reset:
+    cached_.reset();
 }
 
 // VoxelData
@@ -204,14 +209,74 @@ void DualVoxelPointCloud::setVoxelProperties(
 std::string DualVoxelPointCloud::asString() const
 {
     return mrpt::format(
-        "DualVoxelPointCloud, decimation_size=%.03f max_nn_radius=%.03f",
-        decimation_size_, max_nn_radius_);
+        "DualVoxelPointCloud, decimation_size=%.03f max_nn_radius=%.03f "
+        "bbox=%s",
+        decimation_size_, max_nn_radius_, boundingBox().asString().c_str());
 }
 
 void DualVoxelPointCloud::getVisualizationInto(
     mrpt::opengl::CSetOfObjects& outObj) const
 {
-    THROW_EXCEPTION("TODO");
+    MRPT_START
+    if (!genericMapParams.enableSaveAs3DObject) return;
+
+    if (renderOptions.colormap == mrpt::img::cmNONE)
+    {
+        // Single color:
+        auto obj = mrpt::opengl::CPointCloud::Create();
+
+        const auto lambdaVisitPoints = [&obj](const mrpt::math::TPoint3Df& pt) {
+            obj->insertPoint(pt);
+        };
+
+        this->visitAllPoints(lambdaVisitPoints);
+
+        obj->setColor(renderOptions.color);
+        obj->setPointSize(renderOptions.point_size);
+        obj->enableColorFromZ(false);
+        outObj.insert(obj);
+    }
+    else
+    {
+        auto obj = mrpt::opengl::CPointCloudColoured::Create();
+
+        const auto lambdaVisitPoints = [&obj](const mrpt::math::TPoint3Df& pt) {
+            // x y z R G B [A]
+            obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+        };
+
+        this->visitAllPoints(lambdaVisitPoints);
+
+        obj->setPointSize(renderOptions.point_size);
+
+        const auto bb = this->boundingBox();
+
+        float min = .0, max = 1.f;
+        switch (renderOptions.recolorizeByCoordinateIndex)
+        {
+            case 0:
+                min = bb.min.x;
+                max = bb.max.x;
+                break;
+            case 1:
+                min = bb.min.y;
+                max = bb.max.y;
+                break;
+            case 2:
+                min = bb.min.z;
+                max = bb.max.z;
+                break;
+            default:
+                THROW_EXCEPTION(
+                    "Invalid renderOptions.recolorizeByCoordinateIndex value");
+        }
+
+        obj->recolorizeByCoordinate(
+            min, max, renderOptions.recolorizeByCoordinateIndex,
+            renderOptions.colormap);
+        outObj.insert(obj);
+    }
+    MRPT_END
 }
 
 void DualVoxelPointCloud::internal_clear()
@@ -224,7 +289,125 @@ bool DualVoxelPointCloud::internal_insertObservation(
     const mrpt::obs::CObservation&                   obs,
     const std::optional<const mrpt::poses::CPose3D>& robotPose)
 {
-    THROW_EXCEPTION("TODO");
+    MRPT_START
+
+    using namespace mrpt::obs;
+
+    mrpt::poses::CPose2D robotPose2D;
+    mrpt::poses::CPose3D robotPose3D;
+
+    if (robotPose)
+    {
+        robotPose2D = mrpt::poses::CPose2D(*robotPose);
+        robotPose3D = (*robotPose);
+    }
+    else
+    {
+        // Default values are (0,0,0)
+    }
+
+    if (IS_CLASS(obs, CObservation2DRangeScan))
+    {
+        /********************************************************************
+                    OBSERVATION TYPE: CObservation2DRangeScan
+         ********************************************************************/
+        const auto& o = static_cast<const CObservation2DRangeScan&>(obs);
+
+        // Build (if not done before) the points map representation of this
+        // observation:
+        const auto* scanPoints = o.buildAuxPointsMap<mrpt::maps::CPointsMap>();
+
+        if (scanPoints->empty()) return 0;
+
+        const auto& xs = scanPoints->getPointsBufferRef_x();
+        const auto& ys = scanPoints->getPointsBufferRef_y();
+        const auto& zs = scanPoints->getPointsBufferRef_z();
+
+        internal_insertPointCloud3D(
+            robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
+
+        return true;
+    }
+    else if (IS_CLASS(obs, CObservation3DRangeScan))
+    {
+        /********************************************************************
+                    OBSERVATION TYPE: CObservation3DRangeScan
+         ********************************************************************/
+        const auto& o = static_cast<const CObservation3DRangeScan&>(obs);
+
+        mrpt::obs::T3DPointsProjectionParams pp;
+        pp.takeIntoAccountSensorPoseOnRobot = true;
+
+        // Empty point set, or load from XYZ in observation:
+        if (o.hasPoints3D)
+        {
+            for (size_t i = 0; i < o.points3D_x.size(); i++)
+                this->insertPoint(
+                    {o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]});
+
+            return true;
+        }
+        else if (o.hasRangeImage)
+        {
+            mrpt::maps::CSimplePointsMap pointMap;
+            const_cast<CObservation3DRangeScan&>(o).unprojectInto(pointMap, pp);
+
+            const auto& xs = pointMap.getPointsBufferRef_x();
+            const auto& ys = pointMap.getPointsBufferRef_y();
+            const auto& zs = pointMap.getPointsBufferRef_z();
+
+            internal_insertPointCloud3D(
+                robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
+
+            return true;
+        }
+        else
+            return false;
+    }
+    else if (IS_CLASS(obs, CObservationVelodyneScan))
+    {
+        /********************************************************************
+                    OBSERVATION TYPE: CObservationVelodyneScan
+         ********************************************************************/
+        const auto& o = static_cast<const CObservationVelodyneScan&>(obs);
+
+        // Automatically generate pointcloud if needed:
+        if (!o.point_cloud.size())
+            const_cast<CObservationVelodyneScan&>(o).generatePointCloud();
+
+        for (size_t i = 0; i < o.point_cloud.x.size(); i++)
+        {
+            insertPoint(
+                {o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]});
+        }
+
+        return true;
+    }
+    else if (IS_CLASS(obs, CObservationPointCloud))
+    {
+        const auto& o = static_cast<const CObservationPointCloud&>(obs);
+        ASSERT_(o.pointcloud);
+
+        const auto& xs = o.pointcloud->getPointsBufferRef_x();
+        const auto& ys = o.pointcloud->getPointsBufferRef_y();
+        const auto& zs = o.pointcloud->getPointsBufferRef_z();
+
+        for (size_t i = 0; i < xs.size(); i++)
+        {
+            insertPoint({xs[i], ys[i], zs[i]});
+        }
+
+        return true;
+    }
+    else
+    {
+        /********************************************************************
+                    OBSERVATION TYPE: Unknown
+        ********************************************************************/
+        return false;
+    }
+
+    MRPT_END
 }
 
 double DualVoxelPointCloud::internal_computeObservationLikelihood(
@@ -232,6 +415,10 @@ double DualVoxelPointCloud::internal_computeObservationLikelihood(
     const mrpt::poses::CPose3D&    takenFrom) const
 {
     using namespace mrpt::obs;
+    using namespace mrpt::poses;
+    using namespace mrpt::maps;
+
+    if (isEmpty()) return 0;
 
     // This function depends on the observation type:
     // -----------------------------------------------------
@@ -245,58 +432,15 @@ double DualVoxelPointCloud::internal_computeObservationLikelihood(
         // observation:
         const auto* scanPoints = o.buildAuxPointsMap<CPointsMap>();
 
-        const size_t N = scanPoints->m_x.size();
-        if (!N || !this->size()) return -100;
+        const size_t N = scanPoints->size();
+        if (!N) return 0;
 
-        const float* xs = &scanPoints->m_x[0];
-        const float* ys = &scanPoints->m_y[0];
-        const float* zs = &scanPoints->m_z[0];
+        const auto& xs = scanPoints->getPointsBufferRef_x();
+        const auto& ys = scanPoints->getPointsBufferRef_y();
+        const auto& zs = scanPoints->getPointsBufferRef_z();
 
-        if (takenFrom.isHorizontal())
-        {
-            double      sumSqrDist = 0;
-            float       closest_x, closest_y;
-            float       closest_err;
-            const float max_sqr_err =
-                mrpt::square(likelihoodOptions.max_corr_distance);
-
-            // optimized 2D version ---------------------------
-            mrpt::math::TPose2D takenFrom2D =
-                mrpt::poses::CPose2D(takenFrom).asTPose();
-
-            const double ccos           = cos(takenFrom2D.phi);
-            const double csin           = sin(takenFrom2D.phi);
-            int          nPtsForAverage = 0;
-
-            for (size_t i = 0; i < N;
-                 i += likelihoodOptions.decimation, nPtsForAverage++)
-            {
-                // Transform the point from the scan reference to its global
-                // 3D position:
-                const float xg = takenFrom2D.x + ccos * xs[i] - csin * ys[i];
-                const float yg = takenFrom2D.y + csin * xs[i] + ccos * ys[i];
-
-                kdTreeClosestPoint2D(
-                    xg, yg,  // Look for the closest to this guy
-                    closest_x, closest_y,  // save here the closest match
-                    closest_err  // save here the min. distance squared
-                );
-
-                // Put a limit:
-                mrpt::keep_min(closest_err, max_sqr_err);
-
-                sumSqrDist += static_cast<double>(closest_err);
-            }
-            sumSqrDist /= nPtsForAverage;
-            // Log-likelihood:
-            return -sumSqrDist / likelihoodOptions.sigma_dist;
-        }
-        else
-        {
-            // Generic 3D version ---------------------------
-            return internal_computeObservationLikelihoodPointCloud3D(
-                takenFrom, xs, ys, zs, N);
-        }
+        return internal_computeObservationLikelihoodPointCloud3D(
+            takenFrom, xs.data(), ys.data(), zs.data(), N);
     }
     else if (IS_CLASS(obs, CObservationVelodyneScan))
     {
@@ -307,23 +451,23 @@ double DualVoxelPointCloud::internal_computeObservationLikelihood(
             const_cast<CObservationVelodyneScan&>(o).generatePointCloud();
 
         const size_t N = o.point_cloud.size();
-        if (!N || !this->size()) return -100;
+        if (!N) return 0;
 
         const CPose3D sensorAbsPose = takenFrom + o.sensorPose;
 
-        const float* xs = &o.point_cloud.x[0];
-        const float* ys = &o.point_cloud.y[0];
-        const float* zs = &o.point_cloud.z[0];
+        const auto& xs = o.point_cloud.x;
+        const auto& ys = o.point_cloud.y;
+        const auto& zs = o.point_cloud.z;
 
         return internal_computeObservationLikelihoodPointCloud3D(
-            sensorAbsPose, xs, ys, zs, N);
+            sensorAbsPose, xs.data(), ys.data(), zs.data(), N);
     }
     else if (IS_CLASS(obs, CObservationPointCloud))
     {
         const auto& o = dynamic_cast<const CObservationPointCloud&>(obs);
 
         const size_t N = o.pointcloud->size();
-        if (!N || !this->size()) return -100;
+        if (!N) return 0;
 
         const CPose3D sensorAbsPose = takenFrom + o.sensorPose;
 
@@ -332,7 +476,7 @@ double DualVoxelPointCloud::internal_computeObservationLikelihood(
         auto zs = o.pointcloud->getPointsBufferRef_z();
 
         return internal_computeObservationLikelihoodPointCloud3D(
-            sensorAbsPose, &xs[0], &ys[0], &zs[0], N);
+            sensorAbsPose, xs.data(), ys.data(), zs.data(), N);
     }
 
     return .0;
@@ -342,14 +486,47 @@ double DualVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
     const float* zs, const std::size_t num_pts) const
 {
-    //
-    xx;
+    MRPT_TRY_START
+
+    ASSERT_GT_(likelihoodOptions.sigma_dist, .0);
+
+    mrpt::math::TPoint3Df closest;
+    float                 closest_err;
+    const float max_sqr_err = mrpt::square(likelihoodOptions.max_corr_distance);
+    double      sumSqrDist  = .0;
+
+    std::size_t nPtsForAverage = 0;
+    for (std::size_t i = 0; i < num_pts;
+         i += likelihoodOptions.decimation, nPtsForAverage++)
+    {
+        // Transform the point from the scan reference to its global 3D
+        // position:
+        const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
+
+        const bool found = nn_find_nearest(gPt, closest, closest_err);
+        if (!found) continue;
+
+        // Put a limit:
+        mrpt::keep_min(closest_err, max_sqr_err);
+
+        sumSqrDist += static_cast<double>(closest_err);
+    }
+    if (nPtsForAverage) sumSqrDist /= nPtsForAverage;
+
+    // Log-likelihood:
+    return -sumSqrDist / likelihoodOptions.sigma_dist;
+
+    MRPT_TRY_END
 }
 
 bool DualVoxelPointCloud::internal_canComputeObservationLikelihood(
     const mrpt::obs::CObservation& obs) const
 {
-    THROW_EXCEPTION("TODO");
+    using namespace mrpt::obs;
+
+    return IS_CLASS(obs, CObservation2DRangeScan) ||
+           IS_CLASS(obs, CObservationVelodyneScan) ||
+           IS_CLASS(obs, CObservationPointCloud);
 }
 
 bool DualVoxelPointCloud::isEmpty() const
@@ -361,8 +538,25 @@ bool DualVoxelPointCloud::isEmpty() const
 void DualVoxelPointCloud::saveMetricMapRepresentationToFile(
     const std::string& filNamePrefix) const
 {
-    //
-    THROW_EXCEPTION("TODO");
+    using namespace std::string_literals;
+
+    const auto fil = filNamePrefix + ".txt"s;
+    saveToTextFile(fil);
+}
+
+bool DualVoxelPointCloud::saveToTextFile(const std::string& file) const
+{
+    FILE* f = mrpt::system::os::fopen(file.c_str(), "wt");
+    if (!f) return false;
+
+    const auto lambdaVisitPoints = [f](const mrpt::math::TPoint3Df& pt) {
+        mrpt::system::os::fprintf(f, "%f %f %f\n", pt.x, pt.y, pt.z);
+    };
+
+    this->visitAllPoints(lambdaVisitPoints);
+
+    mrpt::system::os::fclose(f);
+    return true;
 }
 
 void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
@@ -378,6 +572,12 @@ void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
     // 2) Insert this voxel into the list of neighbors for all
     //    voxels in the nearby volume:
     internalUpdateNNs(idxPoint, v);
+
+    // 3) Update bbox:
+    if (!cached_.boundingBox_.has_value())
+        cached_.boundingBox_.emplace(pt, pt);
+    else
+        cached_.boundingBox_->updateWithPoint(pt);
 }
 
 void DualVoxelPointCloud::internalUpdateNNs(
@@ -393,7 +593,7 @@ void DualVoxelPointCloud::internalUpdateNNs(
                  ix++)
             {
                 const index3d_t nnIdxs = {
-                    voxelIdxs.cx_ + ix, voxelIdxs.cy_ + iy, voxelIdxs.cz_ + iz};
+                    voxelIdxs.cx + ix, voxelIdxs.cy + iy, voxelIdxs.cz + iz};
 
                 VoxelNNData& nnNode = voxelsNN_[nnIdxs];
                 nnNode.nodes[voxelIdxs].emplace(voxel);  // save reference
@@ -404,7 +604,7 @@ void DualVoxelPointCloud::internalUpdateNNs(
 
 bool DualVoxelPointCloud::nn_find_nearest(
     const mrpt::math::TPoint3Df& queryPoint, mrpt::math::TPoint3Df& outNearest,
-    float& outDistanceSquared)
+    float& outDistanceSquared) const
 {
     // Get voxel indices:
     const index3d_t idxPoint = {
@@ -438,4 +638,170 @@ bool DualVoxelPointCloud::nn_find_nearest(
     }
 
     return outDistanceSquared < max_nn_radius_sqr_;
+}
+
+mrpt::math::TBoundingBoxf DualVoxelPointCloud::boundingBox() const
+{
+    if (!cached_.boundingBox_)
+    {
+        cached_.boundingBox_.emplace();
+        if (this->isEmpty())
+        {
+            cached_.boundingBox_->min = {0, 0, 0};
+            cached_.boundingBox_->max = {0, 0, 0};
+        }
+        else
+        {
+            cached_.boundingBox_ =
+                mrpt::math::TBoundingBoxf::PlusMinusInfinity();
+
+            const mrpt::math::TPoint3Df halfVoxel = {
+                0.5f * decimation_size_, 0.5f * decimation_size_,
+                0.5f * decimation_size_};
+
+            auto lambdaForEachVoxel = [this, &halfVoxel](
+                                          const index3d_t& idxs,
+                                          const VoxelData& v) {
+                if (v.points().empty()) return;
+
+                const mrpt::math::TPoint3Df voxelCenter = {
+                    idx2coord(idxs.cx), idx2coord(idxs.cy), idx2coord(idxs.cz)};
+
+                cached_.boundingBox_->updateWithPoint(voxelCenter - halfVoxel);
+                cached_.boundingBox_->updateWithPoint(voxelCenter + halfVoxel);
+            };
+
+            this->visitAllVoxels(lambdaForEachVoxel);
+        }
+    }
+
+    return cached_.boundingBox_.value();
+}
+
+void DualVoxelPointCloud::visitAllPoints(
+    const std::function<void(const mrpt::math::TPoint3Df&)>& f) const
+{
+    for (const auto& kv : voxels_)
+        for (const auto& pt : kv.second.points())  //
+            f(pt);
+}
+
+void DualVoxelPointCloud::visitAllVoxels(
+    const std::function<void(const index3d_t&, const VoxelData&)>& f) const
+{
+    for (const auto& kv : voxels_) { f(kv.first, kv.second); }
+}
+
+void DualVoxelPointCloud::TLikelihoodOptions::writeToStream(
+    mrpt::serialization::CArchive& out) const
+{
+    const int8_t version = 0;
+    out << version;
+    out << sigma_dist << max_corr_distance << decimation;
+}
+
+void DualVoxelPointCloud::TLikelihoodOptions::readFromStream(
+    mrpt::serialization::CArchive& in)
+{
+    int8_t version;
+    in >> version;
+    switch (version)
+    {
+        case 0:
+        {
+            in >> sigma_dist >> max_corr_distance >> decimation;
+        }
+        break;
+        default:
+            MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
+    }
+}
+
+void DualVoxelPointCloud::TRenderOptions::writeToStream(
+    mrpt::serialization::CArchive& out) const
+{
+    const int8_t version = 0;
+    out << version;
+    out << point_size << show_mean_only << color << int8_t(colormap)
+        << recolorizeByCoordinateIndex;
+}
+
+void DualVoxelPointCloud::TRenderOptions::readFromStream(
+    mrpt::serialization::CArchive& in)
+{
+    int8_t version;
+    in >> version;
+    switch (version)
+    {
+        case 0:
+        {
+            in >> point_size >> show_mean_only >> this->color;
+            in.ReadAsAndCastTo<int8_t>(this->colormap);
+            in >> recolorizeByCoordinateIndex;
+        }
+        break;
+        default:
+            MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
+    }
+}
+
+void DualVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
+    std::ostream& out) const
+{
+    out << "\n------ [DualVoxelPointCloud::TLikelihoodOptions] ------- \n\n";
+
+    LOADABLEOPTS_DUMP_VAR(sigma_dist, double);
+    LOADABLEOPTS_DUMP_VAR(max_corr_distance, double);
+    LOADABLEOPTS_DUMP_VAR(decimation, int);
+}
+
+void DualVoxelPointCloud::TRenderOptions::dumpToTextStream(
+    std::ostream& out) const
+{
+    out << "\n------ [DualVoxelPointCloud::TRenderOptions] ------- \n\n";
+
+    LOADABLEOPTS_DUMP_VAR(point_size, float);
+    LOADABLEOPTS_DUMP_VAR(show_mean_only, bool);
+    LOADABLEOPTS_DUMP_VAR(color.R, float);
+    LOADABLEOPTS_DUMP_VAR(color.G, float);
+    LOADABLEOPTS_DUMP_VAR(color.B, float);
+    LOADABLEOPTS_DUMP_VAR(colormap, int);
+    LOADABLEOPTS_DUMP_VAR(recolorizeByCoordinateIndex, int);
+}
+
+void DualVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(
+    const mrpt::config::CConfigFileBase& c, const std::string& s)
+{
+    MRPT_LOAD_CONFIG_VAR(sigma_dist, double, c, s);
+    MRPT_LOAD_CONFIG_VAR(max_corr_distance, double, c, s);
+    MRPT_LOAD_CONFIG_VAR(decimation, int, c, s);
+}
+
+void DualVoxelPointCloud::TRenderOptions::loadFromConfigFile(
+    const mrpt::config::CConfigFileBase& c, const std::string& s)
+{
+    MRPT_LOAD_CONFIG_VAR(point_size, float, c, s);
+    MRPT_LOAD_CONFIG_VAR(show_mean_only, bool, c, s);
+    MRPT_LOAD_CONFIG_VAR(color.R, float, c, s);
+    MRPT_LOAD_CONFIG_VAR(color.G, float, c, s);
+    MRPT_LOAD_CONFIG_VAR(color.B, float, c, s);
+    colormap = c.read_enum(s, "colormap", this->colormap);
+    MRPT_LOAD_CONFIG_VAR(recolorizeByCoordinateIndex, int, c, s);
+}
+
+void DualVoxelPointCloud::internal_insertPointCloud3D(
+    const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
+    const float* zs, const std::size_t num_pts)
+{
+    MRPT_TRY_START
+
+    for (std::size_t i = 0; i < num_pts; i++)
+    {
+        // Transform the point from the scan reference to its global 3D
+        // position:
+        const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
+        insertPoint(gPt);
+    }
+
+    MRPT_TRY_END
 }

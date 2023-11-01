@@ -31,9 +31,11 @@
 #include <mrpt/img/TColor.h>
 #include <mrpt/img/color_maps.h>
 #include <mrpt/maps/CMetricMap.h>
+#include <mrpt/math/TBoundingBox.h>
 #include <mrpt/math/TPoint3D.h>
 
-#include <tuple>
+#include <functional>
+#include <optional>
 
 namespace mola
 {
@@ -120,9 +122,26 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
      */
     bool nn_find_nearest(
         const mrpt::math::TPoint3Df& queryPoint,
-        mrpt::math::TPoint3Df& outNearest, float& outDistanceSquared);
+        mrpt::math::TPoint3Df& outNearest, float& outDistanceSquared) const;
 
     const voxel_map_t& voxels() const { return voxels_; }
+
+    /** Computes the bounding box of all the points, or (0,0 ,0,0, 0,0) if
+     * there are no points. Results are cached unless the map is somehow
+     * modified to avoid repeated calculations.
+     */
+    mrpt::math::TBoundingBoxf boundingBox() const;
+
+    void visitAllPoints(
+        const std::function<void(const mrpt::math::TPoint3Df&)>& f) const;
+
+    void visitAllVoxels(
+        const std::function<void(const index3d_t&, const VoxelData&)>& f) const;
+
+    /** Save to a text file. Each line contains "X Y Z" point coordinates.
+     *  Returns false if any error occured, true elsewere.
+     */
+    bool saveToTextFile(const std::string& file) const;
 
     /** @} */
 
@@ -204,7 +223,12 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         mrpt::img::TColorf color{.0f, .0f, 1.0f};
 
         /** Colormap for points (index is "z" coordinates) */
-        mrpt::img::TColormap colormap{mrpt::img::cmNONE};
+        mrpt::img::TColormap colormap = mrpt::img::cmHOT;
+
+        /** If colormap!=mrpt::img::cmNONE, use this coordinate
+         *  as color index: 0=x  1=y  2=z
+         */
+        uint8_t recolorizeByCoordinateIndex = 2;
     };
     TRenderOptions renderOptions;
 
@@ -234,10 +258,24 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     /** Nearest-neighbor voxel map */
     std::unordered_map<index3d_t, VoxelNNData, index3d_hash> voxelsNN_;
 
-    inline int32_t coord2idx(float xyz) const
+    struct CachedData
+    {
+        CachedData() = default;
+
+        void reset() { *this = CachedData(); }
+
+        mutable std::optional<mrpt::math::TBoundingBoxf> boundingBox_;
+    };
+
+    CachedData cached_;
+
+    int32_t coord2idx(float xyz) const
     {
         return mrpt::round(xyz / decimation_size_);
     }
+
+    /// returns the coordinate of the voxel center
+    float idx2coord(int32_t idx) const { return idx * decimation_size_; }
 
     void internalUpdateNNs(const index3d_t& voxelIdxs, const VoxelData& voxel);
 
@@ -259,6 +297,13 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     double internal_computeObservationLikelihoodPointCloud3D(
         const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
         const float* zs, const std::size_t num_pts) const;
+
+    /** - (xs,ys,zs): Sensed point local coordinates in the robot frame.
+     *  - pc_in_map: SE(3) pose of the robot in the map frame.
+     */
+    void internal_insertPointCloud3D(
+        const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
+        const float* zs, const std::size_t num_pts);
 
     // See docs in base class
     bool internal_canComputeObservationLikelihood(
