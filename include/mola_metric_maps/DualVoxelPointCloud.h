@@ -28,6 +28,8 @@
 #include <mola_metric_maps/index3d_t.h>
 #include <mrpt/containers/vector_with_small_size_optimization.h>
 #include <mrpt/core/round.h>
+#include <mrpt/img/TColor.h>
+#include <mrpt/img/color_maps.h>
 #include <mrpt/maps/CMetricMap.h>
 #include <mrpt/math/TPoint3D.h>
 
@@ -67,28 +69,11 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
     /** @} */
 
-    /** @name Data access API
-     *  @{ */
-    // clear(): available in base class
-
-    /** Insert one point into the dual voxel map */
-    void insertPoint(const mrpt::math::TPoint3Df& pt);
-
-    /** Query for the closest neighbor of a given point.
-     *  \return true if nearest neighbor was found.
-     */
-    bool nn_find_nearest(
-        const mrpt::math::TPoint3Df& queryPoint,
-        mrpt::math::TPoint3Df& outNearest, float& outDistanceSquared);
-
-    /** @} */
-
     /** @name Data structures and compile-time parameters
      *  @{ */
 
     /// Size of the std::array for the small-size optimization container:
-    constexpr static std::size_t SSO_LENGTH    = 16;
-    constexpr static std::size_t SSO_LENGTH_NN = 4 * 4;
+    constexpr static std::size_t SSO_LENGTH = 16;
 
     /// shortcut to save typing:
     template <typename T, std::size_t LEN>
@@ -110,6 +95,8 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         mutable std::optional<mrpt::math::TPoint3Df>  mean_;
     };
 
+    using voxel_map_t = std::unordered_map<index3d_t, VoxelData, index3d_hash>;
+
     struct VoxelNNData
     {
         // We can store pointers safely, since the unordered_map container
@@ -119,6 +106,24 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
             index3d_hash>
             nodes;
     };
+    /** @} */
+
+    /** @name Data access API
+     *  @{ */
+    // clear(): available in base class
+
+    /** Insert one point into the dual voxel map */
+    void insertPoint(const mrpt::math::TPoint3Df& pt);
+
+    /** Query for the closest neighbor of a given point.
+     *  \return true if nearest neighbor was found.
+     */
+    bool nn_find_nearest(
+        const mrpt::math::TPoint3Df& queryPoint,
+        mrpt::math::TPoint3Df& outNearest, float& outDistanceSquared);
+
+    const voxel_map_t& voxels() const { return voxels_; }
+
     /** @} */
 
     /** @name Public virtual methods implementation for CMetricMap
@@ -142,9 +147,66 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
     /** @} */
 
-    using voxel_map_t = std::unordered_map<index3d_t, VoxelData, index3d_hash>;
+    /** Options used when evaluating "computeObservationLikelihood" in the
+     * derived classes.
+     * \sa CObservation::computeObservationLikelihood
+     */
+    struct TLikelihoodOptions : public mrpt::config::CLoadableOptions
+    {
+        TLikelihoodOptions() = default;
 
-    const voxel_map_t& voxels() const { return voxels_; }
+        void loadFromConfigFile(
+            const mrpt::config::CConfigFileBase& source,
+            const std::string& section) override;  // See base docs
+        void dumpToTextStream(
+            std::ostream& out) const override;  // See base docs
+
+        void writeToStream(mrpt::serialization::CArchive& out) const;
+        void readFromStream(mrpt::serialization::CArchive& in);
+
+        /** Sigma (standard deviation, in meters) of the Gaussian observation
+         *  model used to model the likelihood (default= 0.5 m) */
+        double sigma_dist = 0.5;
+
+        /** Maximum distance in meters to consider for the numerator divided by
+         * "sigma_dist", so that each point has a minimum (but very small)
+         * likelihood to avoid underflows (default=1.0 meters) */
+        double max_corr_distance = 1.0;
+
+        /** Speed up the likelihood computation by considering only one out of N
+         * rays (default=10) */
+        uint32_t decimation = 10;
+    };
+    TLikelihoodOptions likelihoodOptions;
+
+    /** Rendering options, used in getAs3DObject()
+     */
+    struct TRenderOptions : public mrpt::config::CLoadableOptions
+    {
+        void loadFromConfigFile(
+            const mrpt::config::CConfigFileBase& source,
+            const std::string& section) override;  // See base docs
+        void dumpToTextStream(
+            std::ostream& out) const override;  // See base docs
+
+        /** Binary dump to stream - used in derived classes' serialization */
+        void writeToStream(mrpt::serialization::CArchive& out) const;
+        /** Binary dump to stream - used in derived classes' serialization */
+        void readFromStream(mrpt::serialization::CArchive& in);
+
+        float point_size = 1.0f;
+
+        /** If true, when rendering a voxel map only the mean point per voxel
+         * will be rendered instead of all contained points. */
+        bool show_mean_only = true;
+
+        /** Color of points. Superseded by colormap if the latter is set. */
+        mrpt::img::TColorf color{.0f, .0f, 1.0f};
+
+        /** Colormap for points (index is "z" coordinates) */
+        mrpt::img::TColormap colormap{mrpt::img::cmNONE};
+    };
+    TRenderOptions renderOptions;
 
    public:
     // Interface for use within a mrpt::maps::CMultiMetricMap:
@@ -152,16 +214,18 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     float  decimation_size      = 0.20f;
     float  max_nn_radius        = 0.60f;
     size_t max_points_per_voxel = 0;
-    // mola::DualVoxelPointCloud::TInsertionOptions insertionOpts;
-    // mola::DualVoxelPointCloud::TLikelihoodOptions likelihoodOpts;
+
+    mola::DualVoxelPointCloud::TLikelihoodOptions likelihoodOpts;
+    mola::DualVoxelPointCloud::TRenderOptions     renderOpts;
     MAP_DEFINITION_END(DualVoxelPointCloud)
 
    private:
     float    decimation_size_      = 0.20f;
     float    max_nn_radius_        = 0.60f;
-    float    max_nn_radius_sqr_    = max_nn_radius_ * max_nn_radius_;
     uint32_t max_points_per_voxel_ = 0;
 
+    // Calculated from the above, in setVoxelProperties()
+    float   max_nn_radius_sqr_ = max_nn_radius_ * max_nn_radius_;
     int32_t nn_to_decim_ratio_ = 3;  // ceiling of nn_radius / decim_size
 
     /** Decimation voxel map */
@@ -174,6 +238,8 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     {
         return mrpt::round(xyz / decimation_size_);
     }
+
+    void internalUpdateNNs(const index3d_t& voxelIdxs, const VoxelData& voxel);
 
    protected:
     // See docs in base CMetricMap class:
@@ -189,6 +255,11 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     double internal_computeObservationLikelihood(
         const mrpt::obs::CObservation& obs,
         const mrpt::poses::CPose3D&    takenFrom) const override;
+
+    double internal_computeObservationLikelihoodPointCloud3D(
+        const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
+        const float* zs, const std::size_t num_pts) const;
+
     // See docs in base class
     bool internal_canComputeObservationLikelihood(
         const mrpt::obs::CObservation& obs) const override;

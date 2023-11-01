@@ -36,6 +36,8 @@ namespace mola
  */
 struct index3d_t
 {
+    index3d_t() = default;
+
     index3d_t(int32_t cx, int32_t cy, int32_t cz) noexcept
         : cx_(cx), cy_(cy), cz_(cz)
     {
