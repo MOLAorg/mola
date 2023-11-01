@@ -26,6 +26,9 @@
  */
 
 #include <mola_metric_maps/DualVoxelPointCloud.h>
+#include <mrpt/obs/CObservation2DRangeScan.h>
+#include <mrpt/obs/stock_observations.h>
+#include <mrpt/opengl/Scene.h>
 
 #include <iostream>
 
@@ -60,11 +63,52 @@ void test_voxelmap_basic_ops()
     }
 }
 
+void test_voxelmap_insert_2d_scan()
+{
+    mola::DualVoxelPointCloud map(0.2 /*decim*/, 0.4 /*NN*/);
+
+    mrpt::obs::CObservation2DRangeScan scan2D;
+    mrpt::obs::stock_observations::example2DRangeScan(scan2D);
+
+    map.insertObservation(scan2D);
+#if 0
+    mrpt::opengl::Scene scene;
+    map.renderOptions.show_mean_only = false;
+    map.renderOptions.point_size     = 5.0f;
+    scene.insert(map.getVisualization());
+    scene.saveToFile("dualvoxelmap_scan2d.3Dscene");
+#endif
+    {
+        size_t nPts = 0;
+
+        const auto lambdaVisitPoints = [&nPts](const mrpt::math::TPoint3Df&) {
+            nPts++;
+        };
+
+        map.visitAllPoints(lambdaVisitPoints);
+
+        ASSERT_EQUAL_(nPts, 267UL);
+    }
+
+    {
+        size_t nVoxels = 0;
+
+        const auto lambdaVisitVoxels =
+            [&nVoxels](
+                const mola::index3d_t&,
+                const mola::DualVoxelPointCloud::VoxelData&) { nVoxels++; };
+        map.visitAllVoxels(lambdaVisitVoxels);
+
+        ASSERT_EQUAL_(nVoxels, 96UL);
+    }
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
     try
     {
         test_voxelmap_basic_ops();
+        test_voxelmap_insert_2d_scan();
     }
     catch (std::exception& e)
     {

@@ -225,11 +225,22 @@ void DualVoxelPointCloud::getVisualizationInto(
         // Single color:
         auto obj = mrpt::opengl::CPointCloud::Create();
 
-        const auto lambdaVisitPoints = [&obj](const mrpt::math::TPoint3Df& pt) {
-            obj->insertPoint(pt);
-        };
-
-        this->visitAllPoints(lambdaVisitPoints);
+        if (renderOptions.show_mean_only)
+        {
+            const auto lambdaVisitVoxels =
+                [&obj](const index3d_t&, const VoxelData& v) {
+                    obj->insertPoint(v.mean());
+                };
+            this->visitAllVoxels(lambdaVisitVoxels);
+        }
+        else
+        {
+            const auto lambdaVisitPoints =
+                [&obj](const mrpt::math::TPoint3Df& pt) {
+                    obj->insertPoint(pt);
+                };
+            this->visitAllPoints(lambdaVisitPoints);
+        }
 
         obj->setColor(renderOptions.color);
         obj->setPointSize(renderOptions.point_size);
@@ -240,12 +251,25 @@ void DualVoxelPointCloud::getVisualizationInto(
     {
         auto obj = mrpt::opengl::CPointCloudColoured::Create();
 
-        const auto lambdaVisitPoints = [&obj](const mrpt::math::TPoint3Df& pt) {
-            // x y z R G B [A]
-            obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
-        };
+        if (renderOptions.show_mean_only)
+        {
+            const auto lambdaVisitVoxels =
+                [&obj](const index3d_t&, const VoxelData& v) {
+                    const auto& m = v.mean();
+                    obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
+                };
+            this->visitAllVoxels(lambdaVisitVoxels);
+        }
+        else
+        {
+            const auto lambdaVisitPoints =
+                [&obj](const mrpt::math::TPoint3Df& pt) {
+                    // x y z R G B [A]
+                    obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+                };
 
-        this->visitAllPoints(lambdaVisitPoints);
+            this->visitAllPoints(lambdaVisitPoints);
+        }
 
         obj->setPointSize(renderOptions.point_size);
 
@@ -566,18 +590,26 @@ void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
         coord2idx(pt.x), coord2idx(pt.y), coord2idx(pt.z)};
 
     // 1) Insert into decimation voxel map:
-    auto& v = voxels_[idxPoint];
-    v.insertPoint(pt);
+    auto&      v               = voxels_[idxPoint];
+    const auto nPreviousPoints = v.points().size();
+
+    if (max_points_per_voxel_ == 0 || nPreviousPoints < max_points_per_voxel_)
+    {
+        v.insertPoint(pt);
+
+        // Also, update bbox:
+        if (!cached_.boundingBox_.has_value())
+            cached_.boundingBox_.emplace(pt, pt);
+        else
+            cached_.boundingBox_->updateWithPoint(pt);
+    }
 
     // 2) Insert this voxel into the list of neighbors for all
     //    voxels in the nearby volume:
-    internalUpdateNNs(idxPoint, v);
-
-    // 3) Update bbox:
-    if (!cached_.boundingBox_.has_value())
-        cached_.boundingBox_.emplace(pt, pt);
-    else
-        cached_.boundingBox_->updateWithPoint(pt);
+    if (nPreviousPoints == 0)  // only the first time
+    {
+        internalUpdateNNs(idxPoint, v);
+    }
 }
 
 void DualVoxelPointCloud::internalUpdateNNs(

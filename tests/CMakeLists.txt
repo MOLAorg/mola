@@ -13,3 +13,10 @@ mola_add_test(
   LINK_LIBRARIES
   mola_metric_maps
 )
+
+mola_add_test(
+  TARGET  test-mola_metric_maps_serialization
+  SOURCES test-serialization.cpp
+  LINK_LIBRARIES
+  mola_metric_maps
+)
