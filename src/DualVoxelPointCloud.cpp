@@ -198,7 +198,8 @@ void DualVoxelPointCloud::setVoxelProperties(
     max_points_per_voxel_ = max_points_per_voxel;
 
     // calculated fields:
-    max_nn_radius_sqr_ = mrpt::square(max_nn_radius_);
+    decimation_size_inv_ = 1.0f / decimation_size_;
+    max_nn_radius_sqr_   = mrpt::square(max_nn_radius_);
     nn_to_decim_ratio_ =
         static_cast<int32_t>(std::ceil(max_nn_radius_ / decimation_size_));
 
@@ -303,11 +304,7 @@ void DualVoxelPointCloud::getVisualizationInto(
     MRPT_END
 }
 
-void DualVoxelPointCloud::internal_clear()
-{
-    voxels_.clear();
-    voxelsNN_.clear();
-}
+void DualVoxelPointCloud::internal_clear() { voxels_.clear(); }
 
 bool DualVoxelPointCloud::internal_insertObservation(
     const mrpt::obs::CObservation&                   obs,
@@ -627,8 +624,8 @@ void DualVoxelPointCloud::internalUpdateNNs(
                 const index3d_t nnIdxs = {
                     voxelIdxs.cx + ix, voxelIdxs.cy + iy, voxelIdxs.cz + iz};
 
-                VoxelNNData& nnNode = voxelsNN_[nnIdxs];
-                nnNode.nodes[voxelIdxs].emplace(voxel);  // save reference
+                auto& nnNode = voxels_[nnIdxs];
+                nnNode.neighbors()[voxelIdxs].emplace(voxel);  // save reference
             }
         }
     }
@@ -643,13 +640,13 @@ bool DualVoxelPointCloud::nn_find_nearest(
         coord2idx(queryPoint.x), coord2idx(queryPoint.y),
         coord2idx(queryPoint.z)};
 
-    auto itNN = voxelsNN_.find(idxPoint);
-    if (itNN == voxelsNN_.end()) return false;
+    auto itNN = voxels_.find(idxPoint);
+    if (itNN == voxels_.end()) return false;
 
     // Keep closest only:
     outDistanceSquared = max_nn_radius_sqr_ * 1.01;  // larger than maximum
 
-    for (const auto& voxelRef : itNN->second.nodes)
+    for (const auto& voxelRef : itNN->second.neighbors())
     {
         const auto& node = voxelRef.second.value().get();
 

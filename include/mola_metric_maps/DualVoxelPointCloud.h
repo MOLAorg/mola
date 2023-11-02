@@ -85,6 +85,8 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     struct VoxelData
     {
        public:
+        VoxelData() = default;
+
         const auto& points() const { return points_; }
 
         void insertPoint(const mrpt::math::TPoint3Df& p);
@@ -92,22 +94,23 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         /** Gets the mean of all points in the voxel. Throws if empty. */
         const mrpt::math::TPoint3Df& mean() const;
 
+        const auto& neighbors() const { return neighbors_; }
+        auto&       neighbors() { return neighbors_; }
+
        private:
         vector_sso<mrpt::math::TPoint3Df, SSO_LENGTH> points_;
         mutable std::optional<mrpt::math::TPoint3Df>  mean_;
-    };
 
-    using voxel_map_t = std::unordered_map<index3d_t, VoxelData, index3d_hash>;
-
-    struct VoxelNNData
-    {
         // We can store pointers safely, since the unordered_map container
         // does not invalidate them.
         std::unordered_map<
             index3d_t, std::optional<std::reference_wrapper<const VoxelData>>,
             index3d_hash>
-            nodes;
+            neighbors_;
     };
+
+    using voxel_map_t = std::unordered_map<index3d_t, VoxelData, index3d_hash>;
+
     /** @} */
 
     /** @name Data access API
@@ -249,14 +252,12 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     uint32_t max_points_per_voxel_ = 0;
 
     // Calculated from the above, in setVoxelProperties()
-    float   max_nn_radius_sqr_ = max_nn_radius_ * max_nn_radius_;
-    int32_t nn_to_decim_ratio_ = 3;  // ceiling of nn_radius / decim_size
+    float   decimation_size_inv_ = 1.0f / decimation_size_;
+    float   max_nn_radius_sqr_   = max_nn_radius_ * max_nn_radius_;
+    int32_t nn_to_decim_ratio_   = 3;  // ceiling of nn_radius / decim_size
 
     /** Decimation voxel map */
     voxel_map_t voxels_;
-
-    /** Nearest-neighbor voxel map */
-    std::unordered_map<index3d_t, VoxelNNData, index3d_hash> voxelsNN_;
 
     struct CachedData
     {
@@ -271,7 +272,7 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
     int32_t coord2idx(float xyz) const
     {
-        return mrpt::round(xyz / decimation_size_);
+        return mrpt::round(xyz * decimation_size_inv_);
     }
 
     /// returns the coordinate of the voxel center
