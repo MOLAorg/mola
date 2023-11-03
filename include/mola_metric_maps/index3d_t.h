@@ -51,6 +51,10 @@ struct index3d_t
     {
         return cx == o.cx && cy == o.cy && cz == o.cz;
     }
+    bool operator!=(const index3d_t<cell_coord_t>& o) const noexcept
+    {
+        return !operator==(o);
+    }
 };
 
 template <typename cell_coord_t>

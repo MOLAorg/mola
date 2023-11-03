@@ -26,7 +26,6 @@
 #pragma once
 
 #include <mola_metric_maps/index3d_t.h>
-#include <mrpt/containers/vector_with_small_size_optimization.h>
 #include <mrpt/core/round.h>
 #include <mrpt/img/TColor.h>
 #include <mrpt/img/color_maps.h>
@@ -96,7 +95,7 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     /// voxel, defining the maximum number of points that can be stored without
     /// heap allocation.
     constexpr static std::size_t SSO_LENGTH           = 16;
-    constexpr static uint32_t    INNER_GRID_BIT_COUNT = 5;
+    constexpr static uint32_t    INNER_GRID_BIT_COUNT = 4;
 
     constexpr static uint32_t INNER_GRID_SIDE   = 1 << INNER_GRID_BIT_COUNT;
     constexpr static uint32_t INNER_COORDS_MASK = INNER_GRID_SIDE - 1;
@@ -182,17 +181,33 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     /** @name Data structures
      *  @{ */
 
-    /// shortcut to save typing:
-    template <typename T, std::size_t LEN>
-    using vector_sso =
-        mrpt::containers::vector_with_small_size_optimization<T, LEN>;
-
     struct VoxelData
     {
        public:
         VoxelData() = default;
 
-        const auto& points() const { return points_; }
+        struct PointSpan
+        {
+            PointSpan(const mrpt::math::TPoint3Df* data, size_t n)
+                : data_(data), n_(n)
+            {
+            }
+
+            auto begin() const { return data_; }
+            auto end() const { return data_ + n_; }
+
+            auto begin() { return data_; }
+            auto end() { return data_ + n_; }
+
+            size_t size() const { return n_; }
+            bool   empty() const { return n_ == 0; }
+
+           private:
+            const mrpt::math::TPoint3Df* data_;
+            const size_t                 n_;
+        };
+
+        auto points() const { return PointSpan(points_.data(), numPoints_); }
 
         void insertPoint(const mrpt::math::TPoint3Df& p);
 
@@ -200,7 +215,8 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         const mrpt::math::TPoint3Df& mean() const;
 
        private:
-        vector_sso<mrpt::math::TPoint3Df, SSO_LENGTH> points_;
+        std::array<mrpt::math::TPoint3Df, SSO_LENGTH> points_;
+        uint8_t                                       numPoints_ = 0;
         mutable std::optional<mrpt::math::TPoint3Df>  mean_;
     };
 
@@ -370,6 +386,9 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         void reset() { *this = CachedData(); }
 
         mutable std::optional<mrpt::math::TBoundingBoxf> boundingBox_;
+
+        outer_index3d_t lastAccessIdx;
+        InnerGrid*      lastAccessGrid = nullptr;
     };
 
     CachedData cached_;

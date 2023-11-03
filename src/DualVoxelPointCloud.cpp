@@ -182,7 +182,9 @@ const mrpt::math::TPoint3Df& DualVoxelPointCloud::VoxelData::mean() const
 void DualVoxelPointCloud::VoxelData::insertPoint(const mrpt::math::TPoint3Df& p)
 {
     mean_.reset();
-    points_.push_back(p);
+    if (numPoints_ >= points_.size()) return;
+
+    points_[numPoints_++] = p;
 }
 
 // Ctor:
@@ -618,8 +620,18 @@ void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
     const inner_index3d_t  iIdx     = g2i(idxPoint);
 
     // 1) Insert into decimation voxel map:
-    auto& grid = grids_[oIdx];
-    auto& v    = grid.cellByIndex(iIdx);
+    InnerGrid* grid;
+    if (!cached_.lastAccessGrid || cached_.lastAccessIdx != oIdx)
+    {
+        grid                  = &grids_[oIdx];
+        cached_.lastAccessIdx = oIdx;
+    }
+    else
+    {
+        grid = cached_.lastAccessGrid;
+    }
+
+    auto& v = grid->cellByIndex(iIdx);
 
     const auto nPreviousPoints = v.points().size();
 
