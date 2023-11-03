@@ -28,42 +28,54 @@
 
 #include <cstdint>
 #include <functional>  // hash<>
+#include <iostream>
 
 namespace mola
 {
 /** Discrete index type for voxel or 3D grid maps, suitable for std::map and
  * std::unordered_map, using mola::index3d_hash as hash type.
  */
+template <typename cell_coord_t = int32_t>
 struct index3d_t
 {
     index3d_t() = default;
 
-    index3d_t(int32_t Cx, int32_t Cy, int32_t Cz) noexcept
+    index3d_t(cell_coord_t Cx, cell_coord_t Cy, cell_coord_t Cz) noexcept
         : cx(Cx), cy(Cy), cz(Cz)
     {
     }
 
-    int32_t cx = 0, cy = 0, cz = 0;
+    cell_coord_t cx = 0, cy = 0, cz = 0;
 
-    bool operator==(const index3d_t& o) const noexcept
+    bool operator==(const index3d_t<cell_coord_t>& o) const noexcept
     {
         return cx == o.cx && cy == o.cy && cz == o.cz;
     }
 };
 
+template <typename cell_coord_t>
+std::ostream& operator<<(std::ostream& o, const index3d_t<cell_coord_t>& idx)
+{
+    o << "(" << idx.cx << "," << idx.cy << "," << idx.cz << ")";
+    return o;
+}
+
+template <typename cell_coord_t = int32_t>
 struct index3d_hash
 {
-    std::size_t operator()(const index3d_t& k) const noexcept
+    std::size_t operator()(const index3d_t<cell_coord_t>& k) const noexcept
     {
         std::size_t res = 17;
 
-        res = res * 31 + std::hash<int32_t>()(k.cx);
-        res = res * 31 + std::hash<int32_t>()(k.cy);
-        res = res * 31 + std::hash<int32_t>()(k.cz);
+        res = res * 31 + std::hash<cell_coord_t>()(k.cx);
+        res = res * 31 + std::hash<cell_coord_t>()(k.cy);
+        res = res * 31 + std::hash<cell_coord_t>()(k.cz);
         return res;
     }
     // k1 < k2?
-    bool operator()(const index3d_t& k1, const index3d_t& k2) const noexcept
+    bool operator()(
+        const index3d_t<cell_coord_t>& k1,
+        const index3d_t<cell_coord_t>& k2) const noexcept
     {
         if (k1.cx != k2.cx) return k1.cx < k2.cx;
         if (k1.cy != k2.cy) return k1.cy < k2.cy;

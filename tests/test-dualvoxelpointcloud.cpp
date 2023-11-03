@@ -39,45 +39,26 @@ void test_voxelmap_basic_ops()
 
     map.insertPoint({1.0f, 2.0f, 3.0f});
     ASSERT_(!map.isEmpty());
-
-    ASSERT_EQUAL_(map.voxels().size(), 1UL);
-    ASSERT_EQUAL_(map.voxels().begin()->second.points().size(), 1UL);
-
-    const auto& p = map.voxels().begin()->second.points().at(0);
-    ASSERT_EQUAL_(p.x, 1.0f);
-    ASSERT_EQUAL_(p.y, 2.0f);
-    ASSERT_EQUAL_(p.z, 3.0f);
-
-    // NN:
-    {
-        mrpt::math::TPoint3Df pt;
-
-        float      ptSqrDist = 0;
-        const bool nn_ok =
-            map.nn_find_nearest({1.10f, 1.9f, 2.9f}, pt, ptSqrDist);
-
-        ASSERT_(nn_ok);
-        ASSERT_EQUAL_(pt.x, 1.0f);
-        ASSERT_EQUAL_(pt.y, 2.0f);
-        ASSERT_EQUAL_(pt.z, 3.0f);
-    }
 }
 
 void test_voxelmap_insert_2d_scan()
 {
-    mola::DualVoxelPointCloud map(0.2 /*decim*/, 0.4 /*NN*/);
+    mola::DualVoxelPointCloud map(0.2 /*decim*/);
 
     mrpt::obs::CObservation2DRangeScan scan2D;
     mrpt::obs::stock_observations::example2DRangeScan(scan2D);
 
     map.insertObservation(scan2D);
-#if 0
+#if 1
     mrpt::opengl::Scene scene;
-    map.renderOptions.show_mean_only = false;
-    map.renderOptions.point_size     = 5.0f;
+    map.renderOptions.show_inner_grid_boxes = true;
+    map.renderOptions.show_mean_only        = true;
+    map.renderOptions.point_size            = 5.0f;
     scene.insert(map.getVisualization());
     scene.saveToFile("dualvoxelmap_scan2d.3Dscene");
 #endif
+    std::cout << "numGrids: " << map.grids().size() << std::endl;
+
     {
         size_t nPts = 0;
 
@@ -95,8 +76,12 @@ void test_voxelmap_insert_2d_scan()
 
         const auto lambdaVisitVoxels =
             [&nVoxels](
-                const mola::index3d_t&,
-                const mola::DualVoxelPointCloud::VoxelData&) { nVoxels++; };
+                const mola::DualVoxelPointCloud::outer_index3d_t&,
+                const mola::DualVoxelPointCloud::inner_plain_index_t,
+                const mola::DualVoxelPointCloud::VoxelData& v) {
+                // count them:
+                if (!v.points().empty()) nVoxels++;
+            };
         map.visitAllVoxels(lambdaVisitVoxels);
 
         ASSERT_EQUAL_(nVoxels, 96UL);

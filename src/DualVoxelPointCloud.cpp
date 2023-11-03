@@ -54,7 +54,6 @@ void DualVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
     // [<sectionNamePrefix>+"_creationOpts"]
     const std::string sSectCreation = sectionPrefix + "_creationOpts"s;
     MRPT_LOAD_CONFIG_VAR(decimation_size, float, s, sSectCreation);
-    MRPT_LOAD_CONFIG_VAR(max_nn_radius, float, s, sSectCreation);
     MRPT_LOAD_CONFIG_VAR(max_points_per_voxel, uint64_t, s, sSectCreation);
 
     likelihoodOpts.loadFromConfigFile(s, sectionPrefix + "_likelihoodOpts"s);
@@ -65,7 +64,6 @@ void DualVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
     std::ostream& out) const
 {
     LOADABLEOPTS_DUMP_VAR(decimation_size, float);
-    LOADABLEOPTS_DUMP_VAR(max_nn_radius, float);
     LOADABLEOPTS_DUMP_VAR(max_points_per_voxel, float);
 
     likelihoodOpts.dumpToTextStream(out);
@@ -79,7 +77,7 @@ mrpt::maps::CMetricMap* DualVoxelPointCloud::internal_CreateFromMapDefinition(
         dynamic_cast<const DualVoxelPointCloud::TMapDefinition*>(&_def);
     ASSERT_(def);
     auto* obj = new DualVoxelPointCloud(
-        def->decimation_size, def->max_nn_radius, def->max_points_per_voxel);
+        def->decimation_size, def->max_points_per_voxel);
 
     obj->likelihoodOptions = def->likelihoodOpts;
     obj->renderOptions     = def->renderOpts;
@@ -97,18 +95,22 @@ uint8_t DualVoxelPointCloud::serializeGetVersion() const { return 0; }
 void DualVoxelPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
 {
     // params:
-    out << decimation_size_ << max_nn_radius_ << max_points_per_voxel_;
+    out << INNER_GRID_BIT_COUNT << decimation_size_ << max_points_per_voxel_;
     likelihoodOptions.writeToStream(out);
     renderOptions.writeToStream(out);
 
     // data:
-    out.WriteAs<uint32_t>(voxels_.size());
-    for (const auto& kv : voxels_)
+    out.WriteAs<uint32_t>(grids_.size());
+    for (const auto& kv : grids_)
     {
         out << kv.first.cx << kv.first.cy << kv.first.cz;
-        const auto& pts = kv.second.points();
-        out.WriteAs<uint32_t>(pts.size());
-        for (const auto& pt : pts) out << pt.x << pt.y << pt.z;
+
+        for (const auto& c : kv.second.cells())
+        {
+            const auto& pts = c.points();
+            out.WriteAs<uint32_t>(pts.size());
+            for (const auto& pt : pts) out << pt.x << pt.y << pt.z;
+        }
     }
 }
 void DualVoxelPointCloud::serializeFrom(
@@ -119,34 +121,36 @@ void DualVoxelPointCloud::serializeFrom(
         case 0:
         {
             // params:
-            in >> decimation_size_ >> max_nn_radius_ >> max_points_per_voxel_;
+            const auto expected_inner_grid_bit_count = in.ReadAs<uint32_t>();
+            ASSERT_EQUAL_(expected_inner_grid_bit_count, INNER_GRID_BIT_COUNT);
+
+            in >> decimation_size_ >> max_points_per_voxel_;
 
             // clear contents and compute computed fields:
-            this->setVoxelProperties(
-                decimation_size_, max_nn_radius_, max_points_per_voxel_);
+            this->setVoxelProperties(decimation_size_, max_points_per_voxel_);
 
             likelihoodOptions.readFromStream(in);
             renderOptions.readFromStream(in);
 
             // data:
-            const auto nVoxels = in.ReadAs<uint32_t>();
-            for (uint32_t i = 0; i < nVoxels; i++)
+            const auto nGrids = in.ReadAs<uint32_t>();
+            for (uint32_t i = 0; i < nGrids; i++)
             {
-                index3d_t idx;
+                outer_index3d_t idx;
                 in >> idx.cx >> idx.cy >> idx.cz;
 
-                auto& v = voxels_[idx];
+                auto& grid = grids_[idx];
 
-                const auto nPts = in.ReadAs<uint32_t>();
-                for (uint32_t j = 0; j < nPts; j++)
+                for (auto& c : grid.cells())
                 {
-                    mrpt::math::TPoint3Df pt;
-                    in >> pt.x >> pt.y >> pt.z;
-                    v.insertPoint(pt);
+                    const auto nPts = in.ReadAs<uint32_t>();
+                    for (uint32_t j = 0; j < nPts; j++)
+                    {
+                        mrpt::math::TPoint3Df pt;
+                        in >> pt.x >> pt.y >> pt.z;
+                        c.insertPoint(pt);
+                    }
                 }
-                // Insert this voxel into the list of neighbors for all
-                // voxels in the nearby volume:
-                internalUpdateNNs(idx, v);
             }
         }
         break;
@@ -183,25 +187,27 @@ void DualVoxelPointCloud::VoxelData::insertPoint(const mrpt::math::TPoint3Df& p)
 
 // Ctor:
 DualVoxelPointCloud::DualVoxelPointCloud(
-    float decimation_size, float max_nn_radius, uint32_t max_points_per_voxel)
+    float decimation_size, uint32_t max_points_per_voxel)
 {
-    setVoxelProperties(decimation_size, max_nn_radius, max_points_per_voxel);
+    setVoxelProperties(decimation_size, max_points_per_voxel);
 }
 
 DualVoxelPointCloud::~DualVoxelPointCloud() = default;
 
 void DualVoxelPointCloud::setVoxelProperties(
-    float decimation_size, float max_nn_radius, uint32_t max_points_per_voxel)
+    float decimation_size, uint32_t max_points_per_voxel)
 {
     decimation_size_      = decimation_size;
-    max_nn_radius_        = max_nn_radius;
     max_points_per_voxel_ = max_points_per_voxel;
 
     // calculated fields:
     decimation_size_inv_ = 1.0f / decimation_size_;
-    max_nn_radius_sqr_   = mrpt::square(max_nn_radius_);
-    nn_to_decim_ratio_ =
-        static_cast<int32_t>(std::ceil(max_nn_radius_ / decimation_size_));
+    halfVoxel_ =
+        mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) * (0.5f * decimation_size_);
+
+    gridSizeMinusHalf_ = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) *
+                             (decimation_size_ * INNER_GRID_SIDE) -
+                         halfVoxel_;
 
     // clear all:
     DualVoxelPointCloud::internal_clear();
@@ -210,9 +216,8 @@ void DualVoxelPointCloud::setVoxelProperties(
 std::string DualVoxelPointCloud::asString() const
 {
     return mrpt::format(
-        "DualVoxelPointCloud, decimation_size=%.03f max_nn_radius=%.03f "
-        "bbox=%s",
-        decimation_size_, max_nn_radius_, boundingBox().asString().c_str());
+        "DualVoxelPointCloud, resolution=%.03f bbox=%s", decimation_size_,
+        boundingBox().asString().c_str());
 }
 
 void DualVoxelPointCloud::getVisualizationInto(
@@ -228,10 +233,13 @@ void DualVoxelPointCloud::getVisualizationInto(
 
         if (renderOptions.show_mean_only)
         {
-            const auto lambdaVisitVoxels =
-                [&obj](const index3d_t&, const VoxelData& v) {
-                    obj->insertPoint(v.mean());
-                };
+            const auto lambdaVisitVoxels = [&obj](
+                                               const outer_index3d_t&,
+                                               const inner_plain_index_t,
+                                               const VoxelData& v) {
+                // Insert the mean/average point:
+                if (!v.points().empty()) obj->insertPoint(v.mean());
+            };
             this->visitAllVoxels(lambdaVisitVoxels);
         }
         else
@@ -254,11 +262,14 @@ void DualVoxelPointCloud::getVisualizationInto(
 
         if (renderOptions.show_mean_only)
         {
-            const auto lambdaVisitVoxels =
-                [&obj](const index3d_t&, const VoxelData& v) {
-                    const auto& m = v.mean();
-                    obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
-                };
+            const auto lambdaVisitVoxels = [&obj](
+                                               const outer_index3d_t&,
+                                               const inner_plain_index_t,
+                                               const VoxelData& v) {
+                if (v.points().empty()) return;
+                const auto& m = v.mean();
+                obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
+            };
             this->visitAllVoxels(lambdaVisitVoxels);
         }
         else
@@ -301,10 +312,28 @@ void DualVoxelPointCloud::getVisualizationInto(
             renderOptions.colormap);
         outObj.insert(obj);
     }
+    if (renderOptions.show_inner_grid_boxes)
+    {
+        auto lambdaForEachGrid =
+            [this, &outObj](const outer_index3d_t& idxs, const InnerGrid&) {
+                const mrpt::math::TPoint3Df voxelCenter =
+                    globalIdxToCoord(idxs);
+
+                auto glBox = mrpt::opengl::CBox::Create();
+                glBox->setWireframe(true);
+                glBox->setBoxCorners(
+                    (voxelCenter - halfVoxel_).cast<double>(),
+                    (voxelCenter + gridSizeMinusHalf_).cast<double>());
+
+                outObj.insert(glBox);
+            };
+
+        this->visitAllGrids(lambdaForEachGrid);
+    }
     MRPT_END
 }
 
-void DualVoxelPointCloud::internal_clear() { voxels_.clear(); }
+void DualVoxelPointCloud::internal_clear() { grids_.clear(); }
 
 bool DualVoxelPointCloud::internal_insertObservation(
     const mrpt::obs::CObservation&                   obs,
@@ -553,7 +582,7 @@ bool DualVoxelPointCloud::internal_canComputeObservationLikelihood(
 bool DualVoxelPointCloud::isEmpty() const
 {
     // empty if no voxels exist:
-    return voxels_.empty();
+    return grids_.empty();
 }
 
 void DualVoxelPointCloud::saveMetricMapRepresentationToFile(
@@ -583,11 +612,15 @@ bool DualVoxelPointCloud::saveToTextFile(const std::string& file) const
 void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
 {
     // Get voxel indices:
-    const index3d_t idxPoint = {
-        coord2idx(pt.x), coord2idx(pt.y), coord2idx(pt.z)};
+
+    const global_index3d_t idxPoint = coordToGlobalIdx(pt);
+    const outer_index3d_t  oIdx     = g2o(idxPoint);
+    const inner_index3d_t  iIdx     = g2i(idxPoint);
 
     // 1) Insert into decimation voxel map:
-    auto&      v               = voxels_[idxPoint];
+    auto& grid = grids_[oIdx];
+    auto& v    = grid.cellByIndex(iIdx);
+
     const auto nPreviousPoints = v.points().size();
 
     if (max_points_per_voxel_ == 0 || nPreviousPoints < max_points_per_voxel_)
@@ -600,35 +633,6 @@ void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
         else
             cached_.boundingBox_->updateWithPoint(pt);
     }
-
-    // 2) Insert this voxel into the list of neighbors for all
-    //    voxels in the nearby volume:
-    if (nPreviousPoints == 0)  // only the first time
-    {
-        internalUpdateNNs(idxPoint, v);
-    }
-}
-
-void DualVoxelPointCloud::internalUpdateNNs(
-    const index3d_t& voxelIdxs, const VoxelData& voxel)
-{
-    // Insert this voxel into the list of neighbors for all
-    // voxels in the nearby volume:
-    for (int32_t iz = -nn_to_decim_ratio_; iz <= nn_to_decim_ratio_; iz++)
-    {
-        for (int32_t iy = -nn_to_decim_ratio_; iy <= nn_to_decim_ratio_; iy++)
-        {
-            for (int32_t ix = -nn_to_decim_ratio_; ix <= nn_to_decim_ratio_;
-                 ix++)
-            {
-                const index3d_t nnIdxs = {
-                    voxelIdxs.cx + ix, voxelIdxs.cy + iy, voxelIdxs.cz + iz};
-
-                auto& nnNode = voxels_[nnIdxs];
-                nnNode.neighbors()[voxelIdxs].emplace(voxel);  // save reference
-            }
-        }
-    }
 }
 
 bool DualVoxelPointCloud::nn_find_nearest(
@@ -636,12 +640,13 @@ bool DualVoxelPointCloud::nn_find_nearest(
     float& outDistanceSquared) const
 {
     // Get voxel indices:
+#if 0
     const index3d_t idxPoint = {
         coord2idx(queryPoint.x), coord2idx(queryPoint.y),
         coord2idx(queryPoint.z)};
 
-    auto itNN = voxels_.find(idxPoint);
-    if (itNN == voxels_.end()) return false;
+    auto itNN = grids_.find(idxPoint);
+    if (itNN == grids_.end()) return false;
 
     // Keep closest only:
     outDistanceSquared = max_nn_radius_sqr_ * 1.01;  // larger than maximum
@@ -665,8 +670,9 @@ bool DualVoxelPointCloud::nn_find_nearest(
             outNearest         = pt;
         }
     }
-
     return outDistanceSquared < max_nn_radius_sqr_;
+#endif
+    return false;
 }
 
 mrpt::math::TBoundingBoxf DualVoxelPointCloud::boundingBox() const
@@ -684,23 +690,18 @@ mrpt::math::TBoundingBoxf DualVoxelPointCloud::boundingBox() const
             cached_.boundingBox_ =
                 mrpt::math::TBoundingBoxf::PlusMinusInfinity();
 
-            const mrpt::math::TPoint3Df halfVoxel = {
-                0.5f * decimation_size_, 0.5f * decimation_size_,
-                0.5f * decimation_size_};
+            auto lambdaForEachGrid = [this](
+                                         const outer_index3d_t& idxs,
+                                         const InnerGrid&) {
+                const mrpt::math::TPoint3Df voxelCenter =
+                    globalIdxToCoord(idxs);
 
-            auto lambdaForEachVoxel = [this, &halfVoxel](
-                                          const index3d_t& idxs,
-                                          const VoxelData& v) {
-                if (v.points().empty()) return;
-
-                const mrpt::math::TPoint3Df voxelCenter = {
-                    idx2coord(idxs.cx), idx2coord(idxs.cy), idx2coord(idxs.cz)};
-
-                cached_.boundingBox_->updateWithPoint(voxelCenter - halfVoxel);
-                cached_.boundingBox_->updateWithPoint(voxelCenter + halfVoxel);
+                cached_.boundingBox_->updateWithPoint(voxelCenter - halfVoxel_);
+                cached_.boundingBox_->updateWithPoint(
+                    voxelCenter + gridSizeMinusHalf_);
             };
 
-            this->visitAllVoxels(lambdaForEachVoxel);
+            this->visitAllGrids(lambdaForEachGrid);
         }
     }
 
@@ -710,15 +711,45 @@ mrpt::math::TBoundingBoxf DualVoxelPointCloud::boundingBox() const
 void DualVoxelPointCloud::visitAllPoints(
     const std::function<void(const mrpt::math::TPoint3Df&)>& f) const
 {
-    for (const auto& kv : voxels_)
-        for (const auto& pt : kv.second.points())  //
-            f(pt);
+    for (const auto& kv : grids_)
+    {
+        const auto&  cells  = kv.second.cells();
+        const size_t nCells = kv.second.TOTAL_CELL_COUNT;
+        for (inner_plain_index_t plainIdx = 0; plainIdx < nCells; plainIdx++)
+        {
+            for (const auto& pt : cells[plainIdx].points())  //
+                f(pt);
+        }
+    }
 }
 
 void DualVoxelPointCloud::visitAllVoxels(
-    const std::function<void(const index3d_t&, const VoxelData&)>& f) const
+    const std::function<void(
+        const outer_index3d_t&, const inner_plain_index_t, const VoxelData&)>&
+        f) const
 {
-    for (const auto& kv : voxels_) { f(kv.first, kv.second); }
+    for (const auto& kv : grids_)
+    {
+        const outer_index3d_t outer_idx = kv.first;
+
+        const auto&  cells  = kv.second.cells();
+        const size_t nCells = kv.second.TOTAL_CELL_COUNT;
+        for (inner_plain_index_t plainIdx = 0; plainIdx < nCells; plainIdx++)
+        {
+            f(outer_idx, plainIdx, cells[plainIdx]);
+        }
+    }
+}
+
+void DualVoxelPointCloud::visitAllGrids(
+    const std::function<void(const outer_index3d_t&, const InnerGrid&)>& f)
+    const
+{
+    for (const auto& kv : grids_)
+    {
+        const outer_index3d_t outer_idx = kv.first;
+        f(outer_idx, kv.second);
+    }
 }
 
 void DualVoxelPointCloud::TLikelihoodOptions::writeToStream(
@@ -751,8 +782,8 @@ void DualVoxelPointCloud::TRenderOptions::writeToStream(
 {
     const int8_t version = 0;
     out << version;
-    out << point_size << show_mean_only << color << int8_t(colormap)
-        << recolorizeByCoordinateIndex;
+    out << point_size << show_mean_only << show_inner_grid_boxes << color
+        << int8_t(colormap) << recolorizeByCoordinateIndex;
 }
 
 void DualVoxelPointCloud::TRenderOptions::readFromStream(
@@ -764,7 +795,8 @@ void DualVoxelPointCloud::TRenderOptions::readFromStream(
     {
         case 0:
         {
-            in >> point_size >> show_mean_only >> this->color;
+            in >> point_size >> show_mean_only >> show_inner_grid_boxes;
+            in >> this->color;
             in.ReadAsAndCastTo<int8_t>(this->colormap);
             in >> recolorizeByCoordinateIndex;
         }
@@ -791,6 +823,7 @@ void DualVoxelPointCloud::TRenderOptions::dumpToTextStream(
 
     LOADABLEOPTS_DUMP_VAR(point_size, float);
     LOADABLEOPTS_DUMP_VAR(show_mean_only, bool);
+    LOADABLEOPTS_DUMP_VAR(show_inner_grid_boxes, bool);
     LOADABLEOPTS_DUMP_VAR(color.R, float);
     LOADABLEOPTS_DUMP_VAR(color.G, float);
     LOADABLEOPTS_DUMP_VAR(color.B, float);
@@ -811,6 +844,7 @@ void DualVoxelPointCloud::TRenderOptions::loadFromConfigFile(
 {
     MRPT_LOAD_CONFIG_VAR(point_size, float, c, s);
     MRPT_LOAD_CONFIG_VAR(show_mean_only, bool, c, s);
+    MRPT_LOAD_CONFIG_VAR(show_inner_grid_boxes, bool, c, s);
     MRPT_LOAD_CONFIG_VAR(color.R, float, c, s);
     MRPT_LOAD_CONFIG_VAR(color.G, float, c, s);
     MRPT_LOAD_CONFIG_VAR(color.B, float, c, s);

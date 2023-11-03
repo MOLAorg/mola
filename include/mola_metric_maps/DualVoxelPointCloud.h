@@ -34,11 +34,53 @@
 #include <mrpt/math/TBoundingBox.h>
 #include <mrpt/math/TPoint3D.h>
 
+#include <array>
 #include <functional>
 #include <optional>
 
 namespace mola
 {
+/** A dense 3D grid holding cells of type "T" of fixed size
+ *  NxNxN cells, with N=2^SIDE_NUM_BITS.
+ */
+template <typename T, size_t SIDE_NUM_BITS, typename inner_coord_t>
+class FixedDenseGrid3D
+{
+   public:
+    FixedDenseGrid3D()  = default;
+    ~FixedDenseGrid3D() = default;
+
+    constexpr static size_t CELLS_PER_DIM    = 1 << SIDE_NUM_BITS;
+    constexpr static size_t TOTAL_CELL_COUNT = 1 << (3 * SIDE_NUM_BITS);
+
+    T& cellByIndex(const index3d_t<inner_coord_t>& idx)
+    {
+        ASSERTDEB_LT_(idx.cx, CELLS_PER_DIM);
+        ASSERTDEB_LT_(idx.cy, CELLS_PER_DIM);
+        ASSERTDEB_LT_(idx.cz, CELLS_PER_DIM);
+
+        return cells_
+            [idx.cx + (idx.cy << SIDE_NUM_BITS) +
+             (idx.cz << (2 * SIDE_NUM_BITS))];
+    }
+    const T& cellByIndex(const index3d_t<inner_coord_t>& idx) const
+    {
+        ASSERTDEB_LT_(idx.cx, CELLS_PER_DIM);
+        ASSERTDEB_LT_(idx.cy, CELLS_PER_DIM);
+        ASSERTDEB_LT_(idx.cz, CELLS_PER_DIM);
+
+        return cells_
+            [idx.cx + (idx.cy << SIDE_NUM_BITS) +
+             (idx.cz << (2 * SIDE_NUM_BITS))];
+    }
+
+    const auto& cells() const { return cells_; }
+    auto&       cells() { return cells_; }
+
+   private:
+    std::array<T, TOTAL_CELL_COUNT> cells_;
+};
+
 /** DualVoxelPointCloud: a pointcloud stored in two dual hash'ed voxel maps,
  *  one for decimation purposes only, and another for nearest-neighbor search.
  *
@@ -47,35 +89,98 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 {
     DEFINE_SERIALIZABLE(DualVoxelPointCloud, mola)
    public:
+    /** @name Compile-time parameters
+     *  @{ */
+
+    /// Size of the std::array for the small-size optimization container in each
+    /// voxel, defining the maximum number of points that can be stored without
+    /// heap allocation.
+    constexpr static std::size_t SSO_LENGTH           = 16;
+    constexpr static uint32_t    INNER_GRID_BIT_COUNT = 5;
+
+    constexpr static uint32_t INNER_GRID_SIDE   = 1 << INNER_GRID_BIT_COUNT;
+    constexpr static uint32_t INNER_COORDS_MASK = INNER_GRID_SIDE - 1;
+    constexpr static uint32_t OUTER_COORDS_MASK = ~INNER_COORDS_MASK;
+
+    using global_index3d_t    = index3d_t<int32_t>;
+    using outer_index3d_t     = index3d_t<int32_t>;
+    using inner_index3d_t     = index3d_t<uint32_t>;
+    using inner_plain_index_t = uint32_t;
+
+    /** @} */
+
+    /** @name Indices and coordinates
+     *  @{ */
+
+    static inline outer_index3d_t g2o(const global_index3d_t& g)
+    {
+        return outer_index3d_t(
+            g.cx & OUTER_COORDS_MASK,  //
+            g.cy & OUTER_COORDS_MASK,  //
+            g.cz & OUTER_COORDS_MASK);
+    }
+
+    static inline inner_index3d_t g2i(const global_index3d_t& g)
+    {
+        return inner_index3d_t(
+            g.cx & INNER_COORDS_MASK,  //
+            g.cy & INNER_COORDS_MASK,  //
+            g.cz & INNER_COORDS_MASK);
+    }
+
+    static inline inner_index3d_t plain2i(const inner_plain_index_t& p)
+    {
+        return inner_index3d_t(
+            p & INNER_COORDS_MASK,  //
+            (p >> INNER_GRID_BIT_COUNT) & INNER_COORDS_MASK,  //
+            (p >> (2 * INNER_GRID_BIT_COUNT)) & INNER_COORDS_MASK);
+    }
+
+    inline global_index3d_t coordToGlobalIdx(
+        const mrpt::math::TPoint3Df& pt) const
+    {
+        return global_index3d_t(
+            mrpt::round(pt.x * decimation_size_inv_),  //
+            mrpt::round(pt.y * decimation_size_inv_),  //
+            mrpt::round(pt.z * decimation_size_inv_));
+    }
+
+    /// returns the coordinate of the voxel center
+    mrpt::math::TPoint3Df globalIdxToCoord(const global_index3d_t idx) const
+    {
+        return {
+            idx.cx * decimation_size_,  //
+            idx.cy * decimation_size_,  //
+            idx.cz * decimation_size_};
+    }
+
+    /** @} */
+
     /** @name Basic API for construction and main parameters
      *  @{ */
 
     /**
      * @brief Constructor / default ctor
      * @param decimation_size Voxel size [meters] for decimation purposes.
-     * @param max_nn_radius Maximum radius [meters] for nearest-neighbor search.
-     * @param max_points_per_voxel If !=0, defines a maximum number of points
-     * per voxel.
+     * @param max_nn_radius Maximum radius [meters] for nearest-neighbor
+     * search.
+     * @param max_points_per_voxel If !=0, defines a maximum number of
+     * points per voxel.
      */
     DualVoxelPointCloud(
-        float decimation_size = 0.20f, float max_nn_radius = 0.60f,
-        uint32_t max_points_per_voxel = 0);
+        float decimation_size = 0.20f, uint32_t max_points_per_voxel = 0);
 
     ~DualVoxelPointCloud();
 
     /** Reset the main voxel parameters, and *clears* all current map contents
      */
     void setVoxelProperties(
-        float decimation_size, float max_nn_radius,
-        uint32_t max_points_per_voxel = 0);
+        float decimation_size, uint32_t max_points_per_voxel = 0);
 
     /** @} */
 
-    /** @name Data structures and compile-time parameters
+    /** @name Data structures
      *  @{ */
-
-    /// Size of the std::array for the small-size optimization container:
-    constexpr static std::size_t SSO_LENGTH = 16;
 
     /// shortcut to save typing:
     template <typename T, std::size_t LEN>
@@ -94,22 +199,16 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         /** Gets the mean of all points in the voxel. Throws if empty. */
         const mrpt::math::TPoint3Df& mean() const;
 
-        const auto& neighbors() const { return neighbors_; }
-        auto&       neighbors() { return neighbors_; }
-
        private:
         vector_sso<mrpt::math::TPoint3Df, SSO_LENGTH> points_;
         mutable std::optional<mrpt::math::TPoint3Df>  mean_;
-
-        // We can store pointers safely, since the unordered_map container
-        // does not invalidate them.
-        std::unordered_map<
-            index3d_t, std::optional<std::reference_wrapper<const VoxelData>>,
-            index3d_hash>
-            neighbors_;
     };
 
-    using voxel_map_t = std::unordered_map<index3d_t, VoxelData, index3d_hash>;
+    using InnerGrid =
+        FixedDenseGrid3D<VoxelData, INNER_GRID_BIT_COUNT, uint32_t>;
+
+    using grids_map_t =
+        std::unordered_map<outer_index3d_t, InnerGrid, index3d_hash<int32_t>>;
 
     /** @} */
 
@@ -127,7 +226,7 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         const mrpt::math::TPoint3Df& queryPoint,
         mrpt::math::TPoint3Df& outNearest, float& outDistanceSquared) const;
 
-    const voxel_map_t& voxels() const { return voxels_; }
+    const grids_map_t& grids() const { return grids_; }
 
     /** Computes the bounding box of all the points, or (0,0 ,0,0, 0,0) if
      * there are no points. Results are cached unless the map is somehow
@@ -138,8 +237,13 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     void visitAllPoints(
         const std::function<void(const mrpt::math::TPoint3Df&)>& f) const;
 
-    void visitAllVoxels(
-        const std::function<void(const index3d_t&, const VoxelData&)>& f) const;
+    void visitAllVoxels(const std::function<void(
+                            const outer_index3d_t&, const inner_plain_index_t,
+                            const VoxelData&)>& f) const;
+
+    void visitAllGrids(
+        const std::function<void(const outer_index3d_t&, const InnerGrid&)>& f)
+        const;
 
     /** Save to a text file. Each line contains "X Y Z" point coordinates.
      *  Returns false if any error occured, true elsewere.
@@ -222,6 +326,8 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
          * will be rendered instead of all contained points. */
         bool show_mean_only = true;
 
+        bool show_inner_grid_boxes = false;
+
         /** Color of points. Superseded by colormap if the latter is set. */
         mrpt::img::TColorf color{.0f, .0f, 1.0f};
 
@@ -239,7 +345,6 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     // Interface for use within a mrpt::maps::CMultiMetricMap:
     MAP_DEFINITION_START(DualVoxelPointCloud)
     float  decimation_size      = 0.20f;
-    float  max_nn_radius        = 0.60f;
     size_t max_points_per_voxel = 0;
 
     mola::DualVoxelPointCloud::TLikelihoodOptions likelihoodOpts;
@@ -248,16 +353,15 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
    private:
     float    decimation_size_      = 0.20f;
-    float    max_nn_radius_        = 0.60f;
     uint32_t max_points_per_voxel_ = 0;
 
     // Calculated from the above, in setVoxelProperties()
-    float   decimation_size_inv_ = 1.0f / decimation_size_;
-    float   max_nn_radius_sqr_   = max_nn_radius_ * max_nn_radius_;
-    int32_t nn_to_decim_ratio_   = 3;  // ceiling of nn_radius / decim_size
+    float                 decimation_size_inv_ = 1.0f / decimation_size_;
+    mrpt::math::TPoint3Df halfVoxel_;
+    mrpt::math::TPoint3Df gridSizeMinusHalf_;
 
-    /** Decimation voxel map */
-    voxel_map_t voxels_;
+    /** Voxel map as a set of fixed-size grids */
+    grids_map_t grids_;
 
     struct CachedData
     {
@@ -269,16 +373,6 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     };
 
     CachedData cached_;
-
-    int32_t coord2idx(float xyz) const
-    {
-        return mrpt::round(xyz * decimation_size_inv_);
-    }
-
-    /// returns the coordinate of the voxel center
-    float idx2coord(int32_t idx) const { return idx * decimation_size_; }
-
-    void internalUpdateNNs(const index3d_t& voxelIdxs, const VoxelData& voxel);
 
    protected:
     // See docs in base CMetricMap class:
