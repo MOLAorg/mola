@@ -112,12 +112,14 @@ void DualVoxelPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
     {
         out << kv.first.cx << kv.first.cy << kv.first.cz;
 
+#if 0
         for (const auto& c : kv.second.cells())
         {
             const auto& pts = c.points();
             out.WriteAs<uint32_t>(pts.size());
             for (const auto& pt : pts) out << pt.x << pt.y << pt.z;
         }
+#endif
     }
 }
 void DualVoxelPointCloud::serializeFrom(
@@ -148,6 +150,7 @@ void DualVoxelPointCloud::serializeFrom(
 
                 auto& grid = grids_[idx];
 
+#if 0
                 for (auto& c : grid.cells())
                 {
                     const auto nPts = in.ReadAs<uint32_t>();
@@ -158,6 +161,7 @@ void DualVoxelPointCloud::serializeFrom(
                         c.insertPoint(pt);
                     }
                 }
+#endif
             }
         }
         break;

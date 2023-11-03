@@ -47,11 +47,14 @@ template <typename T, size_t SIDE_NUM_BITS, typename inner_coord_t>
 class FixedDenseGrid3D
 {
    public:
-    FixedDenseGrid3D()  = default;
-    ~FixedDenseGrid3D() = default;
-
     constexpr static size_t CELLS_PER_DIM    = 1 << SIDE_NUM_BITS;
     constexpr static size_t TOTAL_CELL_COUNT = 1 << (3 * SIDE_NUM_BITS);
+
+    FixedDenseGrid3D()
+    {
+        cells_ = reinterpret_cast<T*>(calloc(sizeof(T), TOTAL_CELL_COUNT));
+    }
+    ~FixedDenseGrid3D() { free(cells_); }
 
     T& cellByIndex(const index3d_t<inner_coord_t>& idx)
     {
@@ -74,11 +77,12 @@ class FixedDenseGrid3D
              (idx.cz << (2 * SIDE_NUM_BITS))];
     }
 
-    const auto& cells() const { return cells_; }
-    auto&       cells() { return cells_; }
+    const T* cells() const { return cells_; }
+    T*       cells() { return cells_; }
 
    private:
-    std::array<T, TOTAL_CELL_COUNT> cells_;
+    // std::array<T, TOTAL_CELL_COUNT> cells_;
+    T* cells_;
 };
 
 /** DualVoxelPointCloud: a pointcloud stored in two dual hash'ed voxel maps,
