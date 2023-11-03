@@ -392,8 +392,8 @@ bool DualVoxelPointCloud::internal_insertObservation(
         if (o.hasPoints3D)
         {
             for (size_t i = 0; i < o.points3D_x.size(); i++)
-                this->insertPoint(
-                    {o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]});
+                this->insertPoint(robotPose3D.composePoint(
+                    {o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]}));
 
             return true;
         }
@@ -427,8 +427,8 @@ bool DualVoxelPointCloud::internal_insertObservation(
 
         for (size_t i = 0; i < o.point_cloud.x.size(); i++)
         {
-            insertPoint(
-                {o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]});
+            insertPoint(robotPose3D.composePoint(
+                {o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]}));
         }
 
         return true;
@@ -444,7 +444,7 @@ bool DualVoxelPointCloud::internal_insertObservation(
 
         for (size_t i = 0; i < xs.size(); i++)
         {
-            insertPoint({xs[i], ys[i], zs[i]});
+            insertPoint(robotPose3D.composePoint({xs[i], ys[i], zs[i]}));
         }
 
         return true;
