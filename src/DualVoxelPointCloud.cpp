@@ -39,6 +39,13 @@
 
 #include <cmath>
 
+//#define USE_DEBUG_PROFILER
+
+#ifdef USE_DEBUG_PROFILER
+#include <mrpt/system/CTimeLogger.h>
+static mrpt::system::CTimeLogger profiler(true, "DualVoxelPointCloud");
+#endif
+
 using namespace mola;
 
 //  =========== Begin of Map definition ============
@@ -164,27 +171,14 @@ void DualVoxelPointCloud::serializeFrom(
 
 // VoxelData
 
-const mrpt::math::TPoint3Df& DualVoxelPointCloud::VoxelData::mean() const
-{
-    if (!mean_)
-    {
-        ASSERT_(!points_.empty());
-
-        mrpt::math::TPoint3Df m = {0, 0, 0};
-        for (const auto& v : points_) m += v;
-        m *= 1.0f / points_.size();
-        mean_.emplace(m);
-    }
-
-    return mean_.value();
-}
-
 void DualVoxelPointCloud::VoxelData::insertPoint(const mrpt::math::TPoint3Df& p)
 {
-    mean_.reset();
     if (numPoints_ >= points_.size()) return;
 
+    mean_ = (numPoints_ * mean_ + p);
+
     points_[numPoints_++] = p;
+    mean_ *= 1.0f / numPoints_;
 }
 
 // Ctor:
@@ -623,11 +617,18 @@ void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
     InnerGrid* grid;
     if (!cached_.lastAccessGrid || cached_.lastAccessIdx != oIdx)
     {
-        grid                  = &grids_[oIdx];
-        cached_.lastAccessIdx = oIdx;
+#ifdef USE_DEBUG_PROFILER
+        mrpt::system::CTimeLoggerEntry tle(profiler, "insertPoint.cache_misss");
+#endif
+        grid                   = &grids_[oIdx];
+        cached_.lastAccessIdx  = oIdx;
+        cached_.lastAccessGrid = grid;
     }
     else
     {
+#ifdef USE_DEBUG_PROFILER
+        mrpt::system::CTimeLoggerEntry tle(profiler, "insertPoint.cache_hit");
+#endif
         grid = cached_.lastAccessGrid;
     }
 

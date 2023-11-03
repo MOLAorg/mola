@@ -35,6 +35,7 @@
 
 #include <array>
 #include <functional>
+#include <map>
 #include <optional>
 
 namespace mola
@@ -94,8 +95,8 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     /// Size of the std::array for the small-size optimization container in each
     /// voxel, defining the maximum number of points that can be stored without
     /// heap allocation.
-    constexpr static std::size_t SSO_LENGTH           = 16;
-    constexpr static uint32_t    INNER_GRID_BIT_COUNT = 4;
+    constexpr static std::size_t SSO_LENGTH           = 8;
+    constexpr static uint32_t    INNER_GRID_BIT_COUNT = 5;
 
     constexpr static uint32_t INNER_GRID_SIDE   = 1 << INNER_GRID_BIT_COUNT;
     constexpr static uint32_t INNER_COORDS_MASK = INNER_GRID_SIDE - 1;
@@ -145,7 +146,8 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
     }
 
     /// returns the coordinate of the voxel center
-    mrpt::math::TPoint3Df globalIdxToCoord(const global_index3d_t idx) const
+    inline mrpt::math::TPoint3Df globalIdxToCoord(
+        const global_index3d_t idx) const
     {
         return {
             idx.cx * decimation_size_,  //
@@ -212,19 +214,19 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
         void insertPoint(const mrpt::math::TPoint3Df& p);
 
         /** Gets the mean of all points in the voxel. Throws if empty. */
-        const mrpt::math::TPoint3Df& mean() const;
+        const mrpt::math::TPoint3Df& mean() const { return mean_; }
 
        private:
         std::array<mrpt::math::TPoint3Df, SSO_LENGTH> points_;
         uint8_t                                       numPoints_ = 0;
-        mutable std::optional<mrpt::math::TPoint3Df>  mean_;
+        mutable mrpt::math::TPoint3Df                 mean_      = {0, 0, 0};
     };
 
     using InnerGrid =
         FixedDenseGrid3D<VoxelData, INNER_GRID_BIT_COUNT, uint32_t>;
 
     using grids_map_t =
-        std::unordered_map<outer_index3d_t, InnerGrid, index3d_hash<int32_t>>;
+        std::map<outer_index3d_t, InnerGrid, index3d_hash<int32_t>>;
 
     /** @} */
 
