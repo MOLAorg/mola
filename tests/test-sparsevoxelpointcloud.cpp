@@ -19,13 +19,13 @@
  * ------------------------------------------------------------------------- */
 
 /**
- * @file   test-dualvoxelpointcloud.cpp
- * @brief  Test the OccGrid class
+ * @file   test-sparsevoxelpointcloud.cpp
+ * @brief  Test the voxel map class
  * @author Jose Luis Blanco Claraco
  * @date   Oct 31, 2023
  */
 
-#include <mola_metric_maps/DualVoxelPointCloud.h>
+#include <mola_metric_maps/SparseVoxelPointCloud.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/stock_observations.h>
 #include <mrpt/opengl/Scene.h>
@@ -34,7 +34,7 @@
 
 void test_voxelmap_basic_ops()
 {
-    mola::DualVoxelPointCloud map;
+    mola::SparseVoxelPointCloud map;
     ASSERT_(map.isEmpty());
 
     map.insertPoint({1.0f, 2.0f, 3.0f});
@@ -43,21 +43,23 @@ void test_voxelmap_basic_ops()
 
 void test_voxelmap_insert_2d_scan()
 {
-    mola::DualVoxelPointCloud map(0.2 /*decim*/);
+    mola::SparseVoxelPointCloud map(0.2 /*decim*/);
+
+    // The numbers in this test would change if this param changes:
+    static_assert(mola::SparseVoxelPointCloud::SSO_LENGTH == 8);
 
     mrpt::obs::CObservation2DRangeScan scan2D;
     mrpt::obs::stock_observations::example2DRangeScan(scan2D);
 
     map.insertObservation(scan2D);
-#if 1
+#if 0
     mrpt::opengl::Scene scene;
     map.renderOptions.show_inner_grid_boxes = true;
     map.renderOptions.show_mean_only        = true;
     map.renderOptions.point_size            = 5.0f;
     scene.insert(map.getVisualization());
-    scene.saveToFile("dualvoxelmap_scan2d.3Dscene");
+    scene.saveToFile("sparsevoxelmap_scan2d.3Dscene");
 #endif
-    std::cout << "numGrids: " << map.grids().size() << std::endl;
 
     {
         size_t nPts = 0;
@@ -68,7 +70,7 @@ void test_voxelmap_insert_2d_scan()
 
         map.visitAllPoints(lambdaVisitPoints);
 
-        ASSERT_EQUAL_(nPts, 267UL);
+        ASSERT_EQUAL_(nPts, 264UL);
     }
 
     {
@@ -76,9 +78,9 @@ void test_voxelmap_insert_2d_scan()
 
         const auto lambdaVisitVoxels =
             [&nVoxels](
-                const mola::DualVoxelPointCloud::outer_index3d_t&,
-                const mola::DualVoxelPointCloud::inner_plain_index_t,
-                const mola::DualVoxelPointCloud::VoxelData& v) {
+                const mola::SparseVoxelPointCloud::outer_index3d_t&,
+                const mola::SparseVoxelPointCloud::inner_plain_index_t,
+                const mola::SparseVoxelPointCloud::VoxelData& v) {
                 // count them:
                 if (!v.points().empty()) nVoxels++;
             };

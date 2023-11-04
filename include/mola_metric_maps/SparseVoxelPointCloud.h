@@ -18,7 +18,7 @@
  * MOLA. If not, see <https://www.gnu.org/licenses/>.
  * ------------------------------------------------------------------------- */
 /**
- * @file   DualVoxelPointCloud.h
+ * @file   SparseVoxelPointCloud.h
  * @brief  Point cloud stored as a dual-resolution voxel map
  * @author Jose Luis Blanco Claraco
  * @date   Oct 31, 2023
@@ -85,13 +85,13 @@ class FixedDenseGrid3D
     T* cells_;
 };
 
-/** DualVoxelPointCloud: a pointcloud stored in two dual hash'ed voxel maps,
+/** SparseVoxelPointCloud: a pointcloud stored in two dual hash'ed voxel maps,
  *  one for decimation purposes only, and another for nearest-neighbor search.
  *
  */
-class DualVoxelPointCloud : public mrpt::maps::CMetricMap
+class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
 {
-    DEFINE_SERIALIZABLE(DualVoxelPointCloud, mola)
+    DEFINE_SERIALIZABLE(SparseVoxelPointCloud, mola)
    public:
     /** @name Compile-time parameters
      *  @{ */
@@ -172,10 +172,10 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
      * @param max_points_per_voxel If !=0, defines a maximum number of
      * points per voxel.
      */
-    DualVoxelPointCloud(
+    SparseVoxelPointCloud(
         float decimation_size = 0.20f, uint32_t max_points_per_voxel = 0);
 
-    ~DualVoxelPointCloud();
+    ~SparseVoxelPointCloud();
 
     /** Reset the main voxel parameters, and *clears* all current map contents
      */
@@ -365,13 +365,13 @@ class DualVoxelPointCloud : public mrpt::maps::CMetricMap
 
    public:
     // Interface for use within a mrpt::maps::CMultiMetricMap:
-    MAP_DEFINITION_START(DualVoxelPointCloud)
+    MAP_DEFINITION_START(SparseVoxelPointCloud)
     float  decimation_size      = 0.20f;
     size_t max_points_per_voxel = 0;
 
-    mola::DualVoxelPointCloud::TLikelihoodOptions likelihoodOpts;
-    mola::DualVoxelPointCloud::TRenderOptions     renderOpts;
-    MAP_DEFINITION_END(DualVoxelPointCloud)
+    mola::SparseVoxelPointCloud::TLikelihoodOptions likelihoodOpts;
+    mola::SparseVoxelPointCloud::TRenderOptions     renderOpts;
+    MAP_DEFINITION_END(SparseVoxelPointCloud)
 
    private:
     float    decimation_size_      = 0.20f;

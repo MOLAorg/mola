@@ -19,14 +19,14 @@
  * ------------------------------------------------------------------------- */
 
 /**
- * @file   test-dualvoxelpointcloud.cpp
- * @brief  Test the OccGrid class
+ * @file   test-serialization.cpp
+ * @brief  Test serialization of map classes
  * @author Jose Luis Blanco Claraco
  * @date   Oct 31, 2023
  */
 
-#include <mola_metric_maps/DualVoxelPointCloud.h>
 #include <mola_metric_maps/OccGrid.h>
+#include <mola_metric_maps/SparseVoxelPointCloud.h>
 #include <mrpt/io/CMemoryStream.h>
 #include <mrpt/serialization/CArchive.h>
 
@@ -47,7 +47,7 @@ class TraitsTest
 #define TEST_CLASS_MOVE_COPY_CTORS(_classname) \
     template class TraitsTest<_classname>
 
-TEST_CLASS_MOVE_COPY_CTORS(mola::DualVoxelPointCloud);
+TEST_CLASS_MOVE_COPY_CTORS(mola::SparseVoxelPointCloud);
 TEST_CLASS_MOVE_COPY_CTORS(mola::OccGrid);
 
 // Create a set of classes, then serialize and deserialize to test possible
@@ -56,7 +56,7 @@ void test_serialization()
 {
     const mrpt::rtti::TRuntimeClassId* lstClasses[] = {
         CLASS_ID(mola::OccGrid),
-        CLASS_ID(mola::DualVoxelPointCloud),
+        CLASS_ID(mola::SparseVoxelPointCloud),
     };
 
     for (auto& c : lstClasses)

@@ -8,8 +8,8 @@ mola_add_test(
 
 # Unit tests:
 mola_add_test(
-  TARGET  test-mola_metric_maps_dualvoxelpointcloud
-  SOURCES test-dualvoxelpointcloud.cpp
+  TARGET  test-mola_metric_maps_sparsevoxelpointcloud
+  SOURCES test-sparsevoxelpointcloud.cpp
   LINK_LIBRARIES
   mola_metric_maps
 )

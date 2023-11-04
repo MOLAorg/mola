@@ -29,8 +29,8 @@
  *
  */
 
-#include <mola_metric_maps/DualVoxelPointCloud.h>
 #include <mola_metric_maps/OccGrid.h>
+#include <mola_metric_maps/SparseVoxelPointCloud.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/rtti/CObject.h>
 
@@ -42,5 +42,5 @@ MRPT_INITIALIZER(do_register_mola_metric_maps)
 
     // and register RTTI info:
     registerClass(CLASS_ID(mola::OccGrid));
-    registerClass(CLASS_ID(mola::DualVoxelPointCloud));
+    registerClass(CLASS_ID(mola::SparseVoxelPointCloud));
 }

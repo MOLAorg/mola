@@ -7,7 +7,7 @@ This repository provides a pure C++ library `mola_metric_maps` that extends
 `mrpt-maps` with additional metric map classes:
 
 - `mola::OccGrid`: Extends MRPT's occupancy grid with super-resolution likelihood field.
-- `mola::DualVoxelPointCloud`: a pointcloud stored in two dual hash'ed voxel maps,
+- `mola::SparseVoxelPointCloud`: a pointcloud stored in two dual hash'ed voxel maps,
   one for decimation purposes only, and another for nearest-neighbor search.
 
 ## Build and install

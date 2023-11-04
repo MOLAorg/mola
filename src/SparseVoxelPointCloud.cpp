@@ -19,13 +19,13 @@
  * ------------------------------------------------------------------------- */
 
 /**
- * @file   DualVoxelPointCloud.cpp
+ * @file   SparseVoxelPointCloud.cpp
  * @brief  Point cloud stored as a dual-resolution voxel map
  * @author Jose Luis Blanco Claraco
  * @date   Oct 31, 2023
  */
 
-#include <mola_metric_maps/DualVoxelPointCloud.h>
+#include <mola_metric_maps/SparseVoxelPointCloud.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
@@ -43,17 +43,18 @@
 
 #ifdef USE_DEBUG_PROFILER
 #include <mrpt/system/CTimeLogger.h>
-static mrpt::system::CTimeLogger profiler(true, "DualVoxelPointCloud");
+static mrpt::system::CTimeLogger profiler(true, "SparseVoxelPointCloud");
 #endif
 
 using namespace mola;
 
 //  =========== Begin of Map definition ============
 MAP_DEFINITION_REGISTER(
-    "mola::DualVoxelPointCloud,DualVoxelPointCloud", mola::DualVoxelPointCloud)
+    "mola::SparseVoxelPointCloud,SparseVoxelPointCloud",
+    mola::SparseVoxelPointCloud)
 
-DualVoxelPointCloud::TMapDefinition::TMapDefinition() = default;
-void DualVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
+SparseVoxelPointCloud::TMapDefinition::TMapDefinition() = default;
+void SparseVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
     const mrpt::config::CConfigFileBase& s, const std::string& sectionPrefix)
 {
     using namespace std::string_literals;
@@ -67,7 +68,7 @@ void DualVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
     renderOpts.loadFromConfigFile(s, sectionPrefix + "_renderOpts"s);
 }
 
-void DualVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
+void SparseVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
     std::ostream& out) const
 {
     LOADABLEOPTS_DUMP_VAR(decimation_size, float);
@@ -77,13 +78,13 @@ void DualVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
     renderOpts.dumpToTextStream(out);
 }
 
-mrpt::maps::CMetricMap* DualVoxelPointCloud::internal_CreateFromMapDefinition(
+mrpt::maps::CMetricMap* SparseVoxelPointCloud::internal_CreateFromMapDefinition(
     const mrpt::maps::TMetricMapInitializer& _def)
 {
-    const DualVoxelPointCloud::TMapDefinition* def =
-        dynamic_cast<const DualVoxelPointCloud::TMapDefinition*>(&_def);
+    const SparseVoxelPointCloud::TMapDefinition* def =
+        dynamic_cast<const SparseVoxelPointCloud::TMapDefinition*>(&_def);
     ASSERT_(def);
-    auto* obj = new DualVoxelPointCloud(
+    auto* obj = new SparseVoxelPointCloud(
         def->decimation_size, def->max_points_per_voxel);
 
     obj->likelihoodOptions = def->likelihoodOpts;
@@ -92,14 +93,15 @@ mrpt::maps::CMetricMap* DualVoxelPointCloud::internal_CreateFromMapDefinition(
 }
 //  =========== End of Map definition Block =========
 
-IMPLEMENTS_SERIALIZABLE(DualVoxelPointCloud, CMetricMap, mola)
+IMPLEMENTS_SERIALIZABLE(SparseVoxelPointCloud, CMetricMap, mola)
 
 // =====================================
 // Serialization
 // =====================================
 
-uint8_t DualVoxelPointCloud::serializeGetVersion() const { return 0; }
-void DualVoxelPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
+uint8_t SparseVoxelPointCloud::serializeGetVersion() const { return 0; }
+void    SparseVoxelPointCloud::serializeTo(
+    mrpt::serialization::CArchive& out) const
 {
     // params:
     out << INNER_GRID_BIT_COUNT << decimation_size_ << max_points_per_voxel_;
@@ -122,7 +124,7 @@ void DualVoxelPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
 #endif
     }
 }
-void DualVoxelPointCloud::serializeFrom(
+void SparseVoxelPointCloud::serializeFrom(
     mrpt::serialization::CArchive& in, uint8_t version)
 {
     switch (version)
@@ -175,7 +177,8 @@ void DualVoxelPointCloud::serializeFrom(
 
 // VoxelData
 
-void DualVoxelPointCloud::VoxelData::insertPoint(const mrpt::math::TPoint3Df& p)
+void SparseVoxelPointCloud::VoxelData::insertPoint(
+    const mrpt::math::TPoint3Df& p)
 {
     if (numPoints_ >= points_.size()) return;
 
@@ -186,15 +189,15 @@ void DualVoxelPointCloud::VoxelData::insertPoint(const mrpt::math::TPoint3Df& p)
 }
 
 // Ctor:
-DualVoxelPointCloud::DualVoxelPointCloud(
+SparseVoxelPointCloud::SparseVoxelPointCloud(
     float decimation_size, uint32_t max_points_per_voxel)
 {
     setVoxelProperties(decimation_size, max_points_per_voxel);
 }
 
-DualVoxelPointCloud::~DualVoxelPointCloud() = default;
+SparseVoxelPointCloud::~SparseVoxelPointCloud() = default;
 
-void DualVoxelPointCloud::setVoxelProperties(
+void SparseVoxelPointCloud::setVoxelProperties(
     float decimation_size, uint32_t max_points_per_voxel)
 {
     decimation_size_      = decimation_size;
@@ -210,17 +213,17 @@ void DualVoxelPointCloud::setVoxelProperties(
                          halfVoxel_;
 
     // clear all:
-    DualVoxelPointCloud::internal_clear();
+    SparseVoxelPointCloud::internal_clear();
 }
 
-std::string DualVoxelPointCloud::asString() const
+std::string SparseVoxelPointCloud::asString() const
 {
     return mrpt::format(
-        "DualVoxelPointCloud, resolution=%.03f bbox=%s", decimation_size_,
+        "SparseVoxelPointCloud, resolution=%.03f bbox=%s", decimation_size_,
         boundingBox().asString().c_str());
 }
 
-void DualVoxelPointCloud::getVisualizationInto(
+void SparseVoxelPointCloud::getVisualizationInto(
     mrpt::opengl::CSetOfObjects& outObj) const
 {
     MRPT_START
@@ -333,9 +336,9 @@ void DualVoxelPointCloud::getVisualizationInto(
     MRPT_END
 }
 
-void DualVoxelPointCloud::internal_clear() { grids_.clear(); }
+void SparseVoxelPointCloud::internal_clear() { grids_.clear(); }
 
-bool DualVoxelPointCloud::internal_insertObservation(
+bool SparseVoxelPointCloud::internal_insertObservation(
     const mrpt::obs::CObservation&                   obs,
     const std::optional<const mrpt::poses::CPose3D>& robotPose)
 {
@@ -460,7 +463,7 @@ bool DualVoxelPointCloud::internal_insertObservation(
     MRPT_END
 }
 
-double DualVoxelPointCloud::internal_computeObservationLikelihood(
+double SparseVoxelPointCloud::internal_computeObservationLikelihood(
     const mrpt::obs::CObservation& obs,
     const mrpt::poses::CPose3D&    takenFrom) const
 {
@@ -532,7 +535,7 @@ double DualVoxelPointCloud::internal_computeObservationLikelihood(
     return .0;
 }
 
-double DualVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
+double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
     const float* zs, const std::size_t num_pts) const
 {
@@ -569,7 +572,7 @@ double DualVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     MRPT_TRY_END
 }
 
-bool DualVoxelPointCloud::internal_canComputeObservationLikelihood(
+bool SparseVoxelPointCloud::internal_canComputeObservationLikelihood(
     const mrpt::obs::CObservation& obs) const
 {
     using namespace mrpt::obs;
@@ -579,13 +582,13 @@ bool DualVoxelPointCloud::internal_canComputeObservationLikelihood(
            IS_CLASS(obs, CObservationPointCloud);
 }
 
-bool DualVoxelPointCloud::isEmpty() const
+bool SparseVoxelPointCloud::isEmpty() const
 {
     // empty if no voxels exist:
     return grids_.empty();
 }
 
-void DualVoxelPointCloud::saveMetricMapRepresentationToFile(
+void SparseVoxelPointCloud::saveMetricMapRepresentationToFile(
     const std::string& filNamePrefix) const
 {
     using namespace std::string_literals;
@@ -594,7 +597,7 @@ void DualVoxelPointCloud::saveMetricMapRepresentationToFile(
     saveToTextFile(fil);
 }
 
-bool DualVoxelPointCloud::saveToTextFile(const std::string& file) const
+bool SparseVoxelPointCloud::saveToTextFile(const std::string& file) const
 {
     FILE* f = mrpt::system::os::fopen(file.c_str(), "wt");
     if (!f) return false;
@@ -609,7 +612,7 @@ bool DualVoxelPointCloud::saveToTextFile(const std::string& file) const
     return true;
 }
 
-void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
+void SparseVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
 {
     // Get voxel indices:
 
@@ -652,7 +655,7 @@ void DualVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
     }
 }
 
-bool DualVoxelPointCloud::nn_find_nearest(
+bool SparseVoxelPointCloud::nn_find_nearest(
     const mrpt::math::TPoint3Df& queryPoint, mrpt::math::TPoint3Df& outNearest,
     float& outDistanceSquared) const
 {
@@ -692,7 +695,7 @@ bool DualVoxelPointCloud::nn_find_nearest(
     return false;
 }
 
-mrpt::math::TBoundingBoxf DualVoxelPointCloud::boundingBox() const
+mrpt::math::TBoundingBoxf SparseVoxelPointCloud::boundingBox() const
 {
     if (!cached_.boundingBox_)
     {
@@ -725,7 +728,7 @@ mrpt::math::TBoundingBoxf DualVoxelPointCloud::boundingBox() const
     return cached_.boundingBox_.value();
 }
 
-void DualVoxelPointCloud::visitAllPoints(
+void SparseVoxelPointCloud::visitAllPoints(
     const std::function<void(const mrpt::math::TPoint3Df&)>& f) const
 {
     for (const auto& kv : grids_)
@@ -740,7 +743,7 @@ void DualVoxelPointCloud::visitAllPoints(
     }
 }
 
-void DualVoxelPointCloud::visitAllVoxels(
+void SparseVoxelPointCloud::visitAllVoxels(
     const std::function<void(
         const outer_index3d_t&, const inner_plain_index_t, const VoxelData&)>&
         f) const
@@ -758,7 +761,7 @@ void DualVoxelPointCloud::visitAllVoxels(
     }
 }
 
-void DualVoxelPointCloud::visitAllGrids(
+void SparseVoxelPointCloud::visitAllGrids(
     const std::function<void(const outer_index3d_t&, const InnerGrid&)>& f)
     const
 {
@@ -769,7 +772,7 @@ void DualVoxelPointCloud::visitAllGrids(
     }
 }
 
-void DualVoxelPointCloud::TLikelihoodOptions::writeToStream(
+void SparseVoxelPointCloud::TLikelihoodOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
     const int8_t version = 0;
@@ -777,7 +780,7 @@ void DualVoxelPointCloud::TLikelihoodOptions::writeToStream(
     out << sigma_dist << max_corr_distance << decimation;
 }
 
-void DualVoxelPointCloud::TLikelihoodOptions::readFromStream(
+void SparseVoxelPointCloud::TLikelihoodOptions::readFromStream(
     mrpt::serialization::CArchive& in)
 {
     int8_t version;
@@ -794,7 +797,7 @@ void DualVoxelPointCloud::TLikelihoodOptions::readFromStream(
     }
 }
 
-void DualVoxelPointCloud::TRenderOptions::writeToStream(
+void SparseVoxelPointCloud::TRenderOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
     const int8_t version = 0;
@@ -803,7 +806,7 @@ void DualVoxelPointCloud::TRenderOptions::writeToStream(
         << int8_t(colormap) << recolorizeByCoordinateIndex;
 }
 
-void DualVoxelPointCloud::TRenderOptions::readFromStream(
+void SparseVoxelPointCloud::TRenderOptions::readFromStream(
     mrpt::serialization::CArchive& in)
 {
     int8_t version;
@@ -823,20 +826,20 @@ void DualVoxelPointCloud::TRenderOptions::readFromStream(
     }
 }
 
-void DualVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
+void SparseVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [DualVoxelPointCloud::TLikelihoodOptions] ------- \n\n";
+    out << "\n------ [SparseVoxelPointCloud::TLikelihoodOptions] ------- \n\n";
 
     LOADABLEOPTS_DUMP_VAR(sigma_dist, double);
     LOADABLEOPTS_DUMP_VAR(max_corr_distance, double);
     LOADABLEOPTS_DUMP_VAR(decimation, int);
 }
 
-void DualVoxelPointCloud::TRenderOptions::dumpToTextStream(
+void SparseVoxelPointCloud::TRenderOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [DualVoxelPointCloud::TRenderOptions] ------- \n\n";
+    out << "\n------ [SparseVoxelPointCloud::TRenderOptions] ------- \n\n";
 
     LOADABLEOPTS_DUMP_VAR(point_size, float);
     LOADABLEOPTS_DUMP_VAR(show_mean_only, bool);
@@ -848,7 +851,7 @@ void DualVoxelPointCloud::TRenderOptions::dumpToTextStream(
     LOADABLEOPTS_DUMP_VAR(recolorizeByCoordinateIndex, int);
 }
 
-void DualVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(
+void SparseVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
     MRPT_LOAD_CONFIG_VAR(sigma_dist, double, c, s);
@@ -856,7 +859,7 @@ void DualVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(
     MRPT_LOAD_CONFIG_VAR(decimation, int, c, s);
 }
 
-void DualVoxelPointCloud::TRenderOptions::loadFromConfigFile(
+void SparseVoxelPointCloud::TRenderOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
     MRPT_LOAD_CONFIG_VAR(point_size, float, c, s);
@@ -869,7 +872,7 @@ void DualVoxelPointCloud::TRenderOptions::loadFromConfigFile(
     MRPT_LOAD_CONFIG_VAR(recolorizeByCoordinateIndex, int, c, s);
 }
 
-void DualVoxelPointCloud::internal_insertPointCloud3D(
+void SparseVoxelPointCloud::internal_insertPointCloud3D(
     const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
     const float* zs, const std::size_t num_pts)
 {
