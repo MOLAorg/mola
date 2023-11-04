@@ -42,6 +42,8 @@ namespace mola
 {
 /** A dense 3D grid holding cells of type "T" of fixed size
  *  NxNxN cells, with N=2^SIDE_NUM_BITS.
+ *
+ *  Used internally in SparseVoxelPointCloud
  */
 template <typename T, size_t SIDE_NUM_BITS, typename inner_coord_t>
 class FixedDenseGrid3D
@@ -85,9 +87,9 @@ class FixedDenseGrid3D
     T* cells_;
 };
 
-/** SparseVoxelPointCloud: a pointcloud stored in two dual hash'ed voxel maps,
- *  one for decimation purposes only, and another for nearest-neighbor search.
- *
+/** SparseVoxelPointCloud: a pointcloud stored as a sparse-dense set of
+ *  cubic voxel maps. Efficient for storing point clouds, decimating them,
+ *  and running nearest nearest-neighbor search.
  */
 class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
 {
@@ -144,9 +146,9 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
         const mrpt::math::TPoint3Df& pt) const
     {
         return global_index3d_t(
-            mrpt::round(pt.x * decimation_size_inv_),  //
-            mrpt::round(pt.y * decimation_size_inv_),  //
-            mrpt::round(pt.z * decimation_size_inv_));
+            mrpt::round(pt.x * voxel_size_inv_),  //
+            mrpt::round(pt.y * voxel_size_inv_),  //
+            mrpt::round(pt.z * voxel_size_inv_));
     }
 
     /// returns the coordinate of the voxel center
@@ -154,9 +156,9 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
         const global_index3d_t idx) const
     {
         return {
-            idx.cx * decimation_size_,  //
-            idx.cy * decimation_size_,  //
-            idx.cz * decimation_size_};
+            idx.cx * voxel_size_,  //
+            idx.cy * voxel_size_,  //
+            idx.cz * voxel_size_};
     }
 
     /** @} */
@@ -166,21 +168,21 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
 
     /**
      * @brief Constructor / default ctor
-     * @param decimation_size Voxel size [meters] for decimation purposes.
+     * @param voxel_size Voxel size [meters] for decimation purposes.
      * @param max_nn_radius Maximum radius [meters] for nearest-neighbor
      * search.
      * @param max_points_per_voxel If !=0, defines a maximum number of
      * points per voxel.
      */
     SparseVoxelPointCloud(
-        float decimation_size = 0.20f, uint32_t max_points_per_voxel = 0);
+        float voxel_size = 0.20f, uint32_t max_points_per_voxel = 0);
 
     ~SparseVoxelPointCloud();
 
     /** Reset the main voxel parameters, and *clears* all current map contents
      */
     void setVoxelProperties(
-        float decimation_size, uint32_t max_points_per_voxel = 0);
+        float voxel_size, uint32_t max_points_per_voxel = 0);
 
     /** @} */
 
@@ -295,6 +297,33 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
 
     /** @} */
 
+    /** Options for insertObservation()
+     */
+    struct TInsertionOptions : public mrpt::config::CLoadableOptions
+    {
+        TInsertionOptions() = default;
+
+        void loadFromConfigFile(
+            const mrpt::config::CConfigFileBase& source,
+            const std::string& section) override;  // See base docs
+        void dumpToTextStream(
+            std::ostream& out) const override;  // See base docs
+
+        void writeToStream(mrpt::serialization::CArchive& out) const;
+        void readFromStream(mrpt::serialization::CArchive& in);
+
+        /** Maximum insertion distance for points, wrt the sensor location
+         *  , in meters. Default=0 means no filtering.
+         */
+        float max_distance = .0f;
+
+        /** Speed up the insertion by skipping points and only inserting
+         *  one out of "decimation" points. Default=1 means insert them all.
+         */
+        uint32_t decimation = 1;
+    };
+    TInsertionOptions insertionOptions;
+
     /** Options used when evaluating "computeObservationLikelihood" in the
      * derived classes.
      * \sa CObservation::computeObservationLikelihood
@@ -366,19 +395,19 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
    public:
     // Interface for use within a mrpt::maps::CMultiMetricMap:
     MAP_DEFINITION_START(SparseVoxelPointCloud)
-    float  decimation_size      = 0.20f;
-    size_t max_points_per_voxel = 0;
+    float voxel_size = 0.20f;
 
+    mola::SparseVoxelPointCloud::TInsertionOptions  insertionOpts;
     mola::SparseVoxelPointCloud::TLikelihoodOptions likelihoodOpts;
     mola::SparseVoxelPointCloud::TRenderOptions     renderOpts;
     MAP_DEFINITION_END(SparseVoxelPointCloud)
 
    private:
-    float    decimation_size_      = 0.20f;
+    float    voxel_size_           = 0.20f;
     uint32_t max_points_per_voxel_ = 0;
 
     // Calculated from the above, in setVoxelProperties()
-    float                 decimation_size_inv_ = 1.0f / decimation_size_;
+    float                 voxel_size_inv_ = 1.0f / voxel_size_;
     mrpt::math::TPoint3Df halfVoxel_;
     mrpt::math::TPoint3Df gridSizeMinusHalf_;
 
