@@ -28,6 +28,8 @@
 #include <mola_metric_maps/SparseVoxelPointCloud.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/math/CHistogram.h>
+#include <mrpt/math/distributions.h>  // confidenceIntervals()
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
@@ -262,24 +264,36 @@ void SparseVoxelPointCloud::getVisualizationInto(
     {
         auto obj = mrpt::opengl::CPointCloudColoured::Create();
 
+        const auto bb = this->boundingBox();
+
+        // Use a histogram to discard outliers from the colormap extremes:
+        constexpr size_t nBins = 100;
+        // for x,y,z
+        std::array<mrpt::math::CHistogram, 3> hists = {
+            mrpt::math::CHistogram(bb.min.x, bb.max.x, nBins),
+            mrpt::math::CHistogram(bb.min.y, bb.max.y, nBins),
+            mrpt::math::CHistogram(bb.min.z, bb.max.z, nBins)};
+
         if (renderOptions.show_mean_only)
         {
-            const auto lambdaVisitVoxels = [&obj](
+            const auto lambdaVisitVoxels = [&obj, &hists](
                                                const outer_index3d_t&,
                                                const inner_plain_index_t,
                                                const VoxelData& v) {
                 if (v.points().empty()) return;
                 const auto& m = v.mean();
                 obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
+                for (int i = 0; i < 3; i++) hists[i].add(m[i]);
             };
             this->visitAllVoxels(lambdaVisitVoxels);
         }
         else
         {
             const auto lambdaVisitPoints =
-                [&obj](const mrpt::math::TPoint3Df& pt) {
+                [&obj, &hists](const mrpt::math::TPoint3Df& pt) {
                     // x y z R G B [A]
                     obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+                    for (int i = 0; i < 3; i++) hists[i].add(pt[i]);
                 };
 
             this->visitAllPoints(lambdaVisitPoints);
@@ -287,27 +301,19 @@ void SparseVoxelPointCloud::getVisualizationInto(
 
         obj->setPointSize(renderOptions.point_size);
 
-        const auto bb = this->boundingBox();
+        // Analyze the histograms and get confidence intervals:
+        std::vector<double> coords;
+        std::vector<double> hits;
 
-        float min = .0, max = 1.f;
-        switch (renderOptions.recolorizeByCoordinateIndex)
-        {
-            case 0:
-                min = bb.min.x;
-                max = bb.max.x;
-                break;
-            case 1:
-                min = bb.min.y;
-                max = bb.max.y;
-                break;
-            case 2:
-                min = bb.min.z;
-                max = bb.max.z;
-                break;
-            default:
-                THROW_EXCEPTION(
-                    "Invalid renderOptions.recolorizeByCoordinateIndex value");
-        }
+        const int idx = renderOptions.recolorizeByCoordinateIndex;
+        ASSERT_(idx >= 0 && idx < 3);
+
+        float            min = .0, max = 1.f;
+        constexpr double confidenceInterval = 0.02;
+
+        hists[idx].getHistogramNormalized(coords, hits);
+        mrpt::math::confidenceIntervalsFromHistogram(
+            coords, hits, min, max, confidenceInterval);
 
         obj->recolorizeByCoordinate(
             min, max, renderOptions.recolorizeByCoordinateIndex,
@@ -393,7 +399,8 @@ bool SparseVoxelPointCloud::internal_insertObservation(
         // Empty point set, or load from XYZ in observation:
         if (o.hasPoints3D)
         {
-            for (size_t i = 0; i < o.points3D_x.size(); i++)
+            for (size_t i = 0; i < o.points3D_x.size();
+                 i += insertionOptions.decimation)
                 this->insertPoint(robotPose3D.composePoint(
                     {o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]}));
 
@@ -427,7 +434,8 @@ bool SparseVoxelPointCloud::internal_insertObservation(
         if (!o.point_cloud.size())
             const_cast<CObservationVelodyneScan&>(o).generatePointCloud();
 
-        for (size_t i = 0; i < o.point_cloud.x.size(); i++)
+        for (size_t i = 0; i < o.point_cloud.x.size();
+             i += insertionOptions.decimation)
         {
             insertPoint(robotPose3D.composePoint(
                 {o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]}));
@@ -444,7 +452,7 @@ bool SparseVoxelPointCloud::internal_insertObservation(
         const auto& ys = o.pointcloud->getPointsBufferRef_y();
         const auto& zs = o.pointcloud->getPointsBufferRef_z();
 
-        for (size_t i = 0; i < xs.size(); i++)
+        for (size_t i = 0; i < xs.size(); i += insertionOptions.decimation)
         {
             insertPoint(robotPose3D.composePoint({xs[i], ys[i], zs[i]}));
         }
@@ -1051,7 +1059,7 @@ void SparseVoxelPointCloud::internal_insertPointCloud3D(
 {
     MRPT_TRY_START
 
-    for (std::size_t i = 0; i < num_pts; i++)
+    for (std::size_t i = 0; i < num_pts; i += insertionOptions.decimation)
     {
         // Transform the point from the scan reference to its global 3D
         // position:
