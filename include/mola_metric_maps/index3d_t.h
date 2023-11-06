@@ -55,6 +55,15 @@ struct index3d_t
     {
         return !operator==(o);
     }
+
+    index3d_t operator+(const index3d_t& o) const noexcept
+    {
+        return {cx + o.cx, cy + o.cy, cz + o.cz};
+    }
+    index3d_t operator-(const index3d_t& o) const noexcept
+    {
+        return {cx - o.cx, cy - o.cy, cz - o.cz};
+    }
 };
 
 template <typename cell_coord_t>

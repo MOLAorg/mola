@@ -78,13 +78,14 @@ void SparseVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
     renderOpts.dumpToTextStream(out);
 }
 
-mrpt::maps::CMetricMap* SparseVoxelPointCloud::internal_CreateFromMapDefinition(
-    const mrpt::maps::TMetricMapInitializer& _def)
+mrpt::maps::CMetricMap::Ptr
+    SparseVoxelPointCloud::internal_CreateFromMapDefinition(
+        const mrpt::maps::TMetricMapInitializer& _def)
 {
     const SparseVoxelPointCloud::TMapDefinition* def =
         dynamic_cast<const SparseVoxelPointCloud::TMapDefinition*>(&_def);
     ASSERT_(def);
-    auto* obj = new SparseVoxelPointCloud(def->voxel_size);
+    auto obj = SparseVoxelPointCloud::Create(def->voxel_size);
 
     obj->insertionOptions  = def->insertionOpts;
     obj->likelihoodOptions = def->likelihoodOpts;
@@ -203,6 +204,7 @@ void SparseVoxelPointCloud::setVoxelProperties(float voxel_size)
 
     // calculated fields:
     voxel_size_inv_ = 1.0f / voxel_size_;
+    voxel_size_sqr_ = voxel_size_ * voxel_size_;
     halfVoxel_ = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) * (0.5f * voxel_size_);
 
     gridSizeMinusHalf_ = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) *
@@ -542,6 +544,7 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
 
     mrpt::math::TPoint3Df closest;
     float                 closest_err;
+    uint64_t              closest_id;
     const float max_sqr_err = mrpt::square(likelihoodOptions.max_corr_distance);
     double      sumSqrDist  = .0;
 
@@ -553,7 +556,8 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
         // position:
         const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
 
-        const bool found = nn_find_nearest(gPt, closest, closest_err);
+        const bool found =
+            nn_single_search(gPt, closest, closest_err, closest_id);
         if (!found) continue;
 
         // Put a limit:
@@ -611,36 +615,11 @@ bool SparseVoxelPointCloud::saveToTextFile(const std::string& file) const
 
 void SparseVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
 {
-    // Get voxel indices:
-
-    const global_index3d_t idxPoint = coordToGlobalIdx(pt);
-    const outer_index3d_t  oIdx     = g2o(idxPoint);
-    const inner_index3d_t  iIdx     = g2i(idxPoint);
-
-    MRPT_TODO("distance filter check. cached sqr in insertionOpts");
-
-    // 1) Insert into decimation voxel map:
-    InnerGrid* grid;
-    if (!cached_.lastAccessGrid || cached_.lastAccessIdx != oIdx)
-    {
-#ifdef USE_DEBUG_PROFILER
-        mrpt::system::CTimeLoggerEntry tle(profiler, "insertPoint.cache_misss");
-#endif
-        grid                   = &grids_[oIdx];
-        cached_.lastAccessIdx  = oIdx;
-        cached_.lastAccessGrid = grid;
-    }
-    else
-    {
-#ifdef USE_DEBUG_PROFILER
-        mrpt::system::CTimeLoggerEntry tle(profiler, "insertPoint.cache_hit");
-#endif
-        grid = cached_.lastAccessGrid;
-    }
-
-    auto& v = grid->cellByIndex(iIdx);
+    auto& v = voxelByCoords(pt);
 
     const auto nPreviousPoints = v.points().size();
+
+    MRPT_TODO("distance filter check. cached sqr in insertionOpts");
 
     if (insertionOptions.max_points_per_voxel == 0 ||
         nPreviousPoints < insertionOptions.max_points_per_voxel)
@@ -655,49 +634,188 @@ void SparseVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
     }
 }
 
-MRPT_TODO("make mrpt virtual base class");
-
-bool SparseVoxelPointCloud::nn_find_nearest(
-    const mrpt::math::TPoint3Df& queryPoint, mrpt::math::TPoint3Df& outNearest,
-    float& outDistanceSquared) const
-{
-    // Get voxel indices:
-#if 0
-    const index3d_t idxPoint = {
-        coord2idx(queryPoint.x), coord2idx(queryPoint.y),
-        coord2idx(queryPoint.z)};
-
-    auto itNN = grids_.find(idxPoint);
-    if (itNN == grids_.end()) return false;
-
-    // Keep closest only:
-    outDistanceSquared = max_nn_radius_sqr_ * 1.01;  // larger than maximum
-
-    for (const auto& voxelRef : itNN->second.neighbors())
-    {
-        const auto& node = voxelRef.second.value().get();
-
-        float distSqr = .0f;
-        for (const auto& pt : node.points())
-        {
-            distSqr += mrpt::square(queryPoint.x - pt.x);
-            if (distSqr > outDistanceSquared) continue;
-            distSqr += mrpt::square(queryPoint.y - pt.y);
-            if (distSqr > outDistanceSquared) continue;
-            distSqr += mrpt::square(queryPoint.z - pt.z);
-            if (distSqr > outDistanceSquared) continue;
-
-            // This is better:
-            outDistanceSquared = distSqr;
-            outNearest         = pt;
-        }
-    }
-    return outDistanceSquared < max_nn_radius_sqr_;
-#endif
+bool SparseVoxelPointCloud::nn_has_indices_or_ids() const
+{  // false: IDs, not contiguous indices
     return false;
 }
 
-MRPT_TODO("make mrpt virtual base class");
+size_t SparseVoxelPointCloud::nn_index_count() const
+{  // Not used.
+    return 0;
+}
+
+bool SparseVoxelPointCloud::nn_single_search(
+    [[maybe_unused]] const mrpt::math::TPoint2Df& query,
+    [[maybe_unused]] mrpt::math::TPoint2Df&       result,
+    [[maybe_unused]] float&                       out_dist_sqr,
+    [[maybe_unused]] uint64_t&                    resultIndexOrID) const
+{
+    THROW_EXCEPTION("Cannot run a 2D search on a SparseVoxelPointCloud");
+}
+void SparseVoxelPointCloud::nn_multiple_search(
+    [[maybe_unused]] const mrpt::math::TPoint2Df&        query,
+    [[maybe_unused]] const size_t                        N,
+    [[maybe_unused]] std::vector<mrpt::math::TPoint2Df>& results,
+    [[maybe_unused]] std::vector<float>&                 out_dists_sqr,
+    [[maybe_unused]] std::vector<uint64_t>& resultIndicesOrIDs) const
+{
+    THROW_EXCEPTION("Cannot run a 2D search on a SparseVoxelPointCloud");
+}
+void SparseVoxelPointCloud::nn_radius_search(
+    [[maybe_unused]] const mrpt::math::TPoint2Df&        query,
+    [[maybe_unused]] const float                         search_radius_sqr,
+    [[maybe_unused]] std::vector<mrpt::math::TPoint2Df>& results,
+    [[maybe_unused]] std::vector<float>&                 out_dists_sqr,
+    [[maybe_unused]] std::vector<uint64_t>& resultIndicesOrIDs) const
+{
+    THROW_EXCEPTION("Cannot run a 2D search on a SparseVoxelPointCloud");
+}
+
+bool SparseVoxelPointCloud::nn_single_search(
+    const mrpt::math::TPoint3Df& query, mrpt::math::TPoint3Df& result,
+    float& out_dist_sqr, uint64_t& resultIndexOrID) const
+{
+    std::vector<mrpt::math::TPoint3Df> r;
+    std::vector<float>                 dist_sqr;
+    std::vector<uint64_t>              resultIndices;
+    nn_multiple_search(query, 1, r, dist_sqr, resultIndices);
+    if (r.empty()) return false;  // none found
+    result          = r[0];
+    out_dist_sqr    = dist_sqr[0];
+    resultIndexOrID = resultIndices[0];
+    return true;
+}
+
+void SparseVoxelPointCloud::nn_multiple_search(
+    const mrpt::math::TPoint3Df& query, const size_t N,
+    std::vector<mrpt::math::TPoint3Df>& results,
+    std::vector<float>&                 out_dists_sqr,
+    std::vector<uint64_t>&              resultIndicesOrIDs) const
+{
+    results.clear();
+    results.reserve(N);
+    out_dists_sqr.clear();
+    out_dists_sqr.reserve(N);
+    resultIndicesOrIDs.clear();
+    resultIndicesOrIDs.reserve(N);
+
+    const global_index3d_t idxQuery = coordToGlobalIdx(query);
+
+    MRPT_TODO("Define a mechanism to go grid by grid and stop!");
+
+    // go in increasing number of cell radius:
+    for (int radius = 0; results.size() < N; radius++)
+    {
+        const global_index3d_t idxs0 =
+            idxQuery - global_index3d_t(radius, radius, radius);
+
+        const global_index3d_t idxs1 =
+            idxQuery + global_index3d_t(radius, radius, radius);
+
+        std::map<float, std::pair<global_index3d_t, mrpt::math::TPoint3Df>>
+            dists2cellMean;
+
+        auto lambdaCheckCell = [&dists2cellMean, &query,
+                                this](const global_index3d_t& p) {
+            if (auto* v = voxelByGlobalIdxs(p, false);
+                v && !v->points().empty())
+            {
+                const auto& m           = v->mean();
+                float       distSqr     = (m - query).sqrNorm();
+                dists2cellMean[distSqr] = {p, m};
+            }
+        };
+
+        for (int32_t cx = idxs0.cx; cx <= idxs1.cx; cx++)
+        {
+            for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
+            {
+                lambdaCheckCell({cx, idxs0.cy, cz});
+                lambdaCheckCell({cx, idxs1.cy, cz});
+            }
+        }
+        for (int32_t cy = idxs0.cy + 1; cy < idxs1.cy; cy++)
+        {
+            for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
+            {
+                lambdaCheckCell({idxs0.cx, cy, cz});
+                lambdaCheckCell({idxs1.cx, cy, cz});
+            }
+        }
+
+        // Add the top best "N" neighbors:
+        for (auto it = dists2cellMean.begin();
+             it != dists2cellMean.end() && results.size() < N; ++it)
+        {
+            out_dists_sqr.push_back(it->first);
+            results.push_back(it->second.second);
+            //  Unique ID for each global index triplet:
+            resultIndicesOrIDs.push_back(g2plain(it->second.first));
+        }
+    }
+}
+
+void SparseVoxelPointCloud::nn_radius_search(
+    const mrpt::math::TPoint3Df& query, const float search_radius_sqr,
+    std::vector<mrpt::math::TPoint3Df>& results,
+    std::vector<float>&                 out_dists_sqr,
+    std::vector<uint64_t>&              resultIndicesOrIDs) const
+{
+    results.clear();
+    out_dists_sqr.clear();
+    resultIndicesOrIDs.clear();
+
+    if (search_radius_sqr <= 0) return;
+
+    const global_index3d_t idxQuery = coordToGlobalIdx(query);
+
+    const int maxSearchRadiusInCells =
+        static_cast<int>(std::ceil(std::sqrt(search_radius_sqr) / voxel_size_));
+
+    // go in increasing number of cell radius:
+    for (int radius = 0; radius <= maxSearchRadiusInCells; radius++)
+    {
+        const global_index3d_t idxs0 =
+            idxQuery - global_index3d_t(radius, radius, radius);
+
+        const global_index3d_t idxs1 =
+            idxQuery + global_index3d_t(radius, radius, radius);
+
+        auto lambdaCheckCell = [&query, &out_dists_sqr, &results,
+                                &resultIndicesOrIDs, search_radius_sqr,
+                                this](const global_index3d_t& p) {
+            if (auto* v = voxelByGlobalIdxs(p, false);
+                v && !v->points().empty())
+            {
+                const auto& m       = v->mean();
+                float       distSqr = (m - query).sqrNorm();
+                if (distSqr > search_radius_sqr) return;
+
+                out_dists_sqr.push_back(distSqr);
+                results.push_back(m);
+                //  Unique ID for each global index triplet:
+                resultIndicesOrIDs.push_back(g2plain(p));
+            }
+        };
+
+        for (int32_t cx = idxs0.cx; cx <= idxs1.cx; cx++)
+        {
+            for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
+            {
+                lambdaCheckCell({cx, idxs0.cy, cz});
+                lambdaCheckCell({cx, idxs1.cy, cz});
+            }
+        }
+        for (int32_t cy = idxs0.cy + 1; cy < idxs1.cy; cy++)
+        {
+            for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
+            {
+                lambdaCheckCell({idxs0.cx, cy, cz});
+                lambdaCheckCell({idxs1.cx, cy, cz});
+            }
+        }
+    }
+}
 
 mrpt::math::TBoundingBoxf SparseVoxelPointCloud::boundingBox() const
 {
@@ -861,7 +979,8 @@ void SparseVoxelPointCloud::TRenderOptions::readFromStream(
 void SparseVoxelPointCloud::TInsertionOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseVoxelPointCloud::TInsertionOptions] ------- \n\n";
+    out << "\n------ [SparseVoxelPointCloud::TInsertionOptions] ------- "
+           "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(max_distance(), double);
     LOADABLEOPTS_DUMP_VAR(decimation, int);
@@ -871,7 +990,8 @@ void SparseVoxelPointCloud::TInsertionOptions::dumpToTextStream(
 void SparseVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseVoxelPointCloud::TLikelihoodOptions] ------- \n\n";
+    out << "\n------ [SparseVoxelPointCloud::TLikelihoodOptions] ------- "
+           "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(sigma_dist, double);
     LOADABLEOPTS_DUMP_VAR(max_corr_distance, double);
@@ -897,7 +1017,7 @@ void SparseVoxelPointCloud::TInsertionOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
     float max_distance = max_distance_;
-    MRPT_LOAD_CONFIG_VAR(max_distance_, double, c, s);
+    MRPT_LOAD_CONFIG_VAR(max_distance, double, c, s);
     this->max_distance(max_distance);
 
     MRPT_LOAD_CONFIG_VAR(decimation, int, c, s);

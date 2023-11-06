@@ -30,6 +30,7 @@
 #include <mrpt/img/TColor.h>
 #include <mrpt/img/color_maps.h>
 #include <mrpt/maps/CMetricMap.h>
+#include <mrpt/maps/NearestNeighborsCapable.h>
 #include <mrpt/math/TBoundingBox.h>
 #include <mrpt/math/TPoint3D.h>
 
@@ -93,7 +94,8 @@ class FixedDenseGrid3D
  *  cubic voxel maps. Efficient for storing point clouds, decimating them,
  *  and running nearest nearest-neighbor search.
  */
-class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
+class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
+                              public mrpt::maps::NearestNeighborsCapable
 {
     DEFINE_SERIALIZABLE(SparseVoxelPointCloud, mola)
    public:
@@ -114,6 +116,9 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
     using outer_index3d_t     = index3d_t<int32_t>;
     using inner_index3d_t     = index3d_t<uint32_t>;
     using inner_plain_index_t = uint32_t;
+
+    /// collapsed plain unique ID for global indices
+    using global_plain_index_t = uint64_t;
 
     /** @} */
 
@@ -161,6 +166,13 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
             idx.cx * voxel_size_,  //
             idx.cy * voxel_size_,  //
             idx.cz * voxel_size_};
+    }
+
+    static inline global_plain_index_t g2plain(const global_index3d_t& g)
+    {
+        return (static_cast<uint64_t>(g.cx & 0x1FFFFF) << (21 * 0)) |
+               (static_cast<uint64_t>(g.cy & 0x1FFFFF) << (21 * 1)) |
+               (static_cast<uint64_t>(g.cz & 0x1FFFFF) << (21 * 2));
     }
 
     /** @} */
@@ -236,15 +248,78 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
      *  @{ */
     // clear(): available in base class
 
+    /** returns the voxeldata by global index coordinates, creating it or not if
+     * not found depending on createIfNew.
+     * Returns nullptr if not found and createIfNew is false
+     *
+     * Function defined in the header file so compilers can optimize
+     * for literals "createIfNew"
+     */
+    inline VoxelData* voxelByGlobalIdxs(
+        const global_index3d_t& idx, bool createIfNew)
+    {
+        // Get voxel indices:
+        const outer_index3d_t oIdx = g2o(idx);
+        const inner_index3d_t iIdx = g2i(idx);
+
+        // 1) Insert into decimation voxel map:
+        InnerGrid* grid = nullptr;
+        if (!cached_.lastAccessGrid || cached_.lastAccessIdx != oIdx)
+        {
+            // Cache miss:
+#ifdef USE_DEBUG_PROFILER
+            mrpt::system::CTimeLoggerEntry tle(
+                profiler, "insertPoint.cache_misss");
+#endif
+
+            auto it = grids_.find(oIdx);
+            if (it == grids_.end())
+            {
+                if (!createIfNew)
+                    return nullptr;
+                else
+                    grid = &grids_[oIdx];  // Create it
+            }
+            else
+            {
+                grid = &it->second;  // Use the found grid
+            }
+            cached_.lastAccessIdx  = oIdx;
+            cached_.lastAccessGrid = grid;
+        }
+        else
+        {
+            // Cache hit:
+#ifdef USE_DEBUG_PROFILER
+            mrpt::system::CTimeLoggerEntry tle(
+                profiler, "insertPoint.cache_hit");
+#endif
+            grid = cached_.lastAccessGrid;
+        }
+
+        return &grid->cellByIndex(iIdx);
+    }
+
+    const VoxelData* voxelByGlobalIdxs(
+        const global_index3d_t& idx, bool createIfNew) const
+    {  // reuse the non-const method:
+        return const_cast<SparseVoxelPointCloud*>(this)->voxelByGlobalIdxs(
+            idx, createIfNew);
+    }
+
+    /** Get a voxeldata by (x,y,z) coordinates, creating the container grid if
+     * needed. */
+    VoxelData& voxelByCoords(const mrpt::math::TPoint3Df& pt)
+    {
+        return *voxelByGlobalIdxs(coordToGlobalIdx(pt), true /*create*/);
+    }
+    const VoxelData& voxelByCoords(const mrpt::math::TPoint3Df& pt) const
+    {  // reuse the non-const method
+        return const_cast<SparseVoxelPointCloud*>(this)->voxelByCoords(pt);
+    }
+
     /** Insert one point into the dual voxel map */
     void insertPoint(const mrpt::math::TPoint3Df& pt);
-
-    /** Query for the closest neighbor of a given point.
-     *  \return true if nearest neighbor was found.
-     */
-    bool nn_find_nearest(
-        const mrpt::math::TPoint3Df& queryPoint,
-        mrpt::math::TPoint3Df& outNearest, float& outDistanceSquared) const;
 
     const grids_map_t& grids() const { return grids_; }
 
@@ -252,7 +327,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
      * there are no points. Results are cached unless the map is somehow
      * modified to avoid repeated calculations.
      */
-    mrpt::math::TBoundingBoxf boundingBox() const;
+    mrpt::math::TBoundingBoxf boundingBox() const override;
 
     void visitAllPoints(
         const std::function<void(const mrpt::math::TPoint3Df&)>& f) const;
@@ -270,6 +345,38 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
      */
     bool saveToTextFile(const std::string& file) const;
 
+    /** @} */
+
+    /** @name API of the NearestNeighborsCapable virtual interface
+    @{ */
+    [[nodiscard]] bool   nn_has_indices_or_ids() const override;
+    [[nodiscard]] size_t nn_index_count() const override;
+    [[nodiscard]] bool   nn_single_search(
+          const mrpt::math::TPoint3Df& query, mrpt::math::TPoint3Df& result,
+          float& out_dist_sqr, uint64_t& resultIndexOrID) const override;
+    [[nodiscard]] bool nn_single_search(
+        const mrpt::math::TPoint2Df& query, mrpt::math::TPoint2Df& result,
+        float& out_dist_sqr, uint64_t& resultIndexOrID) const override;
+    void nn_multiple_search(
+        const mrpt::math::TPoint3Df& query, const size_t N,
+        std::vector<mrpt::math::TPoint3Df>& results,
+        std::vector<float>&                 out_dists_sqr,
+        std::vector<uint64_t>&              resultIndicesOrIDs) const override;
+    void nn_multiple_search(
+        const mrpt::math::TPoint2Df& query, const size_t N,
+        std::vector<mrpt::math::TPoint2Df>& results,
+        std::vector<float>&                 out_dists_sqr,
+        std::vector<uint64_t>&              resultIndicesOrIDs) const override;
+    void nn_radius_search(
+        const mrpt::math::TPoint3Df& query, const float search_radius_sqr,
+        std::vector<mrpt::math::TPoint3Df>& results,
+        std::vector<float>&                 out_dists_sqr,
+        std::vector<uint64_t>&              resultIndicesOrIDs) const override;
+    void nn_radius_search(
+        const mrpt::math::TPoint2Df& query, const float search_radius_sqr,
+        std::vector<mrpt::math::TPoint2Df>& results,
+        std::vector<float>&                 out_dists_sqr,
+        std::vector<uint64_t>&              resultIndicesOrIDs) const override;
     /** @} */
 
     /** @name Public virtual methods implementation for CMetricMap
@@ -417,6 +524,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
 
     // Calculated from the above, in setVoxelProperties()
     float                 voxel_size_inv_ = 1.0f / voxel_size_;
+    float                 voxel_size_sqr_ = voxel_size_ * voxel_size_;
     mrpt::math::TPoint3Df halfVoxel_;
     mrpt::math::TPoint3Df gridSizeMinusHalf_;
 
