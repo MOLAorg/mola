@@ -135,10 +135,10 @@ void SparseVoxelPointCloud::serializeFrom(
             const auto expected_inner_grid_bit_count = in.ReadAs<uint32_t>();
             ASSERT_EQUAL_(expected_inner_grid_bit_count, INNER_GRID_BIT_COUNT);
 
-            in >> voxel_size_ >> max_points_per_voxel_;
+            in >> voxel_size_;
 
             // clear contents and compute computed fields:
-            this->setVoxelProperties(voxel_size_, max_points_per_voxel_);
+            this->setVoxelProperties(voxel_size_);
 
             insertionOptions.readFromStream(in);
             likelihoodOptions.readFromStream(in);
@@ -190,19 +190,16 @@ void SparseVoxelPointCloud::VoxelData::insertPoint(
 }
 
 // Ctor:
-SparseVoxelPointCloud::SparseVoxelPointCloud(
-    float voxel_size, uint32_t max_points_per_voxel)
+SparseVoxelPointCloud::SparseVoxelPointCloud(float voxel_size)
 {
-    setVoxelProperties(voxel_size, max_points_per_voxel);
+    setVoxelProperties(voxel_size);
 }
 
 SparseVoxelPointCloud::~SparseVoxelPointCloud() = default;
 
-void SparseVoxelPointCloud::setVoxelProperties(
-    float voxel_size, uint32_t max_points_per_voxel)
+void SparseVoxelPointCloud::setVoxelProperties(float voxel_size)
 {
-    voxel_size_           = voxel_size;
-    max_points_per_voxel_ = max_points_per_voxel;
+    voxel_size_ = voxel_size;
 
     // calculated fields:
     voxel_size_inv_ = 1.0f / voxel_size_;
@@ -645,7 +642,8 @@ void SparseVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
 
     const auto nPreviousPoints = v.points().size();
 
-    if (max_points_per_voxel_ == 0 || nPreviousPoints < max_points_per_voxel_)
+    if (insertionOptions.max_points_per_voxel == 0 ||
+        nPreviousPoints < insertionOptions.max_points_per_voxel)
     {
         v.insertPoint(pt);
 
@@ -778,6 +776,34 @@ void SparseVoxelPointCloud::visitAllGrids(
     }
 }
 
+// ========== Option structures ==========
+void SparseVoxelPointCloud::TInsertionOptions::writeToStream(
+    mrpt::serialization::CArchive& out) const
+{
+    const int8_t version = 0;
+    out << version;
+    out << max_distance_ << decimation << max_points_per_voxel;
+}
+
+void SparseVoxelPointCloud::TInsertionOptions::readFromStream(
+    mrpt::serialization::CArchive& in)
+{
+    int8_t version;
+    in >> version;
+    switch (version)
+    {
+        case 0:
+        {
+            in >> max_distance_ >> decimation >> max_points_per_voxel;
+
+            max_distance_sqr_ = mrpt::square(max_distance_);
+        }
+        break;
+        default:
+            MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
+    }
+}
+
 void SparseVoxelPointCloud::TLikelihoodOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
@@ -832,6 +858,16 @@ void SparseVoxelPointCloud::TRenderOptions::readFromStream(
     }
 }
 
+void SparseVoxelPointCloud::TInsertionOptions::dumpToTextStream(
+    std::ostream& out) const
+{
+    out << "\n------ [SparseVoxelPointCloud::TInsertionOptions] ------- \n\n";
+
+    LOADABLEOPTS_DUMP_VAR(max_distance(), double);
+    LOADABLEOPTS_DUMP_VAR(decimation, int);
+    LOADABLEOPTS_DUMP_VAR(max_points_per_voxel, int);
+}
+
 void SparseVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
     std::ostream& out) const
 {
@@ -855,6 +891,17 @@ void SparseVoxelPointCloud::TRenderOptions::dumpToTextStream(
     LOADABLEOPTS_DUMP_VAR(color.B, float);
     LOADABLEOPTS_DUMP_VAR(colormap, int);
     LOADABLEOPTS_DUMP_VAR(recolorizeByCoordinateIndex, int);
+}
+
+void SparseVoxelPointCloud::TInsertionOptions::loadFromConfigFile(
+    const mrpt::config::CConfigFileBase& c, const std::string& s)
+{
+    float max_distance = max_distance_;
+    MRPT_LOAD_CONFIG_VAR(max_distance_, double, c, s);
+    this->max_distance(max_distance);
+
+    MRPT_LOAD_CONFIG_VAR(decimation, int, c, s);
+    MRPT_LOAD_CONFIG_VAR(max_points_per_voxel, int, c, s);
 }
 
 void SparseVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(

@@ -52,6 +52,9 @@ class FixedDenseGrid3D
     constexpr static size_t CELLS_PER_DIM    = 1 << SIDE_NUM_BITS;
     constexpr static size_t TOTAL_CELL_COUNT = 1 << (3 * SIDE_NUM_BITS);
 
+    // The use of "calloc()" for super fast allocation needs this:
+    static_assert(std::is_trivially_copyable_v<T>);
+
     FixedDenseGrid3D()
     {
         cells_ = reinterpret_cast<T*>(calloc(sizeof(T), TOTAL_CELL_COUNT));
@@ -83,7 +86,6 @@ class FixedDenseGrid3D
     T*       cells() { return cells_; }
 
    private:
-    // std::array<T, TOTAL_CELL_COUNT> cells_;
     T* cells_;
 };
 
@@ -169,20 +171,14 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
     /**
      * @brief Constructor / default ctor
      * @param voxel_size Voxel size [meters] for decimation purposes.
-     * @param max_nn_radius Maximum radius [meters] for nearest-neighbor
-     * search.
-     * @param max_points_per_voxel If !=0, defines a maximum number of
-     * points per voxel.
      */
-    SparseVoxelPointCloud(
-        float voxel_size = 0.20f, uint32_t max_points_per_voxel = 0);
+    SparseVoxelPointCloud(float voxel_size = 0.20f);
 
     ~SparseVoxelPointCloud();
 
     /** Reset the main voxel parameters, and *clears* all current map contents
      */
-    void setVoxelProperties(
-        float voxel_size, uint32_t max_points_per_voxel = 0);
+    void setVoxelProperties(float voxel_size);
 
     /** @} */
 
@@ -315,12 +311,26 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
         /** Maximum insertion distance for points, wrt the sensor location
          *  , in meters. Default=0 means no filtering.
          */
-        float max_distance = .0f;
+        void max_distance(float v)
+        {
+            max_distance_     = v;
+            max_distance_sqr_ = v * v;
+        }
+        float max_distance() const { return max_distance_; }
+        float max_distance_sqr() const { return max_distance_sqr_; }
 
         /** Speed up the insertion by skipping points and only inserting
          *  one out of "decimation" points. Default=1 means insert them all.
          */
         uint32_t decimation = 1;
+
+        /** Maximum number of points per voxel. 0 means no limit (up to the
+         * compile-time limit SSO_LENGTH).
+         */
+        uint32_t max_points_per_voxel = 0;
+
+       private:
+        float max_distance_ = .0f, max_distance_sqr_ = .0f;
     };
     TInsertionOptions insertionOptions;
 
@@ -403,8 +413,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap
     MAP_DEFINITION_END(SparseVoxelPointCloud)
 
    private:
-    float    voxel_size_           = 0.20f;
-    uint32_t max_points_per_voxel_ = 0;
+    float voxel_size_ = 0.20f;
 
     // Calculated from the above, in setVoxelProperties()
     float                 voxel_size_inv_ = 1.0f / voxel_size_;
