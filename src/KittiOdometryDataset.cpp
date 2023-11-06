@@ -342,8 +342,8 @@ void KittiOdometryDataset::spinOnce()
         {
             ProfilerEntry tle(profiler_, "spinOnce.publishLidar");
             load_lidar(replay_next_tim_index_);
-            auto o       = read_ahead_lidar_obs_[replay_next_tim_index_];
-            o->timestamp = obs_tim;
+            auto o = read_ahead_lidar_obs_[replay_next_tim_index_];
+            // o->timestamp = obs_tim; // already done in load_lidar()
             this->sendObservationsToFrontEnds(o);
         }
 
@@ -352,8 +352,8 @@ void KittiOdometryDataset::spinOnce()
             if (!publish_image_[i]) continue;
             ProfilerEntry tle(profiler_, "spinOnce.publishImage");
             load_img(i, replay_next_tim_index_);
-            auto o       = read_ahead_image_obs_[replay_next_tim_index_][i];
-            o->timestamp = obs_tim;
+            auto o = read_ahead_image_obs_[replay_next_tim_index_][i];
+            // o->timestamp = obs_tim; // already done in load_img()
             this->sendObservationsToFrontEnds(o);
         }
 
@@ -430,6 +430,7 @@ void KittiOdometryDataset::load_img(
 
     obs->cameraParams = cam_intrinsics_[cam_idx];
     obs->setSensorPose(mrpt::poses::CPose3D(cam_poses_[cam_idx]));
+    obs->timestamp = mrpt::Clock::fromDouble(lst_timestamps_.at(step));
 
     auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
     read_ahead_image_obs_[step][cam_idx] = std::move(o);
@@ -491,6 +492,7 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
     // Pose: velodyne is at the origin of the vehicle coordinates in
     // Kitti datasets.
     obs->sensorPose = mrpt::poses::CPose3D();
+    obs->timestamp  = mrpt::Clock::fromDouble(lst_timestamps_.at(step));
 
     auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
     read_ahead_lidar_obs_[step] = std::move(o);
