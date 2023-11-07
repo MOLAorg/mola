@@ -105,10 +105,11 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
     /// Size of the std::array for the small-size optimization container in each
     /// voxel, defining the maximum number of points that can be stored without
     /// heap allocation.
-    constexpr static std::size_t SSO_LENGTH                  = 8;
-    constexpr static uint32_t    INNER_GRID_BIT_COUNT        = 5;
-    constexpr static std::size_t GLOBAL_ID_SUBVOXEL_BITCOUNT = 4;
-    static_assert(SSO_LENGTH <= (1 << GLOBAL_ID_SUBVOXEL_BITCOUNT));
+    constexpr static std::size_t HARDLIMIT_MAX_POINTS_PER_VOXEL = 16;
+    constexpr static uint32_t    INNER_GRID_BIT_COUNT           = 5;
+    constexpr static std::size_t GLOBAL_ID_SUBVOXEL_BITCOUNT    = 4;
+    static_assert(
+        HARDLIMIT_MAX_POINTS_PER_VOXEL <= (1 << GLOBAL_ID_SUBVOXEL_BITCOUNT));
 
     constexpr static uint32_t INNER_GRID_SIDE   = 1 << INNER_GRID_BIT_COUNT;
     constexpr static uint32_t INNER_COORDS_MASK = INNER_GRID_SIDE - 1;
@@ -246,9 +247,10 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
         const mrpt::math::TPoint3Df& mean() const { return mean_; }
 
        private:
-        std::array<mrpt::math::TPoint3Df, SSO_LENGTH> points_;
-        uint8_t                                       numPoints_ = 0;
-        mutable mrpt::math::TPoint3Df                 mean_      = {0, 0, 0};
+        std::array<mrpt::math::TPoint3Df, HARDLIMIT_MAX_POINTS_PER_VOXEL>
+                                      points_;
+        uint8_t                       numPoints_ = 0;
+        mutable mrpt::math::TPoint3Df mean_      = {0, 0, 0};
     };
 
     using InnerGrid =
@@ -279,7 +281,21 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
 
         // 1) Insert into decimation voxel map:
         InnerGrid* grid = nullptr;
-        if (!cached_.lastAccessGrid || cached_.lastAccessIdx != oIdx)
+        for (int i = 0; i < CachedData::NUM_CACHED_IDXS; i++)
+        {
+            if (cached_.lastAccessGrid[i] && cached_.lastAccessIdx[i] == oIdx)
+            {
+                // Cache hit:
+#ifdef USE_DEBUG_PROFILER
+                mrpt::system::CTimeLoggerEntry tle(
+                    profiler, "insertPoint.cache_hit");
+#endif
+                grid = cached_.lastAccessGrid[i];
+                break;
+            }
+        }
+
+        if (!grid)
         {
             // Cache miss:
 #ifdef USE_DEBUG_PROFILER
@@ -299,19 +315,14 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
             {
                 grid = &it->second;  // Use the found grid
             }
-            cached_.lastAccessIdx  = oIdx;
-            cached_.lastAccessGrid = grid;
-        }
-        else
-        {
-            // Cache hit:
-#ifdef USE_DEBUG_PROFILER
-            mrpt::system::CTimeLoggerEntry tle(
-                profiler, "insertPoint.cache_hit");
-#endif
-            grid = cached_.lastAccessGrid;
+            // Add to cache:
+            cached_.lastAccessIdx[cached_.lastAccessNextWrite]  = oIdx;
+            cached_.lastAccessGrid[cached_.lastAccessNextWrite] = grid;
+            cached_.lastAccessNextWrite++;
+            cached_.lastAccessNextWrite &= CachedData::NUM_CACHED_IDX_MASK;
         }
 
+        // Now, look for the cell withi the grid block:
         return &grid->cellByIndex(iIdx);
     }
 
@@ -562,8 +573,14 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
 
         mutable std::optional<mrpt::math::TBoundingBoxf> boundingBox_;
 
-        outer_index3d_t lastAccessIdx;
-        InnerGrid*      lastAccessGrid = nullptr;
+        // 2 bits seems to be the optimum for typical cases:
+        constexpr static int CBITS               = 2;
+        constexpr static int NUM_CACHED_IDXS     = 1 << CBITS;
+        constexpr static int NUM_CACHED_IDX_MASK = NUM_CACHED_IDXS - 1;
+
+        int             lastAccessNextWrite = 0;
+        outer_index3d_t lastAccessIdx[NUM_CACHED_IDXS];
+        InnerGrid*      lastAccessGrid[NUM_CACHED_IDXS] = {nullptr};
     };
 
     CachedData cached_;

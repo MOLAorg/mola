@@ -793,67 +793,54 @@ void SparseVoxelPointCloud::nn_radius_search(
     const int maxSearchRadiusInCells =
         static_cast<int>(std::ceil(std::sqrt(search_radius_sqr) / voxel_size_));
 
-    // go in increasing number of cell radius:
-    for (int radius = 0; radius <= maxSearchRadiusInCells; radius++)
-    {
-        const global_index3d_t idxs0 =
-            idxQuery - global_index3d_t(radius, radius, radius);
+    const global_index3d_t idxs0 =
+        idxQuery - global_index3d_t(
+                       maxSearchRadiusInCells, maxSearchRadiusInCells,
+                       maxSearchRadiusInCells);
 
-        const global_index3d_t idxs1 =
-            idxQuery + global_index3d_t(radius, radius, radius);
+    const global_index3d_t idxs1 =
+        idxQuery + global_index3d_t(
+                       maxSearchRadiusInCells, maxSearchRadiusInCells,
+                       maxSearchRadiusInCells);
 
-        auto lambdaCheckCell = [&query, &out_dists_sqr, &results,
-                                &resultIndicesOrIDs, search_radius_sqr,
-                                this](const global_index3d_t& p) {
-            if (auto* v = voxelByGlobalIdxs(p, false);
-                v && !v->points().empty())
+    auto lambdaCheckCell = [&query, &out_dists_sqr, &results,
+                            &resultIndicesOrIDs, search_radius_sqr,
+                            this](const global_index3d_t& p) {
+        if (auto* v = voxelByGlobalIdxs(p, false); v && !v->points().empty())
+        {
+            if (likelihoodOptions.match_mean)
             {
-                if (likelihoodOptions.match_mean)
+                const auto& m       = v->mean();
+                float       distSqr = (m - query).sqrNorm();
+                if (distSqr > search_radius_sqr) return;
+
+                out_dists_sqr.push_back(distSqr);
+                results.push_back(m);
+                //  Unique ID for each global index triplet:
+                resultIndicesOrIDs.push_back(g2plain(p));
+            }
+            else
+            {
+                const auto& pts = v->points();
+                for (size_t i = 0; i < pts.size(); i++)
                 {
-                    const auto& m       = v->mean();
-                    float       distSqr = (m - query).sqrNorm();
-                    if (distSqr > search_radius_sqr) return;
+                    const auto& pt      = pts[i];
+                    float       distSqr = (pt - query).sqrNorm();
+                    if (distSqr > search_radius_sqr) continue;
 
                     out_dists_sqr.push_back(distSqr);
-                    results.push_back(m);
+                    results.push_back(pt);
                     //  Unique ID for each global index triplet:
-                    resultIndicesOrIDs.push_back(g2plain(p));
-                }
-                else
-                {
-                    const auto& pts = v->points();
-                    for (size_t i = 0; i < pts.size(); i++)
-                    {
-                        const auto& pt      = pts[i];
-                        float       distSqr = (pt - query).sqrNorm();
-                        if (distSqr > search_radius_sqr) continue;
-
-                        out_dists_sqr.push_back(distSqr);
-                        results.push_back(pt);
-                        //  Unique ID for each global index triplet:
-                        resultIndicesOrIDs.push_back(g2plain(p, i));
-                    }
+                    resultIndicesOrIDs.push_back(g2plain(p, i));
                 }
             }
-        };
+        }
+    };
 
-        for (int32_t cx = idxs0.cx; cx <= idxs1.cx; cx++)
-        {
+    for (int32_t cx = idxs0.cx; cx <= idxs1.cx; cx++)
+        for (int32_t cy = idxs0.cy; cy <= idxs1.cy; cy++)
             for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
-            {
-                lambdaCheckCell({cx, idxs0.cy, cz});
-                lambdaCheckCell({cx, idxs1.cy, cz});
-            }
-        }
-        for (int32_t cy = idxs0.cy + 1; cy < idxs1.cy; cy++)
-        {
-            for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
-            {
-                lambdaCheckCell({idxs0.cx, cy, cz});
-                lambdaCheckCell({idxs1.cx, cy, cz});
-            }
-        }
-    }
+                lambdaCheckCell({cx, cy, cz});
 }
 
 mrpt::math::TBoundingBoxf SparseVoxelPointCloud::boundingBox() const

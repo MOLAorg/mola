@@ -46,7 +46,7 @@ void test_voxelmap_insert_2d_scan()
     mola::SparseVoxelPointCloud map(0.2 /*decim*/);
 
     // The numbers in this test would change if this param changes:
-    static_assert(mola::SparseVoxelPointCloud::SSO_LENGTH == 8);
+    static_assert(mola::SparseVoxelPointCloud::HARDLIMIT_MAX_POINTS_PER_VOXEL == 8);
 
     mrpt::obs::CObservation2DRangeScan scan2D;
     mrpt::obs::stock_observations::example2DRangeScan(scan2D);
