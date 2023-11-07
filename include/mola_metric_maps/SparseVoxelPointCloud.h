@@ -105,8 +105,10 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
     /// Size of the std::array for the small-size optimization container in each
     /// voxel, defining the maximum number of points that can be stored without
     /// heap allocation.
-    constexpr static std::size_t SSO_LENGTH           = 8;
-    constexpr static uint32_t    INNER_GRID_BIT_COUNT = 5;
+    constexpr static std::size_t SSO_LENGTH                  = 8;
+    constexpr static uint32_t    INNER_GRID_BIT_COUNT        = 5;
+    constexpr static std::size_t GLOBAL_ID_SUBVOXEL_BITCOUNT = 4;
+    static_assert(SSO_LENGTH <= (1 << GLOBAL_ID_SUBVOXEL_BITCOUNT));
 
     constexpr static uint32_t INNER_GRID_SIDE   = 1 << INNER_GRID_BIT_COUNT;
     constexpr static uint32_t INNER_COORDS_MASK = INNER_GRID_SIDE - 1;
@@ -168,11 +170,19 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
             idx.cz * voxel_size_};
     }
 
-    static inline global_plain_index_t g2plain(const global_index3d_t& g)
+    static inline global_plain_index_t g2plain(
+        const global_index3d_t& g, int subVoxelIndex = 0)
     {
-        return (static_cast<uint64_t>(g.cx & 0x1FFFFF) << (21 * 0)) |
-               (static_cast<uint64_t>(g.cy & 0x1FFFFF) << (21 * 1)) |
-               (static_cast<uint64_t>(g.cz & 0x1FFFFF) << (21 * 2));
+        constexpr uint64_t SUBVOXEL_MASK =
+            ((1 << GLOBAL_ID_SUBVOXEL_BITCOUNT) - 1);
+        constexpr auto     OFF   = GLOBAL_ID_SUBVOXEL_BITCOUNT;
+        constexpr int      FBITS = 20;  // (64 - OFF)/3, rounded if needed
+        constexpr uint64_t FMASK = (1 << FBITS) - 1;
+
+        return (static_cast<uint64_t>(subVoxelIndex) & SUBVOXEL_MASK) |
+               (static_cast<uint64_t>(g.cx & FMASK) << (OFF + FBITS * 0)) |
+               (static_cast<uint64_t>(g.cy & FMASK) << (OFF + FBITS * 1)) |
+               (static_cast<uint64_t>(g.cz & FMASK) << (OFF + FBITS * 2));
     }
 
     /** @} */
@@ -217,6 +227,11 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
 
             size_t size() const { return n_; }
             bool   empty() const { return n_ == 0; }
+
+            const mrpt::math::TPoint3Df& operator[](int i) const
+            {
+                return data_[i];
+            }
 
            private:
             const mrpt::math::TPoint3Df* data_;
@@ -470,6 +485,14 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
         /** Speed up the likelihood computation by considering only one out of N
          * rays (default=10) */
         uint32_t decimation = 10;
+
+        /** If true, search for pairings only against the voxel mean point,
+         * instead of the contained points.
+         *
+         * This parameters affects both, likelihood, and
+         * the NN (nearest-neighbors) API methods.
+         */
+        bool match_mean = false;
     };
     TLikelihoodOptions likelihoodOptions;
 

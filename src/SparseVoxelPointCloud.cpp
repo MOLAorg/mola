@@ -720,7 +720,7 @@ void SparseVoxelPointCloud::nn_multiple_search(
         const global_index3d_t idxs1 =
             idxQuery + global_index3d_t(radius, radius, radius);
 
-        std::map<float, std::pair<global_index3d_t, mrpt::math::TPoint3Df>>
+        std::map<float, std::pair<global_plain_index_t, mrpt::math::TPoint3Df>>
             dists2cellMean;
 
         auto lambdaCheckCell = [&dists2cellMean, &query,
@@ -728,9 +728,22 @@ void SparseVoxelPointCloud::nn_multiple_search(
             if (auto* v = voxelByGlobalIdxs(p, false);
                 v && !v->points().empty())
             {
-                const auto& m           = v->mean();
-                float       distSqr     = (m - query).sqrNorm();
-                dists2cellMean[distSqr] = {p, m};
+                if (likelihoodOptions.match_mean)
+                {
+                    const auto& m           = v->mean();
+                    float       distSqr     = (m - query).sqrNorm();
+                    dists2cellMean[distSqr] = {g2plain(p), m};
+                }
+                else
+                {
+                    const auto& pts = v->points();
+                    for (size_t i = 0; i < pts.size(); i++)
+                    {
+                        const auto& pt          = pts[i];
+                        float       distSqr     = (pt - query).sqrNorm();
+                        dists2cellMean[distSqr] = {g2plain(p, i), pt};
+                    }
+                }
             }
         };
 
@@ -758,7 +771,7 @@ void SparseVoxelPointCloud::nn_multiple_search(
             out_dists_sqr.push_back(it->first);
             results.push_back(it->second.second);
             //  Unique ID for each global index triplet:
-            resultIndicesOrIDs.push_back(g2plain(it->second.first));
+            resultIndicesOrIDs.push_back(it->second.first);
         }
     }
 }
@@ -795,14 +808,32 @@ void SparseVoxelPointCloud::nn_radius_search(
             if (auto* v = voxelByGlobalIdxs(p, false);
                 v && !v->points().empty())
             {
-                const auto& m       = v->mean();
-                float       distSqr = (m - query).sqrNorm();
-                if (distSqr > search_radius_sqr) return;
+                if (likelihoodOptions.match_mean)
+                {
+                    const auto& m       = v->mean();
+                    float       distSqr = (m - query).sqrNorm();
+                    if (distSqr > search_radius_sqr) return;
 
-                out_dists_sqr.push_back(distSqr);
-                results.push_back(m);
-                //  Unique ID for each global index triplet:
-                resultIndicesOrIDs.push_back(g2plain(p));
+                    out_dists_sqr.push_back(distSqr);
+                    results.push_back(m);
+                    //  Unique ID for each global index triplet:
+                    resultIndicesOrIDs.push_back(g2plain(p));
+                }
+                else
+                {
+                    const auto& pts = v->points();
+                    for (size_t i = 0; i < pts.size(); i++)
+                    {
+                        const auto& pt      = pts[i];
+                        float       distSqr = (pt - query).sqrNorm();
+                        if (distSqr > search_radius_sqr) continue;
+
+                        out_dists_sqr.push_back(distSqr);
+                        results.push_back(pt);
+                        //  Unique ID for each global index triplet:
+                        resultIndicesOrIDs.push_back(g2plain(p, i));
+                    }
+                }
             }
         };
 
@@ -935,7 +966,7 @@ void SparseVoxelPointCloud::TLikelihoodOptions::writeToStream(
 {
     const int8_t version = 0;
     out << version;
-    out << sigma_dist << max_corr_distance << decimation;
+    out << sigma_dist << max_corr_distance << decimation << match_mean;
 }
 
 void SparseVoxelPointCloud::TLikelihoodOptions::readFromStream(
@@ -947,7 +978,7 @@ void SparseVoxelPointCloud::TLikelihoodOptions::readFromStream(
     {
         case 0:
         {
-            in >> sigma_dist >> max_corr_distance >> decimation;
+            in >> sigma_dist >> max_corr_distance >> decimation >> match_mean;
         }
         break;
         default:
@@ -1004,6 +1035,7 @@ void SparseVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
     LOADABLEOPTS_DUMP_VAR(sigma_dist, double);
     LOADABLEOPTS_DUMP_VAR(max_corr_distance, double);
     LOADABLEOPTS_DUMP_VAR(decimation, int);
+    LOADABLEOPTS_DUMP_VAR(match_mean, bool);
 }
 
 void SparseVoxelPointCloud::TRenderOptions::dumpToTextStream(
@@ -1038,6 +1070,7 @@ void SparseVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(
     MRPT_LOAD_CONFIG_VAR(sigma_dist, double, c, s);
     MRPT_LOAD_CONFIG_VAR(max_corr_distance, double, c, s);
     MRPT_LOAD_CONFIG_VAR(decimation, int, c, s);
+    MRPT_LOAD_CONFIG_VAR(match_mean, bool, c, s);
 }
 
 void SparseVoxelPointCloud::TRenderOptions::loadFromConfigFile(
