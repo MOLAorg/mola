@@ -788,20 +788,11 @@ void SparseVoxelPointCloud::nn_radius_search(
 
     if (search_radius_sqr <= 0) return;
 
-    const global_index3d_t idxQuery = coordToGlobalIdx(query);
+    const float radius   = std::sqrt(search_radius_sqr);
+    const auto  diagonal = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) * radius;
 
-    const int maxSearchRadiusInCells =
-        static_cast<int>(std::ceil(std::sqrt(search_radius_sqr) / voxel_size_));
-
-    const global_index3d_t idxs0 =
-        idxQuery - global_index3d_t(
-                       maxSearchRadiusInCells, maxSearchRadiusInCells,
-                       maxSearchRadiusInCells);
-
-    const global_index3d_t idxs1 =
-        idxQuery + global_index3d_t(
-                       maxSearchRadiusInCells, maxSearchRadiusInCells,
-                       maxSearchRadiusInCells);
+    const global_index3d_t idxs0 = coordToGlobalIdx(query - diagonal);
+    const global_index3d_t idxs1 = coordToGlobalIdx(query + diagonal);
 
     auto lambdaCheckCell = [&query, &out_dists_sqr, &results,
                             &resultIndicesOrIDs, search_radius_sqr,
