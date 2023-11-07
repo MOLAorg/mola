@@ -43,11 +43,14 @@ static TCLAP::ValueArg<std::string> arg_kitti_basedir(
     false, "", "", cmd);
 
 static TCLAP::ValueArg<std::string> arg_result_path(
-    "r", "result-path", "The path file to evaluate", true, "result.txt",
-    "result.txt", cmd);
+    "r", "result-tum-path", "File to evaluate, in TUM format", true,
+    "result.txt", "result.txt", cmd);
 
 static TCLAP::ValueArg<int> arg_seq(
     "s", "sequence", "The path file to evaluate", true, 1, "01", cmd);
+
+static TCLAP::SwitchArg argSkipFigures(
+    "", "no-figures", "Skip generating the error figures", cmd);
 
 static std::string kitti_basedir;
 // points to CPose3D path from odometry/slam
@@ -110,7 +113,7 @@ std::vector<Matrix> loadPoses_mrpt(std::string file_name)
 {
     mrpt::poses::CPose3DInterpolator trajectory;
 
-    if (!trajectory.loadFromTextFile(file_name))
+    if (!trajectory.loadFromTextFile_TUM(file_name))
         throw std::runtime_error(mrpt::format(
             "Error loading trajectory from: %s", file_name.c_str()));
 
@@ -445,17 +448,20 @@ void plotPathPlot(string dir, vector<int32_t>& roi, int32_t idx)
     }
 
     // create pdf and crop
-    sprintf(
-        command, "cd %s; ps2pdf %02d.eps %02d_large.pdf", dir.c_str(), idx,
-        idx);
-    system(command);
-    sprintf(
-        command,
-        "bash -c 'cd %s; pdfcrop %02d_large.pdf %02d.pdf > /dev/null 2>&1'",
-        dir.c_str(), idx, idx);
-    system(command);
-    sprintf(command, "cd %s; rm %02d_large.pdf", dir.c_str(), idx);
-    system(command);
+    if (!argSkipFigures.isSet())
+    {
+        sprintf(
+            command, "cd %s; ps2pdf %02d.eps %02d_large.pdf", dir.c_str(), idx,
+            idx);
+        system(command);
+        sprintf(
+            command,
+            "bash -c 'cd %s; pdfcrop %02d_large.pdf %02d.pdf > /dev/null 2>&1'",
+            dir.c_str(), idx, idx);
+        system(command);
+        sprintf(command, "cd %s; rm %02d_large.pdf", dir.c_str(), idx);
+        system(command);
+    }
 }
 
 void saveErrorPlots(
@@ -632,20 +638,24 @@ void plotErrorPlots(string dir, char* prefix)
         }
 
         // create pdf and crop
-        sprintf(
-            command, "cd %s; ps2pdf %s_%s.eps %s_%s_large.pdf", dir.c_str(),
-            prefix, suffix, prefix, suffix);
-        printf("Exec: %s\n", command);
-        system(command);
-        sprintf(
-            command,
-            "bash -c 'cd %s; pdfcrop %s_%s_large.pdf %s_%s.pdf > /dev/null "
-            "2>&1'",
-            dir.c_str(), prefix, suffix, prefix, suffix);
-        system(command);
-        sprintf(
-            command, "cd %s; rm %s_%s_large.pdf", dir.c_str(), prefix, suffix);
-        system(command);
+        if (!argSkipFigures.isSet())
+        {
+            sprintf(
+                command, "cd %s; ps2pdf %s_%s.eps %s_%s_large.pdf", dir.c_str(),
+                prefix, suffix, prefix, suffix);
+            printf("Exec: %s\n", command);
+            system(command);
+            sprintf(
+                command,
+                "bash -c 'cd %s; pdfcrop %s_%s_large.pdf %s_%s.pdf > /dev/null "
+                "2>&1'",
+                dir.c_str(), prefix, suffix, prefix, suffix);
+            system(command);
+            sprintf(
+                command, "cd %s; rm %s_%s_large.pdf", dir.c_str(), prefix,
+                suffix);
+            system(command);
+        }
     }
 }
 
@@ -692,9 +702,12 @@ bool eval()  // string result_sha,Mail* mail)
     string plot_error_dir = result_dir + "/plot_error";
 
     // create output directories
-    system(("mkdir " + error_dir).c_str());
-    system(("mkdir " + plot_path_dir).c_str());
-    system(("mkdir " + plot_error_dir).c_str());
+    if (!mrpt::system::directoryExists(error_dir))
+        mrpt::system::createDirectory(error_dir);
+    if (!mrpt::system::directoryExists(plot_path_dir))
+        mrpt::system::createDirectory(plot_path_dir);
+    if (!mrpt::system::directoryExists(plot_error_dir))
+        mrpt::system::createDirectory(plot_error_dir);
 
     // total errors
     vector<errors> total_err;
@@ -736,7 +749,7 @@ bool eval()  // string result_sha,Mail* mail)
         total_err.insert(total_err.end(), seq_err.begin(), seq_err.end());
 
         // for first half => plot trajectory and compute individual stats
-        if (i <= 15)
+        if (i <= 15 && !argSkipFigures.isSet())
         {
             // save + plot bird's eye view trajectories
             savePathPlot(
