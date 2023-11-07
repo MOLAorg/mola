@@ -44,17 +44,16 @@ static TCLAP::ValueArg<std::string> arg_kitti_basedir(
 
 static TCLAP::ValueArg<std::string> arg_result_path(
     "r", "result-tum-path", "File to evaluate, in TUM format", true,
-    "result.txt", "result.txt", cmd);
+    "result.txt|result_%02i.txt", "result.txt", cmd);
 
-static TCLAP::ValueArg<int> arg_seq(
-    "s", "sequence", "The path file to evaluate", true, 1, "01", cmd);
+static TCLAP::MultiArg<int> arg_seq(
+    "s", "sequence", "The path(s) file(s) to evaluate", true, "01", cmd);
 
 static TCLAP::SwitchArg argSkipFigures(
     "", "no-figures", "Skip generating the error figures", cmd);
 
 static std::string kitti_basedir;
 // points to CPose3D path from odometry/slam
-static std::string result_path_file;
 
 static bool eval();
 
@@ -81,10 +80,6 @@ static void do_kitti_eval_error()
 
     // ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "sequences"s);
     ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "/gt-poses"s);
-
-    result_path_file = arg_result_path.getValue();
-
-    ASSERT_FILE_EXISTS_(result_path_file);
 
     // Run evaluation
     eval();
@@ -713,10 +708,8 @@ bool eval()  // string result_sha,Mail* mail)
     vector<errors> total_err;
 
     // for all sequences do
-    // for (int32_t i=11; i<22; i++) {
+    for (int32_t i : arg_seq.getValue())
     {
-        int32_t i = arg_seq.getValue();
-
         // file name
         char file_name[256];
         sprintf(file_name, "%02d.txt", i);
@@ -724,7 +717,7 @@ bool eval()  // string result_sha,Mail* mail)
         // read ground truth and result poses
         vector<Matrix> poses_gt = loadPoses(gt_dir + "/" + file_name);
         vector<Matrix> poses_result =
-            loadPoses_mrpt(arg_result_path.getValue());
+            loadPoses_mrpt(mrpt::format(arg_result_path.getValue().c_str(), i));
 
         // plot status
         printf(
