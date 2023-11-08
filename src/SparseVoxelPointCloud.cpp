@@ -65,8 +65,13 @@ void SparseVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
     const std::string sSectCreation = sectionPrefix + "_creationOpts"s;
     MRPT_LOAD_CONFIG_VAR(voxel_size, float, s, sSectCreation);
 
+    ASSERT_(s.sectionExists(sectionPrefix + "_insertionOpts"s));
     insertionOpts.loadFromConfigFile(s, sectionPrefix + "_insertionOpts"s);
+
+    ASSERT_(s.sectionExists(sectionPrefix + "_likelihoodOpts"s));
     likelihoodOpts.loadFromConfigFile(s, sectionPrefix + "_likelihoodOpts"s);
+
+    ASSERT_(s.sectionExists(sectionPrefix + "_renderOpts"s));
     renderOpts.loadFromConfigFile(s, sectionPrefix + "_renderOpts"s);
 }
 
@@ -92,6 +97,7 @@ mrpt::maps::CMetricMap::Ptr
     obj->insertionOptions  = def->insertionOpts;
     obj->likelihoodOptions = def->likelihoodOpts;
     obj->renderOptions     = def->renderOpts;
+
     return obj;
 }
 //  =========== End of Map definition Block =========
@@ -399,8 +405,7 @@ bool SparseVoxelPointCloud::internal_insertObservation(
         // Empty point set, or load from XYZ in observation:
         if (o.hasPoints3D)
         {
-            for (size_t i = 0; i < o.points3D_x.size();
-                 i += insertionOptions.decimation)
+            for (size_t i = 0; i < o.points3D_x.size(); i++)
                 this->insertPoint(robotPose3D.composePoint(
                     {o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]}));
 
@@ -434,8 +439,7 @@ bool SparseVoxelPointCloud::internal_insertObservation(
         if (!o.point_cloud.size())
             const_cast<CObservationVelodyneScan&>(o).generatePointCloud();
 
-        for (size_t i = 0; i < o.point_cloud.x.size();
-             i += insertionOptions.decimation)
+        for (size_t i = 0; i < o.point_cloud.x.size(); i++)
         {
             insertPoint(robotPose3D.composePoint(
                 {o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]}));
@@ -452,7 +456,7 @@ bool SparseVoxelPointCloud::internal_insertObservation(
         const auto& ys = o.pointcloud->getPointsBufferRef_y();
         const auto& zs = o.pointcloud->getPointsBufferRef_z();
 
-        for (size_t i = 0; i < xs.size(); i += insertionOptions.decimation)
+        for (size_t i = 0; i < xs.size(); i++)
         {
             insertPoint(robotPose3D.composePoint({xs[i], ys[i], zs[i]}));
         }
@@ -626,8 +630,6 @@ void SparseVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
     auto& v = voxelByCoords(pt);
 
     const auto nPreviousPoints = v.points().size();
-
-    MRPT_TODO("distance filter check. cached sqr in insertionOpts");
 
     if (insertionOptions.max_points_per_voxel == 0 ||
         nPreviousPoints < insertionOptions.max_points_per_voxel)
@@ -917,7 +919,7 @@ void SparseVoxelPointCloud::TInsertionOptions::writeToStream(
 {
     const int8_t version = 0;
     out << version;
-    out << max_distance_ << decimation << max_points_per_voxel;
+    out << max_points_per_voxel;
 }
 
 void SparseVoxelPointCloud::TInsertionOptions::readFromStream(
@@ -929,9 +931,7 @@ void SparseVoxelPointCloud::TInsertionOptions::readFromStream(
     {
         case 0:
         {
-            in >> max_distance_ >> decimation >> max_points_per_voxel;
-
-            max_distance_sqr_ = mrpt::square(max_distance_);
+            in >> max_points_per_voxel;
         }
         break;
         default:
@@ -999,8 +999,6 @@ void SparseVoxelPointCloud::TInsertionOptions::dumpToTextStream(
     out << "\n------ [SparseVoxelPointCloud::TInsertionOptions] ------- "
            "\n\n";
 
-    LOADABLEOPTS_DUMP_VAR(max_distance(), double);
-    LOADABLEOPTS_DUMP_VAR(decimation, int);
     LOADABLEOPTS_DUMP_VAR(max_points_per_voxel, int);
 }
 
@@ -1034,11 +1032,6 @@ void SparseVoxelPointCloud::TRenderOptions::dumpToTextStream(
 void SparseVoxelPointCloud::TInsertionOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
-    float max_distance = max_distance_;
-    MRPT_LOAD_CONFIG_VAR(max_distance, double, c, s);
-    this->max_distance(max_distance);
-
-    MRPT_LOAD_CONFIG_VAR(decimation, int, c, s);
     MRPT_LOAD_CONFIG_VAR(max_points_per_voxel, int, c, s);
 }
 
@@ -1070,7 +1063,7 @@ void SparseVoxelPointCloud::internal_insertPointCloud3D(
 {
     MRPT_TRY_START
 
-    for (std::size_t i = 0; i < num_pts; i += insertionOptions.decimation)
+    for (std::size_t i = 0; i < num_pts; i++)
     {
         // Transform the point from the scan reference to its global 3D
         // position:

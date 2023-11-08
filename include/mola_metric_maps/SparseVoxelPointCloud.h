@@ -441,29 +441,10 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
         void writeToStream(mrpt::serialization::CArchive& out) const;
         void readFromStream(mrpt::serialization::CArchive& in);
 
-        /** Maximum insertion distance for points, wrt the sensor location
-         *  , in meters. Default=0 means no filtering.
-         */
-        void max_distance(float v)
-        {
-            max_distance_     = v;
-            max_distance_sqr_ = v * v;
-        }
-        float max_distance() const { return max_distance_; }
-        float max_distance_sqr() const { return max_distance_sqr_; }
-
-        /** Speed up the insertion by skipping points and only inserting
-         *  one out of "decimation" points. Default=1 means insert them all.
-         */
-        uint32_t decimation = 1;
-
         /** Maximum number of points per voxel. 0 means no limit (up to the
-         * compile-time limit SSO_LENGTH).
+         * compile-time limit HARDLIMIT_MAX_POINTS_PER_VOXEL).
          */
         uint32_t max_points_per_voxel = 0;
-
-       private:
-        float max_distance_ = .0f, max_distance_sqr_ = .0f;
     };
     TInsertionOptions insertionOptions;
 
