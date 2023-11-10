@@ -677,6 +677,9 @@ void saveStats(vector<errors> err, string dir)
     fprintf(fp, "%% Overall error: trans_error (percent)  rot_error\n");
     fprintf(fp, "%f  %f\n", 100 * t_err / num, r_err / num);
 
+    printf("%% Overall error: trans_error (percent)  rot_error\n");
+    printf("%f  %f\n", 100 * t_err / num, r_err / num);
+
     // close file
     fclose(fp);
 }
