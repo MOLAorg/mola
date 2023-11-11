@@ -19,13 +19,13 @@
  * ------------------------------------------------------------------------- */
 
 /**
- * @file   SparseVoxelPointCloud.cpp
- * @brief  Point cloud stored as a dual-resolution voxel map
+ * @file   SparseTreesPointCloud.cpp
+ * @brief  Point cloud stored as a 3D grid of KD-trees/pointclouds
  * @author Jose Luis Blanco Claraco
- * @date   Oct 31, 2023
+ * @date   Nov 11, 2023
  */
 
-#include <mola_metric_maps/SparseVoxelPointCloud.h>
+#include <mola_metric_maps/SparseTreesPointCloud.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/CHistogram.h>
@@ -45,25 +45,25 @@
 
 #ifdef USE_DEBUG_PROFILER
 #include <mrpt/system/CTimeLogger.h>
-static mrpt::system::CTimeLogger profiler(true, "SparseVoxelPointCloud");
+static mrpt::system::CTimeLogger profiler(true, "SparseTreesPointCloud");
 #endif
 
 using namespace mola;
 
 //  =========== Begin of Map definition ============
 MAP_DEFINITION_REGISTER(
-    "mola::SparseVoxelPointCloud,SparseVoxelPointCloud",
-    mola::SparseVoxelPointCloud)
+    "mola::SparseTreesPointCloud,SparseTreesPointCloud",
+    mola::SparseTreesPointCloud)
 
-SparseVoxelPointCloud::TMapDefinition::TMapDefinition() = default;
-void SparseVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
+SparseTreesPointCloud::TMapDefinition::TMapDefinition() = default;
+void SparseTreesPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
     const mrpt::config::CConfigFileBase& s, const std::string& sectionPrefix)
 {
     using namespace std::string_literals;
 
     // [<sectionNamePrefix>+"_creationOpts"]
     const std::string sSectCreation = sectionPrefix + "_creationOpts"s;
-    MRPT_LOAD_CONFIG_VAR(voxel_size, float, s, sSectCreation);
+    MRPT_LOAD_CONFIG_VAR(grid_size, float, s, sSectCreation);
 
     ASSERT_(s.sectionExists(sectionPrefix + "_insertionOpts"s));
     insertionOpts.loadFromConfigFile(s, sectionPrefix + "_insertionOpts"s);
@@ -75,10 +75,10 @@ void SparseVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
     renderOpts.loadFromConfigFile(s, sectionPrefix + "_renderOpts"s);
 }
 
-void SparseVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
+void SparseTreesPointCloud::TMapDefinition::dumpToTextStream_map_specific(
     std::ostream& out) const
 {
-    LOADABLEOPTS_DUMP_VAR(voxel_size, float);
+    LOADABLEOPTS_DUMP_VAR(grid_size, float);
 
     insertionOpts.dumpToTextStream(out);
     likelihoodOpts.dumpToTextStream(out);
@@ -86,13 +86,13 @@ void SparseVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
 }
 
 mrpt::maps::CMetricMap::Ptr
-    SparseVoxelPointCloud::internal_CreateFromMapDefinition(
+    SparseTreesPointCloud::internal_CreateFromMapDefinition(
         const mrpt::maps::TMetricMapInitializer& _def)
 {
-    const SparseVoxelPointCloud::TMapDefinition* def =
-        dynamic_cast<const SparseVoxelPointCloud::TMapDefinition*>(&_def);
+    const SparseTreesPointCloud::TMapDefinition* def =
+        dynamic_cast<const SparseTreesPointCloud::TMapDefinition*>(&_def);
     ASSERT_(def);
-    auto obj = SparseVoxelPointCloud::Create(def->voxel_size);
+    auto obj = SparseTreesPointCloud::Create(def->grid_size);
 
     obj->insertionOptions  = def->insertionOpts;
     obj->likelihoodOptions = def->likelihoodOpts;
@@ -102,18 +102,18 @@ mrpt::maps::CMetricMap::Ptr
 }
 //  =========== End of Map definition Block =========
 
-IMPLEMENTS_SERIALIZABLE(SparseVoxelPointCloud, CMetricMap, mola)
+IMPLEMENTS_SERIALIZABLE(SparseTreesPointCloud, CMetricMap, mola)
 
 // =====================================
 // Serialization
 // =====================================
 
-uint8_t SparseVoxelPointCloud::serializeGetVersion() const { return 0; }
-void    SparseVoxelPointCloud::serializeTo(
+uint8_t SparseTreesPointCloud::serializeGetVersion() const { return 0; }
+void    SparseTreesPointCloud::serializeTo(
     mrpt::serialization::CArchive& out) const
 {
     // params:
-    out << INNER_GRID_BIT_COUNT << voxel_size_;
+    out << GLOBAL_ID_SUBVOXEL_BITCOUNT << grid_size_;
     insertionOptions.writeToStream(out);
     likelihoodOptions.writeToStream(out);
     renderOptions.writeToStream(out);
@@ -123,17 +123,10 @@ void    SparseVoxelPointCloud::serializeTo(
     for (const auto& kv : grids_)
     {
         out << kv.first.cx << kv.first.cy << kv.first.cz;
-
-        const auto* cells = kv.second.cells();
-        for (size_t i = 0; i < kv.second.TOTAL_CELL_COUNT; i++)
-        {
-            const auto& pts = cells[i].points();
-            out.WriteAs<uint16_t>(pts.size());
-            for (const auto& pt : pts) out << pt.x << pt.y << pt.z;
-        }
+        out << kv.second.points();
     }
 }
-void SparseVoxelPointCloud::serializeFrom(
+void SparseTreesPointCloud::serializeFrom(
     mrpt::serialization::CArchive& in, uint8_t version)
 {
     switch (version)
@@ -141,13 +134,13 @@ void SparseVoxelPointCloud::serializeFrom(
         case 0:
         {
             // params:
-            const auto expected_inner_grid_bit_count = in.ReadAs<uint32_t>();
-            ASSERT_EQUAL_(expected_inner_grid_bit_count, INNER_GRID_BIT_COUNT);
+            const auto expected_grid_bit_count = in.ReadAs<uint32_t>();
+            ASSERT_EQUAL_(expected_grid_bit_count, GLOBAL_ID_SUBVOXEL_BITCOUNT);
 
-            in >> voxel_size_;
+            in >> grid_size_;
 
             // clear contents and compute computed fields:
-            this->setVoxelProperties(voxel_size_);
+            this->setGridProperties(grid_size_);
 
             insertionOptions.readFromStream(in);
             likelihoodOptions.readFromStream(in);
@@ -161,19 +154,7 @@ void SparseVoxelPointCloud::serializeFrom(
                 in >> idx.cx >> idx.cy >> idx.cz;
 
                 auto& grid = grids_[idx];
-
-                auto* cells = grid.cells();
-
-                for (size_t k = 0; k < grid.TOTAL_CELL_COUNT; k++)
-                {
-                    const auto nPts = in.ReadAs<uint16_t>();
-                    for (size_t j = 0; j < nPts; j++)
-                    {
-                        float x, y, z;
-                        in >> x >> y >> z;
-                        cells[k].insertPoint({x, y, z});
-                    }
-                }
+                in >> grid.points();
             }
         }
         break;
@@ -187,50 +168,40 @@ void SparseVoxelPointCloud::serializeFrom(
 
 // VoxelData
 
-void SparseVoxelPointCloud::VoxelData::insertPoint(
+void SparseTreesPointCloud::GridData::insertPoint(
     const mrpt::math::TPoint3Df& p)
 {
-    if (numPoints_ >= points_.size()) return;
-
-    mean_ = (numPoints_ * mean_ + p);
-
-    points_[numPoints_++] = p;
-    mean_ *= 1.0f / numPoints_;
+    points_.insertPoint(p);
 }
 
 // Ctor:
-SparseVoxelPointCloud::SparseVoxelPointCloud(float voxel_size)
+SparseTreesPointCloud::SparseTreesPointCloud(float grid_size)
 {
-    setVoxelProperties(voxel_size);
+    setGridProperties(grid_size);
 }
 
-SparseVoxelPointCloud::~SparseVoxelPointCloud() = default;
+SparseTreesPointCloud::~SparseTreesPointCloud() = default;
 
-void SparseVoxelPointCloud::setVoxelProperties(float voxel_size)
+void SparseTreesPointCloud::setGridProperties(float grid_size)
 {
-    voxel_size_ = voxel_size;
+    grid_size_ = grid_size;
 
     // calculated fields:
-    voxel_size_inv_ = 1.0f / voxel_size_;
-    voxel_size_sqr_ = voxel_size_ * voxel_size_;
-    halfVoxel_ = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) * (0.5f * voxel_size_);
-
-    gridSizeMinusHalf_ = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) *
-                             (voxel_size_ * INNER_GRID_SIDE) -
-                         halfVoxel_;
+    grid_size_inv_ = 1.0f / grid_size;
+    gridVector_    = mrpt::math::TVector3D(1.0, 1.0, 1.0) * grid_size_;
 
     // clear all:
-    SparseVoxelPointCloud::internal_clear();
+    SparseTreesPointCloud::internal_clear();
 }
 
-std::string SparseVoxelPointCloud::asString() const
+std::string SparseTreesPointCloud::asString() const
 {
     return mrpt::format(
-        "SparseVoxelPointCloud, resolution=%.03f bbox=%s", voxel_size_,
+        "SparseTreesPointCloud, grid_size=%.03f bbox=%s", grid_size_,
         boundingBox().asString().c_str());
 }
 
-void SparseVoxelPointCloud::getVisualizationInto(
+void SparseTreesPointCloud::getVisualizationInto(
     mrpt::opengl::CSetOfObjects& outObj) const
 {
     MRPT_START
@@ -241,25 +212,10 @@ void SparseVoxelPointCloud::getVisualizationInto(
         // Single color:
         auto obj = mrpt::opengl::CPointCloud::Create();
 
-        if (renderOptions.show_mean_only)
-        {
-            const auto lambdaVisitVoxels = [&obj](
-                                               const outer_index3d_t&,
-                                               const inner_plain_index_t,
-                                               const VoxelData& v) {
-                // Insert the mean/average point:
-                if (!v.points().empty()) obj->insertPoint(v.mean());
-            };
-            this->visitAllVoxels(lambdaVisitVoxels);
-        }
-        else
-        {
-            const auto lambdaVisitPoints =
-                [&obj](const mrpt::math::TPoint3Df& pt) {
-                    obj->insertPoint(pt);
-                };
-            this->visitAllPoints(lambdaVisitPoints);
-        }
+        const auto lambdaVisitPoints = [&obj](const mrpt::math::TPoint3Df& pt) {
+            obj->insertPoint(pt);
+        };
+        this->visitAllPoints(lambdaVisitPoints);
 
         obj->setColor(renderOptions.color);
         obj->setPointSize(renderOptions.point_size);
@@ -280,30 +236,14 @@ void SparseVoxelPointCloud::getVisualizationInto(
             mrpt::math::CHistogram(bb.min.y, bb.max.y, nBins),
             mrpt::math::CHistogram(bb.min.z, bb.max.z, nBins)};
 
-        if (renderOptions.show_mean_only)
-        {
-            const auto lambdaVisitVoxels = [&obj, &hists](
-                                               const outer_index3d_t&,
-                                               const inner_plain_index_t,
-                                               const VoxelData& v) {
-                if (v.points().empty()) return;
-                const auto& m = v.mean();
-                obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
-                for (int i = 0; i < 3; i++) hists[i].add(m[i]);
+        const auto lambdaVisitPoints =
+            [&obj, &hists](const mrpt::math::TPoint3Df& pt) {
+                // x y z R G B [A]
+                obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+                for (int i = 0; i < 3; i++) hists[i].add(pt[i]);
             };
-            this->visitAllVoxels(lambdaVisitVoxels);
-        }
-        else
-        {
-            const auto lambdaVisitPoints =
-                [&obj, &hists](const mrpt::math::TPoint3Df& pt) {
-                    // x y z R G B [A]
-                    obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
-                    for (int i = 0; i < 3; i++) hists[i].add(pt[i]);
-                };
 
-            this->visitAllPoints(lambdaVisitPoints);
-        }
+        this->visitAllPoints(lambdaVisitPoints);
 
         obj->setPointSize(renderOptions.point_size);
 
@@ -329,15 +269,13 @@ void SparseVoxelPointCloud::getVisualizationInto(
     if (renderOptions.show_inner_grid_boxes)
     {
         auto lambdaForEachGrid =
-            [this, &outObj](const outer_index3d_t& idxs, const InnerGrid&) {
-                const mrpt::math::TPoint3Df voxelCenter =
-                    globalIdxToCoord(idxs);
+            [this, &outObj](const outer_index3d_t& idxs, const GridData&) {
+                const mrpt::math::TPoint3Df gridCorner = outerIdxToCoord(idxs);
 
                 auto glBox = mrpt::opengl::CBox::Create();
                 glBox->setWireframe(true);
-                glBox->setBoxCorners(
-                    (voxelCenter - halfVoxel_).cast<double>(),
-                    (voxelCenter + gridSizeMinusHalf_).cast<double>());
+                const auto org = gridCorner.cast<double>();
+                glBox->setBoxCorners(org, org + gridVector_);
 
                 outObj.insert(glBox);
             };
@@ -347,9 +285,9 @@ void SparseVoxelPointCloud::getVisualizationInto(
     MRPT_END
 }
 
-void SparseVoxelPointCloud::internal_clear() { grids_.clear(); }
+void SparseTreesPointCloud::internal_clear() { grids_.clear(); }
 
-bool SparseVoxelPointCloud::internal_insertObservation(
+bool SparseTreesPointCloud::internal_insertObservation(
     const mrpt::obs::CObservation&                   obs,
     const std::optional<const mrpt::poses::CPose3D>& robotPose)
 {
@@ -474,7 +412,7 @@ bool SparseVoxelPointCloud::internal_insertObservation(
     MRPT_END
 }
 
-double SparseVoxelPointCloud::internal_computeObservationLikelihood(
+double SparseTreesPointCloud::internal_computeObservationLikelihood(
     const mrpt::obs::CObservation& obs,
     const mrpt::poses::CPose3D&    takenFrom) const
 {
@@ -546,7 +484,7 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihood(
     return .0;
 }
 
-double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
+double SparseTreesPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
     const float* zs, const std::size_t num_pts) const
 {
@@ -585,7 +523,7 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     MRPT_TRY_END
 }
 
-bool SparseVoxelPointCloud::internal_canComputeObservationLikelihood(
+bool SparseTreesPointCloud::internal_canComputeObservationLikelihood(
     const mrpt::obs::CObservation& obs) const
 {
     using namespace mrpt::obs;
@@ -595,13 +533,13 @@ bool SparseVoxelPointCloud::internal_canComputeObservationLikelihood(
            IS_CLASS(obs, CObservationPointCloud);
 }
 
-bool SparseVoxelPointCloud::isEmpty() const
+bool SparseTreesPointCloud::isEmpty() const
 {
     // empty if no voxels exist:
     return grids_.empty();
 }
 
-void SparseVoxelPointCloud::saveMetricMapRepresentationToFile(
+void SparseTreesPointCloud::saveMetricMapRepresentationToFile(
     const std::string& filNamePrefix) const
 {
     using namespace std::string_literals;
@@ -610,7 +548,7 @@ void SparseVoxelPointCloud::saveMetricMapRepresentationToFile(
     saveToTextFile(fil);
 }
 
-bool SparseVoxelPointCloud::saveToTextFile(const std::string& file) const
+bool SparseTreesPointCloud::saveToTextFile(const std::string& file) const
 {
     FILE* f = mrpt::system::os::fopen(file.c_str(), "wt");
     if (!f) return false;
@@ -625,53 +563,34 @@ bool SparseVoxelPointCloud::saveToTextFile(const std::string& file) const
     return true;
 }
 
-void SparseVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
-{
-    auto& v = voxelByCoords(pt);
-
-    const auto nPreviousPoints = v.points().size();
-
-    if (insertionOptions.max_points_per_voxel == 0 ||
-        nPreviousPoints < insertionOptions.max_points_per_voxel)
-    {
-        v.insertPoint(pt);
-
-        // Also, update bbox:
-        if (!cached_.boundingBox_.has_value())
-            cached_.boundingBox_.emplace(pt, pt);
-        else
-            cached_.boundingBox_->updateWithPoint(pt);
-    }
-}
-
-bool SparseVoxelPointCloud::nn_has_indices_or_ids() const
+bool SparseTreesPointCloud::nn_has_indices_or_ids() const
 {  // false: IDs, not contiguous indices
     return false;
 }
 
-size_t SparseVoxelPointCloud::nn_index_count() const
+size_t SparseTreesPointCloud::nn_index_count() const
 {  // Not used.
     return 0;
 }
 
-bool SparseVoxelPointCloud::nn_single_search(
+bool SparseTreesPointCloud::nn_single_search(
     [[maybe_unused]] const mrpt::math::TPoint2Df& query,
     [[maybe_unused]] mrpt::math::TPoint2Df&       result,
     [[maybe_unused]] float&                       out_dist_sqr,
     [[maybe_unused]] uint64_t&                    resultIndexOrID) const
 {
-    THROW_EXCEPTION("Cannot run a 2D search on a SparseVoxelPointCloud");
+    THROW_EXCEPTION("Cannot run a 2D search on a SparseTreesPointCloud");
 }
-void SparseVoxelPointCloud::nn_multiple_search(
+void SparseTreesPointCloud::nn_multiple_search(
     [[maybe_unused]] const mrpt::math::TPoint2Df&        query,
     [[maybe_unused]] const size_t                        N,
     [[maybe_unused]] std::vector<mrpt::math::TPoint2Df>& results,
     [[maybe_unused]] std::vector<float>&                 out_dists_sqr,
     [[maybe_unused]] std::vector<uint64_t>& resultIndicesOrIDs) const
 {
-    THROW_EXCEPTION("Cannot run a 2D search on a SparseVoxelPointCloud");
+    THROW_EXCEPTION("Cannot run a 2D search on a SparseTreesPointCloud");
 }
-void SparseVoxelPointCloud::nn_radius_search(
+void SparseTreesPointCloud::nn_radius_search(
     [[maybe_unused]] const mrpt::math::TPoint2Df&        query,
     [[maybe_unused]] const float                         search_radius_sqr,
     [[maybe_unused]] std::vector<mrpt::math::TPoint2Df>& results,
@@ -679,10 +598,10 @@ void SparseVoxelPointCloud::nn_radius_search(
     [[maybe_unused]] std::vector<uint64_t>&              resultIndicesOrIDs,
     [[maybe_unused]] size_t                              maxPoints) const
 {
-    THROW_EXCEPTION("Cannot run a 2D search on a SparseVoxelPointCloud");
+    THROW_EXCEPTION("Cannot run a 2D search on a SparseTreesPointCloud");
 }
 
-bool SparseVoxelPointCloud::nn_single_search(
+bool SparseTreesPointCloud::nn_single_search(
     const mrpt::math::TPoint3Df& query, mrpt::math::TPoint3Df& result,
     float& out_dist_sqr, uint64_t& resultIndexOrID) const
 {
@@ -697,17 +616,18 @@ bool SparseVoxelPointCloud::nn_single_search(
     return true;
 }
 
-void SparseVoxelPointCloud::nn_multiple_search(
-    const mrpt::math::TPoint3Df& query, const size_t N,
-    std::vector<mrpt::math::TPoint3Df>& results,
-    std::vector<float>&                 out_dists_sqr,
-    std::vector<uint64_t>&              resultIndicesOrIDs) const
+void SparseTreesPointCloud::nn_multiple_search(
+    [[maybe_unused]] const mrpt::math::TPoint3Df&        query,
+    [[maybe_unused]] const size_t                        N,
+    [[maybe_unused]] std::vector<mrpt::math::TPoint3Df>& results,
+    [[maybe_unused]] std::vector<float>&                 out_dists_sqr,
+    [[maybe_unused]] std::vector<uint64_t>& resultIndicesOrIDs) const
 {
     // It's hard to implement this in an efficient way without a bound radius:
     THROW_EXCEPTION("n-search not available in this map type");
 }
 
-void SparseVoxelPointCloud::nn_radius_search(
+void SparseTreesPointCloud::nn_radius_search(
     const mrpt::math::TPoint3Df& query, const float search_radius_sqr,
     std::vector<mrpt::math::TPoint3Df>& results,
     std::vector<float>&                 out_dists_sqr,
@@ -722,53 +642,35 @@ void SparseVoxelPointCloud::nn_radius_search(
     const float radius   = std::sqrt(search_radius_sqr);
     const auto  diagonal = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) * radius;
 
-    const global_index3d_t idxs0 = coordToGlobalIdx(query - diagonal);
-    const global_index3d_t idxs1 = coordToGlobalIdx(query + diagonal);
+    const outer_index3d_t idxs0 = coordToOuterIdx(query - diagonal);
+    const outer_index3d_t idxs1 = coordToOuterIdx(query + diagonal);
 
-    // Used if maxPoints!=0 to sort them by distance:
+    // Used to sort all candidates by distance:
     std::map<
         float /*distSqr*/, std::pair<mrpt::math::TPoint3Df, uint64_t /*id*/>>
         candidates;
 
     auto lmbAddCandidate = [&](const float                  distSqr,
                                const mrpt::math::TPoint3Df& pt, uint64_t id) {
-        if (maxPoints != 0) { candidates[distSqr] = {pt, id}; }
-        else
-        {
-            out_dists_sqr.push_back(distSqr);
-            results.push_back(pt);
-            resultIndicesOrIDs.push_back(id);
-        }
+        candidates[distSqr] = {pt, id};
     };
 
-    auto lambdaCheckCell = [&](const global_index3d_t& p) {
-        if (auto* v = voxelByGlobalIdxs(p, false); v && !v->points().empty())
-        {
-            if (likelihoodOptions.match_mean)
-            {
-                const auto& m       = v->mean();
-                const float distSqr = (m - query).sqrNorm();
-                if (distSqr > search_radius_sqr) return;
-                //  Unique ID for each global index triplet
-                const auto id = g2plain(p);
-                lmbAddCandidate(distSqr, m, id);
-            }
-            else
-            {
-                const auto& pts = v->points();
-                for (size_t i = 0; i < pts.size(); i++)
-                {
-                    const auto& pt      = pts[i];
-                    float       distSqr = (pt - query).sqrNorm();
-                    if (distSqr > search_radius_sqr) continue;
+    auto lambdaCheckCell = [&](const outer_index3d_t& p) {
+        auto* g = gridByOuterIdxs(p, false);
+        if (!g) return;
 
-                    out_dists_sqr.push_back(distSqr);
-                    results.push_back(pt);
-                    //  Unique ID for each global index triplet:
-                    resultIndicesOrIDs.push_back(g2plain(p, i));
-                }
-            }
-        }
+        std::vector<mrpt::math::TPoint3Df> sub_results;
+        std::vector<float>                 sub_out_dists_sqr;
+        std::vector<uint64_t>              sub_resultIndicesOrIDs;
+
+        g->points().nn_radius_search(
+            query, search_radius_sqr, sub_results, sub_out_dists_sqr,
+            sub_resultIndicesOrIDs, maxPoints);
+
+        for (size_t i = 0; i < sub_results.size(); i++)
+            lmbAddCandidate(
+                sub_out_dists_sqr[i], sub_results[i],
+                sub_resultIndicesOrIDs[i]);
     };
 
     for (int32_t cx = idxs0.cx; cx <= idxs1.cx; cx++)
@@ -776,19 +678,15 @@ void SparseVoxelPointCloud::nn_radius_search(
             for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
                 lambdaCheckCell({cx, cy, cz});
 
-    if (maxPoints != 0)
+    for (const auto& kv : candidates)
     {
-        for (const auto& kv : candidates)
-        {
-            if (results.size() >= maxPoints) break;
-            out_dists_sqr.push_back(kv.first);
-            results.push_back(kv.second.first);
-            resultIndicesOrIDs.push_back(kv.second.second);
-        }
+        results.push_back(kv.second.first);
+        out_dists_sqr.push_back(kv.first);
+        resultIndicesOrIDs.push_back(kv.second.second);
     }
 }
 
-mrpt::math::TBoundingBoxf SparseVoxelPointCloud::boundingBox() const
+mrpt::math::TBoundingBoxf SparseTreesPointCloud::boundingBox() const
 {
     if (!cached_.boundingBox_)
     {
@@ -800,63 +698,32 @@ mrpt::math::TBoundingBoxf SparseVoxelPointCloud::boundingBox() const
         }
         else
         {
-            cached_.boundingBox_ =
-                mrpt::math::TBoundingBoxf::PlusMinusInfinity();
-
-            auto lambdaForEachGrid = [this](
-                                         const outer_index3d_t& idxs,
-                                         const InnerGrid&) {
-                const mrpt::math::TPoint3Df voxelCenter =
-                    globalIdxToCoord(idxs);
-
-                cached_.boundingBox_->updateWithPoint(voxelCenter - halfVoxel_);
-                cached_.boundingBox_->updateWithPoint(
-                    voxelCenter + gridSizeMinusHalf_);
-            };
-
-            this->visitAllGrids(lambdaForEachGrid);
+            THROW_EXCEPTION("TO DO");
         }
     }
 
     return cached_.boundingBox_.value();
 }
 
-void SparseVoxelPointCloud::visitAllPoints(
+void SparseTreesPointCloud::visitAllPoints(
     const std::function<void(const mrpt::math::TPoint3Df&)>& f) const
 {
     for (const auto& kv : grids_)
     {
-        const auto&  cells  = kv.second.cells();
-        const size_t nCells = kv.second.TOTAL_CELL_COUNT;
-        for (inner_plain_index_t plainIdx = 0; plainIdx < nCells; plainIdx++)
-        {
-            for (const auto& pt : cells[plainIdx].points())  //
-                f(pt);
-        }
+        const auto& pts = kv.second.points();
+
+        const auto&  xs = pts.getPointsBufferRef_x();
+        const auto&  ys = pts.getPointsBufferRef_x();
+        const auto&  zs = pts.getPointsBufferRef_x();
+        const size_t N  = xs.size();
+
+        for (size_t i = 0; i < N; i++)  //
+            f({xs[i], ys[i], zs[i]});
     }
 }
 
-void SparseVoxelPointCloud::visitAllVoxels(
-    const std::function<void(
-        const outer_index3d_t&, const inner_plain_index_t, const VoxelData&)>&
-        f) const
-{
-    for (const auto& kv : grids_)
-    {
-        const outer_index3d_t outer_idx = kv.first;
-
-        const auto&  cells  = kv.second.cells();
-        const size_t nCells = kv.second.TOTAL_CELL_COUNT;
-        for (inner_plain_index_t plainIdx = 0; plainIdx < nCells; plainIdx++)
-        {
-            f(outer_idx, plainIdx, cells[plainIdx]);
-        }
-    }
-}
-
-void SparseVoxelPointCloud::visitAllGrids(
-    const std::function<void(const outer_index3d_t&, const InnerGrid&)>& f)
-    const
+void SparseTreesPointCloud::visitAllGrids(
+    const std::function<void(const outer_index3d_t&, const GridData&)>& f) const
 {
     for (const auto& kv : grids_)
     {
@@ -866,15 +733,14 @@ void SparseVoxelPointCloud::visitAllGrids(
 }
 
 // ========== Option structures ==========
-void SparseVoxelPointCloud::TInsertionOptions::writeToStream(
+void SparseTreesPointCloud::TInsertionOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
     const int8_t version = 0;
     out << version;
-    out << max_points_per_voxel;
 }
 
-void SparseVoxelPointCloud::TInsertionOptions::readFromStream(
+void SparseTreesPointCloud::TInsertionOptions::readFromStream(
     mrpt::serialization::CArchive& in)
 {
     int8_t version;
@@ -883,7 +749,6 @@ void SparseVoxelPointCloud::TInsertionOptions::readFromStream(
     {
         case 0:
         {
-            in >> max_points_per_voxel;
         }
         break;
         default:
@@ -891,15 +756,15 @@ void SparseVoxelPointCloud::TInsertionOptions::readFromStream(
     }
 }
 
-void SparseVoxelPointCloud::TLikelihoodOptions::writeToStream(
+void SparseTreesPointCloud::TLikelihoodOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
     const int8_t version = 0;
     out << version;
-    out << sigma_dist << max_corr_distance << decimation << match_mean;
+    out << sigma_dist << max_corr_distance << decimation;
 }
 
-void SparseVoxelPointCloud::TLikelihoodOptions::readFromStream(
+void SparseTreesPointCloud::TLikelihoodOptions::readFromStream(
     mrpt::serialization::CArchive& in)
 {
     int8_t version;
@@ -908,7 +773,7 @@ void SparseVoxelPointCloud::TLikelihoodOptions::readFromStream(
     {
         case 0:
         {
-            in >> sigma_dist >> max_corr_distance >> decimation >> match_mean;
+            in >> sigma_dist >> max_corr_distance >> decimation;
         }
         break;
         default:
@@ -916,16 +781,16 @@ void SparseVoxelPointCloud::TLikelihoodOptions::readFromStream(
     }
 }
 
-void SparseVoxelPointCloud::TRenderOptions::writeToStream(
+void SparseTreesPointCloud::TRenderOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
     const int8_t version = 0;
     out << version;
-    out << point_size << show_mean_only << show_inner_grid_boxes << color
-        << int8_t(colormap) << recolorizeByCoordinateIndex;
+    out << point_size << show_inner_grid_boxes << color << int8_t(colormap)
+        << recolorizeByCoordinateIndex;
 }
 
-void SparseVoxelPointCloud::TRenderOptions::readFromStream(
+void SparseTreesPointCloud::TRenderOptions::readFromStream(
     mrpt::serialization::CArchive& in)
 {
     int8_t version;
@@ -934,7 +799,7 @@ void SparseVoxelPointCloud::TRenderOptions::readFromStream(
     {
         case 0:
         {
-            in >> point_size >> show_mean_only >> show_inner_grid_boxes;
+            in >> point_size >> show_inner_grid_boxes;
             in >> this->color;
             in.ReadAsAndCastTo<int8_t>(this->colormap);
             in >> recolorizeByCoordinateIndex;
@@ -945,34 +810,30 @@ void SparseVoxelPointCloud::TRenderOptions::readFromStream(
     }
 }
 
-void SparseVoxelPointCloud::TInsertionOptions::dumpToTextStream(
+void SparseTreesPointCloud::TInsertionOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseVoxelPointCloud::TInsertionOptions] ------- "
+    out << "\n------ [SparseTreesPointCloud::TInsertionOptions] ------- "
            "\n\n";
-
-    LOADABLEOPTS_DUMP_VAR(max_points_per_voxel, int);
 }
 
-void SparseVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
+void SparseTreesPointCloud::TLikelihoodOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseVoxelPointCloud::TLikelihoodOptions] ------- "
+    out << "\n------ [SparseTreesPointCloud::TLikelihoodOptions] ------- "
            "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(sigma_dist, double);
     LOADABLEOPTS_DUMP_VAR(max_corr_distance, double);
     LOADABLEOPTS_DUMP_VAR(decimation, int);
-    LOADABLEOPTS_DUMP_VAR(match_mean, bool);
 }
 
-void SparseVoxelPointCloud::TRenderOptions::dumpToTextStream(
+void SparseTreesPointCloud::TRenderOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseVoxelPointCloud::TRenderOptions] ------- \n\n";
+    out << "\n------ [SparseTreesPointCloud::TRenderOptions] ------- \n\n";
 
     LOADABLEOPTS_DUMP_VAR(point_size, float);
-    LOADABLEOPTS_DUMP_VAR(show_mean_only, bool);
     LOADABLEOPTS_DUMP_VAR(show_inner_grid_boxes, bool);
     LOADABLEOPTS_DUMP_VAR(color.R, float);
     LOADABLEOPTS_DUMP_VAR(color.G, float);
@@ -981,26 +842,24 @@ void SparseVoxelPointCloud::TRenderOptions::dumpToTextStream(
     LOADABLEOPTS_DUMP_VAR(recolorizeByCoordinateIndex, int);
 }
 
-void SparseVoxelPointCloud::TInsertionOptions::loadFromConfigFile(
-    const mrpt::config::CConfigFileBase& c, const std::string& s)
+void SparseTreesPointCloud::TInsertionOptions::loadFromConfigFile(
+    [[maybe_unused]] const mrpt::config::CConfigFileBase& c,
+    [[maybe_unused]] const std::string&                   s)
 {
-    MRPT_LOAD_CONFIG_VAR(max_points_per_voxel, int, c, s);
 }
 
-void SparseVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(
+void SparseTreesPointCloud::TLikelihoodOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
     MRPT_LOAD_CONFIG_VAR(sigma_dist, double, c, s);
     MRPT_LOAD_CONFIG_VAR(max_corr_distance, double, c, s);
     MRPT_LOAD_CONFIG_VAR(decimation, int, c, s);
-    MRPT_LOAD_CONFIG_VAR(match_mean, bool, c, s);
 }
 
-void SparseVoxelPointCloud::TRenderOptions::loadFromConfigFile(
+void SparseTreesPointCloud::TRenderOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
     MRPT_LOAD_CONFIG_VAR(point_size, float, c, s);
-    MRPT_LOAD_CONFIG_VAR(show_mean_only, bool, c, s);
     MRPT_LOAD_CONFIG_VAR(show_inner_grid_boxes, bool, c, s);
     MRPT_LOAD_CONFIG_VAR(color.R, float, c, s);
     MRPT_LOAD_CONFIG_VAR(color.G, float, c, s);
@@ -1009,7 +868,7 @@ void SparseVoxelPointCloud::TRenderOptions::loadFromConfigFile(
     MRPT_LOAD_CONFIG_VAR(recolorizeByCoordinateIndex, int, c, s);
 }
 
-void SparseVoxelPointCloud::internal_insertPointCloud3D(
+void SparseTreesPointCloud::internal_insertPointCloud3D(
     const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys,
     const float* zs, const std::size_t num_pts)
 {
