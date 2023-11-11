@@ -465,10 +465,14 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
     // - IMLS-SLAM
     // - CT-ICP
     // - KISS-ICP
+    //
+    // See:
+    // "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
+    //
 
     // We need to "elevate" each point by this angle:
     using namespace mrpt::literals;  // _deg
-    constexpr double VERTICAL_ANGLE_OFFSET = 0.205_deg;
+    constexpr double VERTICAL_ANGLE_OFFSET = 0.205_deg; // 0.220_deg;
 
     // Due to the ring-like, rotating nature of 3D LIDARs, we cannot do this
     // in any more efficient way than go through the points one by one:
