@@ -134,7 +134,7 @@ void SparseTreesPointCloud::serializeFrom(
         case 0:
         {
             // params:
-            const auto expected_grid_bit_count = in.ReadAs<uint32_t>();
+            const auto expected_grid_bit_count = in.ReadAs<uint8_t>();
             ASSERT_EQUAL_(expected_grid_bit_count, GLOBAL_ID_SUBVOXEL_BITCOUNT);
 
             in >> grid_size_;
@@ -633,6 +633,8 @@ void SparseTreesPointCloud::nn_radius_search(
     std::vector<float>&                 out_dists_sqr,
     std::vector<uint64_t>& resultIndicesOrIDs, size_t maxPoints) const
 {
+    //    const double t0 = mrpt::Clock::nowDouble();
+
     results.clear();
     out_dists_sqr.clear();
     resultIndicesOrIDs.clear();
@@ -684,6 +686,15 @@ void SparseTreesPointCloud::nn_radius_search(
         out_dists_sqr.push_back(kv.first);
         resultIndicesOrIDs.push_back(kv.second.second);
     }
+
+#if 0
+    const double t1 = mrpt::Clock::nowDouble();
+    printf(
+        "nnRadiusSearch: cells=%i t=%f ms\n",
+        (idxs1.cz - idxs0.cz + 1) * (idxs1.cy - idxs0.cy + 1) *
+            (idxs1.cx - idxs0.cx + 1),
+        1e3 * (t1 - t0));
+#endif
 }
 
 mrpt::math::TBoundingBoxf SparseTreesPointCloud::boundingBox() const
@@ -698,7 +709,15 @@ mrpt::math::TBoundingBoxf SparseTreesPointCloud::boundingBox() const
         }
         else
         {
-            THROW_EXCEPTION("TO DO");
+            cached_.boundingBox_ =
+                mrpt::math::TBoundingBoxf::PlusMinusInfinity();
+
+            auto lambdaForEachPt = [this](const mrpt::math::TPoint3Df& pt) {
+                cached_.boundingBox_->updateWithPoint(pt);
+                cached_.boundingBox_->updateWithPoint(pt);
+            };
+
+            this->visitAllPoints(lambdaForEachPt);
         }
     }
 
@@ -713,8 +732,8 @@ void SparseTreesPointCloud::visitAllPoints(
         const auto& pts = kv.second.points();
 
         const auto&  xs = pts.getPointsBufferRef_x();
-        const auto&  ys = pts.getPointsBufferRef_x();
-        const auto&  zs = pts.getPointsBufferRef_x();
+        const auto&  ys = pts.getPointsBufferRef_y();
+        const auto&  zs = pts.getPointsBufferRef_z();
         const size_t N  = xs.size();
 
         for (size_t i = 0; i < N; i++)  //
