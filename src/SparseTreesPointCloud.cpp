@@ -187,8 +187,9 @@ void SparseTreesPointCloud::setGridProperties(float grid_size)
     grid_size_ = grid_size;
 
     // calculated fields:
-    grid_size_inv_ = 1.0f / grid_size;
-    gridVector_    = mrpt::math::TVector3D(1.0, 1.0, 1.0) * grid_size_;
+    grid_size_inv_  = 1.0f / grid_size;
+    grid_size_half_ = 0.5f * grid_size;
+    gridVector_     = mrpt::math::TVector3D(1.0, 1.0, 1.0) * grid_size_;
 
     // clear all:
     SparseTreesPointCloud::internal_clear();

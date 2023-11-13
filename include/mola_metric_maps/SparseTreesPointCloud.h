@@ -70,9 +70,9 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
         const mrpt::math::TPoint3Df& pt) const
     {
         return outer_index3d_t(
-            static_cast<int32_t>(pt.x * grid_size_inv_),  //
-            static_cast<int32_t>(pt.y * grid_size_inv_),  //
-            static_cast<int32_t>(pt.z * grid_size_inv_));
+            static_cast<int32_t>((pt.x + grid_size_half_) * grid_size_inv_),  //
+            static_cast<int32_t>((pt.y + grid_size_half_) * grid_size_inv_),  //
+            static_cast<int32_t>((pt.z + grid_size_half_) * grid_size_inv_));
     }
 
     /// returns the coordinate of the voxel center
@@ -80,9 +80,9 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
         const outer_index3d_t idx) const
     {
         return {
-            idx.cx * grid_size_,  //
-            idx.cy * grid_size_,  //
-            idx.cz * grid_size_};
+            (idx.cx - 0.5f) * grid_size_,  //
+            (idx.cy - 0.5f) * grid_size_,  //
+            (idx.cz - 0.5f) * grid_size_};
     }
 
     static inline global_plain_index_t g2plain(
@@ -394,7 +394,8 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
     float grid_size_ = 10.0f;
 
     // Calculated from the above, in setVoxelProperties()
-    float                 grid_size_inv_ = 1.0f / grid_size_;
+    float                 grid_size_inv_  = 1.0f / grid_size_;
+    float                 grid_size_half_ = 0.5f * grid_size_;
     mrpt::math::TVector3D gridVector_;
 
     /** Voxel map as a set of fixed-size grids */
