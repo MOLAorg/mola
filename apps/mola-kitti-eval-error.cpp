@@ -136,10 +136,10 @@ std::vector<Matrix> loadPoses_mrpt(std::string file_name)
 
     auto Trh = mrpt::math::CMatrixDouble44(Trh_vals);
 
-    std::cout << "Original Trh= (velo wrt cam_0) \n" << Trh << "\n";
+    // std::cout << "Original Trh= (velo wrt cam_0) \n" << Trh << "\n";
     // Inverse:
     Trh = Trh.inverse();
-    std::cout << "Inverted Trh= (cam_0 wrt velo) \n" << Trh << "\n";
+    // std::cout << "Inverted Trh= (cam_0 wrt velo) \n" << Trh << "\n";
 
     // Camera 0:
     const auto cam_pose0 = mrpt::poses::CPose3D(Trh);

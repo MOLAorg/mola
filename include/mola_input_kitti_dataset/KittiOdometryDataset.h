@@ -63,6 +63,11 @@ class KittiOdometryDataset : public RawDataSourceBase
 
     timestep_t getTimestepCount() const;
 
+    /** See:
+     *  "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
+     */
+    double VERTICAL_ANGLE_OFFSET = mrpt::DEG2RAD(0.205);
+
    private:
     bool                    initialized_ = false;
     std::string             base_dir_;  //!< base dir for "sequences/*".
