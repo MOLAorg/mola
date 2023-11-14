@@ -189,7 +189,7 @@ void SparseTreesPointCloud::setGridProperties(float grid_size)
     // calculated fields:
     grid_size_inv_  = 1.0f / grid_size;
     grid_size_half_ = 0.5f * grid_size;
-    gridVector_     = mrpt::math::TVector3D(1.0, 1.0, 1.0) * grid_size_;
+    gridVector_     = mrpt::math::TVector3D(1., 1., 1.) * grid_size_;
 
     // clear all:
     SparseTreesPointCloud::internal_clear();
@@ -271,11 +271,11 @@ void SparseTreesPointCloud::getVisualizationInto(
     {
         auto lambdaForEachGrid =
             [this, &outObj](const outer_index3d_t& idxs, const GridData&) {
-                const mrpt::math::TPoint3Df gridCorner = outerIdxToCoord(idxs);
+                const mrpt::math::TPoint3Df gridCenter = outerIdxToCoord(idxs);
 
                 auto glBox = mrpt::opengl::CBox::Create();
                 glBox->setWireframe(true);
-                const auto org = gridCorner.cast<double>();
+                const auto org = gridCenter.cast<double>();
                 glBox->setBoxCorners(org, org + gridVector_);
 
                 outObj.insert(glBox);
@@ -303,6 +303,33 @@ bool SparseTreesPointCloud::internal_insertObservation(
     {
         robotPose2D = mrpt::poses::CPose2D(*robotPose);
         robotPose3D = (*robotPose);
+
+        MRPT_TODO("make params");
+        bool     remove_distant_parts      = true;
+        uint32_t remove_farther_than_grids = 2;
+
+        if (remove_distant_parts)
+        {
+            const auto curIdxs =
+                coordToOuterIdx(robotPose3D.translation().cast<float>());
+
+            const auto d        = remove_farther_than_grids;
+            const auto curIdxs0 = curIdxs - outer_index3d_t(d, d, d);
+            const auto curIdxs1 = curIdxs + outer_index3d_t(d, d, d);
+
+            std::set<outer_index3d_t, index3d_hash<int32_t>> gridsToRemove;
+
+            auto lmbPerGrid = [&](const outer_index3d_t& idx, const GridData&) {
+                if (idx.cx >= curIdxs0.cx && idx.cy >= curIdxs0.cy &&
+                    idx.cz >= curIdxs0.cz && idx.cx <= curIdxs1.cx &&
+                    idx.cy <= curIdxs1.cy && idx.cz <= curIdxs1.cz)
+                    return;
+                gridsToRemove.insert(idx);
+            };
+            visitAllGrids(lmbPerGrid);
+
+            for (auto& idx : gridsToRemove) this->grids_.erase(idx);
+        }
     }
     else
     {
