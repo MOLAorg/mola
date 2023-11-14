@@ -240,7 +240,7 @@ void KittiOdometryDataset::initialize(const Yaml& c)
     }
 
     // Load ground truth poses, if available:
-    const auto gtFile = base_dir_ + "/gt-poses/"s + sequence_ + ".txt"s;
+    const auto gtFile = base_dir_ + "/poses/"s + sequence_ + ".txt"s;
     if (mrpt::system::fileExists(gtFile))
     {
         groundTruthPoses_.loadFromTextFile(gtFile);

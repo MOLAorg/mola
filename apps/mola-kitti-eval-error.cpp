@@ -23,12 +23,14 @@
  */
 
 #include <mrpt/3rdparty/tclap/CmdLine.h>
+#include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/poses/CPose3DInterpolator.h>
 #include <mrpt/system/filesystem.h>
 
+#include <Eigen/Dense>
 #include <array>
 #include <cstdlib>
 #include <iostream>
@@ -79,7 +81,7 @@ static void do_kitti_eval_error()
     std::cout << "Using kitti datasets basedir: " << kitti_basedir << "\n";
 
     // ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "sequences"s);
-    ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "/gt-poses"s);
+    ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "/poses"s);
 
     // Run evaluation
     eval();
@@ -104,7 +106,25 @@ int main(int argc, char** argv)
 
 using Matrix = mrpt::math::CMatrixDouble44;
 
-std::vector<Matrix> loadPoses_mrpt(std::string file_name)
+static void parse_calib_line(
+    const std::string& line, Eigen::Matrix<double, 3, 4>& M)
+{
+    MRPT_TRY_START
+
+    std::istringstream ss(line);
+    for (Eigen::Index r = 0; r < M.rows(); r++)
+        for (Eigen::Index c = 0; c < M.cols(); c++)
+        {
+            if (!(ss >> M(r, c)))
+            {
+                THROW_EXCEPTION_FMT(
+                    "Error parsing calib line: `%s`", line.c_str());
+            }
+        }
+    MRPT_TRY_END
+}
+std::vector<Matrix> loadPoses_tum_format(
+    const std::string& file_name, const std::string& calib_file)
 {
     mrpt::poses::CPose3DInterpolator trajectory;
 
@@ -115,7 +135,6 @@ std::vector<Matrix> loadPoses_mrpt(std::string file_name)
     std::cout << "Parsed: " << file_name << "\n";
     std::cout << " - Loaded poses: " << trajectory.size() << "\n";
 
-#if 1
     // Transform poses: the file are poses of the vehicle (in Kitti datasets,
     // the reference is the Velodyne), but the GT files are given for the cam0!
 
@@ -124,17 +143,15 @@ std::vector<Matrix> loadPoses_mrpt(std::string file_name)
     // Velodyne is the (0,0,0) of the vehicle.
     // image_0 pose wrt velo is "Tr":
     // From calibration files:
-    MRPT_TODO("Load from calib file instead?");
-    // clang-format off
-    const double Trh_vals[16] = {
-        4.276802385584e-04, -9.999672484946e-01,
-        -8.084491683471e-03, -1.198459927713e-02, -7.210626507497e-03,
-        8.081198471645e-03, -9.999413164504e-01, -5.403984729748e-02,
-        9.999738645903e-01, 4.859485810390e-04, -7.206933692422e-03,
-        -2.921968648686e-01, 0, 0, 0, 1};
-    // clang-format on
 
-    auto Trh = mrpt::math::CMatrixDouble44(Trh_vals);
+    auto calib = mrpt::containers::yaml::FromFile(calib_file);
+    ASSERT_(calib.has("Tr"));
+
+    Eigen::Matrix<double, 3, 4> Tr;
+    parse_calib_line(calib["Tr"].as<std::string>(), Tr);
+
+    auto Trh              = mrpt::math::CMatrixDouble44::Identity();
+    Trh.block<3, 4>(0, 0) = Tr;
 
     // std::cout << "Original Trh= (velo wrt cam_0) \n" << Trh << "\n";
     // Inverse:
@@ -143,7 +160,6 @@ std::vector<Matrix> loadPoses_mrpt(std::string file_name)
 
     // Camera 0:
     const auto cam_pose0 = mrpt::poses::CPose3D(Trh);
-#endif
 
     std::vector<Matrix> poses;
     const auto          n = trajectory.size();
@@ -687,7 +703,7 @@ void saveStats(vector<errors> err, string dir)
 bool eval()  // string result_sha,Mail* mail)
 {
     // ground truth and result directories
-    string gt_dir = kitti_basedir + "/gt-poses";
+    string gt_dir = kitti_basedir + "/poses";
 
     string result_dir =
         mrpt::system::extractFileDirectory(arg_result_path.getValue());
@@ -719,8 +735,12 @@ bool eval()  // string result_sha,Mail* mail)
 
         // read ground truth and result poses
         vector<Matrix> poses_gt = loadPoses(gt_dir + "/" + file_name);
-        vector<Matrix> poses_result =
-            loadPoses_mrpt(mrpt::format(arg_result_path.getValue().c_str(), i));
+
+        const std::string calibFile = mrpt::format(
+            "%s/sequences/%02i/calib.txt", kitti_basedir.c_str(), i);
+
+        vector<Matrix> poses_result = loadPoses_tum_format(
+            mrpt::format(arg_result_path.getValue().c_str(), i), calibFile);
 
         // plot status
         printf(
