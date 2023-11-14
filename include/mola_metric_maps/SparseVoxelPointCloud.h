@@ -31,6 +31,7 @@
 #include <mrpt/img/TColor.h>
 #include <mrpt/img/color_maps.h>
 #include <mrpt/maps/CMetricMap.h>
+#include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/maps/NearestNeighborsCapable.h>
 #include <mrpt/math/TBoundingBox.h>
 #include <mrpt/math/TPoint3D.h>
@@ -160,6 +161,8 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
     /** @name Data structures
      *  @{ */
 
+    struct InnerGrid;
+
     struct VoxelData
     {
        public:
@@ -167,46 +170,52 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
 
         struct PointSpan
         {
-            PointSpan(const mrpt::math::TPoint3Df* data, size_t n)
-                : data_(data), n_(n)
+            PointSpan(
+                const mrpt::maps::CSimplePointsMap& data,
+                const uint32_t* pointIndices, size_t n)
+                : data_(data), pointIndices_(pointIndices), n_(n)
             {
             }
-
-            auto begin() const { return data_; }
-            auto end() const { return data_ + n_; }
-
-            auto begin() { return data_; }
-            auto end() { return data_ + n_; }
 
             size_t size() const { return n_; }
             bool   empty() const { return n_ == 0; }
 
-            const mrpt::math::TPoint3Df& operator[](int i) const
+            mrpt::math::TPoint3Df operator[](int i) const
             {
-                return data_[i];
+                float x, y, z;
+                data_.getPoint(pointIndices_[i], x, y, z);
+                return {x, y, z};
             }
 
            private:
-            const mrpt::math::TPoint3Df* data_;
-            const size_t                 n_;
+            const mrpt::maps::CSimplePointsMap& data_;
+            const uint32_t*                     pointIndices_;
+            const size_t                        n_;
         };
 
-        auto points() const { return PointSpan(points_.data(), numPoints_); }
+        auto points(const InnerGrid& parent) const -> PointSpan;
 
-        void insertPoint(const mrpt::math::TPoint3Df& p);
+        void insertPoint(const mrpt::math::TPoint3Df& p, InnerGrid& parent);
 
         /** Gets the mean of all points in the voxel. Throws if empty. */
         const mrpt::math::TPoint3Df& mean() const { return mean_; }
 
+        // for serialization, do not use in normal use:
+        void resize(size_t n) { numPoints_ = n; }
+        void setIndex(size_t i, size_t idx) { pointIndices_[i] = idx; }
+
        private:
-        std::array<mrpt::math::TPoint3Df, HARDLIMIT_MAX_POINTS_PER_VOXEL>
-                                      points_;
+        uint32_t pointIndices_[HARDLIMIT_MAX_POINTS_PER_VOXEL] = {0};
+
         uint8_t                       numPoints_ = 0;
         mutable mrpt::math::TPoint3Df mean_      = {0, 0, 0};
     };
 
-    using InnerGrid =
-        FixedDenseGrid3D<VoxelData, INNER_GRID_BIT_COUNT, uint32_t>;
+    struct InnerGrid
+    {
+        FixedDenseGrid3D<VoxelData, INNER_GRID_BIT_COUNT, uint32_t> gridData;
+        mrpt::maps::CSimplePointsMap                                points;
+    };
 
     using grids_map_t =
         std::map<outer_index3d_t, InnerGrid, index3d_hash<int32_t>>;
@@ -224,7 +233,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
      * Function defined in the header file so compilers can optimize
      * for literals "createIfNew"
      */
-    inline VoxelData* voxelByGlobalIdxs(
+    inline std::tuple<VoxelData*, InnerGrid*> voxelByGlobalIdxs(
         const global_index3d_t& idx, bool createIfNew)
     {
         // Get voxel indices:
@@ -259,7 +268,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
             if (it == grids_.end())
             {
                 if (!createIfNew)
-                    return nullptr;
+                    return {nullptr, nullptr};
                 else
                     grid = &grids_[oIdx];  // Create it
             }
@@ -275,10 +284,10 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
         }
 
         // Now, look for the cell withi the grid block:
-        return &grid->cellByIndex(iIdx);
+        return {&grid->gridData.cellByIndex(iIdx), grid};
     }
 
-    const VoxelData* voxelByGlobalIdxs(
+    std::tuple<const VoxelData*, const InnerGrid*> voxelByGlobalIdxs(
         const global_index3d_t& idx, bool createIfNew) const
     {  // reuse the non-const method:
         return const_cast<SparseVoxelPointCloud*>(this)->voxelByGlobalIdxs(
@@ -287,11 +296,15 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
 
     /** Get a voxeldata by (x,y,z) coordinates, creating the container grid if
      * needed. */
-    VoxelData& voxelByCoords(const mrpt::math::TPoint3Df& pt)
+    std::tuple<VoxelData&, InnerGrid&> voxelByCoords(
+        const mrpt::math::TPoint3Df& pt)
     {
-        return *voxelByGlobalIdxs(coordToGlobalIdx(pt), true /*create*/);
+        auto [voxel, grid] =
+            voxelByGlobalIdxs(coordToGlobalIdx(pt), true /*create*/);
+        return {*voxel, *grid};
     }
-    const VoxelData& voxelByCoords(const mrpt::math::TPoint3Df& pt) const
+    std::tuple<const VoxelData&, const InnerGrid&> voxelByCoords(
+        const mrpt::math::TPoint3Df& pt) const
     {  // reuse the non-const method
         return const_cast<SparseVoxelPointCloud*>(this)->voxelByCoords(pt);
     }
@@ -312,7 +325,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
 
     void visitAllVoxels(const std::function<void(
                             const outer_index3d_t&, const inner_plain_index_t,
-                            const VoxelData&)>& f) const;
+                            const VoxelData&, const InnerGrid&)>& f) const;
 
     void visitAllGrids(
         const std::function<void(const outer_index3d_t&, const InnerGrid&)>& f)

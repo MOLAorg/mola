@@ -81,9 +81,10 @@ void test_voxelmap_insert_2d_scan()
             [&nVoxels](
                 const mola::SparseVoxelPointCloud::outer_index3d_t&,
                 const mola::SparseVoxelPointCloud::inner_plain_index_t,
-                const mola::SparseVoxelPointCloud::VoxelData& v) {
+                const mola::SparseVoxelPointCloud::VoxelData& v,
+                const mola::SparseVoxelPointCloud::InnerGrid& grid) {
                 // count them:
-                if (!v.points().empty()) nVoxels++;
+                if (!v.points(grid).empty()) nVoxels++;
             };
         map.visitAllVoxels(lambdaVisitVoxels);
 

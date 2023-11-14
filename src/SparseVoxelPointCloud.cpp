@@ -124,12 +124,14 @@ void    SparseVoxelPointCloud::serializeTo(
     {
         out << kv.first.cx << kv.first.cy << kv.first.cz;
 
-        const auto* cells = kv.second.cells();
-        for (size_t i = 0; i < kv.second.TOTAL_CELL_COUNT; i++)
+        out << kv.second.points;
+
+        const auto* cells = kv.second.gridData.cells();
+        for (size_t i = 0; i < kv.second.gridData.TOTAL_CELL_COUNT; i++)
         {
-            const auto& pts = cells[i].points();
+            const auto& pts = cells[i].points(kv.second);
             out.WriteAs<uint16_t>(pts.size());
-            for (const auto& pt : pts) out << pt.x << pt.y << pt.z;
+            for (size_t j = 0; j < pts.size(); j++) out << pts[j];
         }
     }
 }
@@ -162,17 +164,17 @@ void SparseVoxelPointCloud::serializeFrom(
 
                 auto& grid = grids_[idx];
 
-                auto* cells = grid.cells();
+                in >> grid.points;
 
-                for (size_t k = 0; k < grid.TOTAL_CELL_COUNT; k++)
+                auto* cells = grid.gridData.cells();
+
+                for (size_t k = 0; k < grid.gridData.TOTAL_CELL_COUNT; k++)
                 {
                     const auto nPts = in.ReadAs<uint16_t>();
+                    cells[k].resize(nPts);
+
                     for (size_t j = 0; j < nPts; j++)
-                    {
-                        float x, y, z;
-                        in >> x >> y >> z;
-                        cells[k].insertPoint({x, y, z});
-                    }
+                        cells[k].setIndex(j, in.ReadAs<uint32_t>());
                 }
             }
         }
@@ -188,13 +190,15 @@ void SparseVoxelPointCloud::serializeFrom(
 // VoxelData
 
 void SparseVoxelPointCloud::VoxelData::insertPoint(
-    const mrpt::math::TPoint3Df& p)
+    const mrpt::math::TPoint3Df& p, InnerGrid& parent)
 {
-    if (numPoints_ >= points_.size()) return;
+    if (numPoints_ >= HARDLIMIT_MAX_POINTS_PER_VOXEL) return;
 
     mean_ = (numPoints_ * mean_ + p);
 
-    points_[numPoints_++] = p;
+    pointIndices_[numPoints_++] = parent.points.size();
+    parent.points.insertPoint(p);
+
     mean_ *= 1.0f / numPoints_;
 }
 
@@ -243,13 +247,14 @@ void SparseVoxelPointCloud::getVisualizationInto(
 
         if (renderOptions.show_mean_only)
         {
-            const auto lambdaVisitVoxels = [&obj](
-                                               const outer_index3d_t&,
-                                               const inner_plain_index_t,
-                                               const VoxelData& v) {
-                // Insert the mean/average point:
-                if (!v.points().empty()) obj->insertPoint(v.mean());
-            };
+            const auto lambdaVisitVoxels =
+                [&obj](
+                    const outer_index3d_t&, const inner_plain_index_t,
+                    const VoxelData& v, const InnerGrid& parentGrid) {
+                    // Insert the mean/average point:
+                    if (!v.points(parentGrid).empty())
+                        obj->insertPoint(v.mean());
+                };
             this->visitAllVoxels(lambdaVisitVoxels);
         }
         else
@@ -282,15 +287,15 @@ void SparseVoxelPointCloud::getVisualizationInto(
 
         if (renderOptions.show_mean_only)
         {
-            const auto lambdaVisitVoxels = [&obj, &hists](
-                                               const outer_index3d_t&,
-                                               const inner_plain_index_t,
-                                               const VoxelData& v) {
-                if (v.points().empty()) return;
-                const auto& m = v.mean();
-                obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
-                for (int i = 0; i < 3; i++) hists[i].add(m[i]);
-            };
+            const auto lambdaVisitVoxels =
+                [&obj, &hists](
+                    const outer_index3d_t&, const inner_plain_index_t,
+                    const VoxelData& v, const InnerGrid& parentGrid) {
+                    if (v.points(parentGrid).empty()) return;
+                    const auto& m = v.mean();
+                    obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
+                    for (int i = 0; i < 3; i++) hists[i].add(m[i]);
+                };
             this->visitAllVoxels(lambdaVisitVoxels);
         }
         else
@@ -627,14 +632,14 @@ bool SparseVoxelPointCloud::saveToTextFile(const std::string& file) const
 
 void SparseVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
 {
-    auto& v = voxelByCoords(pt);
+    auto [v, grid] = voxelByCoords(pt);
 
-    const auto nPreviousPoints = v.points().size();
+    const auto nPreviousPoints = v.points(grid).size();
 
     if (insertionOptions.max_points_per_voxel == 0 ||
         nPreviousPoints < insertionOptions.max_points_per_voxel)
     {
-        v.insertPoint(pt);
+        v.insertPoint(pt, grid);
 
         // Also, update bbox:
         if (!cached_.boundingBox_.has_value())
@@ -698,10 +703,11 @@ bool SparseVoxelPointCloud::nn_single_search(
 }
 
 void SparseVoxelPointCloud::nn_multiple_search(
-    const mrpt::math::TPoint3Df& query, const size_t N,
-    std::vector<mrpt::math::TPoint3Df>& results,
-    std::vector<float>&                 out_dists_sqr,
-    std::vector<uint64_t>&              resultIndicesOrIDs) const
+    [[maybe_unused]] const mrpt::math::TPoint3Df&        query,
+    [[maybe_unused]] const size_t                        N,
+    [[maybe_unused]] std::vector<mrpt::math::TPoint3Df>& results,
+    [[maybe_unused]] std::vector<float>&                 out_dists_sqr,
+    [[maybe_unused]] std::vector<uint64_t>& resultIndicesOrIDs) const
 {
     // It's hard to implement this in an efficient way without a bound radius:
     THROW_EXCEPTION("n-search not available in this map type");
@@ -742,7 +748,8 @@ void SparseVoxelPointCloud::nn_radius_search(
     };
 
     auto lambdaCheckCell = [&](const global_index3d_t& p) {
-        if (auto* v = voxelByGlobalIdxs(p, false); v && !v->points().empty())
+        if (auto [v, grid] = voxelByGlobalIdxs(p, false);
+            v && !v->points(*grid).empty())
         {
             if (likelihoodOptions.match_mean)
             {
@@ -755,7 +762,7 @@ void SparseVoxelPointCloud::nn_radius_search(
             }
             else
             {
-                const auto& pts = v->points();
+                const auto& pts = v->points(*grid);
                 for (size_t i = 0; i < pts.size(); i++)
                 {
                     const auto& pt      = pts[i];
@@ -826,30 +833,32 @@ void SparseVoxelPointCloud::visitAllPoints(
 {
     for (const auto& kv : grids_)
     {
-        const auto&  cells  = kv.second.cells();
-        const size_t nCells = kv.second.TOTAL_CELL_COUNT;
-        for (inner_plain_index_t plainIdx = 0; plainIdx < nCells; plainIdx++)
-        {
-            for (const auto& pt : cells[plainIdx].points())  //
-                f(pt);
-        }
+        const InnerGrid& grid = kv.second;
+
+        const auto&  xs = grid.points.getPointsBufferRef_x();
+        const auto&  ys = grid.points.getPointsBufferRef_y();
+        const auto&  zs = grid.points.getPointsBufferRef_z();
+        const size_t N  = xs.size();
+
+        for (size_t i = 0; i < N; i++) f({xs[i], ys[i], zs[i]});
     }
 }
 
 void SparseVoxelPointCloud::visitAllVoxels(
     const std::function<void(
-        const outer_index3d_t&, const inner_plain_index_t, const VoxelData&)>&
-        f) const
+        const outer_index3d_t&, const inner_plain_index_t, const VoxelData&,
+        const InnerGrid&)>& f) const
 {
     for (const auto& kv : grids_)
     {
         const outer_index3d_t outer_idx = kv.first;
 
-        const auto&  cells  = kv.second.cells();
-        const size_t nCells = kv.second.TOTAL_CELL_COUNT;
+        const InnerGrid& grid   = kv.second;
+        const auto&      cells  = grid.gridData.cells();
+        const size_t     nCells = grid.gridData.TOTAL_CELL_COUNT;
         for (inner_plain_index_t plainIdx = 0; plainIdx < nCells; plainIdx++)
         {
-            f(outer_idx, plainIdx, cells[plainIdx]);
+            f(outer_idx, plainIdx, cells[plainIdx], grid);
         }
     }
 }
@@ -1024,4 +1033,10 @@ void SparseVoxelPointCloud::internal_insertPointCloud3D(
     }
 
     MRPT_TRY_END
+}
+
+auto SparseVoxelPointCloud::VoxelData::points(const InnerGrid& parent) const
+    -> PointSpan
+{
+    return PointSpan(parent.points, pointIndices_, numPoints_);
 }
