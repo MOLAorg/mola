@@ -129,9 +129,10 @@ void    SparseVoxelPointCloud::serializeTo(
         const auto* cells = kv.second.gridData.cells();
         for (size_t i = 0; i < kv.second.gridData.TOTAL_CELL_COUNT; i++)
         {
-            const auto& pts = cells[i].points(kv.second);
-            out.WriteAs<uint16_t>(pts.size());
-            for (size_t j = 0; j < pts.size(); j++) out << pts[j];
+            const auto N = cells[i].size();
+            out.WriteAs<uint16_t>(N);
+            for (size_t j = 0; j < N; j++)
+                out.WriteAs<uint32_t>(cells[i].getIndex(j));
         }
     }
 }
@@ -769,10 +770,7 @@ void SparseVoxelPointCloud::nn_radius_search(
                     float       distSqr = (pt - query).sqrNorm();
                     if (distSqr > search_radius_sqr) continue;
 
-                    out_dists_sqr.push_back(distSqr);
-                    results.push_back(pt);
-                    //  Unique ID for each global index triplet:
-                    resultIndicesOrIDs.push_back(g2plain(p, i));
+                    lmbAddCandidate(distSqr, pt, g2plain(p, i));
                 }
             }
         }

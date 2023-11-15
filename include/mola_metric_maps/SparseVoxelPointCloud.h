@@ -183,7 +183,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
             mrpt::math::TPoint3Df operator[](int i) const
             {
                 float x, y, z;
-                data_.getPoint(pointIndices_[i], x, y, z);
+                data_.getPointFast(pointIndices_[i], x, y, z);
                 return {x, y, z};
             }
 
@@ -201,8 +201,10 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
         const mrpt::math::TPoint3Df& mean() const { return mean_; }
 
         // for serialization, do not use in normal use:
-        void resize(size_t n) { numPoints_ = n; }
-        void setIndex(size_t i, size_t idx) { pointIndices_[i] = idx; }
+        size_t   size() const { return numPoints_; }
+        void     resize(size_t n) { numPoints_ = n; }
+        void     setIndex(size_t i, uint32_t idx) { pointIndices_[i] = idx; }
+        uint32_t getIndex(size_t i) const { return pointIndices_[i]; }
 
        private:
         uint32_t pointIndices_[HARDLIMIT_MAX_POINTS_PER_VOXEL] = {0};
@@ -274,7 +276,8 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
             }
             else
             {
-                grid = &it->second;  // Use the found grid
+                // Use the found grid
+                grid = const_cast<InnerGrid*>(&it->second);
             }
             // Add to cache:
             cached_.lastAccessIdx[cached_.lastAccessNextWrite]  = oIdx;

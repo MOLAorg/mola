@@ -23,6 +23,9 @@ find_package(mola_common REQUIRED)
 # find CMake dependencies:
 find_package(mrpt-maps)
 
+# 3rdparty deps:
+add_subdirectory(3rdparty)
+
 # -----------------------
 # define lib:
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
@@ -33,6 +36,7 @@ mola_add_library(
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
 	PUBLIC_LINK_LIBRARIES
 		mrpt::maps
+		tsl::robin_map
 #	PRIVATE_LINK_LIBRARIES
 #		mrpt::maps
 	CMAKE_DEPENDENCIES
