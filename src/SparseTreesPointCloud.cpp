@@ -397,11 +397,9 @@ bool SparseTreesPointCloud::internal_insertObservation(
         if (!o.point_cloud.size())
             const_cast<CObservationVelodyneScan&>(o).generatePointCloud();
 
-        for (size_t i = 0; i < o.point_cloud.x.size(); i++)
-        {
-            insertPoint(robotPose3D.composePoint(
-                {o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]}));
-        }
+        internal_insertPointCloud3D(
+            robotPose3D, o.point_cloud.x.data(), o.point_cloud.y.data(),
+            o.point_cloud.z.data(), o.point_cloud.x.size());
 
         return true;
     }
@@ -414,10 +412,8 @@ bool SparseTreesPointCloud::internal_insertObservation(
         const auto& ys = o.pointcloud->getPointsBufferRef_y();
         const auto& zs = o.pointcloud->getPointsBufferRef_z();
 
-        for (size_t i = 0; i < xs.size(); i++)
-        {
-            insertPoint(robotPose3D.composePoint({xs[i], ys[i], zs[i]}));
-        }
+        internal_insertPointCloud3D(
+            robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
 
         return true;
     }
@@ -860,6 +856,8 @@ void SparseTreesPointCloud::TInsertionOptions::dumpToTextStream(
 {
     out << "\n------ [SparseTreesPointCloud::TInsertionOptions] ------- "
            "\n\n";
+
+    LOADABLEOPTS_DUMP_VAR(mininimum_points_clearance, double);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::dumpToTextStream(
@@ -891,6 +889,7 @@ void SparseTreesPointCloud::TInsertionOptions::loadFromConfigFile(
     [[maybe_unused]] const mrpt::config::CConfigFileBase& c,
     [[maybe_unused]] const std::string&                   s)
 {
+    MRPT_LOAD_CONFIG_VAR(mininimum_points_clearance, double, c, s);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::loadFromConfigFile(
@@ -919,13 +918,41 @@ void SparseTreesPointCloud::internal_insertPointCloud3D(
 {
     MRPT_TRY_START
 
+    if (!num_pts) return;
+
+    // Make a temporary buffer for transformed point cloud.
+    // I'll do it in the stack to save alloc & free time:
+    float*   gXs = reinterpret_cast<float*>(::alloca(sizeof(float) * num_pts));
+    float*   gYs = reinterpret_cast<float*>(::alloca(sizeof(float) * num_pts));
+    float*   gZs = reinterpret_cast<float*>(::alloca(sizeof(float) * num_pts));
+    uint8_t* doInsert =
+        reinterpret_cast<uint8_t*>(::alloca(sizeof(uint8_t) * num_pts));
+
+    const float minSqrDist =
+        mrpt::square(insertionOptions.mininimum_points_clearance);
+
     for (std::size_t i = 0; i < num_pts; i++)
     {
         // Transform the point from the scan reference to its global 3D
         // position:
         const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
-        insertPoint(gPt);
+        gXs[i]         = gPt.x;
+        gYs[i]         = gPt.y;
+        gZs[i]         = gPt.z;
+
+        // check for closest existing point:
+        mrpt::math::TPoint3Df neig;
+        float                 nnSqrDist;
+        uint64_t              nnId;
+        bool found = nn_single_search(gPt, neig, nnSqrDist, nnId);
+
+        doInsert[i] = (!found || nnSqrDist > minSqrDist) ? 1 : 0;
     }
+
+    // Insert *after* the loop above, to prevent having to rebuild the KD-Tree
+    // "N" times (!!!)
+    for (std::size_t i = 0; i < num_pts; i++)
+        if (doInsert[i]) insertPoint({gXs[i], gYs[i], gZs[i]});
 
     MRPT_TRY_END
 }

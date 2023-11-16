@@ -316,6 +316,10 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
 
         void writeToStream(mrpt::serialization::CArchive& out) const;
         void readFromStream(mrpt::serialization::CArchive& in);
+
+        /** Minimum distance between an inserted point and the existing ones in
+         * the map for it to be actually inserted. */
+        float mininimum_points_clearance = 0.20f;
     };
     TInsertionOptions insertionOptions;
 
