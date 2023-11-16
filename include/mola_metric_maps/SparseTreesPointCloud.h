@@ -130,7 +130,10 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
         auto&       points() { return points_; }
         const auto& points() const { return points_; }
 
-        void insertPoint(const mrpt::math::TPoint3Df& p);
+        void insertPoint(const mrpt::math::TPoint3Df& p)
+        {
+            points_.insertPoint(p);
+        }
 
        private:
         mrpt::maps::CSimplePointsMap points_;

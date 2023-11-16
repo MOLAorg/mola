@@ -166,14 +166,6 @@ void SparseTreesPointCloud::serializeFrom(
     cached_.reset();
 }
 
-// VoxelData
-
-void SparseTreesPointCloud::GridData::insertPoint(
-    const mrpt::math::TPoint3Df& p)
-{
-    points_.insertPoint(p);
-}
-
 // Ctor:
 SparseTreesPointCloud::SparseTreesPointCloud(float grid_size)
 {
@@ -633,26 +625,32 @@ bool SparseTreesPointCloud::nn_single_search(
     const mrpt::math::TPoint3Df& query, mrpt::math::TPoint3Df& result,
     float& out_dist_sqr, uint64_t& resultIndexOrID) const
 {
-    std::vector<mrpt::math::TPoint3Df> r;
-    std::vector<float>                 dist_sqr;
-    std::vector<uint64_t>              resultIndices;
-    nn_multiple_search(query, 1, r, dist_sqr, resultIndices);
-    if (r.empty()) return false;  // none found
-    result          = r[0];
-    out_dist_sqr    = dist_sqr[0];
-    resultIndexOrID = resultIndices[0];
-    return true;
+    const outer_index3d_t idxs = coordToOuterIdx(query);
+
+    auto* g = gridByOuterIdxs(idxs, false);
+    if (!g) return false;
+
+    return g->points().nn_single_search(
+        query, result, out_dist_sqr, resultIndexOrID);
 }
 
 void SparseTreesPointCloud::nn_multiple_search(
-    [[maybe_unused]] const mrpt::math::TPoint3Df&        query,
-    [[maybe_unused]] const size_t                        N,
-    [[maybe_unused]] std::vector<mrpt::math::TPoint3Df>& results,
-    [[maybe_unused]] std::vector<float>&                 out_dists_sqr,
-    [[maybe_unused]] std::vector<uint64_t>& resultIndicesOrIDs) const
+    const mrpt::math::TPoint3Df& query, const size_t N,
+    std::vector<mrpt::math::TPoint3Df>& results,
+    std::vector<float>&                 out_dists_sqr,
+    std::vector<uint64_t>&              resultIndicesOrIDs) const
 {
-    // It's hard to implement this in an efficient way without a bound radius:
-    THROW_EXCEPTION("n-search not available in this map type");
+    const outer_index3d_t idxs = coordToOuterIdx(query);
+
+    results.clear();
+    out_dists_sqr.clear();
+    resultIndicesOrIDs.clear();
+
+    auto* g = gridByOuterIdxs(idxs, false);
+    if (!g) return;
+
+    g->points().nn_multiple_search(
+        query, N, results, out_dists_sqr, resultIndicesOrIDs);
 }
 
 void SparseTreesPointCloud::nn_radius_search(
