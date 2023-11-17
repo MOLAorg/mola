@@ -276,7 +276,11 @@ void SparseVoxelPointCloud::getVisualizationInto(
     {
         auto obj = mrpt::opengl::CPointCloudColoured::Create();
 
-        const auto bb = this->boundingBox();
+        auto bb = this->boundingBox();
+
+        // handle planar maps (avoids error in histogram below):
+        for (int i = 0; i < 3; i++)
+            if (bb.max[i] == bb.min[i]) bb.max[i] = bb.min[i] + 0.1f;
 
         // Use a histogram to discard outliers from the colormap extremes:
         constexpr size_t nBins = 100;

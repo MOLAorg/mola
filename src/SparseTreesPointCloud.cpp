@@ -219,7 +219,11 @@ void SparseTreesPointCloud::getVisualizationInto(
     {
         auto obj = mrpt::opengl::CPointCloudColoured::Create();
 
-        const auto bb = this->boundingBox();
+        auto bb = this->boundingBox();
+
+        // handle planar maps (avoids error in histogram below):
+        for (int i = 0; i < 3; i++)
+            if (bb.max[i] == bb.min[i]) bb.max[i] = bb.min[i] + 0.1f;
 
         // Use a histogram to discard outliers from the colormap extremes:
         constexpr size_t nBins = 100;
@@ -857,7 +861,7 @@ void SparseTreesPointCloud::TInsertionOptions::dumpToTextStream(
     out << "\n------ [SparseTreesPointCloud::TInsertionOptions] ------- "
            "\n\n";
 
-    LOADABLEOPTS_DUMP_VAR(mininimum_points_clearance, double);
+    LOADABLEOPTS_DUMP_VAR(minimum_points_clearance, double);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::dumpToTextStream(
@@ -889,7 +893,7 @@ void SparseTreesPointCloud::TInsertionOptions::loadFromConfigFile(
     [[maybe_unused]] const mrpt::config::CConfigFileBase& c,
     [[maybe_unused]] const std::string&                   s)
 {
-    MRPT_LOAD_CONFIG_VAR(mininimum_points_clearance, double, c, s);
+    MRPT_LOAD_CONFIG_VAR(minimum_points_clearance, double, c, s);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::loadFromConfigFile(
@@ -929,7 +933,7 @@ void SparseTreesPointCloud::internal_insertPointCloud3D(
         reinterpret_cast<uint8_t*>(::alloca(sizeof(uint8_t) * num_pts));
 
     const float minSqrDist =
-        mrpt::square(insertionOptions.mininimum_points_clearance);
+        mrpt::square(insertionOptions.minimum_points_clearance);
 
     for (std::size_t i = 0; i < num_pts; i++)
     {

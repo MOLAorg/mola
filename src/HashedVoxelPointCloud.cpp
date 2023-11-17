@@ -228,7 +228,11 @@ void HashedVoxelPointCloud::getVisualizationInto(
     {
         auto obj = mrpt::opengl::CPointCloudColoured::Create();
 
-        const auto bb = this->boundingBox();
+        auto bb = this->boundingBox();
+
+        // handle planar maps (avoids error in histogram below):
+        for (int i = 0; i < 3; i++)
+            if (bb.max[i] == bb.min[i]) bb.max[i] = bb.min[i] + 0.1f;
 
         // Use a histogram to discard outliers from the colormap extremes:
         constexpr size_t nBins = 100;
@@ -622,14 +626,85 @@ bool HashedVoxelPointCloud::nn_single_search(
 }
 
 void HashedVoxelPointCloud::nn_multiple_search(
-    [[maybe_unused]] const mrpt::math::TPoint3Df&        query,
-    [[maybe_unused]] const size_t                        N,
-    [[maybe_unused]] std::vector<mrpt::math::TPoint3Df>& results,
-    [[maybe_unused]] std::vector<float>&                 out_dists_sqr,
-    [[maybe_unused]] std::vector<uint64_t>& resultIndicesOrIDs) const
+    const mrpt::math::TPoint3Df& query, const size_t N,
+    std::vector<mrpt::math::TPoint3Df>& results,
+    std::vector<float>&                 out_dists_sqr,
+    std::vector<uint64_t>&              resultIndicesOrIDs) const
 {
-    // It's hard to implement this in an efficient way without a bound radius:
-    THROW_EXCEPTION("n-search not available in this map type");
+    results.clear();
+    out_dists_sqr.clear();
+    resultIndicesOrIDs.clear();
+
+    ASSERT_(N > 0);
+
+    const global_index3d_t idxs0 =
+        coordToGlobalIdx(query) - global_index3d_t(1, 1, 1);
+    const global_index3d_t idxs1 =
+        coordToGlobalIdx(query) + global_index3d_t(1, 1, 1);
+
+    // Data structures to avoid ANY heap memory allocation and keep working
+    // on the stack at all time:
+    constexpr size_t HARD_MAX_MATCHES = 5;
+    struct Match
+    {
+        mrpt::math::TPoint3Df globalPt;
+        float                 sqrDist;
+        uint64_t              id;
+    };
+    std::array<Match, HARD_MAX_MATCHES> matches;  // sorted by sqrDist!
+    size_t                              foundMatches = 0;
+
+    auto lambdaProcessCandidate = [&](const float                  sqrDist,
+                                      const mrpt::math::TPoint3Df& pt,
+                                      const global_plain_index_t&  id) {
+        // found its position in the list:
+        size_t i = 0;
+        for (i = 0; i < foundMatches; i++)
+        {
+            if (sqrDist < matches[i].sqrDist) break;
+        }
+        if (i >= HARD_MAX_MATCHES) return;
+
+        // bubble sort (yes, really!)
+        // insert new one at [i], shift [i+1:end] one position.
+        const size_t last = std::min(foundMatches + 1, HARD_MAX_MATCHES);
+        for (size_t j = i + 1; j < last; j++) matches[j] = matches[j - 1];
+
+        matches[i].globalPt = pt;
+        matches[i].id       = id;
+        matches[i].sqrDist  = sqrDist;
+
+        if (foundMatches < HARD_MAX_MATCHES) foundMatches++;
+    };
+
+    auto lambdaCheckCell = [&](const global_index3d_t& p) {
+        if (auto* v = voxelByGlobalIdxs(p); v && !v->points().empty())
+        {
+            const auto& pts = v->points();
+            for (size_t i = 0; i < pts.size(); i++)
+            {
+                const auto& pt      = pts[i];
+                float       distSqr = (pt - query).sqrNorm();
+                const auto  id      = g2plain(p, i);
+
+                lambdaProcessCandidate(distSqr, pt, id);
+            }
+        }
+    };
+
+    for (int32_t cx = idxs0.cx; cx <= idxs1.cx; cx++)
+        for (int32_t cy = idxs0.cy; cy <= idxs1.cy; cy++)
+            for (int32_t cz = idxs0.cz; cz <= idxs1.cz; cz++)
+                lambdaCheckCell({cx, cy, cz});
+
+    for (size_t i = 0; i < std::min<size_t>(N, foundMatches); i++)
+    {
+        const auto& m = matches[i];
+
+        out_dists_sqr.push_back(m.sqrDist);
+        results.push_back(m.globalPt);
+        resultIndicesOrIDs.push_back(m.id);
+    }
 }
 
 void HashedVoxelPointCloud::nn_radius_search(

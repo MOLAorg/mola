@@ -319,7 +319,7 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
 
         /** Minimum distance between an inserted point and the existing ones in
          * the map for it to be actually inserted. */
-        float mininimum_points_clearance = 0.20f;
+        float minimum_points_clearance = 0.20f;
     };
     TInsertionOptions insertionOptions;
 

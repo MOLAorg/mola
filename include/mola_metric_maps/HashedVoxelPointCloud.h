@@ -26,7 +26,6 @@
 #pragma once
 
 #include <mola_metric_maps/index3d_t.h>
-//#include <mrpt/containers/vector_with_small_size_optimization.h>
 #include <mrpt/core/round.h>
 #include <mrpt/img/TColor.h>
 #include <mrpt/img/color_maps.h>
