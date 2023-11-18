@@ -371,6 +371,10 @@ class HashedVoxelPointCloud : public mrpt::maps::CMetricMap,
         /** Maximum number of points per voxel. 0 means no limit.
          */
         uint32_t max_points_per_voxel = 0;
+
+        /** If !=0, remove the voxels farther (L1 distance) than this
+         * distance, in meters. */
+        double remove_voxels_farther_than = .0;
     };
     TInsertionOptions insertionOptions;
 

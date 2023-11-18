@@ -300,16 +300,12 @@ bool SparseTreesPointCloud::internal_insertObservation(
         robotPose2D = mrpt::poses::CPose2D(*robotPose);
         robotPose3D = (*robotPose);
 
-        MRPT_TODO("make params");
-        bool     remove_distant_parts      = true;
-        uint32_t remove_farther_than_grids = 2;
-
-        if (remove_distant_parts)
+        if (insertionOptions.remove_farther_than_grids > 0)
         {
             const auto curIdxs =
                 coordToOuterIdx(robotPose3D.translation().cast<float>());
 
-            const auto d        = remove_farther_than_grids;
+            const auto d        = insertionOptions.remove_farther_than_grids;
             const auto curIdxs0 = curIdxs - outer_index3d_t(d, d, d);
             const auto curIdxs1 = curIdxs + outer_index3d_t(d, d, d);
 
@@ -783,6 +779,8 @@ void SparseTreesPointCloud::TInsertionOptions::writeToStream(
 {
     const int8_t version = 0;
     out << version;
+
+    out << minimum_points_clearance << remove_farther_than_grids;
 }
 
 void SparseTreesPointCloud::TInsertionOptions::readFromStream(
@@ -794,6 +792,7 @@ void SparseTreesPointCloud::TInsertionOptions::readFromStream(
     {
         case 0:
         {
+            in >> minimum_points_clearance >> remove_farther_than_grids;
         }
         break;
         default:
@@ -862,6 +861,7 @@ void SparseTreesPointCloud::TInsertionOptions::dumpToTextStream(
            "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(minimum_points_clearance, double);
+    LOADABLEOPTS_DUMP_VAR(remove_farther_than_grids, int);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::dumpToTextStream(
@@ -894,6 +894,7 @@ void SparseTreesPointCloud::TInsertionOptions::loadFromConfigFile(
     [[maybe_unused]] const std::string&                   s)
 {
     MRPT_LOAD_CONFIG_VAR(minimum_points_clearance, double, c, s);
+    MRPT_LOAD_CONFIG_VAR(remove_farther_than_grids, uint64_t, c, s);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::loadFromConfigFile(

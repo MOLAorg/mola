@@ -295,13 +295,10 @@ bool HashedVoxelPointCloud::internal_insertObservation(
         robotPose2D = mrpt::poses::CPose2D(*robotPose);
         robotPose3D = (*robotPose);
 
-        MRPT_TODO("Expose as param");
-        double remove_voxels_farther_than = 150.0;  // [m]
-
-        if (remove_voxels_farther_than > 0)
+        if (insertionOptions.remove_voxels_farther_than > 0)
         {
-            const int distInGrid = static_cast<int>(
-                std::ceil(remove_voxels_farther_than * voxel_size_inv_));
+            const int distInGrid = static_cast<int>(std::ceil(
+                insertionOptions.remove_voxels_farther_than * voxel_size_inv_));
 
             const auto idxCurObs =
                 coordToGlobalIdx(robotPose3D.translation().cast<float>());
@@ -856,7 +853,7 @@ void HashedVoxelPointCloud::TInsertionOptions::writeToStream(
 {
     const int8_t version = 0;
     out << version;
-    out << max_points_per_voxel;
+    out << max_points_per_voxel << remove_voxels_farther_than;
 }
 
 void HashedVoxelPointCloud::TInsertionOptions::readFromStream(
@@ -868,7 +865,7 @@ void HashedVoxelPointCloud::TInsertionOptions::readFromStream(
     {
         case 0:
         {
-            in >> max_points_per_voxel;
+            in >> max_points_per_voxel >> remove_voxels_farther_than;
         }
         break;
         default:
@@ -937,6 +934,7 @@ void HashedVoxelPointCloud::TInsertionOptions::dumpToTextStream(
            "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(max_points_per_voxel, int);
+    LOADABLEOPTS_DUMP_VAR(remove_voxels_farther_than, double);
 }
 
 void HashedVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
@@ -967,6 +965,7 @@ void HashedVoxelPointCloud::TInsertionOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
     MRPT_LOAD_CONFIG_VAR(max_points_per_voxel, int, c, s);
+    MRPT_LOAD_CONFIG_VAR(remove_voxels_farther_than, double, c, s);
 }
 
 void HashedVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(
