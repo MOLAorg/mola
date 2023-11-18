@@ -41,6 +41,8 @@
 
 #include <cmath>
 
+constexpr size_t HARD_MAX_MATCHES = 4;
+
 //#define USE_DEBUG_PROFILER
 
 #ifdef USE_DEBUG_PROFILER
@@ -292,6 +294,32 @@ bool HashedVoxelPointCloud::internal_insertObservation(
     {
         robotPose2D = mrpt::poses::CPose2D(*robotPose);
         robotPose3D = (*robotPose);
+
+        MRPT_TODO("Expose as param");
+        double remove_voxels_farther_than = 150.0;  // [m]
+
+        if (remove_voxels_farther_than > 0)
+        {
+            const int distInGrid = static_cast<int>(
+                std::ceil(remove_voxels_farther_than * voxel_size_inv_));
+
+            const auto idxCurObs =
+                coordToGlobalIdx(robotPose3D.translation().cast<float>());
+
+            for (auto it = voxels_.begin(); it != voxels_.end();)
+            {
+                // manhattan distance:
+                const int dist = mrpt::max3(
+                    std::abs(it->first.cx - idxCurObs.cx),
+                    std::abs(it->first.cy - idxCurObs.cy),
+                    std::abs(it->first.cz - idxCurObs.cz));
+
+                if (dist > distInGrid)
+                    it = voxels_.erase(it);
+                else
+                    ++it;
+            }
+        }
     }
     else
     {
@@ -644,7 +672,6 @@ void HashedVoxelPointCloud::nn_multiple_search(
 
     // Data structures to avoid ANY heap memory allocation and keep working
     // on the stack at all time:
-    constexpr size_t HARD_MAX_MATCHES = 5;
     struct Match
     {
         mrpt::math::TPoint3Df globalPt;
