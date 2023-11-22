@@ -41,7 +41,7 @@
 
 #include <cmath>
 
-constexpr size_t HARD_MAX_MATCHES = 4;
+constexpr size_t HARD_MAX_MATCHES = 3;
 
 //#define USE_DEBUG_PROFILER
 

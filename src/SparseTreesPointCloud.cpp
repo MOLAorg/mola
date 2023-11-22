@@ -584,6 +584,15 @@ bool SparseTreesPointCloud::nn_has_indices_or_ids() const
     return false;
 }
 
+void SparseTreesPointCloud::nn_prepare_for_2d_queries() const
+{
+    for (auto& [idx, grid] : grids_) grid.points().nn_prepare_for_2d_queries();
+}
+void SparseTreesPointCloud::nn_prepare_for_3d_queries() const
+{
+    for (auto& [idx, grid] : grids_) grid.points().nn_prepare_for_3d_queries();
+}
+
 size_t SparseTreesPointCloud::nn_index_count() const
 {  // Not used.
     return 0;

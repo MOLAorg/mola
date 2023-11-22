@@ -249,6 +249,8 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
 
     /** @name API of the NearestNeighborsCapable virtual interface
     @{ */
+    void                 nn_prepare_for_2d_queries() const override;
+    void                 nn_prepare_for_3d_queries() const override;
     [[nodiscard]] bool   nn_has_indices_or_ids() const override;
     [[nodiscard]] size_t nn_index_count() const override;
     [[nodiscard]] bool   nn_single_search(
