@@ -33,7 +33,9 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <optional>
 
 // Declare supported cli switches ===========
 static TCLAP::CmdLine cmd("mola-kitti-eval-error");
@@ -47,6 +49,13 @@ static TCLAP::ValueArg<std::string> arg_kitti_basedir(
 static TCLAP::ValueArg<std::string> arg_result_path(
     "r", "result-tum-path", "File to evaluate, in TUM format", true,
     "result.txt|result_%02i.txt", "result.txt", cmd);
+
+static TCLAP::ValueArg<std::string> argSavePathKittiFormat(
+    "", "save-as-kitti",
+    "If given, will tranform the input path from the LIDAR frame to the cam0 "
+    "frame and save the path to a TXT file in the file expected by KITTI dev "
+    "kit.",
+    false, "result.kitti", "result.kitti", cmd);
 
 static TCLAP::MultiArg<int> arg_seq(
     "s", "sequence", "The path(s) file(s) to evaluate", true, "01", cmd);
@@ -124,7 +133,7 @@ static void parse_calib_line(
     MRPT_TRY_END
 }
 std::vector<Matrix> loadPoses_tum_format(
-    const std::string& file_name, const std::string& calib_file)
+    const std::string& file_name, const std::string& calib_file, bool isGT)
 {
     mrpt::poses::CPose3DInterpolator trajectory;
 
@@ -165,9 +174,21 @@ std::vector<Matrix> loadPoses_tum_format(
     const auto          n = trajectory.size();
     poses.resize(n);
 
-    mrpt::poses::CPose3D pose0;
+    std::optional<std::ofstream> fKittiOut;
 
-    size_t i = 0;
+    if (!isGT && argSavePathKittiFormat.isSet())
+    {
+        const auto fil = argSavePathKittiFormat.getValue();
+        fKittiOut.emplace();
+        fKittiOut->open(fil);
+        ASSERT_(*fKittiOut);
+
+        std::cout << "= Exporting path in kitti format to: " << fil
+                  << std::endl;
+    }
+
+    mrpt::poses::CPose3D pose0;
+    size_t               i = 0;
     for (const auto& p : trajectory)
     {
         auto pose = mrpt::poses::CPose3D(p.second);
@@ -180,6 +201,16 @@ std::vector<Matrix> loadPoses_tum_format(
         mrpt::math::CMatrixDouble44 HM;
         pose.getHomogeneousMatrix(HM);
         poses[i++] = HM;
+
+        // save in kitti format?
+        if (fKittiOut)
+        {
+            fKittiOut.value() << mrpt::format(
+                "%lg %lg %lg %lg %lg %lg %lg %lg %lg %lg %lg %lg\n",  //
+                HM(0, 0), HM(0, 1), HM(0, 2), HM(0, 3),  //
+                HM(1, 0), HM(1, 1), HM(1, 2), HM(1, 3),  //
+                HM(2, 0), HM(2, 1), HM(2, 2), HM(2, 3));
+        }
     }
 
     return poses;
@@ -737,14 +768,15 @@ bool eval()  // string result_sha,Mail* mail)
         char file_name[256];
         sprintf(file_name, "%02d.txt", i);
 
-        // read ground truth and result poses
-        vector<Matrix> poses_gt = loadPoses(gt_dir + "/" + file_name);
-
         const std::string calibFile = mrpt::format(
             "%s/sequences/%02i/calib.txt", kitti_basedir.c_str(), i);
 
         vector<Matrix> poses_result = loadPoses_tum_format(
-            mrpt::format(arg_result_path.getValue().c_str(), i), calibFile);
+            mrpt::format(arg_result_path.getValue().c_str(), i), calibFile,
+            false);
+
+        // read ground truth and result poses
+        vector<Matrix> poses_gt = loadPoses(gt_dir + "/" + file_name);
 
         // plot status
         printf(
