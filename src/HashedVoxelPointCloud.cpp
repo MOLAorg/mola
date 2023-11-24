@@ -584,17 +584,38 @@ void HashedVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
 
     const auto nPreviousPoints = v.points().size();
 
-    if (insertionOptions.max_points_per_voxel == 0 ||
-        nPreviousPoints < insertionOptions.max_points_per_voxel)
-    {
-        v.insertPoint(pt);
+    if (insertionOptions.max_points_per_voxel != 0 &&
+        nPreviousPoints >= insertionOptions.max_points_per_voxel)
+        return;  // skip, voxel is full
 
-        // Also, update bbox:
-        if (!cached_.boundingBox_.has_value())
-            cached_.boundingBox_.emplace(pt, pt);
-        else
-            cached_.boundingBox_->updateWithPoint(pt);
+    if (insertionOptions.min_distance_between_points > 0 &&
+        nPreviousPoints != 0)
+    {
+        // Look for the closest existing point in the voxel:
+        std::optional<float> curClosestDistSqr;
+
+        const auto& pts = v.points();
+        for (size_t i = 0; i < pts.size(); i++)
+        {
+            const float distSqr = pts[i].sqrDistanceTo(pt);
+            if (!curClosestDistSqr.has_value() ||
+                distSqr < curClosestDistSqr.value())
+                curClosestDistSqr = distSqr;
+        }
+        const float minDistSqr =
+            mrpt::square(insertionOptions.min_distance_between_points);
+
+        // Skip if the point is too close to existing ones:
+        if (curClosestDistSqr.value() < minDistSqr) return;
     }
+
+    v.insertPoint(pt);
+
+    // Also, update bbox:
+    if (!cached_.boundingBox_.has_value())
+        cached_.boundingBox_.emplace(pt, pt);
+    else
+        cached_.boundingBox_->updateWithPoint(pt);
 }
 
 bool HashedVoxelPointCloud::nn_has_indices_or_ids() const
@@ -853,7 +874,8 @@ void HashedVoxelPointCloud::TInsertionOptions::writeToStream(
 {
     const int8_t version = 0;
     out << version;
-    out << max_points_per_voxel << remove_voxels_farther_than;
+    out << max_points_per_voxel << remove_voxels_farther_than
+        << min_distance_between_points;
 }
 
 void HashedVoxelPointCloud::TInsertionOptions::readFromStream(
@@ -865,7 +887,8 @@ void HashedVoxelPointCloud::TInsertionOptions::readFromStream(
     {
         case 0:
         {
-            in >> max_points_per_voxel >> remove_voxels_farther_than;
+            in >> max_points_per_voxel >> remove_voxels_farther_than >>
+                min_distance_between_points;
         }
         break;
         default:
@@ -935,6 +958,7 @@ void HashedVoxelPointCloud::TInsertionOptions::dumpToTextStream(
 
     LOADABLEOPTS_DUMP_VAR(max_points_per_voxel, int);
     LOADABLEOPTS_DUMP_VAR(remove_voxels_farther_than, double);
+    LOADABLEOPTS_DUMP_VAR(min_distance_between_points, float)
 }
 
 void HashedVoxelPointCloud::TLikelihoodOptions::dumpToTextStream(
@@ -966,6 +990,7 @@ void HashedVoxelPointCloud::TInsertionOptions::loadFromConfigFile(
 {
     MRPT_LOAD_CONFIG_VAR(max_points_per_voxel, int, c, s);
     MRPT_LOAD_CONFIG_VAR(remove_voxels_farther_than, double, c, s);
+    MRPT_LOAD_CONFIG_VAR(min_distance_between_points, float, c, s);
 }
 
 void HashedVoxelPointCloud::TLikelihoodOptions::loadFromConfigFile(

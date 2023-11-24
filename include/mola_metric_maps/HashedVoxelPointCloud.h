@@ -375,6 +375,10 @@ class HashedVoxelPointCloud : public mrpt::maps::CMetricMap,
         /** If !=0, remove the voxels farther (L1 distance) than this
          * distance, in meters. */
         double remove_voxels_farther_than = .0;
+
+        /** If !=0 skip the insertion of points that are closer than this
+         * distance to any other already in the voxel. */
+        float min_distance_between_points = .0f;
     };
     TInsertionOptions insertionOptions;
 
