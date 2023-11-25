@@ -300,12 +300,14 @@ bool SparseTreesPointCloud::internal_insertObservation(
         robotPose2D = mrpt::poses::CPose2D(*robotPose);
         robotPose3D = (*robotPose);
 
-        if (insertionOptions.remove_farther_than_grids > 0)
+        if (insertionOptions.remove_submaps_farther_than > 0)
         {
             const auto curIdxs =
                 coordToOuterIdx(robotPose3D.translation().cast<float>());
 
-            const auto d        = insertionOptions.remove_farther_than_grids;
+            const int d = static_cast<int>(std::ceil(
+                insertionOptions.remove_submaps_farther_than * grid_size_inv_));
+
             const auto curIdxs0 = curIdxs - outer_index3d_t(d, d, d);
             const auto curIdxs1 = curIdxs + outer_index3d_t(d, d, d);
 
@@ -789,7 +791,7 @@ void SparseTreesPointCloud::TInsertionOptions::writeToStream(
     const int8_t version = 0;
     out << version;
 
-    out << minimum_points_clearance << remove_farther_than_grids;
+    out << minimum_points_clearance << remove_submaps_farther_than;
 }
 
 void SparseTreesPointCloud::TInsertionOptions::readFromStream(
@@ -801,7 +803,7 @@ void SparseTreesPointCloud::TInsertionOptions::readFromStream(
     {
         case 0:
         {
-            in >> minimum_points_clearance >> remove_farther_than_grids;
+            in >> minimum_points_clearance >> remove_submaps_farther_than;
         }
         break;
         default:
@@ -870,7 +872,7 @@ void SparseTreesPointCloud::TInsertionOptions::dumpToTextStream(
            "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(minimum_points_clearance, double);
-    LOADABLEOPTS_DUMP_VAR(remove_farther_than_grids, int);
+    LOADABLEOPTS_DUMP_VAR(remove_submaps_farther_than, int);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::dumpToTextStream(
@@ -903,7 +905,7 @@ void SparseTreesPointCloud::TInsertionOptions::loadFromConfigFile(
     [[maybe_unused]] const std::string&                   s)
 {
     MRPT_LOAD_CONFIG_VAR(minimum_points_clearance, double, c, s);
-    MRPT_LOAD_CONFIG_VAR(remove_farther_than_grids, uint64_t, c, s);
+    MRPT_LOAD_CONFIG_VAR(remove_submaps_farther_than, uint64_t, c, s);
 }
 
 void SparseTreesPointCloud::TLikelihoodOptions::loadFromConfigFile(

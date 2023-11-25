@@ -323,9 +323,9 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
          * the map for it to be actually inserted. */
         float minimum_points_clearance = 0.20f;
 
-        /** If !=0, remove the grid blocks farther (L1 distance) than this
-         * number */
-        uint32_t remove_farther_than_grids = 0;
+        /** If !=0, remove the submap blocks farther (L1 distance) than this
+         * distance [meters] */
+        float remove_submaps_farther_than = .0f;
     };
     TInsertionOptions insertionOptions;
 
