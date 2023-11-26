@@ -40,6 +40,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <shared_mutex>
 
 namespace mola
 {
@@ -160,6 +161,8 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
     {
         // 1) Insert into grid map:
         GridData* grid = nullptr;
+        cachedMtx_.lock_shared();
+
         for (int i = 0; i < CachedData::NUM_CACHED_IDXS; i++)
         {
             if (cached_.lastAccessGrid[i] && cached_.lastAccessIdx[i] == oIdx)
@@ -173,6 +176,7 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
                 break;
             }
         }
+        cachedMtx_.unlock_shared();
 
         if (!grid)
         {
@@ -195,10 +199,14 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
                 grid = &it->second;  // Use the found grid
             }
             // Add to cache:
+            cachedMtx_.lock();
+
             cached_.lastAccessIdx[cached_.lastAccessNextWrite]  = oIdx;
             cached_.lastAccessGrid[cached_.lastAccessNextWrite] = grid;
             cached_.lastAccessNextWrite++;
             cached_.lastAccessNextWrite &= CachedData::NUM_CACHED_IDX_MASK;
+
+            cachedMtx_.unlock();
         }
 
         return grid;
@@ -244,6 +252,11 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
      *  Returns false if any error occured, true elsewere.
      */
     bool saveToTextFile(const std::string& file) const;
+
+    /** Erase submap blocks entirely farther away than the given distance
+     * threshold. */
+    void eraseGridsFartherThan(
+        const mrpt::math::TPoint3Df& pt, const float distanceMeters);
 
     /** @} */
 
@@ -432,7 +445,8 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
         GridData*       lastAccessGrid[NUM_CACHED_IDXS] = {nullptr};
     };
 
-    CachedData cached_;
+    CachedData        cached_;
+    std::shared_mutex cachedMtx_;
 
    protected:
     // See docs in base CMetricMap class:

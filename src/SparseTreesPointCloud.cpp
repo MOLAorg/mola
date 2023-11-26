@@ -302,27 +302,9 @@ bool SparseTreesPointCloud::internal_insertObservation(
 
         if (insertionOptions.remove_submaps_farther_than > 0)
         {
-            const auto curIdxs =
-                coordToOuterIdx(robotPose3D.translation().cast<float>());
-
-            const int d = static_cast<int>(std::ceil(
-                insertionOptions.remove_submaps_farther_than * grid_size_inv_));
-
-            const auto curIdxs0 = curIdxs - outer_index3d_t(d, d, d);
-            const auto curIdxs1 = curIdxs + outer_index3d_t(d, d, d);
-
-            std::set<outer_index3d_t, index3d_hash<int32_t>> gridsToRemove;
-
-            auto lmbPerGrid = [&](const outer_index3d_t& idx, const GridData&) {
-                if (idx.cx >= curIdxs0.cx && idx.cy >= curIdxs0.cy &&
-                    idx.cz >= curIdxs0.cz && idx.cx <= curIdxs1.cx &&
-                    idx.cy <= curIdxs1.cy && idx.cz <= curIdxs1.cz)
-                    return;
-                gridsToRemove.insert(idx);
-            };
-            visitAllGrids(lmbPerGrid);
-
-            for (auto& idx : gridsToRemove) this->grids_.erase(idx);
+            eraseGridsFartherThan(
+                robotPose3D.translation().cast<float>(),
+                insertionOptions.remove_submaps_farther_than);
         }
     }
     else
@@ -337,8 +319,8 @@ bool SparseTreesPointCloud::internal_insertObservation(
          ********************************************************************/
         const auto& o = static_cast<const CObservation2DRangeScan&>(obs);
 
-        // Build (if not done before) the points map representation of this
-        // observation:
+        // Build (if not done before) the points map representation of
+        // this observation:
         const auto* scanPoints = o.buildAuxPointsMap<mrpt::maps::CPointsMap>();
 
         if (scanPoints->empty()) return 0;
@@ -448,8 +430,8 @@ double SparseTreesPointCloud::internal_computeObservationLikelihood(
         // -------------------------------------------
         const auto& o = static_cast<const CObservation2DRangeScan&>(obs);
 
-        // Build (if not done before) the points map representation of this
-        // observation:
+        // Build (if not done before) the points map representation of
+        // this observation:
         const auto* scanPoints = o.buildAuxPointsMap<CPointsMap>();
 
         const size_t N = scanPoints->size();
@@ -868,7 +850,8 @@ void SparseTreesPointCloud::TRenderOptions::readFromStream(
 void SparseTreesPointCloud::TInsertionOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseTreesPointCloud::TInsertionOptions] ------- "
+    out << "\n------ [SparseTreesPointCloud::TInsertionOptions] "
+           "------- "
            "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(minimum_points_clearance, double);
@@ -878,7 +861,8 @@ void SparseTreesPointCloud::TInsertionOptions::dumpToTextStream(
 void SparseTreesPointCloud::TLikelihoodOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseTreesPointCloud::TLikelihoodOptions] ------- "
+    out << "\n------ [SparseTreesPointCloud::TLikelihoodOptions] "
+           "------- "
            "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(sigma_dist, double);
@@ -889,7 +873,8 @@ void SparseTreesPointCloud::TLikelihoodOptions::dumpToTextStream(
 void SparseTreesPointCloud::TRenderOptions::dumpToTextStream(
     std::ostream& out) const
 {
-    out << "\n------ [SparseTreesPointCloud::TRenderOptions] ------- \n\n";
+    out << "\n------ [SparseTreesPointCloud::TRenderOptions] ------- "
+           "\n\n";
 
     LOADABLEOPTS_DUMP_VAR(point_size, float);
     LOADABLEOPTS_DUMP_VAR(show_inner_grid_boxes, bool);
@@ -965,10 +950,51 @@ void SparseTreesPointCloud::internal_insertPointCloud3D(
         doInsert[i] = (!found || nnSqrDist > minSqrDist) ? 1 : 0;
     }
 
-    // Insert *after* the loop above, to prevent having to rebuild the KD-Tree
-    // "N" times (!!!)
+    // Insert *after* the loop above, to prevent having to rebuild the
+    // KD-Tree "N" times (!!!)
     for (std::size_t i = 0; i < num_pts; i++)
         if (doInsert[i]) insertPoint({gXs[i], gYs[i], gZs[i]});
 
     MRPT_TRY_END
+}
+
+void SparseTreesPointCloud::eraseGridsFartherThan(
+    const mrpt::math::TPoint3Df& pt, const float distanceMeters)
+{
+    const auto curIdxs = coordToOuterIdx(pt);
+
+    const int d = static_cast<int>(std::ceil(distanceMeters * grid_size_inv_));
+
+    const auto curIdxs0 = curIdxs - outer_index3d_t(d, d, d);
+    const auto curIdxs1 = curIdxs + outer_index3d_t(d, d, d);
+
+    std::set<outer_index3d_t, index3d_hash<int32_t>> gridsToRemove;
+
+    auto lmbPerGrid = [&](const outer_index3d_t& idx, const GridData&) {
+        if (idx.cx >= curIdxs0.cx && idx.cy >= curIdxs0.cy &&
+            idx.cz >= curIdxs0.cz && idx.cx <= curIdxs1.cx &&
+            idx.cy <= curIdxs1.cy && idx.cz <= curIdxs1.cz)
+            return;
+        gridsToRemove.insert(idx);
+    };
+    visitAllGrids(lmbPerGrid);
+
+    // Remove the grid blocks from the local map, and also from the
+    // access cache:
+    cachedMtx_.lock();
+
+    for (auto& idx : gridsToRemove)
+    {
+        this->grids_.erase(idx);
+
+        for (int i = 0; i < CachedData::NUM_CACHED_IDXS; i++)
+        {
+            if (cached_.lastAccessIdx[i] == idx)
+            {
+                cached_.lastAccessIdx[i]  = {0, 0, 0};
+                cached_.lastAccessGrid[i] = nullptr;
+            }
+        }
+    }
+    cachedMtx_.unlock();
 }
