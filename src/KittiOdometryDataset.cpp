@@ -470,7 +470,7 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
     // "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
     //
 
-    // We need to "elevate" each point by this angle:
+    // We need to "elevate" each point by this angle: VERTICAL_ANGLE_OFFSET
 
     // Due to the ring-like, rotating nature of 3D LIDARs, we cannot do this
     // in any more efficient way than go through the points one by one:
@@ -495,6 +495,11 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
     // Kitti datasets.
     obs->sensorPose = mrpt::poses::CPose3D();
     obs->timestamp  = mrpt::Clock::fromDouble(lst_timestamps_.at(step));
+
+#if 0  // Export clouds to txt for debugging externally (e.g. python, matlab)
+    obs->pointcloud->save3D_to_text_file(
+        mrpt::format("kitti_%s_%06zu.txt", sequence_.c_str(), step));
+#endif
 
     auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
     read_ahead_lidar_obs_[step] = std::move(o);
