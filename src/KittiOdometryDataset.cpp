@@ -24,6 +24,7 @@
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
+#include <mrpt/obs/CObservationRotatingScan.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 
@@ -92,6 +93,7 @@ void KittiOdometryDataset::initialize(const Yaml& c)
 
     YAML_LOAD_MEMBER_REQ(base_dir, std::string);
     YAML_LOAD_MEMBER_REQ(sequence, std::string);
+    YAML_LOAD_MEMBER_OPT(clouds_as_organized_points, bool);
 
     seq_dir_ = base_dir_ + "/sequences/"s + sequence_;
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
@@ -471,24 +473,26 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
     //
 
     // We need to "elevate" each point by this angle: VERTICAL_ANGLE_OFFSET
-
-    // Due to the ring-like, rotating nature of 3D LIDARs, we cannot do this
-    // in any more efficient way than go through the points one by one:
-    auto& xs = obs->pointcloud->getPointsBufferRef_x();
-    auto& ys = obs->pointcloud->getPointsBufferRef_y();
-    auto& zs = obs->pointcloud->getPointsBufferRef_z();
-
-    const Eigen::Vector3d uz(0., 0., 1.);
-    for (size_t i = 0; i < xs.size(); i++)
+    if (VERTICAL_ANGLE_OFFSET != 0)
     {
-        const Eigen::Vector3d pt(xs[i], ys[i], zs[i]);
-        const Eigen::Vector3d rotationVector = pt.cross(uz);
+        // Due to the ring-like, rotating nature of 3D LIDARs, we cannot do this
+        // in any more efficient way than go through the points one by one:
+        auto& xs = obs->pointcloud->getPointsBufferRef_x();
+        auto& ys = obs->pointcloud->getPointsBufferRef_y();
+        auto& zs = obs->pointcloud->getPointsBufferRef_z();
 
-        const auto aa = Eigen::AngleAxisd(
-            VERTICAL_ANGLE_OFFSET, rotationVector.normalized());
-        const Eigen::Vector3d newPt = aa * pt;
+        const Eigen::Vector3d uz(0., 0., 1.);
+        for (size_t i = 0; i < xs.size(); i++)
+        {
+            const Eigen::Vector3d pt(xs[i], ys[i], zs[i]);
+            const Eigen::Vector3d rotationVector = pt.cross(uz);
 
-        obs->pointcloud->setPoint(i, {newPt.x(), newPt.y(), newPt.z()});
+            const auto aa = Eigen::AngleAxisd(
+                VERTICAL_ANGLE_OFFSET, rotationVector.normalized());
+            const Eigen::Vector3d newPt = aa * pt;
+
+            obs->pointcloud->setPoint(i, {newPt.x(), newPt.y(), newPt.z()});
+        }
     }
 
     // Pose: velodyne is at the origin of the vehicle coordinates in
@@ -501,7 +505,82 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
         mrpt::format("kitti_%s_%06zu.txt", sequence_.c_str(), step));
 #endif
 
-    auto o = mrpt::ptr_cast<mrpt::obs::CObservation>::from(obs);
+    mrpt::obs::CObservation::Ptr o;
+    // Now, publish it as pointcloud or as an organized cloud:
+    if (!clouds_as_organized_points_)
+    {
+        // we are done:
+        o = std::dynamic_pointer_cast<mrpt::obs::CObservation>(obs);
+    }
+    else
+    {
+        auto rs         = mrpt::obs::CObservationRotatingScan::Create();
+        rs->sensorPose  = obs->sensorPose;
+        rs->sensorLabel = obs->sensorLabel;
+        rs->timestamp   = obs->timestamp;
+
+        rs->sweepDuration = .0;  // [sec] for already de-skewed scans
+        rs->lidarModel    = "HDL-64E";
+        rs->minRange      = 0.1;
+        rs->maxRange      = 120.0;
+
+        rs->columnCount     = range_matrix_column_count_;
+        rs->rowCount        = range_matrix_row_count_;
+        rs->rangeResolution = 5e-3;  // 5 mm
+
+        rs->organizedPoints.resize(rs->rowCount, rs->columnCount);
+        rs->intensityImage.resize(rs->rowCount, rs->columnCount);
+        rs->rangeImage.resize(rs->rowCount, rs->columnCount);
+
+        auto ptsXYZI = std::dynamic_pointer_cast<mrpt::maps::CPointsMapXYZI>(
+            obs->pointcloud);
+        ASSERT_(ptsXYZI);
+
+        const auto& xs = ptsXYZI->getPointsBufferRef_x();
+        const auto& ys = ptsXYZI->getPointsBufferRef_y();
+        const auto& zs = ptsXYZI->getPointsBufferRef_z();
+
+        const size_t nPts = xs.size();
+
+        // Based on:
+        // https://github.com/TixiaoShan/LIO-SAM/blob/master/config/doc/kitti2bag/kitti2bag.py
+
+        // (JLBC) Note that this code assumes scan deskew has not been already
+        // applied!
+
+        const float fov_down = mrpt::DEG2RAD(-24.8f);
+        const float fov      = mrpt::DEG2RAD(std::abs(-24.8f) + abs(2.0f));
+
+        for (size_t i = 0; i < nPts; i++)
+        {
+            // intensity comes normalized [0,1]
+            const float ptInt = ptsXYZI->getPointIntensity(i);
+
+            const float range_xy =
+                std::sqrt(mrpt::square(xs[i]) + mrpt::square(ys[i]));
+            const float pitch = std::asin(zs[i] / range_xy);
+            const float yaw   = std::atan2(ys[i], xs[i]);
+
+            float     proj_y = (pitch + abs(fov_down)) / fov;  // in[0.0, 1.0]
+            const int row    = std::min<int>(
+                rs->rowCount - 1,
+                std::max<int>(0, std::floor(proj_y * rs->rowCount)));
+
+            const int col = std::min<int>(
+                rs->columnCount - 1,
+                std::max<int>(
+                    0, rs->columnCount * (yaw + M_PIf) / (2 * M_PIf)));
+
+            rs->rangeImage(row, col)      = range_xy / rs->rangeResolution;
+            rs->intensityImage(row, col)  = ptInt * 255;
+            rs->organizedPoints(row, col) = {xs[i], ys[i], zs[i]};
+        }
+
+        // save:
+        o = std::dynamic_pointer_cast<mrpt::obs::CObservation>(rs);
+    }
+
+    // Store in the output queue:
     read_ahead_lidar_obs_[step] = std::move(o);
 
     MRPT_END

@@ -34,6 +34,10 @@ namespace mola
  * - `lidar`: Velodyne 3D LIDAR
  * - Ground truth poses
  *
+ * If the option `clouds_as_organized_points` is true (default), point cloud
+ * are published as mrpt::obs::CObservationRotatingScan.
+ * Otherwise, they are published as mrpt::obs::CObservationPointCloud.
+ *
  * \ingroup mola_input_kitti_dataset_grp */
 class KittiOdometryDataset : public RawDataSourceBase
 {
@@ -72,6 +76,9 @@ class KittiOdometryDataset : public RawDataSourceBase
     bool                    initialized_ = false;
     std::string             base_dir_;  //!< base dir for "sequences/*".
     std::string             sequence_;  //!< "00", "01", ...
+    bool                    clouds_as_organized_points_ = true;
+    unsigned int            range_matrix_column_count_  = 2000;
+    unsigned int            range_matrix_row_count_     = 64;
     mrpt::Clock::time_point replay_begin_time_{};
     timestep_t              replay_next_tim_index_{0};
     bool                    replay_started_{false};
