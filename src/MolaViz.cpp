@@ -38,6 +38,7 @@
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/obs/CObservationRotatingScan.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/COpenGLScene.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
@@ -88,6 +89,8 @@ MRPT_INITIALIZER(do_register_MolaViz)
         "mrpt::obs::CObservation3DRangeScan", &gui_handler_point_cloud);
     MolaViz::register_gui_handler(
         "mrpt::obs::CObservation2DRangeScan", &gui_handler_point_cloud);
+    MolaViz::register_gui_handler(
+        "mrpt::obs::CObservationRotatingScan", &gui_handler_point_cloud);
 }
 
 MolaViz*                     MolaViz::instance_ = nullptr;
@@ -514,6 +517,7 @@ void gui_handler_images(
 // CObservationPointCloud
 // CObservation2DRangeScan
 // CObservation3DRangeScan
+// CObservationRotatingScan
 void gui_handler_point_cloud(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
     MolaViz::window_name_t parentWin, MolaViz* instance)
@@ -562,6 +566,32 @@ void gui_handler_point_cloud(
         glPc->loadFromPointsMap(objPc->pointcloud.get());
 
         gui_handler_show_common_sensor_info(*objPc, w);
+    }
+    else if (auto objRS =
+                 std::dynamic_pointer_cast<CObservationRotatingScan>(o);
+             objRS)
+    {
+        objRS->load();
+        glPc->clear();
+        mrpt::math::TBoundingBoxf bbox =
+            mrpt::math::TBoundingBoxf::PlusMinusInfinity();
+
+        for (size_t r = 0; r < objRS->rowCount; r++)
+        {
+            for (size_t c = 0; c < objRS->columnCount; c++)
+            {
+                const auto range = objRS->rangeImage(r, c);
+                if (!range) continue;  // invalid pt
+
+                const auto& pt = objRS->organizedPoints(r, c);
+
+                glPc->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+                bbox.updateWithPoint(pt);
+            }
+        }
+        glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
+
+        gui_handler_show_common_sensor_info(*objRS, w);
     }
     else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
              obj3D)
