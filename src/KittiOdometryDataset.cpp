@@ -406,7 +406,7 @@ void KittiOdometryDataset::spinOnce()
 }
 
 void KittiOdometryDataset::load_img(
-    const unsigned int cam_idx, const timestep_t step)
+    const unsigned int cam_idx, const timestep_t step) const
 {
     MRPT_START
 
@@ -440,7 +440,7 @@ void KittiOdometryDataset::load_img(
     MRPT_END
 }
 
-void KittiOdometryDataset::load_lidar(timestep_t step)
+void KittiOdometryDataset::load_lidar(timestep_t step) const
 {
     MRPT_START
     // Already loaded?
@@ -586,21 +586,19 @@ void KittiOdometryDataset::load_lidar(timestep_t step)
     MRPT_END
 }
 
-mrpt::obs::CObservationPointCloud::Ptr KittiOdometryDataset::getPointCloud(
-    timestep_t step)
+mrpt::obs::CObservation::Ptr KittiOdometryDataset::getPointCloud(
+    timestep_t step) const
 {
     ASSERT_(initialized_);
     ASSERT_LT_(step, lst_timestamps_.size());
 
     load_lidar(step);
-    auto o = std::dynamic_pointer_cast<mrpt::obs::CObservationPointCloud>(
-        read_ahead_lidar_obs_.at(step));
-    ASSERT_(o);
+    auto o = read_ahead_lidar_obs_.at(step);
     return o;
 }
 
 std::shared_ptr<mrpt::obs::CObservationImage> KittiOdometryDataset::getImage(
-    const unsigned int cam_idx, timestep_t step)
+    const unsigned int cam_idx, timestep_t step) const
 {
     ASSERT_(initialized_);
     ASSERT_LT_(step, lst_timestamps_.size());
@@ -612,8 +610,24 @@ std::shared_ptr<mrpt::obs::CObservationImage> KittiOdometryDataset::getImage(
     return o;
 }
 
-timestep_t KittiOdometryDataset::getTimestepCount() const
+size_t KittiOdometryDataset::datasetSize() const
 {
     ASSERT_(initialized_);
     return lst_timestamps_.size();
+}
+
+mrpt::obs::CSensoryFrame::Ptr KittiOdometryDataset::datasetGetObservations(
+    size_t timestep) const
+{
+    auto sf = mrpt::obs::CSensoryFrame::Create();
+
+    for (size_t i = 0; i < publish_image_.size(); i++)
+    {
+        if (!publish_image_[i]) continue;
+        sf->insert(getImage(i, timestep));
+    }
+
+    if (publish_lidar_) { sf->insert(getPointCloud(timestep)); }
+
+    return sf;
 }

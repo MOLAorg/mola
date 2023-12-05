@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/img/TCamera.h>
@@ -39,7 +40,8 @@ namespace mola
  * Otherwise, they are published as mrpt::obs::CObservationPointCloud.
  *
  * \ingroup mola_input_kitti_dataset_grp */
-class KittiOdometryDataset : public RawDataSourceBase
+class KittiOdometryDataset : public RawDataSourceBase,
+                             public OfflineDatasetSource
 {
     DEFINE_MRPT_OBJECT(KittiOdometryDataset, mola)
 
@@ -59,13 +61,22 @@ class KittiOdometryDataset : public RawDataSourceBase
         return groundTruthTrajectory_;
     }
 
-    /** Direct programatic access to dataset observations */
-    std::shared_ptr<mrpt::obs::CObservationPointCloud> getPointCloud(
-        timestep_t step);
+    /** Direct programmatic access to dataset observations.
+     * The type of the lidar observation can be either:
+     * - mrpt::obs::CObservationPointCloud (`clouds_as_organized_points_`=false)
+     * - mrpt::obs::CObservationRotatingScan
+     *   (`clouds_as_organized_points_`=true)
+     */
+    std::shared_ptr<mrpt::obs::CObservation> getPointCloud(
+        timestep_t step) const;
     std::shared_ptr<mrpt::obs::CObservationImage> getImage(
-        const unsigned int cam_idx, timestep_t step);
+        const unsigned int cam_idx, timestep_t step) const;
 
-    timestep_t getTimestepCount() const;
+    // See docs in base class:
+    size_t datasetSize() const override;
+
+    mrpt::obs::CSensoryFrame::Ptr datasetGetObservations(
+        size_t timestep) const override;
 
     /** See:
      *  "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
@@ -89,20 +100,21 @@ class KittiOdometryDataset : public RawDataSourceBase
     std::array<mrpt::img::TCamera, 4>  cam_intrinsics_;
     std::array<mrpt::math::TPose3D, 4> cam_poses_;  //!< wrt vehicle origin
 
-    std::array<std::vector<std::string>, 4>            lst_image_;
-    std::vector<std::string>                           lst_velodyne_;
-    mrpt::math::CMatrixDouble                          groundTruthPoses_;
-    trajectory_t                                       groundTruthTrajectory_;
-    std::map<timestep_t, mrpt::obs::CObservation::Ptr> read_ahead_lidar_obs_;
-    std::map<timestep_t, std::array<mrpt::obs::CObservation::Ptr, 4>>
+    std::array<std::vector<std::string>, 4> lst_image_;
+    std::vector<std::string>                lst_velodyne_;
+    mrpt::math::CMatrixDouble               groundTruthPoses_;
+    trajectory_t                            groundTruthTrajectory_;
+    mutable std::map<timestep_t, mrpt::obs::CObservation::Ptr>
+        read_ahead_lidar_obs_;
+    mutable std::map<timestep_t, std::array<mrpt::obs::CObservation::Ptr, 4>>
         read_ahead_image_obs_;
 
     std::vector<double> lst_timestamps_;
     double              replay_time_{.0};
     std::string         seq_dir_;
 
-    void load_img(const unsigned int cam_idx, const timestep_t step);
-    void load_lidar(timestep_t step);
+    void load_img(const unsigned int cam_idx, const timestep_t step) const;
+    void load_lidar(timestep_t step) const;
 };
 
 }  // namespace mola
