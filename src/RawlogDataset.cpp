@@ -49,10 +49,25 @@ void RawlogDataset::initialize(const Yaml& c)
 
     YAML_LOAD_MEMBER_REQ(rawlog_filename, std::string);
     YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
+    YAML_LOAD_MEMBER_OPT(read_all_first, bool);
 
     ASSERT_FILE_EXISTS_(rawlog_filename_);
-    if (!rawlog_in_.open(rawlog_filename_))
-        throw std::runtime_error("Cannot open input rawlog!");
+
+    if (read_all_first_)
+    {
+        MRPT_LOG_INFO_STREAM(
+            "Reading the whole rawlog dataset: " << rawlog_filename_);
+
+        rawlog_entire_.loadFromRawLogFile(rawlog_filename_);
+
+        MRPT_LOG_INFO_STREAM(
+            "Read ok, with " << rawlog_entire_.size() << " entries.");
+    }
+    else
+    {
+        if (!rawlog_in_.open(rawlog_filename_))
+            throw std::runtime_error("Cannot open input rawlog!");
+    }
 
     MRPT_END
 }  // end initialize()
@@ -109,14 +124,13 @@ void RawlogDataset::spinOnce()
     MRPT_END
 }
 
-void RawlogDataset::doReadAhead()
+constexpr size_t READ_AHEAD_LEN = 10;
+
+void RawlogDataset::doReadAheadFromFile()
 {
     MRPT_START
 
-    MRPT_TODO("do read ahead in a different thread");
-
-    const size_t READ_AHEAD_LEN = 10;
-    auto         rawlog_arch    = mrpt::serialization::archiveFrom(rawlog_in_);
+    auto rawlog_arch = mrpt::serialization::archiveFrom(rawlog_in_);
 
     while (read_ahead_.size() < READ_AHEAD_LEN)
     {
@@ -162,4 +176,90 @@ void RawlogDataset::doReadAhead()
     }
 
     MRPT_END
+}
+
+void RawlogDataset::doReadAheadFromEntireRawlog()
+{
+    while (read_ahead_.size() < READ_AHEAD_LEN &&
+           rawlog_next_idx_ < rawlog_entire_.size())
+    {
+        const auto obj = rawlog_entire_.getAsGeneric(rawlog_next_idx_++);
+        if (auto obs = std::dynamic_pointer_cast<mrpt::obs::CObservation>(obj);
+            obs)
+        {  // Single observation:
+            read_ahead_.emplace(obs->getTimeStamp(), std::move(obs));
+        }
+        else  //
+            if (auto sf =
+                    std::dynamic_pointer_cast<mrpt::obs::CSensoryFrame>(obj);
+                sf)
+        {
+            for (const auto& o : *sf) read_ahead_.emplace(o->getTimeStamp(), o);
+        }
+        else if (auto acts =
+                     std::dynamic_pointer_cast<mrpt::obs::CActionCollection>(
+                         obj);
+                 acts)
+        {
+            // odometry actions: ignore
+        }
+        else
+            THROW_EXCEPTION_FMT(
+                "Rawlog file can contain classes: "
+                "CObservation|CSensoryFrame|CActionCollection, but class "
+                "'%s' found.",
+                obj->GetRuntimeClass()->className);
+    }
+}
+
+void RawlogDataset::doReadAhead()
+{
+    if (read_all_first_)
+        doReadAheadFromEntireRawlog();
+    else
+        doReadAheadFromFile();
+}
+
+// See docs in base class:
+size_t RawlogDataset::datasetSize() const
+{
+    ASSERTMSG_(
+        read_all_first_,
+        "Using the OfflineDatasetSource API in this class requires setting "
+        "'read_all_first' to 'true'");
+
+    return rawlog_entire_.size();
+}
+
+mrpt::obs::CSensoryFrame::Ptr RawlogDataset::datasetGetObservations(
+    size_t timestep) const
+{
+    ASSERTMSG_(
+        read_all_first_,
+        "Using the OfflineDatasetSource API in this class requires setting "
+        "'read_all_first' to 'true'");
+
+    const auto obj = rawlog_entire_.getAsGeneric(timestep);
+
+    auto sfRet = mrpt::obs::CSensoryFrame::Create();
+
+    if (auto obs = std::dynamic_pointer_cast<mrpt::obs::CObservation>(obj); obs)
+    {  // Single observation:
+
+        sfRet->insert(obs);
+    }
+    else  //
+        if (auto sf = std::dynamic_pointer_cast<mrpt::obs::CSensoryFrame>(obj);
+            sf)
+    {
+        sfRet = sf;
+    }
+    else if (auto acts =
+                 std::dynamic_pointer_cast<mrpt::obs::CActionCollection>(obj);
+             acts)
+    {
+        // odometry actions: ignore
+    }
+
+    return sfRet;
 }
