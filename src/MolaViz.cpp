@@ -447,12 +447,13 @@ void gui_handler_show_common_sensor_info(
     if (!glView) return;
 
     constexpr unsigned int TXT_ID_TIMESTAMP = 0;
+    constexpr unsigned int TXT_ID_RATE      = 1;
 
     mrpt::opengl::TFontParams fp;
     fp.color        = {1.0f, 1.0f, 1.0f};
     fp.draw_shadow  = true;
     fp.shadow_color = {0.0f, 0.0f, 0.0f};
-    fp.vfont_scale  = 8;
+    fp.vfont_scale  = 9;
 
     glView->addTextMessage(
         2, 2,
@@ -460,6 +461,46 @@ void gui_handler_show_common_sensor_info(
             "Timestamp: %s",
             mrpt::system::dateTimeToString(obs.timestamp).c_str()),
         TXT_ID_TIMESTAMP, fp);
+
+    // Estimate the sensor rate: one mean rate value stored per subwindow
+    // (1 subwindow = 1 sensor stream)
+    thread_local std::map<nanogui::Window*, double> estimatedHzs;
+    thread_local std::map<nanogui::Window*, double> lastTimestamp;
+
+    const double curTim = mrpt::Clock::toDouble(obs.timestamp);
+    if (lastTimestamp.count(w) == 0)
+    {
+        // first time: do nothing
+    }
+    else
+    {
+        const double At    = curTim - lastTimestamp[w];
+        const double curHz = At > 0 ? (1.0 / At) : 1.0;
+        const double alpha = 0.9;
+
+        double showHz;
+
+        if (estimatedHzs.count(w) == 0)
+        {
+            estimatedHzs[w] = curHz;
+            showHz          = curHz;
+        }
+        else
+        {
+            // low-pass filtering:
+            double& estimatedHz = estimatedHzs[w];
+
+            estimatedHz = alpha * estimatedHz + (1.0 - alpha) * curHz;
+            showHz      = estimatedHz;
+        }
+
+        glView->addTextMessage(
+            2, 2 + fp.vfont_scale + 2,
+            mrpt::format("Estimated rate: %.03f Hz", showHz), TXT_ID_RATE, fp);
+    }
+
+    // store for the next iter:
+    lastTimestamp[w] = curTim;
 }
 
 // CObservationImage
