@@ -19,6 +19,7 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/io/lazy_load_path.h>
 #include <mrpt/obs/CActionCollection.h>
 #include <mrpt/obs/CSensoryFrame.h>
 #include <mrpt/system/filesystem.h>
@@ -52,6 +53,16 @@ void RawlogDataset::initialize(const Yaml& c)
     YAML_LOAD_MEMBER_OPT(read_all_first, bool);
 
     ASSERT_FILE_EXISTS_(rawlog_filename_);
+
+    // Detect the external files directory, if used:
+    const auto imgsDir =
+        mrpt::obs::CRawlog::detectImagesDirectory(rawlog_filename_);
+    if (mrpt::system::directoryExists(imgsDir))
+    {
+        mrpt::io::setLazyLoadPathBase(imgsDir);
+        MRPT_LOG_INFO_STREAM(
+            "Setting rawlog external directory to: " << imgsDir);
+    }
 
     if (read_all_first_)
     {
