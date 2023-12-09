@@ -87,7 +87,7 @@ class KittiOdometryDataset : public RawDataSourceBase,
     bool                    initialized_ = false;
     std::string             base_dir_;  //!< base dir for "sequences/*".
     std::string             sequence_;  //!< "00", "01", ...
-    bool                    clouds_as_organized_points_ = true;
+    bool                    clouds_as_organized_points_ = false;
     unsigned int            range_matrix_column_count_  = 2000;
     unsigned int            range_matrix_row_count_     = 64;
     mrpt::Clock::time_point replay_begin_time_{};
