@@ -58,8 +58,8 @@ class HashedVoxelPointCloud : public mrpt::maps::CMetricMap,
     /// Size of the std::array for the small-size optimization container in each
     /// voxel, defining the maximum number of points that can be stored without
     /// heap allocation.
-    constexpr static std::size_t SSO_MAX_POINTS_PER_VOXEL    = 16;
-    constexpr static std::size_t GLOBAL_ID_SUBVOXEL_BITCOUNT = 4;
+    constexpr static std::size_t SSO_MAX_POINTS_PER_VOXEL    = 32;
+    constexpr static std::size_t GLOBAL_ID_SUBVOXEL_BITCOUNT = 5;
     static_assert(
         SSO_MAX_POINTS_PER_VOXEL <= (1 << GLOBAL_ID_SUBVOXEL_BITCOUNT));
 
