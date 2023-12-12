@@ -37,3 +37,6 @@
 [submodule "modules/mola_demos"]
 	path = modules/mola_demos
 	url = https://github.com/MOLAorg/mola_demos.git
+[submodule "modules/mola_input_mulran_dataset"]
+	path = modules/mola_input_mulran_dataset
+	url = https://github.com/MOLAorg/mola_input_mulran_dataset.git
