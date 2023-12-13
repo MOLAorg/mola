@@ -16,6 +16,7 @@
 #include <mrpt/core/Clock.h>
 #include <mrpt/img/TCamera.h>
 #include <mrpt/math/TPose3D.h>
+#include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/obs_frwds.h>
 
 #include <array>
@@ -36,9 +37,8 @@ namespace mola
  * - `imu`  : (TBD) (Not implemented yet).
  * - Ground truth poses
  *
- * If the option `clouds_as_organized_points` is true (default), point cloud
- * are published as mrpt::obs::CObservationRotatingScan.
- * Otherwise, they are published as mrpt::obs::CObservationPointCloud.
+ * Point clouds are published as mrpt::obs::CObservationPointCloud
+ * with clouds of types mrpt::maps::CPointsMapXYZIRT
  *
  * Expected contents under `base_dir` directory:
  *
@@ -83,13 +83,8 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     }
 
     /** Direct programmatic access to dataset observations.
-     * The type of the lidar observation can be either:
-     * - mrpt::obs::CObservationPointCloud (`clouds_as_organized_points_`=false)
-     * - mrpt::obs::CObservationRotatingScan
-     *   (`clouds_as_organized_points_`=true)
      */
-    std::shared_ptr<mrpt::obs::CObservation> getPointCloud(
-        timestep_t step) const;
+    mrpt::obs::CObservationPointCloud::Ptr getPointCloud(timestep_t step) const;
 
     // See docs in base class:
     size_t datasetSize() const override;
@@ -106,9 +101,6 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     bool                    initialized_ = false;
     std::string             base_dir_;  //!< base dir for "sequences/*".
     std::string             sequence_;  //!< "00", "01", ...
-    bool                    clouds_as_organized_points_ = false;
-    unsigned int            range_matrix_column_count_  = 2000;
-    unsigned int            range_matrix_row_count_     = 64;
     mrpt::Clock::time_point replay_begin_time_{};
     timestep_t              replay_next_tim_index_{0};
     bool                    replay_started_{false};
@@ -120,7 +112,7 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
 
     mrpt::math::CMatrixDouble groundTruthPoses_;
     trajectory_t              groundTruthTrajectory_;
-    mutable std::map<timestep_t, mrpt::obs::CObservation::Ptr>
+    mutable std::map<timestep_t, mrpt::obs::CObservationPointCloud::Ptr>
         read_ahead_lidar_obs_;
 
     mrpt::poses::CPose3D ousterPoseOnVehicle_;

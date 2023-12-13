@@ -21,6 +21,7 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
+#include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
@@ -79,7 +80,6 @@ void MulranDataset::initialize(const Yaml& c)
 
     YAML_LOAD_MEMBER_REQ(base_dir, std::string);
     YAML_LOAD_MEMBER_REQ(sequence, std::string);
-    YAML_LOAD_MEMBER_OPT(clouds_as_organized_points, bool);
 
     seq_dir_ = mrpt::system::pathJoin({base_dir_, sequence_});
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
@@ -273,46 +273,58 @@ void MulranDataset::load_lidar(timestep_t step) const
 
     auto obs         = mrpt::obs::CObservationPointCloud::Create();
     obs->sensorLabel = "lidar";
-    obs->setAsExternalStorage(
-        f,
-        mrpt::obs::CObservationPointCloud::ExternalStorageFormat::KittiBinFile);
-    obs->load();  // force loading now from disk
-    ASSERTMSG_(
-        obs->pointcloud,
-        mrpt::format("Error loading kitti scan file: '%s'", f.c_str()));
 
-    // Pose: velodyne is at the origin of the vehicle coordinates in
-    // Kitti datasets.
+    auto pts        = mrpt::maps::CPointsMapXYZIRT::Create();
+    obs->pointcloud = pts;
+
+    // Load XYZI from kitti-like file:
+    mrpt::maps::CPointsMapXYZI kittiData;
+
+    bool loadOk = kittiData.loadFromKittiVelodyneFile(f);
+    ASSERTMSG_(
+        loadOk, mrpt::format("Error loading kitti scan file: '%s'", f.c_str()));
+
+    // Copy XYZI:
+    *pts = kittiData;
+
+    const size_t nPts = pts->size();
+    ASSERT_EQUAL_(nPts, 1024 * 64);
+    pts->resize_XYZIRT(nPts, true /*i*/, false /*R*/, true /*t*/);
+
+    // Fixed to 10 Hz rotation in this dataset:
+    const double sweepDuration = 0.1;  //  [s]
+
+    for (size_t i = 0; i < nPts; i++)
+    {
+        // const int row = i % 64;
+        const int col = i / 64;
+        pts->setPointTime(i, sweepDuration * col / 1024.0);
+    }
+
+    // Pose:
     obs->sensorPose = ousterPoseOnVehicle_;
     obs->timestamp  = mrpt::Clock::fromDouble(lst_timestamps_.at(step));
 
 #if 0  // Export clouds to txt for debugging externally (e.g. python, matlab)
-    obs->pointcloud->save3D_to_text_file(
-        mrpt::format("kitti_%s_%06zu.txt", sequence_.c_str(), step));
+    pts->saveXYZIRT_to_text_file(
+        mrpt::format("mulran_%s_%06zu.txt", sequence_.c_str(), step));
 #endif
 
-    mrpt::obs::CObservation::Ptr o;
-    // Now, publish it as pointcloud or as an organized cloud:
-    if (!clouds_as_organized_points_)
-    {
-        // we are done:
-        o = std::dynamic_pointer_cast<mrpt::obs::CObservation>(obs);
-    }
-    else
+#if 0
     {
         auto rs         = mrpt::obs::CObservationRotatingScan::Create();
         rs->sensorPose  = obs->sensorPose;
         rs->sensorLabel = obs->sensorLabel;
         rs->timestamp   = obs->timestamp;
 
-        rs->sweepDuration = .0;  // [sec] for already de-skewed scans
+        rs->sweepDuration = 0.10;  // [sec]
         rs->lidarModel    = "OS1-64";
         rs->minRange      = 0.1;
         rs->maxRange      = 120.0;
 
-        rs->columnCount     = range_matrix_column_count_;
-        rs->rowCount        = range_matrix_row_count_;
-        rs->rangeResolution = 5e-3;  // 5 mm
+        rs->columnCount     = 1024;
+        rs->rowCount        = 64;
+        rs->rangeResolution = 1e-2;  // 1 cm
 
         rs->organizedPoints.resize(rs->rowCount, rs->columnCount);
         rs->intensityImage.resize(rs->rowCount, rs->columnCount);
@@ -328,52 +340,36 @@ void MulranDataset::load_lidar(timestep_t step) const
 
         const size_t nPts = xs.size();
 
-        // Based on:
-        // https://github.com/TixiaoShan/LIO-SAM/blob/master/config/doc/kitti2bag/kitti2bag.py
-
-        // (JLBC) Note that this code assumes scan deskew has not been
-        // already applied!
-
-        THROW_EXCEPTION("fix these numbers for Ouster OS1");
-        const float fov_down = mrpt::DEG2RAD(-24.8f);
-        const float fov      = mrpt::DEG2RAD(std::abs(-24.8f) + abs(2.0f));
+        ASSERT_EQUAL_(nPts, 1024 * 64);
 
         for (size_t i = 0; i < nPts; i++)
         {
+            const int row = i % 64;
+            const int col = i / 64;
+
             // intensity comes normalized [0,1]
             const float ptInt = ptsXYZI->getPointIntensity(i);
 
-            const float range_xy =
-                std::sqrt(mrpt::square(xs[i]) + mrpt::square(ys[i]));
-            const float pitch = std::asin(zs[i] / range_xy);
-            const float yaw   = std::atan2(ys[i], xs[i]);
+            const auto pt = mrpt::math::TPoint3Df(xs[i], ys[i], zs[i]);
 
-            float     proj_y = (pitch + abs(fov_down)) / fov;  // in[0.0, 1.0]
-            const int row    = std::min<int>(
-                rs->rowCount - 1,
-                std::max<int>(0, std::floor(proj_y * rs->rowCount)));
-
-            const int col = std::min<int>(
-                rs->columnCount - 1,
-                std::max<int>(
-                    0, rs->columnCount * (yaw + M_PIf) / (2 * M_PIf)));
-
-            rs->rangeImage(row, col)      = range_xy / rs->rangeResolution;
-            rs->intensityImage(row, col)  = ptInt * 255;
-            rs->organizedPoints(row, col) = {xs[i], ys[i], zs[i]};
+            rs->rangeImage(row, col)      = pt.norm() / rs->rangeResolution;
+            rs->intensityImage(row, col)  = (ptInt / 2048.0) * 255;
+            rs->organizedPoints(row, col) = pt;
         }
 
         // save:
         o = std::dynamic_pointer_cast<mrpt::obs::CObservation>(rs);
     }
+#endif
 
     // Store in the output queue:
-    read_ahead_lidar_obs_[step] = std::move(o);
+    read_ahead_lidar_obs_[step] = std::move(obs);
 
     MRPT_END
 }
 
-mrpt::obs::CObservation::Ptr MulranDataset::getPointCloud(timestep_t step) const
+mrpt::obs::CObservationPointCloud::Ptr MulranDataset::getPointCloud(
+    timestep_t step) const
 {
     ASSERT_(initialized_);
     ASSERT_LT_(step, lst_timestamps_.size());
