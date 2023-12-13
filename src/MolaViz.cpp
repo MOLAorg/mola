@@ -65,15 +65,257 @@ struct HandlersContainer
     HandlersContainer() = default;
 };
 
+namespace
+{
+void gui_handler_show_common_sensor_info(
+    const mrpt::obs::CObservation& obs, nanogui::Window* w,
+    const std::vector<std::string>& additionalMsgs = {})
+{
+    auto glControl =
+        dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
+    if (!glControl) return;
+    if (!glControl->scene) return;
+
+    auto glView = glControl->scene->getViewport();
+    if (!glView) return;
+
+    constexpr unsigned int TXT_ID_TIMESTAMP   = 0;
+    constexpr unsigned int TXT_ID_RATE        = 1;
+    constexpr unsigned int TXT_ID_ADDITIONALS = 2;
+
+    mrpt::opengl::TFontParams fp;
+    fp.color        = {1.0f, 1.0f, 1.0f};
+    fp.draw_shadow  = true;
+    fp.shadow_color = {0.0f, 0.0f, 0.0f};
+    fp.vfont_scale  = 9;
+
+    // Computes the "y" coordinate of a text line by index
+    const auto line_y = [&fp](const int line) {
+        return 2 + line * (2 + fp.vfont_scale);
+    };
+
+    glView->addTextMessage(
+        2, line_y(TXT_ID_TIMESTAMP),
+        mrpt::format(
+            "Timestamp: %s",
+            mrpt::system::dateTimeToString(obs.timestamp).c_str()),
+        TXT_ID_TIMESTAMP, fp);
+
+    // Estimate the sensor rate: one mean rate value stored per subwindow
+    // (1 subwindow = 1 sensor stream)
+    thread_local std::map<nanogui::Window*, double> estimatedHzs;
+    thread_local std::map<nanogui::Window*, double> lastTimestamp;
+
+    const double curTim = mrpt::Clock::toDouble(obs.timestamp);
+    if (lastTimestamp.count(w) == 0)
+    {
+        // first time: do nothing
+    }
+    else
+    {
+        const double At    = curTim - lastTimestamp[w];
+        const double curHz = At > 0 ? (1.0 / At) : 1.0;
+        const double alpha = 0.9;
+
+        double showHz;
+
+        if (estimatedHzs.count(w) == 0)
+        {
+            estimatedHzs[w] = curHz;
+            showHz          = curHz;
+        }
+        else
+        {
+            // low-pass filtering:
+            double& estimatedHz = estimatedHzs[w];
+
+            estimatedHz = alpha * estimatedHz + (1.0 - alpha) * curHz;
+            showHz      = estimatedHz;
+        }
+
+        glView->addTextMessage(
+            2, line_y(TXT_ID_RATE),
+            mrpt::format(
+                "Rate: %7.03f Hz Class: %s", showHz,
+                obs.GetRuntimeClass()->className),
+            TXT_ID_RATE, fp);
+    }
+    // store for the next iter:
+    lastTimestamp[w] = curTim;
+
+    for (size_t i = 0; i < additionalMsgs.size(); i++)
+    {
+        const auto id = TXT_ID_ADDITIONALS + i;
+        glView->addTextMessage(2, line_y(id), additionalMsgs.at(i), id, fp);
+    }
+}
+
 // CObservationImage
 void gui_handler_images(
-    const mrpt::rtti::CObject::Ptr&, nanogui::Window*,
-    MolaViz::window_name_t parentWin, MolaViz* instance);
+    const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
+    MolaViz::window_name_t parentWin, MolaViz* instance)
+{
+    auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationImage>(o);
+    if (!obj) return;
+
+    obj->load();
+
+    mrpt::gui::MRPT2NanoguiGLCanvas* glControl;
+    if (w->children().size() == 1)
+    {
+        // Guess window size:
+        int winW = obj->image.getWidth(), winH = obj->image.getHeight();
+
+        // Guess if we need to decimate subwindow size:
+        while (winW > 512 || winH > 512)
+        {
+            winW /= 2;
+            winH /= 2;
+        }
+
+        glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
+        glControl->setSize({winW, winH});
+        glControl->setFixedSize({winW, winH});
+
+        auto lck = mrpt::lockHelper(glControl->scene_mtx);
+
+        glControl->scene = mrpt::opengl::COpenGLScene::Create();
+        instance->markWindowForReLayout(parentWin);
+    }
+    else
+    {
+        glControl =
+            dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
+    }
+    ASSERT_(glControl != nullptr);
+
+#if MRPT_VERSION <= 0x232
+    // This overcomes a bug in MRPT 2.3.1, fixed in 2.3.2:
+    obj->image.loadFromFile(obj->image.getExternalStorageFileAbsolutePath());
+#endif
+
+    const int imgW = obj->image.getWidth(), imgH = obj->image.getHeight();
+    const int imgChannels = obj->image.channelCount();
+
+    auto lck = mrpt::lockHelper(glControl->scene_mtx);
+    glControl->scene->getViewport()->setImageView(obj->image);
+
+    gui_handler_show_common_sensor_info(
+        *obj, w, {mrpt::format("Size: %ix%ix%i", imgW, imgH, imgChannels)});
+}
 
 // CObservationPointCloud
+// CObservation2DRangeScan
+// CObservation3DRangeScan
+// CObservationRotatingScan
 void gui_handler_point_cloud(
-    const mrpt::rtti::CObject::Ptr&, nanogui::Window*,
-    MolaViz::window_name_t parentWin, MolaViz* instance);
+    const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
+    MolaViz::window_name_t parentWin, MolaViz* instance)
+{
+    using namespace mrpt::obs;
+
+    mrpt::gui::MRPT2NanoguiGLCanvas*       glControl;
+    mrpt::opengl::CPointCloudColoured::Ptr glPc;
+    if (w->children().size() == 1)
+    {
+        // Reuse from past iterations:
+        glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
+
+        auto lck = mrpt::lockHelper(glControl->scene_mtx);
+
+        glControl->scene = mrpt::opengl::COpenGLScene::Create();
+
+        glPc = mrpt::opengl::CPointCloudColoured::Create();
+        glControl->scene->insert(glPc);
+
+        glPc->setPointSize(3.0);
+        instance->markWindowForReLayout(parentWin);
+    }
+    else
+    {
+        // Create on first use:
+        glControl =
+            dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
+        auto lck = mrpt::lockHelper(glControl->scene_mtx);
+
+        glPc =
+            glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
+    }
+    ASSERT_(glControl != nullptr);
+    ASSERT_(glPc);
+
+    auto lck = mrpt::lockHelper(glControl->scene_mtx);
+
+    if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
+        objPc)
+    {
+        if (!objPc->pointcloud) return;
+        objPc->load();
+        glPc->loadFromPointsMap(objPc->pointcloud.get());
+
+        gui_handler_show_common_sensor_info(
+            *objPc, w,
+            {
+                mrpt::format("Point count: %zu", objPc->pointcloud->size()),
+                mrpt::format(
+                    "Type: %s",
+                    objPc->pointcloud->GetRuntimeClass()->className),
+            });
+    }
+    else if (auto objRS =
+                 std::dynamic_pointer_cast<CObservationRotatingScan>(o);
+             objRS)
+    {
+        objRS->load();
+        glPc->clear();
+        mrpt::math::TBoundingBoxf bbox =
+            mrpt::math::TBoundingBoxf::PlusMinusInfinity();
+
+        for (size_t r = 0; r < objRS->rowCount; r++)
+        {
+            for (size_t c = 0; c < objRS->columnCount; c++)
+            {
+                const auto range = objRS->rangeImage(r, c);
+                if (!range) continue;  // invalid pt
+
+                const auto& pt = objRS->organizedPoints(r, c);
+
+                glPc->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+                bbox.updateWithPoint(pt);
+            }
+        }
+        glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
+
+        gui_handler_show_common_sensor_info(*objRS, w);
+    }
+    else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
+             obj3D)
+    {
+        obj3D->load();
+
+        mrpt::obs::T3DPointsProjectionParams pp;
+        pp.takeIntoAccountSensorPoseOnRobot = true;
+
+        obj3D->unprojectInto(*glPc, pp);
+        gui_handler_show_common_sensor_info(*obj3D, w);
+    }
+    else if (auto obj2D = std::dynamic_pointer_cast<CObservation2DRangeScan>(o);
+             obj2D)
+    {
+        mrpt::maps::CSimplePointsMap auxMap;
+        auxMap.insertObservationPtr(obj2D);
+        glPc->loadFromPointsMap(&auxMap);
+
+        gui_handler_show_common_sensor_info(*obj2D, w);
+    }
+    else
+        return;
+
+    // viz options:
+    const auto bb = glPc->getBoundingBox();
+    glPc->recolorizeByCoordinate(bb.min.z, bb.max.z);
+}
+}  // namespace
 
 MRPT_INITIALIZER(do_register_MolaViz)
 {
@@ -433,233 +675,6 @@ std::future<bool> MolaViz::update_3d_object(
     guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
     guiThreadMustReLayoutTheseWindows_.insert(parentWindow);
     return task->get_future();
-}
-
-void gui_handler_show_common_sensor_info(
-    const mrpt::obs::CObservation& obs, nanogui::Window* w)
-{
-    auto glControl =
-        dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
-    if (!glControl) return;
-    if (!glControl->scene) return;
-
-    auto glView = glControl->scene->getViewport();
-    if (!glView) return;
-
-    constexpr unsigned int TXT_ID_TIMESTAMP = 0;
-    constexpr unsigned int TXT_ID_RATE      = 1;
-
-    mrpt::opengl::TFontParams fp;
-    fp.color        = {1.0f, 1.0f, 1.0f};
-    fp.draw_shadow  = true;
-    fp.shadow_color = {0.0f, 0.0f, 0.0f};
-    fp.vfont_scale  = 9;
-
-    glView->addTextMessage(
-        2, 2,
-        mrpt::format(
-            "Timestamp: %s",
-            mrpt::system::dateTimeToString(obs.timestamp).c_str()),
-        TXT_ID_TIMESTAMP, fp);
-
-    // Estimate the sensor rate: one mean rate value stored per subwindow
-    // (1 subwindow = 1 sensor stream)
-    thread_local std::map<nanogui::Window*, double> estimatedHzs;
-    thread_local std::map<nanogui::Window*, double> lastTimestamp;
-
-    const double curTim = mrpt::Clock::toDouble(obs.timestamp);
-    if (lastTimestamp.count(w) == 0)
-    {
-        // first time: do nothing
-    }
-    else
-    {
-        const double At    = curTim - lastTimestamp[w];
-        const double curHz = At > 0 ? (1.0 / At) : 1.0;
-        const double alpha = 0.9;
-
-        double showHz;
-
-        if (estimatedHzs.count(w) == 0)
-        {
-            estimatedHzs[w] = curHz;
-            showHz          = curHz;
-        }
-        else
-        {
-            // low-pass filtering:
-            double& estimatedHz = estimatedHzs[w];
-
-            estimatedHz = alpha * estimatedHz + (1.0 - alpha) * curHz;
-            showHz      = estimatedHz;
-        }
-
-        glView->addTextMessage(
-            2, 2 + fp.vfont_scale + 2,
-            mrpt::format("Estimated rate: %.03f Hz", showHz), TXT_ID_RATE, fp);
-    }
-
-    // store for the next iter:
-    lastTimestamp[w] = curTim;
-}
-
-// CObservationImage
-void gui_handler_images(
-    const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
-    MolaViz::window_name_t parentWin, MolaViz* instance)
-{
-    auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationImage>(o);
-    if (!obj) return;
-
-    MRPT_TODO("Add more info abot the image: resolution, refresh rate, etc.");
-
-    obj->load();
-
-    mrpt::gui::MRPT2NanoguiGLCanvas* glControl;
-    if (w->children().size() == 1)
-    {
-        // Guess window size:
-        int winW = obj->image.getWidth(), winH = obj->image.getHeight();
-
-        // Guess if we need to decimate subwindow size:
-        while (winW > 512 || winH > 512)
-        {
-            winW /= 2;
-            winH /= 2;
-        }
-
-        glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
-        glControl->setSize({winW, winH});
-        glControl->setFixedSize({winW, winH});
-
-        auto lck = mrpt::lockHelper(glControl->scene_mtx);
-
-        glControl->scene = mrpt::opengl::COpenGLScene::Create();
-        instance->markWindowForReLayout(parentWin);
-    }
-    else
-    {
-        glControl =
-            dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
-    }
-    ASSERT_(glControl != nullptr);
-
-#if MRPT_VERSION <= 0x232
-    // This overcomes a bug in MRPT 2.3.1, fixed in 2.3.2:
-    obj->image.loadFromFile(obj->image.getExternalStorageFileAbsolutePath());
-#endif
-
-    auto lck = mrpt::lockHelper(glControl->scene_mtx);
-    glControl->scene->getViewport()->setImageView(obj->image);
-
-    gui_handler_show_common_sensor_info(*obj, w);
-}
-
-// CObservationPointCloud
-// CObservation2DRangeScan
-// CObservation3DRangeScan
-// CObservationRotatingScan
-void gui_handler_point_cloud(
-    const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
-    MolaViz::window_name_t parentWin, MolaViz* instance)
-{
-    using namespace mrpt::obs;
-
-    MRPT_TODO("Show more info abot the PC");
-
-    mrpt::gui::MRPT2NanoguiGLCanvas*       glControl;
-    mrpt::opengl::CPointCloudColoured::Ptr glPc;
-    if (w->children().size() == 1)
-    {
-        // Reuse from past iterations:
-        glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
-
-        auto lck = mrpt::lockHelper(glControl->scene_mtx);
-
-        glControl->scene = mrpt::opengl::COpenGLScene::Create();
-
-        glPc = mrpt::opengl::CPointCloudColoured::Create();
-        glControl->scene->insert(glPc);
-
-        glPc->setPointSize(3.0);
-        instance->markWindowForReLayout(parentWin);
-    }
-    else
-    {
-        // Create on first use:
-        glControl =
-            dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
-        auto lck = mrpt::lockHelper(glControl->scene_mtx);
-
-        glPc =
-            glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
-    }
-    ASSERT_(glControl != nullptr);
-    ASSERT_(glPc);
-
-    auto lck = mrpt::lockHelper(glControl->scene_mtx);
-
-    if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
-        objPc)
-    {
-        if (!objPc->pointcloud) return;
-        objPc->load();
-        glPc->loadFromPointsMap(objPc->pointcloud.get());
-
-        gui_handler_show_common_sensor_info(*objPc, w);
-    }
-    else if (auto objRS =
-                 std::dynamic_pointer_cast<CObservationRotatingScan>(o);
-             objRS)
-    {
-        objRS->load();
-        glPc->clear();
-        mrpt::math::TBoundingBoxf bbox =
-            mrpt::math::TBoundingBoxf::PlusMinusInfinity();
-
-        for (size_t r = 0; r < objRS->rowCount; r++)
-        {
-            for (size_t c = 0; c < objRS->columnCount; c++)
-            {
-                const auto range = objRS->rangeImage(r, c);
-                if (!range) continue;  // invalid pt
-
-                const auto& pt = objRS->organizedPoints(r, c);
-
-                glPc->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
-                bbox.updateWithPoint(pt);
-            }
-        }
-        glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
-
-        gui_handler_show_common_sensor_info(*objRS, w);
-    }
-    else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
-             obj3D)
-    {
-        obj3D->load();
-
-        mrpt::obs::T3DPointsProjectionParams pp;
-        pp.takeIntoAccountSensorPoseOnRobot = true;
-
-        obj3D->unprojectInto(*glPc, pp);
-        gui_handler_show_common_sensor_info(*obj3D, w);
-    }
-    else if (auto obj2D = std::dynamic_pointer_cast<CObservation2DRangeScan>(o);
-             obj2D)
-    {
-        mrpt::maps::CSimplePointsMap auxMap;
-        auxMap.insertObservationPtr(obj2D);
-        glPc->loadFromPointsMap(&auxMap);
-
-        gui_handler_show_common_sensor_info(*obj2D, w);
-    }
-    else
-        return;
-
-    // viz options:
-    const auto bb = glPc->getBoundingBox();
-    glPc->recolorizeByCoordinate(bb.min.z, bb.max.z);
 }
 
 #if 0
