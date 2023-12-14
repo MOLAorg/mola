@@ -102,6 +102,10 @@ void MulranDataset::initialize(const Yaml& c)
         lstPointCloudFiles_);
     ASSERT_(!lstPointCloudFiles_.empty());
 
+    // Remove the last one, since it seems that the last scan is not cleanly
+    // read and it's only half scan:
+    lstPointCloudFiles_.resize(lstPointCloudFiles_.size() - 1);
+
     MRPT_LOG_INFO_STREAM("Ouster pointclouds: " << lstPointCloudFiles_.size());
 
     // Extract timestamp from filename:
