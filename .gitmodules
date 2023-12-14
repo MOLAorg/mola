@@ -1,9 +1,6 @@
 [submodule "modules/mola_common"]
 	path = modules/mola_common
 	url = https://github.com/MOLAorg/mola_common.git
-[submodule "modules/mp2p_icp"]
-	path = modules/mp2p_icp
-	url = https://github.com/MOLAorg/mp2p_icp.git
 [submodule "modules/mola_yaml"]
 	path = modules/mola_yaml
 	url = https://github.com/MOLAorg/mola_yaml.git
