@@ -663,7 +663,7 @@ bool HashedVoxelPointCloud::nn_single_search(
     std::vector<mrpt::math::TPoint3Df> r;
     std::vector<float>                 dist_sqr;
     std::vector<uint64_t>              resultIndices;
-    nn_multiple_search(query, 1, r, dist_sqr, resultIndices);
+    nn_multiple_search_impl<1>(query, 1, r, dist_sqr, resultIndices);
     if (r.empty()) return false;  // none found
     result          = r[0];
     out_dist_sqr    = dist_sqr[0];
@@ -672,6 +672,17 @@ bool HashedVoxelPointCloud::nn_single_search(
 }
 
 void HashedVoxelPointCloud::nn_multiple_search(
+    const mrpt::math::TPoint3Df& query, const size_t N,
+    std::vector<mrpt::math::TPoint3Df>& results,
+    std::vector<float>&                 out_dists_sqr,
+    std::vector<uint64_t>&              resultIndicesOrIDs) const
+{
+    nn_multiple_search_impl<HARD_MAX_MATCHES>(
+        query, N, results, out_dists_sqr, resultIndicesOrIDs);
+}
+
+template <size_t MAX_KNN>
+void HashedVoxelPointCloud::nn_multiple_search_impl(
     const mrpt::math::TPoint3Df& query, const size_t N,
     std::vector<mrpt::math::TPoint3Df>& results,
     std::vector<float>&                 out_dists_sqr,
@@ -696,8 +707,8 @@ void HashedVoxelPointCloud::nn_multiple_search(
         float                 sqrDist;
         uint64_t              id;
     };
-    std::array<Match, HARD_MAX_MATCHES> matches;  // sorted by sqrDist!
-    size_t                              foundMatches = 0;
+    std::array<Match, MAX_KNN> matches;  // sorted by sqrDist!
+    size_t                     foundMatches = 0;
 
     auto lambdaProcessCandidate = [&](const float                  sqrDist,
                                       const mrpt::math::TPoint3Df& pt,
@@ -709,17 +720,17 @@ void HashedVoxelPointCloud::nn_multiple_search(
         {
             if (sqrDist < matches[i].sqrDist) break;
         }
-        if (i >= HARD_MAX_MATCHES) return;
+        if (i >= MAX_KNN) return;
 
         // insert new one at [i], shift [i+1:end] one position.
-        const size_t last = std::min(foundMatches + 1, HARD_MAX_MATCHES);
+        const size_t last = std::min(foundMatches + 1, MAX_KNN);
         for (size_t j = i + 1; j < last; j++) matches[j] = matches[j - 1];
 
         matches[i].globalPt = pt;
         matches[i].id       = id;
         matches[i].sqrDist  = sqrDist;
 
-        if (foundMatches < HARD_MAX_MATCHES) foundMatches++;
+        if (foundMatches < MAX_KNN) foundMatches++;
     };
 
     auto lambdaCheckCell = [&](const global_index3d_t& p) {

@@ -330,6 +330,14 @@ class HashedVoxelPointCloud : public mrpt::maps::CMetricMap,
         std::vector<float>&                 out_dists_sqr,
         std::vector<uint64_t>&              resultIndicesOrIDs,
         size_t                              maxPoints) const override;
+
+    template <size_t MAX_KNN>
+    void nn_multiple_search_impl(
+        const mrpt::math::TPoint3Df& query, const size_t N,
+        std::vector<mrpt::math::TPoint3Df>& results,
+        std::vector<float>&                 out_dists_sqr,
+        std::vector<uint64_t>&              resultIndicesOrIDs) const;
+
     /** @} */
 
     /** @name Public virtual methods implementation for CMetricMap
