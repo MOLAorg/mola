@@ -1,0 +1,8 @@
+# test
+---
+map1:
+    $include{d1/test3.yaml}
+map2:
+    $include{test1.yaml}
+map3:
+    $include{d1/test3b.yaml}
