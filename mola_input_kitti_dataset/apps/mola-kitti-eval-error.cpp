@@ -58,7 +58,17 @@ static TCLAP::ValueArg<std::string> argSavePathKittiFormat(
     false, "result.kitti", "result.kitti", cmd);
 
 static TCLAP::MultiArg<int> arg_seq(
-    "s", "sequence", "The path(s) file(s) to evaluate", true, "01", cmd);
+    "s", "sequence",
+    "The sequence number of the path(s) file(s) to evaluate, used to find out "
+    "GT and calibration files for the Kitti dataset.",
+    false, "01", cmd);
+
+static TCLAP::ValueArg<std::string> arg_override_gt_file(
+    "", "gt-tum-path",
+    "If provided, the --sequence flag will be ignored and this particular file "
+    "in TUM format will be read and used as ground truth to compare against "
+    "the resulting odometry path.",
+    false, "trajectory_gt.txt", "trajectory_gt.txt", cmd);
 
 static TCLAP::SwitchArg argSkipFigures(
     "", "no-figures", "Skip generating the error figures", cmd);
@@ -153,22 +163,27 @@ std::vector<Matrix> loadPoses_tum_format(
     // image_0 pose wrt velo is "Tr":
     // From calibration files:
 
-    auto calib = mrpt::containers::yaml::FromFile(calib_file);
-    ASSERT_(calib.has("Tr"));
+    auto cam_pose0 = mrpt::poses::CPose3D::Identity();
 
-    Eigen::Matrix<double, 3, 4> Tr;
-    parse_calib_line(calib["Tr"].as<std::string>(), Tr);
+    if (!calib_file.empty())
+    {
+        auto calib = mrpt::containers::yaml::FromFile(calib_file);
+        ASSERT_(calib.has("Tr"));
 
-    auto Trh              = mrpt::math::CMatrixDouble44::Identity();
-    Trh.block<3, 4>(0, 0) = Tr;
+        Eigen::Matrix<double, 3, 4> Tr;
+        parse_calib_line(calib["Tr"].as<std::string>(), Tr);
 
-    // std::cout << "Original Trh= (velo wrt cam_0) \n" << Trh << "\n";
-    // Inverse:
-    Trh = Trh.inverse();
-    // std::cout << "Inverted Trh= (cam_0 wrt velo) \n" << Trh << "\n";
+        auto Trh              = mrpt::math::CMatrixDouble44::Identity();
+        Trh.block<3, 4>(0, 0) = Tr;
 
-    // Camera 0:
-    const auto cam_pose0 = mrpt::poses::CPose3D(Trh);
+        // std::cout << "Original Trh= (velo wrt cam_0) \n" << Trh << "\n";
+        // Inverse:
+        Trh = Trh.inverse();
+        // std::cout << "Inverted Trh= (cam_0 wrt velo) \n" << Trh << "\n";
+
+        // Camera 0:
+        cam_pose0 = mrpt::poses::CPose3D(Trh);
+    }
 
     std::vector<Matrix> poses;
     const auto          n = trajectory.size();
@@ -359,6 +374,8 @@ void saveSequenceErrors(vector<errors>& err, string file_name)
     // open file
     FILE* fp;
     fp = fopen(file_name.c_str(), "w");
+    ASSERTMSG_(
+        fp, mrpt::format("Could not open for writing: %s", file_name.c_str()));
     fprintf(fp, "%% first_frame rot_err trans_error len  speed\n");
 
     // write to file
@@ -507,7 +524,7 @@ void plotPathPlot(string dir, vector<int32_t>& roi, int32_t idx)
 }
 
 void saveErrorPlots(
-    vector<errors>& seq_err, string plot_error_dir, char* prefix)
+    vector<errors>& seq_err, string plot_error_dir, const char* prefix)
 {
     // file names
     char file_name_tl[1024];
@@ -586,7 +603,7 @@ void saveErrorPlots(
     fclose(fp_rs);
 }
 
-void plotErrorPlots(string dir, char* prefix)
+void plotErrorPlots(string dir, const char* prefix)
 {
     char command[4096];
 
@@ -761,27 +778,70 @@ bool eval()  // string result_sha,Mail* mail)
     // total errors
     vector<errors> total_err;
 
-    // for all sequences do
-    for (int32_t i : arg_seq.getValue())
+    struct InfoPerSeq
     {
-        // file name
-        char file_name[256];
-        sprintf(file_name, "%02d.txt", i);
+        bool        is_kitti     = true;
+        int         kitti_seq_no = 0;
+        std::string file_name;
+        std::string kitti_gt_poses_file;
+        std::string kitti_calib_file;
 
-        const std::string calibFile = mrpt::format(
-            "%s/sequences/%02i/calib.txt", kitti_basedir.c_str(), i);
+        std::string custom_gt_tum_file;
+        std::string result_file;
+    };
 
-        vector<Matrix> poses_result = loadPoses_tum_format(
-            mrpt::format(arg_result_path.getValue().c_str(), i), calibFile,
-            false);
+    std::vector<InfoPerSeq> seqs;
 
-        // read ground truth and result poses
-        vector<Matrix> poses_gt = loadPoses(gt_dir + "/" + file_name);
+    if (arg_override_gt_file.isSet())
+    {
+        // custom ground truth TUM file:
+        auto& s = seqs.emplace_back();
+
+        s.is_kitti           = false;
+        s.custom_gt_tum_file = arg_override_gt_file.getValue();
+        s.result_file        = arg_result_path.getValue();
+        s.file_name = mrpt::system::extractFileName(s.custom_gt_tum_file);
+    }
+    else
+    {
+        // original KITTI dataset GT files:
+        for (int32_t i : arg_seq.getValue())
+        {
+            auto& s = seqs.emplace_back();
+
+            s.is_kitti     = true;
+            s.kitti_seq_no = i;
+            s.file_name    = mrpt::format("%02d.txt", i);
+            s.result_file = mrpt::format(arg_result_path.getValue().c_str(), i);
+            s.kitti_calib_file = mrpt::format(
+                "%s/sequences/%02i/calib.txt", kitti_basedir.c_str(), i);
+            s.kitti_gt_poses_file = gt_dir + "/" + s.file_name;
+        }
+    }
+
+    // for all sequences do
+    for (const auto& seq : seqs)
+    {
+        vector<Matrix> poses_result;
+        vector<Matrix> poses_gt;
+
+        if (seq.is_kitti)
+        {
+            // read ground truth and result poses
+            poses_gt     = loadPoses(seq.kitti_gt_poses_file);
+            poses_result = loadPoses_tum_format(
+                seq.result_file, seq.kitti_calib_file, false);
+        }
+        else
+        {
+            poses_gt = loadPoses_tum_format(seq.custom_gt_tum_file, {}, false);
+            poses_result = loadPoses_tum_format(seq.result_file, {}, false);
+        }
 
         // plot status
         printf(
-            "Processing: %s, poses: %ld/%ld\n", file_name, poses_result.size(),
-            poses_gt.size());
+            "Processing: %s, poses: %ld/%ld\n", seq.file_name.c_str(),
+            poses_result.size(), poses_gt.size());
 
         printf("-- poses_gt: %lu entries\n", poses_gt.size());
         printf("-- poses_result: %lu entries\n", poses_result.size());
@@ -789,31 +849,31 @@ bool eval()  // string result_sha,Mail* mail)
         // check for errors
         if (poses_gt.size() == 0 || poses_result.size() != poses_gt.size())
         {
-            printf("ERROR: Couldn't read (all) poses of: %s\n", file_name);
+            printf(
+                "ERROR: Couldn't read (all) poses of: %s\n",
+                seq.file_name.c_str());
             return false;
         }
 
         // compute sequence errors
         vector<errors> seq_err = calcSequenceErrors(poses_gt, poses_result);
-        saveSequenceErrors(seq_err, error_dir + "/" + file_name);
+        saveSequenceErrors(seq_err, error_dir + "/" + seq.file_name);
 
         // add to total errors
         total_err.insert(total_err.end(), seq_err.begin(), seq_err.end());
 
         // for first half => plot trajectory and compute individual stats
-        if (i <= 15 && !argSkipFigures.isSet())
+        if (/*seq.kitti_seq_no <= 15 && */ !argSkipFigures.isSet())
         {
             // save + plot bird's eye view trajectories
             savePathPlot(
-                poses_gt, poses_result, plot_path_dir + "/" + file_name);
+                poses_gt, poses_result, plot_path_dir + "/" + seq.file_name);
             vector<int32_t> roi = computeRoi(poses_gt, poses_result);
-            plotPathPlot(plot_path_dir, roi, i);
+            plotPathPlot(plot_path_dir, roi, seq.kitti_seq_no);
 
             // save + plot individual errors
-            char prefix[16];
-            sprintf(prefix, "%02d", i);
-            saveErrorPlots(seq_err, plot_error_dir, prefix);
-            plotErrorPlots(plot_error_dir, prefix);
+            saveErrorPlots(seq_err, plot_error_dir, seq.file_name.c_str());
+            plotErrorPlots(plot_error_dir, seq.file_name.c_str());
         }
     }
 
