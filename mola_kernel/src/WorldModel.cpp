@@ -16,11 +16,11 @@
 #include <mola_kernel/FastAllocator.h>
 #include <mola_kernel/WorldModel.h>
 #include <mola_kernel/entities/KeyFrameBase.h>
-#include <mola_kernel/lock_helper.h>
 #include <mola_kernel/variant_helper.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/get_env.h>
+#include <mrpt/core/lock_helper.h>
 #include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/serialization/CArchive.h>
@@ -288,7 +288,7 @@ mola::id_t WorldModel::entity_emplace_back(Entity&& e)
     data_.entity_connected_factors_[id];  // Create empty entry
 
     {
-        auto lock = mola::lockHelper(data_.entity_last_access_mtx_);
+        auto lock = mrpt::lockHelper(data_.entity_last_access_mtx_);
 
         data_.entity_last_access_[id] = mrpt::Clock::now();
     }
@@ -373,7 +373,7 @@ const annotations_data_t& WorldModel::entity_annotations_by_id(
     MRPT_START
 
     {
-        auto lock = mola::lockHelper(data_.entity_last_access_mtx_);
+        auto lock = mrpt::lockHelper(data_.entity_last_access_mtx_);
         data_.entity_last_access_[id] = mrpt::Clock::now();
     }
 
@@ -407,7 +407,7 @@ std::vector<mola::id_t> WorldModel::findEntitiesToSwapOff()
 
     std::vector<id_t> aged_ids;
 
-    auto       lk    = lockHelper(data_.entity_last_access_mtx_);
+    auto       lk    = mrpt::lockHelper(data_.entity_last_access_mtx_);
     const auto t_now = mrpt::Clock::now();
 
     for (auto it_ent = data_.entity_last_access_.begin();
@@ -502,13 +502,13 @@ void    WorldModelData::serializeTo(mrpt::serialization::CArchive& out) const
 {
     // Ensure lock:
     {
-        auto el = lockHelper(entities_mtx_);
+        auto el = mrpt::lockHelper(entities_mtx_);
     }
     {
-        auto ef = lockHelper(factors_mtx_);
+        auto ef = mrpt::lockHelper(factors_mtx_);
     }
-    auto el = lockHelper(entities_mtx_);
-    auto ef = lockHelper(factors_mtx_);
+    auto el = mrpt::lockHelper(entities_mtx_);
+    auto ef = mrpt::lockHelper(factors_mtx_);
 
     out << map_name_;
 
@@ -542,13 +542,13 @@ void WorldModelData::serializeFrom(
 {
     // Ensure lock:
     {
-        auto el = lockHelper(entities_mtx_);
+        auto el = mrpt::lockHelper(entities_mtx_);
     }
     {
-        auto ef = lockHelper(factors_mtx_);
+        auto ef = mrpt::lockHelper(factors_mtx_);
     }
-    auto el = lockHelper(entities_mtx_);
-    auto ef = lockHelper(factors_mtx_);
+    auto el = mrpt::lockHelper(entities_mtx_);
+    auto ef = mrpt::lockHelper(factors_mtx_);
 
     // Clear:
     this->entities_->clear();

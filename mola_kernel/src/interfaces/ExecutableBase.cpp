@@ -11,7 +11,7 @@
  */
 
 #include <mola_kernel/interfaces/ExecutableBase.h>
-#include <mola_kernel/lock_helper.h>
+#include <mrpt/core/lock_helper.h>
 
 #include <mutex>
 
