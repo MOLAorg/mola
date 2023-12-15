@@ -101,6 +101,7 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     bool                    initialized_ = false;
     std::string             base_dir_;  //!< base dir for "sequences/*".
     std::string             sequence_;  //!< "00", "01", ...
+    bool                    lidar_to_ground_truth_1to1_ = true;
     mrpt::Clock::time_point replay_begin_time_{};
     timestep_t              replay_next_tim_index_{0};
     bool                    replay_started_{false};
@@ -110,14 +111,13 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
 
     std::vector<std::string> lstPointCloudFiles_;
 
-    mrpt::math::CMatrixDouble groundTruthPoses_;
-    trajectory_t              groundTruthTrajectory_;
+    trajectory_t groundTruthTrajectory_;
     mutable std::map<timestep_t, mrpt::obs::CObservationPointCloud::Ptr>
         read_ahead_lidar_obs_;
 
     mrpt::poses::CPose3D ousterPoseOnVehicle_;
 
-    std::vector<double> lst_timestamps_;  // for each lidar
+    std::vector<double> lidarTimestamps_;
     double              replay_time_ = .0;
     std::string         seq_dir_;
 

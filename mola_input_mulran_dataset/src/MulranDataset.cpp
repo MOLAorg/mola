@@ -80,6 +80,7 @@ void MulranDataset::initialize(const Yaml& c)
 
     YAML_LOAD_MEMBER_REQ(base_dir, std::string);
     YAML_LOAD_MEMBER_REQ(sequence, std::string);
+    YAML_LOAD_MEMBER_OPT(lidar_to_ground_truth_1to1, bool);
 
     seq_dir_ = mrpt::system::pathJoin({base_dir_, sequence_});
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
@@ -121,7 +122,7 @@ void MulranDataset::initialize(const Yaml& c)
             1e-9 *
             std::stod(mrpt::system::extractFileName(lstPointCloudFiles_[i]));
 
-        lst_timestamps_.push_back(t);
+        lidarTimestamps_.push_back(t);
         pointTimestampToIndex[t] = i;
     }
 
@@ -142,26 +143,89 @@ void MulranDataset::initialize(const Yaml& c)
 
     // Load ground truth poses, if available:
     const auto gtFile = mrpt::system::pathJoin({seq_dir_, "global_pose.csv"});
-    ASSERT_FILE_EXISTS_(gtFile);
-
-    groundTruthPoses_.loadFromTextFile(gtFile);
-    ASSERT_EQUAL_(groundTruthPoses_.cols(), 13U);
-    mrpt::math::CMatrixDouble44 m = mrpt::math::CMatrixDouble44::Identity();
-
-    for (int i = 0; i < groundTruthPoses_.rows(); i++)
+    if (!mrpt::system::fileExists(gtFile))
     {
-        const double t = 1e-9 * groundTruthPoses_(i, 0);
+        MRPT_LOG_WARN_STREAM(
+            "No ground truth file was found, expected it under: " << gtFile);
+    }
+    else
+    {
+        // Yes, we have GT:
+        mrpt::math::CMatrixDouble gtMatrix;
 
-        for (int row = 0, ij_idx = 1; row < 3; row++)
-            for (int col = 0; col < 4; col++, ij_idx++)
-                m(row, col) = groundTruthPoses_(i, ij_idx);
+        gtMatrix.loadFromTextFile(gtFile);
+        ASSERT_EQUAL_(gtMatrix.cols(), 13U);
+        mrpt::math::CMatrixDouble44 m = mrpt::math::CMatrixDouble44::Identity();
 
-        const auto gtPose = mrpt::poses::CPose3D::FromHomogeneousMatrix(m);
+        // 1st) build a trajectory with the GT poses:
+        trajectory_t gtPoses;
 
-        groundTruthTrajectory_.insert(mrpt::Clock::fromDouble(t), gtPose);
+        for (int i = 0; i < gtMatrix.rows(); i++)
+        {
+            const double t = 1e-9 * gtMatrix(i, 0);
+
+            for (int row = 0, ij_idx = 1; row < 3; row++)
+                for (int col = 0; col < 4; col++, ij_idx++)
+                    m(row, col) = gtMatrix(i, ij_idx);
+
+            const auto gtPose = mrpt::poses::CPose3D::FromHomogeneousMatrix(m);
+
+            gtPoses.insert(mrpt::Clock::fromDouble(t), gtPose);
+        }
+
+        if (lidar_to_ground_truth_1to1_)
+        {
+            // 2nd) Find matches between gt poses and the lidar scans, so we
+            // have the GT for each scan:
+            gtPoses.setInterpolationMethod(
+                mrpt::poses::TInterpolatorMethod::imLinearSlerp);
+            gtPoses.setMaxTimeInterpolation(std::chrono::seconds(1));
+
+            std::vector<size_t> lidarIdxsToRemove;
+
+            for (size_t i = 0; i < lidarTimestamps_.size(); i++)
+            {
+                const double t  = lidarTimestamps_[i];
+                const auto   ts = mrpt::Clock::fromDouble(t);
+
+                mrpt::poses::CPose3D p;
+                bool                 interpOk = false;
+                gtPoses.interpolate(ts, p, interpOk);
+
+                if (!interpOk)
+                {
+                    lidarIdxsToRemove.push_back(i);
+                    continue;
+                }
+
+                groundTruthTrajectory_.insert(ts, p);
+            }
+
+            for (auto it = lidarIdxsToRemove.rbegin();
+                 it != lidarIdxsToRemove.rend(); it++)
+            {
+                const size_t idx = *it;
+                lidarTimestamps_.erase(
+                    std::next(lidarTimestamps_.begin(), idx));
+                lstPointCloudFiles_.erase(
+                    std::next(lstPointCloudFiles_.begin(), idx));
+            }
+
+            MRPT_LOG_DEBUG_FMT(
+                "LIDAR timestamps: %zu, matched ground truth timestamps: %zu, "
+                "from overall GT poses: %zu, removed %zu unmatched lidar "
+                "scans.",
+                lidarTimestamps_.size(), groundTruthTrajectory_.size(),
+                gtPoses.size(), lidarIdxsToRemove.size());
+        }
+        else
+        {
+            // just keep lidars and GT vectors are they are originally on the
+            // datasets:
+        }
     }
 
-    ASSERT_EQUAL_(lst_timestamps_.size(), lstPointCloudFiles_.size());
+    ASSERT_EQUAL_(lidarTimestamps_.size(), lstPointCloudFiles_.size());
 
     initialized_ = true;
 
@@ -188,25 +252,26 @@ void MulranDataset::spinOnce()
         mrpt::system::timeDifference(replay_begin_time_, mrpt::Clock::now()) *
         time_warp_scale_;
 
-    if (replay_next_tim_index_ >= lst_timestamps_.size())
+    if (replay_next_tim_index_ >= lidarTimestamps_.size())
     {
         MRPT_LOG_THROTTLE_INFO(
             10.0,
             "End of dataset reached! Nothing else to publish (CTRL+C to quit)");
         return;
     }
-    else if (!lst_timestamps_.empty())
+    else if (!lidarTimestamps_.empty())
     {
         MRPT_LOG_THROTTLE_INFO_FMT(
             5.0, "Dataset replay progress: %lu / %lu  (%4.02f%%)",
             static_cast<unsigned long>(replay_next_tim_index_),
-            static_cast<unsigned long>(lst_timestamps_.size()),
-            (100.0 * replay_next_tim_index_) / (lst_timestamps_.size()));
+            static_cast<unsigned long>(lidarTimestamps_.size()),
+            (100.0 * replay_next_tim_index_) / (lidarTimestamps_.size()));
     }
 
     // We have to publish all observations until "t":
-    while (replay_next_tim_index_ < lst_timestamps_.size() &&
-           t >= (lst_timestamps_[replay_next_tim_index_] - lst_timestamps_[0]))
+    while (replay_next_tim_index_ < lidarTimestamps_.size() &&
+           t >=
+               (lidarTimestamps_[replay_next_tim_index_] - lidarTimestamps_[0]))
     {
         MRPT_LOG_DEBUG_STREAM(
             "Sending observations for replay time: "
@@ -215,7 +280,7 @@ void MulranDataset::spinOnce()
         // Save one single timestamp for all observations, since they are in
         // theory shynchronized in the Kitti datasets:
         const auto obs_tim =
-            mrpt::Clock::fromDouble(lst_timestamps_[replay_next_tim_index_]);
+            mrpt::Clock::fromDouble(lidarTimestamps_[replay_next_tim_index_]);
 
         if (publish_lidar_)
         {
@@ -251,7 +316,7 @@ void MulranDataset::spinOnce()
     }
 
     // Read ahead to save delays in the next iteration:
-    if (replay_next_tim_index_ < lst_timestamps_.size())
+    if (replay_next_tim_index_ < lidarTimestamps_.size())
     {
         ProfilerEntry tle(profiler_, "spinOnce.read_ahead");
         if (0 == read_ahead_lidar_obs_.count(replay_next_tim_index_))
@@ -307,7 +372,7 @@ void MulranDataset::load_lidar(timestep_t step) const
 
     // Pose:
     obs->sensorPose = ousterPoseOnVehicle_;
-    obs->timestamp  = mrpt::Clock::fromDouble(lst_timestamps_.at(step));
+    obs->timestamp  = mrpt::Clock::fromDouble(lidarTimestamps_.at(step));
 
 #if 0  // Export clouds to txt for debugging externally (e.g. python, matlab)
     pts->saveXYZIRT_to_text_file(
@@ -376,7 +441,7 @@ mrpt::obs::CObservationPointCloud::Ptr MulranDataset::getPointCloud(
     timestep_t step) const
 {
     ASSERT_(initialized_);
-    ASSERT_LT_(step, lst_timestamps_.size());
+    ASSERT_LT_(step, lidarTimestamps_.size());
 
     load_lidar(step);
     auto o = read_ahead_lidar_obs_.at(step);
@@ -386,7 +451,7 @@ mrpt::obs::CObservationPointCloud::Ptr MulranDataset::getPointCloud(
 size_t MulranDataset::datasetSize() const
 {
     ASSERT_(initialized_);
-    return lst_timestamps_.size();
+    return lidarTimestamps_.size();
 }
 
 mrpt::obs::CSensoryFrame::Ptr MulranDataset::datasetGetObservations(
