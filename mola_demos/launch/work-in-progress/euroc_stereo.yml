@@ -1,0 +1,80 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# a 3D monocular-SLAM problem, fed from an EUROC dataset.
+# -----------------------------------------------------------------------------
+
+modules:
+# Setup of SLAM back-end =====================================
+  - name: backend
+    type: mola::ASLAM_gtsam
+    execution_rate: 1 # Rate to update the SLAM solution [Hz]
+    #verbosity_level: INFO
+    params:
+      # true: use iSAM2
+      # false: use global Levenberg-Marquardt
+      use_incremental_solver: true
+      # ------
+      # Select state space representation for KeyFrame poses:
+      # See options in: https://docs.mola-slam.org/latest/concept-state-vector.html
+      state_vector: SE3
+      # --- constant velocity model params (see papers) ---
+      const_vel_model_std_pos: 0.1  # [m]
+      const_vel_model_std_vel: 0.5  # [m/s]
+      # ------
+      # Save trajectory to file at end? useful for plots, error evaluation,...
+      save_trajectory_file_prefix: euroc_result
+      # ------------------------
+# Setup of World Model (the map) =====================================
+  - name: map
+    type: mola::WorldModel
+    #verbosity_level: DEBUG
+    params:
+      # Age at which map keyframes will be unloaded from memory [s]
+      age_to_unload_keyframes: 1500000.0
+# Setup of SLAM front-ends ====================================
+  - name: stereo_visual_fe
+    type: mola::VisualORB_Stereo
+    raw_data_source: euroc_input
+    raw_sensor_label_left: cam0
+    raw_sensor_label_right: cam1
+    params:
+      pyramid_layers: 3
+      # Pyramids:
+      pyramid_smooth: true
+      # ORB detector options
+      orb_options.raw_FAST_num_features: 3000
+      orb_options.final_num_features: 800 #500
+      orb_options.FAST_version: 9
+      orb_options.use_KLT_response: false
+      orb_options.KLT_response_half_win: 4
+      orb_options.min_good_response: 5.0
+      # Distribute features evenly using image sectors:
+      orb_options.image_sectors_x: 6
+      orb_options.image_sectors_y: 4
+      # Stereo params:
+      stereo_rectify_alpha: -1
+      # ----------
+  - name: imu
+    type: PreintegratedIMU
+    raw_data_source: euroc_input
+    raw_sensor_label: imu0
+    params:
+      # none
+      # ----------
+# Offline or online sensory data sources =====================
+# TODO: Create a YAML !include
+  - name: euroc_input
+    type: mola::EurocDataset
+    execution_rate: 50 # Hz
+    gui_preview_sensors:
+#      - raw_sensor_label: cam0
+#        decimation: 1
+#        win_pos: 0 0 500 200 # [x,y,width,height]
+#      - raw_sensor_label: cam1
+#        decimation: 1
+#        win_pos: 510 0 500 200 # [x,y,width,height]
+    params:
+      base_dir: ${EUROC_BASE_DIR}
+      sequence: vicon_room1/V1_01_easy/
+      time_warp_scale: 0.5

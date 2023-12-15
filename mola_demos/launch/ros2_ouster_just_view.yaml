@@ -1,0 +1,43 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# An input sensor from a ROS 2 topic, and the MOLA Visualizer.
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # MolaViz
+  # =====================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
+
+# Offline or online sensory data sources =====================
+# (TODO: Move to an include)
+  - type: mola::InputROS2
+    name: ros_input
+    # In InputROS2, this execution rate (Hz) determines the
+    # rate of publishing odometry observations, if enabled.
+    # All other subscribed sensors are forwarded to the MOLA
+    # system without delay as they are received from ROS.
+    execution_rate: 20 # Hz
+    #verbosity_level: INFO
+    gui_preview_sensors:
+      - raw_sensor_label: lidar_points
+        decimation: 1
+        win_pos: 5 5 400 400
+    params:
+      base_link_frame: base_footprint
+      odom_frame: odom
+      publish_odometry_from_tf: false
+      subscribe:
+        - topic: /ouster/points
+          type: PointCloud2
+          output_sensor_label: lidar_points
+          # If present, this will override whatever /tf tells about the sensor pose:
+          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg''
+          #queue_size: 100  # QoS "history" length
+        - topic: /odom
+          type: Odometry
+          output_sensor_label: odom
