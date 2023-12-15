@@ -1,0 +1,3 @@
+[submodule "3rdparty/robin-map"]
+	path = mola_metric_maps/3rdparty/robin-map
+	url = https://github.com/Tessil/robin-map.git
