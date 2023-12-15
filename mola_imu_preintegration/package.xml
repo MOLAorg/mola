@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<!-- This is a ROS package file, intended to allow this library to be built
+     side-by-side to ROS packages in a catkin/ament environment.
+-->
+<package format="3">
+  <name>mola_imu_preintegration</name>
+  <version>0.2.2</version>
+  <description>Integrator of IMU angular velocity readings</description>
+
+  <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>
+  <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>
+
+  <url type="website">https://github.com/MOLAorg/</url>
+
+  <license>GPLv3</license>
+
+  <depend>mola_common</depend>
+  <depend>mrpt2</depend>
+
+  <doc_depend>doxygen</doc_depend>
+
+  <!-- Minimum entries to release non-catkin pkgs: -->
+  <buildtool_depend>cmake</buildtool_depend>
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+  <!-- End -->
+
+</package>
