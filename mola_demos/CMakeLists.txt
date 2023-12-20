@@ -25,7 +25,8 @@ add_library(${PROJECT_NAME} INTERFACE)
 
 # Install files:
 install(DIRECTORY
-  launch
+  mola-cli-launchs
+  ros2-launchs
   DESTINATION
     share/${PROJECT_NAME}
 )
