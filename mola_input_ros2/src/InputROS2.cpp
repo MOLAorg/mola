@@ -21,9 +21,12 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
+#include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservationOdometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/ros2bridge/laser_scan.h>
 #include <mrpt/ros2bridge/point_cloud2.h>
 #include <mrpt/ros2bridge/pose.h>
 #include <mrpt/ros2bridge/time.h>
@@ -126,6 +129,17 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
                                 o, output_sensor_label, fixedSensorPose);
                         }));
             }
+            else if (type == "LaserScan")
+            {
+                subsLaserScan_.emplace_back(
+                    node->create_subscription<sensor_msgs::msg::LaserScan>(
+                        topic_name, qos,
+                        [this, output_sensor_label, fixedSensorPose](
+                            const sensor_msgs::msg::LaserScan& o) {
+                            this->callbackOnLaserScan(
+                                o, output_sensor_label, fixedSensorPose);
+                        }));
+            }
             else if (type == "Odometry")
             {
                 subsOdometry_.emplace_back(
@@ -217,7 +231,16 @@ void InputROS2::callbackOnPointCloud2(
 
     mrpt::maps::CPointsMap::Ptr mapPtr;
 
-    if (fields.count("intensity"))
+    if (fields.count("time") || fields.count("timestamp") ||
+        fields.count("ring"))
+    {
+        auto p = mrpt::maps::CPointsMapXYZIRT::Create();
+        if (!mrpt::ros2bridge::fromROS(o, *p))
+            throw std::runtime_error("Error converting ros->mrpt(?)");
+
+        mapPtr = p;
+    }
+    else if (fields.count("intensity"))
     {
         auto p = mrpt::maps::CPointsMapXYZI::Create();
         if (!mrpt::ros2bridge::fromROS(o, *p))
@@ -355,4 +378,44 @@ void InputROS2::publishOdometry()
     obs->odometry    = mrpt::poses::CPose2D(odomPose);
 
     sendObservationsToFrontEnds(obs);
+}
+
+void InputROS2::callbackOnLaserScan(
+    const sensor_msgs::msg::LaserScan& o, const std::string& outSensorLabel,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+    MRPT_START
+    ProfilerEntry tle(profiler_, "callbackOnLaserScan");
+
+    // Sensor pose wrt robot base:
+    mrpt::poses::CPose3D sensorPose;
+    if (fixedSensorPose)
+    {
+        // use a fixed, user-provided sensor pose:
+        sensorPose = fixedSensorPose.value();
+    }
+    else
+    {
+        // Get pose from tf:
+        bool ok = waitForTransform(
+            sensorPose, o.header.frame_id, params_.base_link_frame,
+            o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
+            true /*print errors*/);
+        ASSERTMSG_(
+            ok,
+            mrpt::format(
+                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+                params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+    }
+
+    auto obs = mrpt::obs::CObservation2DRangeScan::Create();
+    mrpt::ros2bridge::fromROS(o, sensorPose, *obs);
+
+    obs->sensorLabel = outSensorLabel;
+
+    // send it out:
+    this->sendObservationsToFrontEnds(obs);
+
+    MRPT_END
 }
