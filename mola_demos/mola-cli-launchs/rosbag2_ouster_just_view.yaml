@@ -1,0 +1,64 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# An input sensor from a ROS 2 topic, and the MOLA Visualizer.
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # MolaViz
+  # =====================
+  - name: viz
+    type: mola::MolaViz
+    #verbosity_level: DEBUG
+    params: ~ # none
+
+# Offline or online sensory data sources =====================
+  - type: mola::Rosbag2Dataset
+    name: rosbag2_input
+    # In Rosbag2Dataset, this execution rate (Hz) determines the
+    # maximum rate of publishing topics from the bag file.
+    # If a message in the bag has an actually rate higher than this, their
+    # messages will be still sent out with the correct timestamps, but physically
+    # in bursts.
+    execution_rate: 50 # Hz
+    #verbosity_level: DEBUG
+    
+    # Optional visualization of raw sensor streams in the MolaViz GUI
+    gui_preview_sensors:
+      - raw_sensor_label: '/ouster/points'
+        decimation: 1
+        win_pos: 5 5 400 400
+        
+      #- raw_sensor_label: '/ouster/range_image'
+      #  decimation: 1
+      #  win_pos: 5 420 400 400
+
+    params:
+      # We use an environment variable to force the user to specify a bag file:
+      rosbag_filename: ${ROSBAG2_FILE}
+      
+      base_link_frame_id: 'base_footprint'
+      
+      time_warp_scale: 1.0
+      #rosbag_storage_id: 'mcap'
+      #rosbag_serialization: 'cdr'
+      
+      # 'sensors' contains maps from output "sensorLabel"s, to the
+      # configuration of that data source (mainly, 'type', 'topic'):
+      # If no 'sensors' entry is given, all ROSBAG topics will be exposed
+      # to the MOLA subsystem. Note that if you want to override sensor poses
+      # (or if you do not have /tf), it is mandatory to define 'sensors' and
+      # define 'fixed_sensor_pose' for each sensor here:
+      sensors:
+        - topic: /ouster/points
+          type: CObservationPointCloud
+          # If present, this will override whatever /tf tells about the sensor pose:
+          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
+          
+        - topic: /ouster/range_image
+          type: CObservationImage
+          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
+
+        - topic: /odom
+          type: CObservationOdometry
