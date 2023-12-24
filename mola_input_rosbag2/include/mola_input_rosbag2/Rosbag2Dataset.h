@@ -16,13 +16,22 @@
 #include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/obs/CSensoryFrame.h>
 #include <mrpt/serialization/CArchive.h>
-#include <tf2/buffer_core.h>
 
 #include <list>
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp/serialization.hpp>
-#include <rosbag2_cpp/converter_options.hpp>
-#include <rosbag2_cpp/readers/sequential_reader.hpp>
+
+// forward decls to isolate build dependencies downstream:
+namespace tf2
+{
+class BufferCore;
+}
+namespace rosbag2_cpp::readers
+{
+class SequentialReader;
+}
+namespace rosbag2_storage
+{
+class SerializedBagMessage;
+}
 
 namespace mola
 {
@@ -72,9 +81,8 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource
     double                                 time_warp_scale_   = 1.0;
     size_t                                 read_ahead_length_ = 15;
 
-    rosbag2_cpp::readers::SequentialReader      reader_;
-    std::vector<rosbag2_storage::TopicMetadata> topics_;
-    rosbag2_storage::BagMetadata                bagMetaData_;
+    std::shared_ptr<rosbag2_cpp::readers::SequentialReader> reader_;
+    size_t bagMessageCount_ = 0;
 
     using SF = mrpt::obs::CSensoryFrame;
 
@@ -110,8 +118,7 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource
     std::map<std::string, std::vector<CallbackFunction>> lookup_;
     std::set<std::string>                                unhandledTopics_;
 
-    std::shared_ptr<tf2::BufferCore> tfBuffer_ =
-        std::make_shared<tf2::BufferCore>();
+    std::shared_ptr<tf2::BufferCore> tfBuffer_;
 
     template <bool isStatic>
     Obs toTf(const rosbag2_storage::SerializedBagMessage& rosmsg);

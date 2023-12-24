@@ -34,17 +34,23 @@
 #include <mrpt/ros2bridge/pose.h>
 #include <mrpt/ros2bridge/time.h>
 #include <mrpt/system/filesystem.h>
+#include <tf2/buffer_core.h>
 #include <tf2/convert.h>
 #include <tf2/exceptions.h>
 
 #include <cv_bridge/cv_bridge.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/serialization.hpp>
+#include <rosbag2_cpp/converter_options.hpp>
+#include <rosbag2_cpp/readers/sequential_reader.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/int32.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_msgs/msg/tf_message.hpp>
 
 using namespace mola;
@@ -57,7 +63,11 @@ MRPT_INITIALIZER(do_register_Rosbag2Dataset)
     MOLA_REGISTER_MODULE(Rosbag2Dataset);
 }
 
-Rosbag2Dataset::Rosbag2Dataset() { this->setLoggerName("Rosbag2Dataset"); }
+Rosbag2Dataset::Rosbag2Dataset()
+{
+    this->setLoggerName("Rosbag2Dataset");
+    tfBuffer_ = std::make_shared<tf2::BufferCore>();
+}
 
 void Rosbag2Dataset::initialize(const Yaml& c)
 {
@@ -99,21 +109,23 @@ void Rosbag2Dataset::initialize(const Yaml& c)
 
     MRPT_LOG_INFO_STREAM("Opening: " << storage_options.uri);
 
-    reader_.open(storage_options, converter_options);
+    reader_ = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
+    reader_->open(storage_options, converter_options);
 
-    topics_ = reader_.get_all_topics_and_types();
+    std::vector<rosbag2_storage::TopicMetadata> topics =
+        reader_->get_all_topics_and_types();
 
-    bagMetaData_ = reader_.get_metadata();
+    auto bagMetaData = reader_->get_metadata();
+    bagMessageCount_ = bagMetaData.message_count;
 
     MRPT_LOG_INFO_STREAM(
-        "List of topics found in the bag (" << bagMetaData_.message_count
-                                            << " msgs"
+        "List of topics found in the bag (" << bagMessageCount_ << " msgs"
                                             << ")");
 
     // Build map: topic name -> type:
     std::map<std::string, std::string> topic2type;
 
-    for (const auto& t : topics_)
+    for (const auto& t : topics)
     {
         topic2type[t.name] = t.type;
 
@@ -121,7 +133,7 @@ void Rosbag2Dataset::initialize(const Yaml& c)
     }
 
     read_ahead_.clear();
-    read_ahead_.resize(bagMetaData_.message_count);
+    read_ahead_.resize(bagMessageCount_);
     rosbag_next_idx_ = 0;
 
     // Begin of code adapted from "Transcriber" class from rosbag2rawlog:
@@ -146,7 +158,7 @@ void Rosbag2Dataset::initialize(const Yaml& c)
         // create list automatically:
         sensorsYaml = mrpt::containers::yaml::Sequence();
 
-        for (const auto& t : topics_)
+        for (const auto& t : topics)
         {
             auto itType = mapTopic2Class.find(t.type);
             if (itType == mapTopic2Class.end())
@@ -387,6 +399,8 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex)
 {
     MRPT_START
 
+    ASSERT_(initialized_);
+
     // ensure we have observation data at the desired read point, plus a few
     // more:
     const auto startIdx = rosbag_next_idx_;
@@ -408,7 +422,7 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex)
         ASSERT_EQUAL_(rosbag_next_idx_write_, idx);
         rosbag_next_idx_write_++;
 
-        auto    serialized_message = reader_.read_next();
+        auto    serialized_message = reader_->read_next();
         SF::Ptr sf                 = to_mrpt(*serialized_message);
         ASSERT_(sf);
 
@@ -428,7 +442,7 @@ size_t Rosbag2Dataset::datasetSize() const
 {
     ASSERTMSG_(initialized_, "You must call initialize() first");
 
-    return bagMetaData_.message_count;
+    return bagMessageCount_;
 }
 
 mrpt::obs::CSensoryFrame::Ptr Rosbag2Dataset::datasetGetObservations(

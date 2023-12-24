@@ -25,6 +25,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 find_mola_package(mola_kernel)
 
@@ -43,6 +44,7 @@ mola_add_library(
 		tf2::tf2
 		rosbag2_cpp::rosbag2_cpp
 		#nav_msgs
+		tf2_geometry_msgs::tf2_geometry_msgs
 		tf2_msgs::tf2_msgs__rosidl_typesupport_cpp
 		sensor_msgs::sensor_msgs_library
 		cv_bridge::cv_bridge
