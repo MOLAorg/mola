@@ -5,7 +5,7 @@
  * ------------------------------------------------------------------------- */
 
 /**
- * @file   mola-kitti-eval-error
+ * @file   kitti-metrics-eval
  * @brief  Evaluate error of Kitti dataset resulting path vs. Ground Truth
  * @author Jose Luis Blanco Claraco
  * @date   Jan 25, 2019
@@ -38,7 +38,7 @@
 #include <optional>
 
 // Declare supported cli switches ===========
-static TCLAP::CmdLine cmd("mola-kitti-eval-error");
+static TCLAP::CmdLine cmd("kitti-metrics-eval");
 
 static TCLAP::ValueArg<std::string> arg_kitti_basedir(
     "k", "kitti-basedir",
@@ -52,8 +52,8 @@ static TCLAP::ValueArg<std::string> arg_result_path(
 
 static TCLAP::ValueArg<std::string> argSavePathKittiFormat(
     "", "save-as-kitti",
-    "If given, will tranform the input path from the LIDAR frame to the cam0 "
-    "frame and save the path to a TXT file in the file expected by KITTI dev "
+    "If given, will transform the input path from the LIDAR frame to the cam0 "
+    "frame and save the path to a TXT file in the format expected by KITTI dev "
     "kit.",
     false, "result.kitti", "result.kitti", cmd);
 

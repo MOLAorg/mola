@@ -13,7 +13,7 @@
 
   <url type="website">https://github.com/MOLAorg/</url>
 
-  <license>GPLv3</license>
+  <license file="LICENSE">GPLv3</license>
 
   <depend>mola_common</depend>
   <depend>mrpt2</depend>

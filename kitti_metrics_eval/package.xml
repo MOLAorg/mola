@@ -4,16 +4,16 @@
      side-by-side to ROS packages in a catkin/ament environment.
 -->
 <package format="3">
-  <name>mola_imu_preintegration</name>
+  <name>kitti_metrics_eval</name>
   <version>0.2.2</version>
-  <description>Integrator of IMU angular velocity readings</description>
+  <description>CLI tool to evaluate the KITTI odometry bechmark metrics to trajectory files</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>
 
   <url type="website">https://github.com/MOLAorg/</url>
 
-  <license file="LICENSE">GPLv3</license>
+  <license file="LICENSE">BSD</license>
 
   <depend>mola_common</depend>
   <depend>mrpt2</depend>

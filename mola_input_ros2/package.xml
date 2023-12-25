@@ -13,7 +13,7 @@
 
   <url type="website">https://github.com/MOLAorg/</url>
 
-  <license>BSD</license>
+  <license file="LICENSE">BSD</license>
 
   <doc_depend>doxygen</doc_depend>
 
