@@ -26,6 +26,9 @@ find_mola_package(mola_kernel)
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
 file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 
+# Use C++17 filesystem lib:
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+find_package(Filesystem REQUIRED)
 
 mola_add_library(
 	TARGET ${PROJECT_NAME}
@@ -35,6 +38,7 @@ mola_add_library(
 		mola_kernel
 	PRIVATE_LINK_LIBRARIES
 		${CMAKE_DL_LIBS} # To be able to load DLLs/.so's
+		CXX::Filesystem  # the C++>=17 std lib
 	CMAKE_DEPENDENCIES
 		mola_kernel
 )

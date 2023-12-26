@@ -42,7 +42,9 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
      * factories. Modules must be named "libmola*" to be loaded.
      * \sa addPathModuleLibs, scanAndLoadLibraries
      */
-    void setup(const mrpt::containers::yaml& cfg);
+    void setup(
+        const mrpt::containers::yaml&     cfg,
+        const std::optional<std::string>& basePath = std::nullopt);
 
     /** (Blocking call) Launch sensor and worker threads and enters into an
      * infinite loop executing the SLAM system, until shutdown() is called

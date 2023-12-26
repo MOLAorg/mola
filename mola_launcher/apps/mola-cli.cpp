@@ -17,6 +17,7 @@
 #include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/rtti/CObject.h>
+#include <mrpt/system/filesystem.h>
 
 #include <csignal>  // sigaction
 #include <cstdlib>
@@ -100,7 +101,7 @@ static int mola_cli_launch_slam()
     app.profiler_.enableKeepWholeHistory(arg_enable_profiler_whole.isSet());
 
     // Create SLAM system:
-    app.setup(cfg);
+    app.setup(cfg, mrpt::system::extractFileDirectory(file_yml));
 
     // Run it:
     app.spin();

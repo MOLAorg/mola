@@ -33,15 +33,24 @@
 
 #include "MolaDLL_Loader.h"
 
+#if STD_FS_IS_EXPERIMENTAL
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
+
 using namespace mola;
 
-static void safe_add_to_list(
-    const std::string& path, std::vector<std::string>& lst)
+namespace
+{
+void safe_add_to_list(const std::string& path, std::vector<std::string>& lst)
 {
     if (mrpt::system::directoryExists(path)) lst.push_back(path);
 }
 
-static void from_env_var_to_list(
+void from_env_var_to_list(
     const std::string& env_var_name, std::vector<std::string>& lst,
     const std::string& subStringPattern = {})
 {
@@ -64,6 +73,23 @@ static void from_env_var_to_list(
         safe_add_to_list(path, lst);
     }
 }
+
+// Relative vs absolute paths:
+std::string relative_to_abs_path(
+    const std::string& path, const std::optional<std::string>& basePath)
+{
+    if (!basePath) return path;
+
+    fs::path f = path;
+    if (f.is_relative())
+    {
+        f = fs::path(*basePath) / f;
+        return f;
+    }
+    else
+        return path;
+}
+}  // namespace
 
 MolaLauncherApp::MolaLauncherApp()
     : mrpt::system::COutputLogger("MolaLauncherApp")
@@ -153,7 +179,9 @@ void MolaLauncherApp::scanAndLoadLibraries()
     MRPT_TRY_END
 }
 
-void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg)
+void MolaLauncherApp::setup(
+    const mrpt::containers::yaml&     cfg,
+    const std::optional<std::string>& basePath)
 {
     MRPT_TRY_START
 
@@ -226,6 +254,29 @@ void MolaLauncherApp::setup(const mrpt::containers::yaml& cfg)
             // Make a copy of the YAML config block:
             info.yaml_cfg_block = ds;
             info.name           = ds_label;
+
+            // Special case for params to be given in an external file:
+            ASSERT_(info.yaml_cfg_block.has("params"));
+            auto paramsBlock = info.yaml_cfg_block["params"];
+            ASSERT_(
+                paramsBlock.isMap() || paramsBlock.isScalar() ||
+                paramsBlock.isNullNode());
+            if (paramsBlock.isScalar() && !paramsBlock.isNullNode())
+            {
+                const auto paramsFile = paramsBlock.as<std::string>();
+
+                const auto absPathParamsFile =
+                    relative_to_abs_path(paramsFile, basePath);
+
+                MRPT_LOG_DEBUG_STREAM(
+                    "'params' block is an external file, loading it from: "
+                    << paramsFile << " => absolute path:" << absPathParamsFile);
+
+                // Overwrite configuration block: the external file should
+                // contain a "params:" YAML map, etc.
+                info.yaml_cfg_block = mola::load_yaml_file(absPathParamsFile);
+            }
+
             MRPT_LOG_INFO_STREAM(
                 "Instantiating module `" << ds_label << "` of type `"
                                          << ds_classname << "`");
