@@ -68,9 +68,10 @@ void FrontEndBase::initialize_common(const Yaml& cfg)
     }
     else
     {
-        MRPT_LOG_WARN(
+        MRPT_LOG_WARN_STREAM(
             "No 'raw_data_source' entry found in the YAML definition for a "
-            "FrontEndBase.");
+            "FrontEndBase: YAML contents:\n"
+            << cfg << "\n");
     }
 
     // Optional: attach to the SLAM backend:

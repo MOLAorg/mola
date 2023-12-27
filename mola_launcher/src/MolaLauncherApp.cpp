@@ -274,7 +274,20 @@ void MolaLauncherApp::setup(
 
                 // Overwrite configuration block: the external file should
                 // contain a "params:" YAML map, etc.
+                // But keep other map entries apart of "params":
+                mola::Yaml old = mola::Yaml::Map();
+                for (const auto& [k, v] : info.yaml_cfg_block.asMap())
+                {
+                    if (k.as<std::string>() == "params") continue;
+                    old[k.as<std::string>()] = v;
+                }
+
+                // overwrite:
                 info.yaml_cfg_block = mola::load_yaml_file(absPathParamsFile);
+
+                // apend other entries:
+                for (const auto& [k, v] : old.asMap())
+                    info.yaml_cfg_block[k.as<std::string>()] = v;
             }
 
             MRPT_LOG_INFO_STREAM(
