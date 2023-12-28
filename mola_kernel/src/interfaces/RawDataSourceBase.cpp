@@ -91,6 +91,10 @@ void RawDataSourceBase::initialize_common(const Yaml& cfg)
             THROW_EXCEPTION_FMT("Error opening for write: `%s`", fil.c_str());
     }
 
+    // Optional force load lazy-load observations:
+    force_load_lazy_load_ =
+        cfg.getOrDefault<bool>("force_load_lazy_load", force_load_lazy_load_);
+
     MRPT_TRY_END
 }
 
@@ -209,7 +213,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(
 
 void RawDataSourceBase::attachToDataConsumer(RawDataConsumer& rdc)
 {
-    MRPT_TODO("fix shared_from_this()");
+    // TODO(jlbc) fix shared_from_this()??
     rdc_.push_back(&rdc);  // rdc.getAsPtr();
 }
 
@@ -220,7 +224,8 @@ void RawDataSourceBase::prepareObservationBeforeFrontEnds(
 
     using namespace mrpt::obs;
 
-    MRPT_TODO("Make these operations optional and disabled by default");
+    // These operations are optional:
+    if (!force_load_lazy_load_) return;
 
     // for delay-load data:
     obs->load();

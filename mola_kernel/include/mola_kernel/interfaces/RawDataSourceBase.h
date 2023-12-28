@@ -48,6 +48,8 @@ class RawDataSourceBase : public mola::ExecutableBase
      * - `gui_preview_sensors`: Enable displaying sensor data in a subwindow.
      * - `export_to_rawlog`: If defined, save observations to the given rawlog
      * file.
+     * - `force_load_lazy_load`: (Default=false) Force load() on all incoming
+     * observations.
      */
     void initialize_common(const Yaml& cfg) override;
 
@@ -56,7 +58,8 @@ class RawDataSourceBase : public mola::ExecutableBase
     void sendObservationsToFrontEnds(const CObservation::Ptr& obs);
 
     /** Make sure the observation is loaded in memory (for externally-stored
-     * classes), etc. */
+     * classes), etc. Only has effect if the option `force_load_lazy_load` was
+     * set to `true` */
     virtual void prepareObservationBeforeFrontEnds(
         const CObservation::Ptr& obs) const;
 
@@ -77,6 +80,8 @@ class RawDataSourceBase : public mola::ExecutableBase
     /** Optional real-time GUI view of sensor data. Viewers indexed by
      * sensor_label */
     std::map<std::string, mrpt::pimpl<SensorViewerImpl>> sensor_preview_gui_;
+
+    bool force_load_lazy_load_ = false;
 };
 
 }  // namespace mola
