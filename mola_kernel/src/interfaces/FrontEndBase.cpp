@@ -109,5 +109,16 @@ void FrontEndBase::initialize_common(const Yaml& cfg)
         }
     }
 
+    // Optional: attach to the visualizer:
+    {
+        auto viz = findService<VizInterface>();
+        if (viz.size() == 1)
+        {
+            visualizer_ = std::dynamic_pointer_cast<VizInterface>(viz[0]);
+            ASSERT_(visualizer_);
+            MRPT_LOG_INFO("Attached to a VizInterface module");
+        }
+    }
+
     MRPT_TRY_END
 }
