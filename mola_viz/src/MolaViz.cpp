@@ -214,14 +214,16 @@ void gui_handler_point_cloud(
 {
     using namespace mrpt::obs;
 
-    mrpt::gui::MRPT2NanoguiGLCanvas*       glControl;
-    mrpt::opengl::CPointCloudColoured::Ptr glPc;
+    mrpt::gui::MRPT2NanoguiGLCanvas*            glControl;
+    mrpt::opengl::CPointCloudColoured::Ptr      glPc;
+    std::optional<mrpt::LockHelper<std::mutex>> lck;
+
     if (w->children().size() == 1)
     {
-        // Reuse from past iterations:
+        // Create on first use:
         glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
 
-        auto lck = mrpt::lockHelper(glControl->scene_mtx);
+        lck.emplace(&glControl->scene_mtx);
 
         glControl->scene = mrpt::opengl::COpenGLScene::Create();
 
@@ -233,10 +235,10 @@ void gui_handler_point_cloud(
     }
     else
     {
-        // Create on first use:
+        // Reuse from past iterations:
         glControl =
             dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
-        auto lck = mrpt::lockHelper(glControl->scene_mtx);
+        lck.emplace(&glControl->scene_mtx);
 
         glPc =
             glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
@@ -244,13 +246,11 @@ void gui_handler_point_cloud(
     ASSERT_(glControl != nullptr);
     ASSERT_(glPc);
 
-    auto lck = mrpt::lockHelper(glControl->scene_mtx);
-
     if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
         objPc)
     {
+        // objPc->load();
         if (!objPc->pointcloud) return;
-        objPc->load();
         glPc->loadFromPointsMap(objPc->pointcloud.get());
 
         gui_handler_show_common_sensor_info(
@@ -660,13 +660,15 @@ std::future<bool> MolaViz::update_3d_object(
             else
             {
                 glContainer = mrpt::opengl::CSetOfObjects::Create();
-                glContainer->setName(objName);
                 topWin->background_scene->insert(glContainer, viewportName);
             }
 
-            // Move user contents:
-            glContainer->clear();
-            for (const auto& o : *obj) glContainer->insert(o);
+            // Move user contents and container properties (pose, scale, etc.)
+            // via the "operator=":
+            *glContainer = *obj;
+
+            // (except the name! which we need to re-use in the next call)
+            glContainer->setName(objName);
 
             return true;
         });

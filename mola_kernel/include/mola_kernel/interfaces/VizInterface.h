@@ -14,6 +14,7 @@
 #include <mrpt/gui/CDisplayWindowGUI.h>  // nanogui
 
 #include <future>
+#include <memory>
 
 namespace mola
 {
@@ -25,6 +26,8 @@ class VizInterface
    public:
     VizInterface()          = default;
     virtual ~VizInterface() = default;
+
+    using Ptr = std::shared_ptr<VizInterface>;
 
     // ===============================
     // See class MolaViz for docs
