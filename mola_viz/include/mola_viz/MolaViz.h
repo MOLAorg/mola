@@ -89,6 +89,11 @@ class MolaViz : public ExecutableBase, public VizInterface
         const std::string& viewportName = "main",
         const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
+    std::future<bool> update_viewport_look_at(
+        const mrpt::math::TPoint3Df& lookAt,
+        const std::string&           viewportName = "main",
+        const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+
     /** @} */
 
     /** @name mola-viz GUI update handlers registry

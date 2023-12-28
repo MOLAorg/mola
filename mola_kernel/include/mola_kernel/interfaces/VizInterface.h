@@ -12,6 +12,7 @@
 #pragma once
 
 #include <mrpt/gui/CDisplayWindowGUI.h>  // nanogui
+#include <mrpt/math/TPoint3D.h>
 
 #include <future>
 #include <memory>
@@ -46,7 +47,10 @@ class VizInterface
         const std::string& viewportName = "main",
         const std::string& parentWindow = "main") = 0;
 
-   protected:
+    virtual std::future<bool> update_viewport_look_at(
+        const mrpt::math::TPoint3Df& lookAt,
+        const std::string&           viewportName = "main",
+        const std::string&           parentWindow = "main") = 0;
 };
 
 }  // namespace mola

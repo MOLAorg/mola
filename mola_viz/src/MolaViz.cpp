@@ -679,6 +679,35 @@ std::future<bool> MolaViz::update_3d_object(
     return task->get_future();
 }
 
+std::future<bool> MolaViz::update_viewport_look_at(
+    const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName,
+    const std::string& parentWindow)
+{
+    using return_type = bool;
+
+    auto task = std::make_shared<std::packaged_task<return_type()>>(
+        [this, lookAt, viewportName, parentWindow]() {
+            MRPT_LOG_DEBUG_STREAM(
+                "update_viewport_look_at() lookAt=" << lookAt.asString());
+
+            ASSERT_(windows_.count(parentWindow));
+            auto topWin = windows_.at(parentWindow);
+            ASSERT_(topWin);
+
+            // No need to acquire the mutex, since this task will be run
+            // in the proper moment in the proper thread:
+            ASSERT_(topWin->background_scene);
+            topWin->camera().setCameraPointing(lookAt.x, lookAt.y, lookAt.z);
+
+            return true;
+        });
+
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+    guiThreadMustReLayoutTheseWindows_.insert(parentWindow);
+    return task->get_future();
+}
+
 #if 0
 // Visualize GT:
 if (1)
