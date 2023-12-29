@@ -33,12 +33,14 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/lock_helper.h>
+#include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
+#include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/COpenGLScene.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
@@ -208,6 +210,7 @@ void gui_handler_images(
 // CObservation2DRangeScan
 // CObservation3DRangeScan
 // CObservationRotatingScan
+// CObservationVelodyneScan
 void gui_handler_point_cloud(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
     MolaViz::window_name_t parentWin, MolaViz* instance)
@@ -249,7 +252,7 @@ void gui_handler_point_cloud(
     if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
         objPc)
     {
-        // objPc->load();
+        objPc->load();
         if (!objPc->pointcloud) return;
         glPc->loadFromPointsMap(objPc->pointcloud.get());
 
@@ -308,6 +311,29 @@ void gui_handler_point_cloud(
 
         gui_handler_show_common_sensor_info(*obj2D, w);
     }
+    else if (auto objVel =
+                 std::dynamic_pointer_cast<CObservationVelodyneScan>(o);
+             objVel)
+    {
+        if (objVel->point_cloud.size() == 0) return;
+
+        mrpt::maps::CPointsMapXYZI pts;
+        const auto&                pc = objVel->point_cloud;
+        const size_t               N  = pc.size();
+        pts.resize(N);
+        for (size_t i = 0; i < N; i++)
+        {
+            pts.setPoint(i, pc.x[i], pc.y[i], pc.z[i]);
+            pts.setPointIntensity(i, pc.intensity[i] / 255.0f);
+        }
+        glPc->loadFromPointsMap(&pts);
+
+        gui_handler_show_common_sensor_info(
+            *objVel, w,
+            {
+                mrpt::format("Point count: %zu", N),
+            });
+    }
     else
         return;
 
@@ -323,16 +349,14 @@ MRPT_INITIALIZER(do_register_MolaViz)
     MOLA_REGISTER_MODULE(MolaViz);
 
     // Register GUI handlers for common sensor types:
-    MolaViz::register_gui_handler(
-        "mrpt::obs::CObservationImage", &gui_handler_images);
-    MolaViz::register_gui_handler(
-        "mrpt::obs::CObservationPointCloud", &gui_handler_point_cloud);
-    MolaViz::register_gui_handler(
-        "mrpt::obs::CObservation3DRangeScan", &gui_handler_point_cloud);
-    MolaViz::register_gui_handler(
-        "mrpt::obs::CObservation2DRangeScan", &gui_handler_point_cloud);
-    MolaViz::register_gui_handler(
-        "mrpt::obs::CObservationRotatingScan", &gui_handler_point_cloud);
+    // clang-format off
+    MolaViz::register_gui_handler("mrpt::obs::CObservationImage", &gui_handler_images);
+    MolaViz::register_gui_handler("mrpt::obs::CObservationPointCloud",   &gui_handler_point_cloud);
+    MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_point_cloud);
+    MolaViz::register_gui_handler("mrpt::obs::CObservation2DRangeScan",  &gui_handler_point_cloud);
+    MolaViz::register_gui_handler("mrpt::obs::CObservationRotatingScan", &gui_handler_point_cloud);
+    MolaViz::register_gui_handler("mrpt::obs::CObservationVelodyneScan", &gui_handler_point_cloud);
+    // clang-format on
 }
 
 MolaViz*                     MolaViz::instance_ = nullptr;

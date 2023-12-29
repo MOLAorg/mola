@@ -74,6 +74,10 @@ struct YAMLParseOptions
 #define YAML_LOAD_OPT2(_varname, _type) \
     _varname = cfg.getOrDefault<_type>(#_varname, _varname)
 
+#define YAML_LOAD_OPT_DEG2(_varname, _type) \
+    _varname = mrpt::DEG2RAD(               \
+        cfg.getOrDefault<_type>(#_varname, mrpt::RAD2DEG(_varname)))
+
 /** Use `YAML_LOAD_MEMBER_OPT(foo,double);` to load YAML var `foo` into `foo_`
  */
 #define YAML_LOAD_MEMBER_OPT(_varname, _type) \
@@ -88,6 +92,10 @@ struct YAMLParseOptions
 #define YAML_LOAD_REQ2(_varname, _type)       \
     ENSURE_YAML_ENTRY_EXISTS(cfg, #_varname); \
     YAML_LOAD_OPT2(_varname, _type)
+
+#define YAML_LOAD_REQ_DEG2(_varname, _type)   \
+    ENSURE_YAML_ENTRY_EXISTS(cfg, #_varname); \
+    YAML_LOAD_OPT_DEG2(_varname, _type)
 
 /** Use `YAML_LOAD_MEMBER_REQ(foo,double);` to load YAML var `foo` into `foo_`
  */

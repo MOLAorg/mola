@@ -225,19 +225,28 @@ void RawDataSourceBase::prepareObservationBeforeFrontEnds(
     using namespace mrpt::obs;
 
     // These operations are optional:
-    if (!force_load_lazy_load_) return;
-
-    // for delay-load data:
-    obs->load();
+    if (!force_load_lazy_load_) { obs->load(); }
 
     // Sensor-specific:
     if (auto o_velo = mrpt::ptr_cast<CObservationVelodyneScan>::from(obs);
         o_velo)
     {
-        if (!o_velo->point_cloud.size()) o_velo->generatePointCloud();
+        if (!o_velo->point_cloud.size())
+        {
+            // Generate point timestamps & RING ID:
+            mrpt::obs::CObservationVelodyneScan::TGeneratePointCloudParameters
+                p;
+            p.generatePerPointTimestamp = true;
+            p.generatePointsForLaserID  = true;
+            o_velo->generatePointCloud(p);
+        }
+
         const auto& pc = o_velo->point_cloud;
         ASSERT_EQUAL_(pc.x.size(), pc.y.size());
         ASSERT_EQUAL_(pc.x.size(), pc.z.size());
+        ASSERT_EQUAL_(pc.x.size(), pc.intensity.size());
+        ASSERT_EQUAL_(pc.x.size(), pc.laser_id.size());
+        ASSERT_EQUAL_(pc.x.size(), pc.timestamp.size());
     }
     MRPT_TRY_END
 }
