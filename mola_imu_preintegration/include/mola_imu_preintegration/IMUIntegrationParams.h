@@ -1,7 +1,7 @@
 /* -------------------------------------------------------------------------
  *   A Modular Optimization framework for Localization and mApping  (MOLA)
  *
- * Copyright (C) 2018-2023 Jose Luis Blanco, University of Almeria
+ * Copyright (C) 2018-2024 Jose Luis Blanco, University of Almeria
  * Licensed under the GNU GPL v3 for non-commercial applications.
  *
  * This file is part of MOLA.

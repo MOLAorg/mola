@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------
  *   A Modular Optimization framework for Localization and mApping  (MOLA)
- * Copyright (C) 2018-2023 Jose Luis Blanco, University of Almeria
+ * Copyright (C) 2018-2024 Jose Luis Blanco, University of Almeria
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
@@ -362,12 +362,13 @@ void MulranDataset::load_lidar(timestep_t step) const
 
     // Fixed to 10 Hz rotation in this dataset:
     const double sweepDuration = 0.1;  //  [s]
+    const double At            = -0.5 * sweepDuration;
 
     for (size_t i = 0; i < nPts; i++)
     {
         // const int row = i % 64;
         const int col = i / 64;
-        pts->setPointTime(i, sweepDuration * col / 1024.0);
+        pts->setPointTime(i, At + sweepDuration * col / 1024.0);
     }
 
     // Pose:
