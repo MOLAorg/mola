@@ -30,7 +30,7 @@ mola_add_library(
 	TARGET ${PROJECT_NAME}
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
 	PUBLIC_LINK_LIBRARIES
-		mola_kernel
+		mola::mola_kernel
 		mrpt::gui
 		mrpt::opengl
 		mrpt::maps

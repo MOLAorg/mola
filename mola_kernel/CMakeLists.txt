@@ -30,7 +30,7 @@ mola_add_library(
 	PUBLIC_LINK_LIBRARIES
 		mrpt::obs
 		mrpt::gui
-		mola_yaml
+		mola::mola_yaml
 	PRIVATE_LINK_LIBRARIES
 		mrpt::gui   #TODO: remove after mapviz!
 		mrpt::maps  #TODO: remove after mapviz!

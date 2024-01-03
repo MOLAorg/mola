@@ -15,8 +15,8 @@ mola_add_executable(
 	TARGET  mola-cli
 	SOURCES mola-cli.cpp
 	LINK_LIBRARIES
-		mola_launcher
-		mola_kernel
+		mola::mola_launcher
+		mola::mola_kernel
 		mrpt::core
 		mrpt::tclap
 )
@@ -25,15 +25,15 @@ mola_add_executable(
 	TARGET  mola-dir
 	SOURCES mola-dir.cpp
 	LINK_LIBRARIES
-		mola_launcher
-		mola_kernel
+		mola::mola_launcher
+		mola::mola_kernel
 )
 
 mola_add_executable(
 	TARGET  mola-yaml-parser
 	SOURCES mola-yaml-parser.cpp
 	LINK_LIBRARIES
-		mola_kernel
+		mola::mola_kernel
 		mrpt::tclap
 		mrpt::containers
 )

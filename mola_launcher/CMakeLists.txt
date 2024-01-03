@@ -35,7 +35,7 @@ mola_add_library(
 	SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
 	PUBLIC_LINK_LIBRARIES
 		mrpt::core
-		mola_kernel
+		mola::mola_kernel
 	PRIVATE_LINK_LIBRARIES
 		${CMAKE_DL_LIBS} # To be able to load DLLs/.so's
 		CXX::Filesystem  # the C++>=17 std lib
