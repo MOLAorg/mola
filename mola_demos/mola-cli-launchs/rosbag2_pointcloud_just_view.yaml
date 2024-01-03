@@ -1,7 +1,19 @@
 # -----------------------------------------------------------------------------
 #                        SLAM system definition for MOLA
 # This file defines:
-# An input sensor from a ROS 2 topic, and the MOLA Visualizer.
+# Input sensors from ROS 2 topics, and the MOLA Visualizer.
+#
+# Examples of usage:
+# - Use all defaults (will expose all 2D/3D lidars, odometry, imus, etc.).
+#   Visualizer assumes point cloud topic is '/ouster/points':
+#       mola-cli -c src/mola/mola_demos/mola-cli-launchs/rosbag2_pointcloud_just_view.yaml
+#
+# - RACECAR_DATA dataset:
+#     ROSBAG2_STORAGE_ID=sqlite3 \
+#     POINTCLOUD_TOPIC=/vehicle_8/luminar_front_points \
+#     ROSBAG2_FILE=/mnt/storage/RACECAR_DATA/M-MULTI-SLOW-KAIST.db3 \
+#       mola-cli -c src/mola/mola_demos/mola-cli-launchs/rosbag2_pointcloud_just_view.yaml
+#
 # -----------------------------------------------------------------------------
 
 modules:
@@ -26,7 +38,7 @@ modules:
     
     # Optional visualization of raw sensor streams in the MolaViz GUI
     gui_preview_sensors:
-      - raw_sensor_label: '/ouster/points'
+      - raw_sensor_label: ${POINTCLOUD_TOPIC|'/ouster/points'}
         decimation: 1
         win_pos: 5 5 400 400
         
@@ -41,7 +53,7 @@ modules:
       base_link_frame_id: 'base_footprint'
       
       time_warp_scale: 1.0
-      #rosbag_storage_id: 'mcap'
+      rosbag_storage_id: ${ROSBAG2_STORAGE_ID|'mcap'}
       #rosbag_serialization: 'cdr'
       
       # 'sensors' contains maps from output "sensorLabel"s, to the
@@ -51,14 +63,14 @@ modules:
       # (or if you do not have /tf), it is mandatory to define 'sensors' and
       # define 'fixed_sensor_pose' for each sensor here:
       sensors:
-        - topic: /ouster/points
+        - topic: ${POINTCLOUD_TOPIC|'/ouster/points'}
           type: CObservationPointCloud
           # If present, this will override whatever /tf tells about the sensor pose:
           fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
-          
-        - topic: /ouster/range_image
-          type: CObservationImage
-          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
 
-        - topic: /odom
-          type: CObservationOdometry
+        #- topic: /ouster/range_image
+        #  type: CObservationImage
+        #  fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
+
+        #- topic: ${ODOMETRY_TOPIC|'/odom'}
+        #  type: CObservationOdometry
