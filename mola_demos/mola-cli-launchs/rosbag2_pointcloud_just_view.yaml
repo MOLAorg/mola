@@ -6,13 +6,13 @@
 # Examples of usage:
 # - Use all defaults (will expose all 2D/3D lidars, odometry, imus, etc.).
 #   Visualizer assumes point cloud topic is '/ouster/points':
-#       mola-cli -c src/mola/mola_demos/mola-cli-launchs/rosbag2_pointcloud_just_view.yaml
+#       mola-cli src/mola/mola_demos/mola-cli-launchs/rosbag2_pointcloud_just_view.yaml
 #
 # - RACECAR_DATA dataset:
 #     ROSBAG2_STORAGE_ID=sqlite3 \
 #     POINTCLOUD_TOPIC=/vehicle_8/luminar_front_points \
 #     ROSBAG2_FILE=/mnt/storage/RACECAR_DATA/M-MULTI-SLOW-KAIST.db3 \
-#       mola-cli -c src/mola/mola_demos/mola-cli-launchs/rosbag2_pointcloud_just_view.yaml
+#       mola-cli src/mola/mola_demos/mola-cli-launchs/rosbag2_pointcloud_just_view.yaml
 #
 # -----------------------------------------------------------------------------
 

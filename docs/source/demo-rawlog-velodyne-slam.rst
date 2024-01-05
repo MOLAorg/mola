@@ -17,7 +17,7 @@ Usage
 .. code-block:: bash
 
     cd mola/demos
-    MOLA_INPUT_RAWLOG=map1_test1.rawlog  mola-cli -c rawlog_odom_and_lidar.yml -p
+    MOLA_INPUT_RAWLOG=map1_test1.rawlog  mola-cli rawlog_odom_and_lidar.yml -p
 
 
 .. _sample_rawlog1: https://ingmec.ual.es/datasets/lidar3d-pf-benchmark/map1_test1_cut.rawlog

@@ -21,7 +21,7 @@ Usage
 .. code-block:: bash
 
     cd mola/demos
-    mola-cli -c pose_graph_g2o_file.yml
+    mola-cli pose_graph_g2o_file.yml
 
 
 

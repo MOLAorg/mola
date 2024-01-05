@@ -30,10 +30,10 @@
 MRPT_TODO("win32: add SetConsoleCtrlHandler");
 
 // Declare supported cli switches ===========
-static TCLAP::CmdLine               cmd("mola-cli");
-static TCLAP::ValueArg<std::string> arg_yaml_cfg(
-    "c", "config", "Input YAML config file (required) (*.yml)", false, "",
-    "demo.yml", cmd);
+static TCLAP::CmdLine                        cmd("mola-cli");
+static TCLAP::UnlabeledValueArg<std::string> arg_yaml_cfg(
+    "config", "Input YAML config file (required) (*.yaml)", false, "",
+    "mola-system.yaml", cmd);
 
 static TCLAP::ValueArg<std::string> arg_verbosity_level(
     "v", "verbosity", "Verbosity level: ERROR|WARN|INFO|DEBUG (Default: INFO)",
@@ -86,9 +86,7 @@ static int mola_cli_launch_slam()
     // Load YAML config file:
     if (!arg_yaml_cfg.isSet())
     {
-        TCLAP::ArgException e(
-            "-c xxx.yaml (or --config xxx.yml) is required to launch a SLAM "
-            "system.");
+        TCLAP::ArgException e("x.yaml is required to launch a SLAM system.");
         cmd.getOutput()->failure(cmd, e);
         return 1;
     }

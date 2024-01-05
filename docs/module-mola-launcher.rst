@@ -85,7 +85,7 @@ Example: Launching a SLAM system with performance details at end:
 
 .. code-block:: none
 
-  mola-cli -c kitti_lidar_slam.yml -p
+  mola-cli kitti_lidar_slam.yml -p
 
 
 Example: To list all known ICP algorithms:

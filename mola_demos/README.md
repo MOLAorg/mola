@@ -9,7 +9,7 @@ Note that there are launch files for both, ROS 2 and standalone builds of MOLA.
 
 ```bash
 # In one terminal
-mola-cli -c  $(ros2 pkg prefix --share mola_demos)/launch/ros2_ouster_just_view.yaml
+mola-cli  $(ros2 pkg prefix --share mola_demos)/launch/ros2_ouster_just_view.yaml
 
 # In another terminal:
 ros2 bag play my_lidar_dataset.mcap
