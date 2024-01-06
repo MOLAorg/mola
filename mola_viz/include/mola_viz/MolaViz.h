@@ -94,6 +94,10 @@ class MolaViz : public ExecutableBase, public VizInterface
         const std::string&           viewportName = "main",
         const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
+    std::future<bool> output_console_message(
+        const std::string& msg,
+        const std::string& parentWindow = "main") override;
+
     /** @} */
 
     /** @name mola-viz GUI update handlers registry
@@ -109,6 +113,14 @@ class MolaViz : public ExecutableBase, public VizInterface
 
     /** @} */
 
+    /** @name mola-viz module parameters
+     * @{ */
+
+    double       console_text_font_size_ = 9.0;
+    unsigned int max_console_lines_      = 5;
+
+    /** @} */
+
     void markWindowForReLayout(const window_name_t& name)
     {
         guiThreadMustReLayoutTheseWindows_.insert(name);
@@ -121,7 +133,13 @@ class MolaViz : public ExecutableBase, public VizInterface
     mrpt::gui::CDisplayWindowGUI::Ptr create_and_add_window(
         const window_name_t& name);
 
-    std::map<window_name_t, mrpt::gui::CDisplayWindowGUI::Ptr> windows_;
+    struct PerWindowData
+    {
+        mrpt::gui::CDisplayWindowGUI::Ptr win;
+        std::vector<std::string>          console_messages = {};
+    };
+
+    std::map<window_name_t, PerWindowData> windows_;
     std::map<window_name_t, std::map<subwindow_name_t, nanogui::Window*>>
         subWindows_;
 

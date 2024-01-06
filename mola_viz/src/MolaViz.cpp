@@ -399,6 +399,9 @@ void MolaViz::initialize(const Yaml& c)
     auto cfg = c["params"];
     MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
 
+    YAML_LOAD_MEMBER_OPT(max_console_lines, unsigned int);
+    YAML_LOAD_MEMBER_OPT(console_text_font_size, double);
+
     // Mark as initialized and up:
     instanceMtx_.lock();
     instance_ = this;
@@ -421,12 +424,13 @@ mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(
 
     mrpt::gui::CDisplayWindowGUI_Params cp;
     cp.maximized   = true;
-    windows_[name] = mrpt::gui::CDisplayWindowGUI::Create(name, 1000, 800, cp);
+    windows_[name] = {
+        mrpt::gui::CDisplayWindowGUI::Create(name, 1000, 800, cp)};
 
     // create empty list of subwindows too:
     subWindows_[name];
 
-    auto& win = windows_[name];
+    auto& win = windows_[name].win;
 
     // Add a background scene:
     auto scene = mrpt::opengl::COpenGLScene::Create();
@@ -494,7 +498,7 @@ void MolaViz::gui_thread()
         lckHandlers.unlock();
 
         for (const auto& winName : winsToReLayout)
-            windows_.at(winName)->performLayout();
+            windows_.at(winName).win->performLayout();
     });
 
     // A call to "nanogui::leave()" is required to end the infinite loop
@@ -594,7 +598,7 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
                 << "'");
 
             ASSERT_(windows_.count(parentWindow));
-            auto topWin = windows_.at(parentWindow);
+            auto topWin = windows_.at(parentWindow).win;
             ASSERT_(topWin);
 
             auto subw = topWin->createManagedSubWindow(subWindowTitle);
@@ -664,7 +668,7 @@ std::future<bool> MolaViz::update_3d_object(
                 "update_3d_object() objName='" << objName << "'");
 
             ASSERT_(windows_.count(parentWindow));
-            auto topWin = windows_.at(parentWindow);
+            auto topWin = windows_.at(parentWindow).win;
             ASSERT_(topWin);
 
             // No need to acquire the mutex, since this task will be run
@@ -715,13 +719,60 @@ std::future<bool> MolaViz::update_viewport_look_at(
                 "update_viewport_look_at() lookAt=" << lookAt.asString());
 
             ASSERT_(windows_.count(parentWindow));
-            auto topWin = windows_.at(parentWindow);
+            auto topWin = windows_.at(parentWindow).win;
             ASSERT_(topWin);
 
             // No need to acquire the mutex, since this task will be run
             // in the proper moment in the proper thread:
             ASSERT_(topWin->background_scene);
             topWin->camera().setCameraPointing(lookAt.x, lookAt.y, lookAt.z);
+
+            return true;
+        });
+
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+    guiThreadMustReLayoutTheseWindows_.insert(parentWindow);
+    return task->get_future();
+}
+
+std::future<bool> MolaViz::output_console_message(
+    const std::string& msg, const std::string& parentWindow)
+{
+    using return_type = bool;
+
+    auto task = std::make_shared<std::packaged_task<return_type()>>(
+        [this, msg, parentWindow]() {
+            MRPT_LOG_DEBUG_STREAM("output_console_message() msg=" << msg);
+
+            ASSERT_(windows_.count(parentWindow));
+            auto& winData = windows_.at(parentWindow);
+
+            // Append msg:
+            winData.console_messages.push_back(msg);
+            // remove older ones:
+            while (winData.console_messages.size() > max_console_lines_)
+                winData.console_messages.erase(
+                    winData.console_messages.begin());
+
+            mrpt::gui::CDisplayWindowGUI::Ptr topWin = winData.win;
+            ASSERT_(topWin);
+
+            // No need to acquire the mutex, since this task will be run
+            // in the proper moment in the proper thread:
+            ASSERT_(topWin->background_scene);
+
+            const double              LINE_HEIGHT  = console_text_font_size_;
+            const double              LINE_SPACING = 3.0;
+            mrpt::opengl::TFontParams fp;
+            fp.vfont_scale = LINE_HEIGHT;
+
+            for (size_t i = 0; i < winData.console_messages.size(); i++)
+            {
+                topWin->background_scene->getViewport()->addTextMessage(
+                    3.0, LINE_SPACING + (LINE_SPACING + LINE_HEIGHT) * i,
+                    winData.console_messages.at(i), i, fp);
+            }
 
             return true;
         });

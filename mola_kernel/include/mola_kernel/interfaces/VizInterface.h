@@ -51,6 +51,9 @@ class VizInterface
         const mrpt::math::TPoint3Df& lookAt,
         const std::string&           viewportName = "main",
         const std::string&           parentWindow = "main") = 0;
+
+    virtual std::future<bool> output_console_message(
+        const std::string& msg, const std::string& parentWindow = "main") = 0;
 };
 
 }  // namespace mola
