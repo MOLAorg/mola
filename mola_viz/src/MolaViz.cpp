@@ -769,8 +769,17 @@ std::future<bool> MolaViz::output_console_message(
 
             for (size_t i = 0; i < winData.console_messages.size(); i++)
             {
+                const size_t invIdx = (winData.console_messages.size() - 1 - i);
+
+                fp.color.A = 1.0f;
+                if (invIdx > 1 && invIdx + 3 >= max_console_lines_)
+                {
+                    fp.color.A =
+                        1.0 - (invIdx - (max_console_lines_ * 1.0 - 3.5)) / 3.5;
+                }
+
                 topWin->background_scene->getViewport()->addTextMessage(
-                    3.0, LINE_SPACING + (LINE_SPACING + LINE_HEIGHT) * i,
+                    3.0, LINE_SPACING + (LINE_SPACING + LINE_HEIGHT) * invIdx,
                     winData.console_messages.at(i), i, fp);
             }
 
