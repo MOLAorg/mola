@@ -10,7 +10,7 @@ MOLA
   :hidden:
   :caption: Quickstart
 
-  building
+  installing
   demos
 
 .. toctree::

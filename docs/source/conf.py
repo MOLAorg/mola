@@ -39,10 +39,16 @@ release = u'v0.1'
 # ones.
 extensions = [
     'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig'
+    'sphinx.ext.ifconfig',
+    'sphinx.ext.mathjax',
+    'sphinx_design',
+    'sphinx.ext.autosectionlabel',
+    'sphinxcontrib.bibtex',
 ]
 
 extensions += ['doxyrest', 'cpplexer']
+
+bibtex_bibfiles = ['refs.bib']
 
 # Show build time
 html_last_updated_fmt = '%H:%M, %b %d, %Y'
