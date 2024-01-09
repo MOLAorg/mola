@@ -333,6 +333,14 @@ void Rosbag2Dataset::spinOnce()
             "quit)");
         return;
     }
+    else
+    {
+        MRPT_LOG_THROTTLE_INFO_FMT(
+            5.0, "Dataset replay progress: %lu / %lu  (%4.02f%%)",
+            static_cast<unsigned long>(rosbag_next_idx_),
+            static_cast<unsigned long>(bagMessageCount_),
+            (100.0 * rosbag_next_idx_) / bagMessageCount_);
+    }
 
     // Publish observations up to current time:
     for (;;)

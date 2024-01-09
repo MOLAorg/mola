@@ -211,7 +211,8 @@ void EurocDataset::initialize(const Yaml& c)
     }
 
     // Start at the dataset begin:
-    dataset_next_ = dataset_.begin();
+    dataset_next_    = dataset_.begin();
+    dataset_cur_idx_ = 0;
 
     MRPT_END
 }  // end initialize()
@@ -245,6 +246,14 @@ void EurocDataset::spinOnce()
             "End of dataset reached! Nothing else to publish (CTRL+C to quit)");
         return;
     }
+    else
+    {
+        MRPT_LOG_THROTTLE_INFO_FMT(
+            5.0, "Dataset replay progress: %lu / %lu  (%4.02f%%)",
+            static_cast<unsigned long>(dataset_cur_idx_),
+            static_cast<unsigned long>(dataset_.size()),
+            (100.0 * dataset_cur_idx_) / (dataset_.size()));
+    }
 
     // We have to publish all observations until "t":
     while (dataset_next_ != dataset_.end() && tim >= dataset_next_->first)
@@ -274,6 +283,7 @@ void EurocDataset::spinOnce()
 
         // Advance:
         ++dataset_next_;
+        ++dataset_cur_idx_;
     }
 
     // Read ahead to save delays in the next iteration:

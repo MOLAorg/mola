@@ -69,6 +69,7 @@ class EurocDataset : public RawDataSourceBase
     std::array<mrpt::math::TPose3D, 2> cam_poses_;  //!< wrt vehicle origin
     euroc_dataset_t                    dataset_;  //!< dataset itself
     euroc_dataset_t::iterator          dataset_next_;  //!< next item to publish
+    size_t                             dataset_cur_idx_ = 0;
 
     // double              replay_time_{.0};
     std::string seq_dir_;

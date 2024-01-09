@@ -110,6 +110,14 @@ void RawlogDataset::spinOnce()
             "End of dataset reached! Nothing else to publish (CTRL+C to quit)");
         return;
     }
+    else if (read_all_first_)
+    {
+        MRPT_LOG_THROTTLE_INFO_FMT(
+            5.0, "Dataset replay progress: %lu / %lu  (%4.02f%%)",
+            static_cast<unsigned long>(rawlog_next_idx_),
+            static_cast<unsigned long>(rawlog_entire_.size()),
+            (100.0 * rawlog_next_idx_) / (rawlog_entire_.size()));
+    }
 
     // First rawlog timestamp?
     if (rawlog_begin_time_ == INVALID_TIMESTAMP)
