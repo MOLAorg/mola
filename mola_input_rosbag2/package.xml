@@ -20,6 +20,9 @@
   <depend>tf2_ros</depend>
   <depend>rosbag2_cpp</depend>
   <depend>tf2_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
 
   <doc_depend>doxygen</doc_depend>
 
