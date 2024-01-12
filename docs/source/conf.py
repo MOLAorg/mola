@@ -8,14 +8,13 @@
 
 # -- Path setup --------------------------------------------------------------
 
+from datetime import datetime
 import os
 import sys
 sys.path.insert(0, os.path.abspath('_ext'))
 
-#sys.path.insert(1, os.path.abspath('/PATH/TO/doxyrest_b/doxyrest/sphinx'))
+# sys.path.insert(1, os.path.abspath('/PATH/TO/doxyrest_b/doxyrest/sphinx'))
 # JLBC: Must be added to PYTHONPATH manually by the caller.
-
-from datetime import datetime
 
 
 # -- Project information -----------------------------------------------------
@@ -55,10 +54,10 @@ html_last_updated_fmt = '%H:%M, %b %d, %Y'
 
 # For edit on github:
 html_context = {
-  'display_github': True,
-  'github_user': 'MOLAorg',
-  'github_repo': 'mola',
-  'github_version': 'master/docs/source/'
+    'display_github': True,
+    'github_user': 'MOLAorg',
+    'github_repo': 'mola',
+    'github_version': 'develop/docs/source/'
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -94,7 +93,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-#html_theme = 'alabaster'
+# html_theme = 'alabaster'
 html_theme = "sphinx_rtd_theme"
 
 
