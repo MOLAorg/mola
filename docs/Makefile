@@ -4,7 +4,9 @@
 # Replace this path with your local build of doxyrest:
 export PYTHONPATH := $(HOME)/code/doxyrest_b/doxyrest/sphinx/:$(PYTHONPATH)
 export PATH := $(HOME)/code/doxyrest_b/build/doxyrest/bin/Release:$(PATH)
-
+#export MOLA_VERSION_STR := $(shell head -n1 ../version_prefix.txt)
+#export MOLA_LIST_INCLUDE_DIRS := $(shell for f in ../libs/*/include; do printf "$$(realpath $$f) "; done)
+#export MOLA_DOX_INPUT_DIRS := $(shell for f in ../libs/*; do printf "$$(realpath $$f) "; done)
 
 .PHONY: clean
 clean:
@@ -16,6 +18,8 @@ clean:
 		source/namespace_* \
 		source/group_* \
 		source/struct_* \
+		source/page_* \
+		source/union_* \
 		source/global.rst source/doxygen-index.rst \
 		2> /dev/null || true
 
@@ -23,14 +27,37 @@ clean:
 all:
 	make html
 
+python-venv: requirements.txt
+	# Note: the DEB_PYTHON_INSTALL_LAYOUT=deb below 
+	# is required in u22.04 to fix a bug in virtualenv.
+	# That env var can be removed once virtualenv > 20.16.5 is everywhere.
+	# Read: https://askubuntu.com/a/1415153/97996
+	
+	# Create virtual env for building the docs
+	DEB_PYTHON_INSTALL_LAYOUT=deb virtualenv -p /usr/bin/python3 venv
+	bash -c "source venv/bin/activate && pip install -r requirements.txt"
+
 html-and-view:
 	make html
 	xdg-open html/index.html
 
-html:
+html: python-venv
+	echo "Building docs"
+	echo "Using MRPT_LIST_INCLUDE_DIRS: ${MRPT_LIST_INCLUDE_DIRS}"
 	# 1) Build Doxygen
 	cd source && doxygen
 	# 2) Doxygen XML -> RST
-	cd source && doxyrest -c doxyrest-config.lua
+	cd source && bash -c "source ../venv/bin/activate && doxyrest -c doxyrest-config.lua"
+	# Remove main doc file created for nanoflann:
+	rm source/page_index.rst 2>/dev/null || true
 	# 3) RST -> HTML with Sphinx
-	sphinx-build -b html source/ html/
+	bash -c "source venv/bin/activate && sphinx-build -b html source/ html/"
+	# 4) Copy images:
+	# Doxygen has this limitation, images cannot be parsed into XML/HTML with
+	# a relative path, so we must copy them to the root directory.
+	cp source/imgs/* html/
+	# Copy remote images also:
+	bash remote-static-files.sh
+
+pydocs-from-local-build:
+	cd html && bash ../../python/build-pydocs-from-local-build.sh
