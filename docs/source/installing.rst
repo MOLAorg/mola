@@ -15,7 +15,25 @@ Installing
 
     .. code-block:: bash
 
+        # Install core MOLA modules:
         sudo apt install ros-$ROS_DISTRO-mola
+        
+        # Install the MOLA LIDAR odometry package:
+        sudo apt install ros-$ROS_DISTRO-mola-lidar-odometry
+
+        # Install example small datasets to run demos/unit tests:
+        sudo apt install ros-$ROS_DISTRO-mola-test-datasets
+
+    Check if all new nodes and apps are visible:
+
+    .. code-block:: bash
+
+        cd ~/ros2_mola_ws/
+        . install/setup.bash
+
+        # For example, let's launch the mm map viewer. 
+        # If a GUI app is opened, it means installation was successful.
+        mm-viewer
 
     Check the `build status table <https://github.com/MOLAorg/mola#build-matrix-status>`_ to find out
     what MOLA version is available for your ROS distribution.
@@ -36,15 +54,17 @@ Installing
 
     .. code-block:: bash
 
-        mkdir ~/ros2_mola_ws/src/ 
+        mkdir -p ~/ros2_mola_ws/src/ 
         cd ~/ros2_mola_ws/src/
-        # Get MRPT2 (until we get the latest version on rosdistro)
-        git clone https://github.com/MRPT/mrpt.git mrpt2 --recursive
+
+        # Optional: Get latest version of mrpt2.
+        # git clone https://github.com/MRPT/mrpt.git mrpt2 --recursive
 
         # Main MOLA modules:
         git clone https://github.com/MOLAorg/mola_common.git
         git clone https://github.com/MOLAorg/mp2p_icp.git --recursive
         git clone https://github.com/MOLAorg/mola.git --recursive
+        git clone https://github.com/MOLAorg/mola_test_datasets.git
 
         # MOLA lidar odometry package:
         # not published yet!
