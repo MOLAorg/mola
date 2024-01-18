@@ -62,7 +62,8 @@ class MolaViz : public ExecutableBase, public VizInterface
     static bool     IsRunning();
     static MolaViz* Instance();
 
-    /** Returned object is owned by the VizInterface, do NOT delete it. */
+    /** Returned object is owned by the VizInterface, do NOT delete it. Updates
+     * to it must be done via enqueue_custom_nanogui_code()*/
     std::future<nanogui::Window*> create_subwindow(
         const std::string& subWindowTitle,
         const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
@@ -97,6 +98,11 @@ class MolaViz : public ExecutableBase, public VizInterface
     std::future<bool> output_console_message(
         const std::string& msg,
         const std::string& parentWindow = "main") override;
+
+    /// Updates to nanogui window controls must happen via this method to ensure
+    /// it is run by the correct thread, in the next available time slot.
+    std::future<void> enqueue_custom_nanogui_code(
+        const std::function<void(void)>& userCode) override;
 
     /** @} */
 

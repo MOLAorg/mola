@@ -792,6 +792,19 @@ std::future<bool> MolaViz::output_console_message(
     return task->get_future();
 }
 
+std::future<void> MolaViz::enqueue_custom_nanogui_code(
+    const std::function<void(void)>& userCode)
+{
+    using return_type = void;
+
+    auto task = std::make_shared<std::packaged_task<return_type()>>(
+        [=]() { userCode(); });
+
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+    return task->get_future();
+}
+
 #if 0
 // Visualize GT:
 if (1)

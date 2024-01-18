@@ -1,4 +1,4 @@
-/* -------------------------------------------------------------------------
+﻿/* -------------------------------------------------------------------------
  *   A Modular Optimization framework for Localization and mApping  (MOLA)
  * Copyright (C) 2018-2024 Jose Luis Blanco, University of Almeria
  * See LICENSE for license information.
@@ -51,6 +51,9 @@ class VizInterface
         const mrpt::math::TPoint3Df& lookAt,
         const std::string&           viewportName = "main",
         const std::string&           parentWindow = "main") = 0;
+
+    virtual std::future<void> enqueue_custom_nanogui_code(
+        const std::function<void(void)>& userCode) = 0;
 
     virtual std::future<bool> output_console_message(
         const std::string& msg, const std::string& parentWindow = "main") = 0;
