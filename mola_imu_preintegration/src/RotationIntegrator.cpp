@@ -27,8 +27,6 @@
 #include <mola_imu_preintegration/RotationIntegrator.h>
 #include <mrpt/poses/Lie/SO.h>
 
-#include <iostream>  // REMOVE!
-
 using namespace mola;
 
 void RotationIntegrator::initialize(const mrpt::containers::yaml& cfg)

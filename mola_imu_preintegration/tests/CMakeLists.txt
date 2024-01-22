@@ -3,5 +3,5 @@ mola_add_test(
   TARGET  test-imu-rotation-integrator
   SOURCES test-imu-rotation-integrator.cpp
   LINK_LIBRARIES
-    mola_imu_preintegration
+    mola::mola_imu_preintegration
 )
