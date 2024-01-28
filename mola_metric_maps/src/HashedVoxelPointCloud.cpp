@@ -1061,6 +1061,8 @@ void HashedVoxelPointCloud::internal_insertPointCloud3D(
 {
     MRPT_TRY_START
 
+    voxels_.reserve(voxels_.size() + num_pts);
+
     for (std::size_t i = 0; i < num_pts; i++)
     {
         // Transform the point from the scan reference to its global 3D
