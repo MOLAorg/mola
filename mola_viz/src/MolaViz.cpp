@@ -33,6 +33,7 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/lock_helper.h>
+#include <mrpt/maps/CColouredPointsMap.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
@@ -220,6 +221,7 @@ void gui_handler_point_cloud(
     mrpt::gui::MRPT2NanoguiGLCanvas*            glControl;
     mrpt::opengl::CPointCloudColoured::Ptr      glPc;
     std::optional<mrpt::LockHelper<std::mutex>> lck;
+    bool                                        recolorizeAtEnd = true;
 
     if (w->children().size() == 1)
     {
@@ -294,12 +296,37 @@ void gui_handler_point_cloud(
     else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
              obj3D)
     {
-        obj3D->load();
+        if (obj3D->hasPoints3D)
+        {
+            if (obj3D->points3D_isExternallyStored()) obj3D->load();
 
-        mrpt::obs::T3DPointsProjectionParams pp;
-        pp.takeIntoAccountSensorPoseOnRobot = true;
+            for (size_t i = 0; i < obj3D->points3D_x.size(); i++)
+                glPc->insertPoint(
+                    {obj3D->points3D_x[i], obj3D->points3D_y[i],
+                     obj3D->points3D_z[i], 0, 0, 0});
+        }
+        else
+        {
+            obj3D->load();
 
-        obj3D->unprojectInto(*glPc, pp);
+            mrpt::obs::T3DPointsProjectionParams pp;
+            pp.takeIntoAccountSensorPoseOnRobot = true;
+
+            if (obj3D->hasRangeImage && obj3D->hasIntensityImage)
+            {
+                auto pointMapCol = mrpt::maps::CColouredPointsMap::Create();
+                pointMapCol->colorScheme.scheme =
+                    mrpt::maps::CColouredPointsMap::cmFromIntensityImage;
+
+                obj3D->unprojectInto(*pointMapCol, pp);
+                glPc->loadFromPointsMap(pointMapCol.get());
+                recolorizeAtEnd = false;
+            }
+            else
+            {
+                obj3D->unprojectInto(*glPc, pp);
+            }
+        }
         gui_handler_show_common_sensor_info(*obj3D, w);
     }
     else if (auto obj2D = std::dynamic_pointer_cast<CObservation2DRangeScan>(o);
@@ -338,8 +365,11 @@ void gui_handler_point_cloud(
         return;
 
     // viz options:
-    const auto bb = glPc->getBoundingBox();
-    glPc->recolorizeByCoordinate(bb.min.z, bb.max.z);
+    if (recolorizeAtEnd)
+    {
+        const auto bb = glPc->getBoundingBox();
+        glPc->recolorizeByCoordinate(bb.min.z, bb.max.z);
+    }
 }
 }  // namespace
 
