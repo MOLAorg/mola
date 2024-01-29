@@ -234,7 +234,7 @@ void HashedVoxelPointCloud::getVisualizationInto(
 
         // handle planar maps (avoids error in histogram below):
         for (int i = 0; i < 3; i++)
-            if (bb.max[i] == bb.min[i]) bb.max[i] = bb.min[i] + 0.1f;
+            if (bb.max[i] - bb.min[i] < 0.1f) bb.max[i] = bb.min[i] + 0.1f;
 
         // Use a histogram to discard outliers from the colormap extremes:
         constexpr size_t nBins = 100;
@@ -244,34 +244,40 @@ void HashedVoxelPointCloud::getVisualizationInto(
             mrpt::math::CHistogram(bb.min.y, bb.max.y, nBins),
             mrpt::math::CHistogram(bb.min.z, bb.max.z, nBins)};
 
+        size_t nPoints = 0;
+
         const auto lambdaVisitPoints =
-            [&obj, &hists](const mrpt::math::TPoint3Df& pt) {
+            [&obj, &hists, &nPoints](const mrpt::math::TPoint3Df& pt) {
                 // x y z R G B [A]
                 obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
                 for (int i = 0; i < 3; i++) hists[i].add(pt[i]);
+                nPoints++;
             };
 
         this->visitAllPoints(lambdaVisitPoints);
 
         obj->setPointSize(renderOptions.point_size);
 
-        // Analyze the histograms and get confidence intervals:
-        std::vector<double> coords;
-        std::vector<double> hits;
+        if (nPoints)
+        {
+            // Analyze the histograms and get confidence intervals:
+            std::vector<double> coords;
+            std::vector<double> hits;
 
-        const int idx = renderOptions.recolorizeByCoordinateIndex;
-        ASSERT_(idx >= 0 && idx < 3);
+            const int idx = renderOptions.recolorizeByCoordinateIndex;
+            ASSERT_(idx >= 0 && idx < 3);
 
-        float            min = .0, max = 1.f;
-        constexpr double confidenceInterval = 0.02;
+            float            min = .0, max = 1.f;
+            constexpr double confidenceInterval = 0.02;
 
-        hists[idx].getHistogramNormalized(coords, hits);
-        mrpt::math::confidenceIntervalsFromHistogram(
-            coords, hits, min, max, confidenceInterval);
+            hists[idx].getHistogramNormalized(coords, hits);
+            mrpt::math::confidenceIntervalsFromHistogram(
+                coords, hits, min, max, confidenceInterval);
 
-        obj->recolorizeByCoordinate(
-            min, max, renderOptions.recolorizeByCoordinateIndex,
-            renderOptions.colormap);
+            obj->recolorizeByCoordinate(
+                min, max, renderOptions.recolorizeByCoordinateIndex,
+                renderOptions.colormap);
+        }
         outObj.insert(obj);
     }
     MRPT_END
