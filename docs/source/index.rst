@@ -11,12 +11,13 @@ MOLA
   :caption: Quickstart
 
   installing
-  demos
+  solutions
+  use-cases
 
 .. toctree::
   :maxdepth: 2
   :hidden:
-  :caption: Guide
+  :caption: Details
 
   concepts
   tutorials
