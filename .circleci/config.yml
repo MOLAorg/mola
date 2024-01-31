@@ -1,8 +1,8 @@
 version: 2
 jobs:
-  ros-rolling-u22.04:
+  ros-humble-u22.04:
     docker:
-      - image: ros:rolling-ros-base
+      - image: ros:humble-ros-base
     steps:
       - checkout
       - run:
@@ -23,4 +23,4 @@ workflows:
   version: 2
   build:
     jobs:
-      - ros-rolling-u22.04
+      - ros-humble-u22.04
