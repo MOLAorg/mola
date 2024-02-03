@@ -358,7 +358,7 @@ void MulranDataset::load_lidar(timestep_t step) const
 
     const size_t nPts = pts->size();
     ASSERT_EQUAL_(nPts, 1024 * 64);
-    pts->resize_XYZIRT(nPts, true /*i*/, false /*R*/, true /*t*/);
+    pts->resize_XYZIRT(nPts, true /*i*/, true /*R*/, true /*t*/);
 
     // Fixed to 10 Hz rotation in this dataset:
     const double sweepDuration = 0.1;  //  [s]
@@ -366,9 +366,10 @@ void MulranDataset::load_lidar(timestep_t step) const
 
     for (size_t i = 0; i < nPts; i++)
     {
-        // const int row = i % 64;
+        const int row = i % 64;
         const int col = i / 64;
         pts->setPointTime(i, At + sweepDuration * col / 1024.0);
+        pts->setPointRing(i, row);
     }
 
     // Pose:
