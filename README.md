@@ -11,15 +11,12 @@
 
 # mola
 A Modular Optimization framework for Localization and mApping (MOLA).
+This repository contains the base open-sourced packages for the MOLA project. Other packages exist under the [MOLAorg](https://github.com/MOLAorg/) organization.
 
-This repository holds the MOLA git [superproject](https://en.wikibooks.org/wiki/Git/Submodules_and_Superprojects).
-Refer to the [official documentation](https://docs.mola-slam.org/latest/) for
-build instructions, [demos](https://docs.mola-slam.org/latest/demos.html), API reference, etc.
+Refer to the [official documentation](https://docs.mola-slam.org/latest/) for build instructions, demos, API reference, etc.
 
-|             Demo                                                                                             |                                          Preview                                               |  
-|--------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-|  [3D LiDAR SLAM from KITTI dataset](https://docs.mola-slam.org/latest/demo-kitti-lidar-slam.html)            |  ![](https://github.com/MOLAorg/static-media/blob/master/kitti_lidar_slam.gif)                 |
-|  [Graph SLAM from G2O dataset](https://docs.mola-slam.org/latest/demo-pose-graph-g2o-file.html)              |  ![](https://github.com/MOLAorg/static-media/blob/master/mola-demo-g2o-garage.gif)             |
+![mola_kitti_00_demo_short](https://github.com/MOLAorg/mola/assets/5497818/e05bcc15-eeac-4c18-82e1-29d10b72db60)
+
 
 ## Individual package build status
 
@@ -33,18 +30,16 @@ build instructions, [demos](https://docs.mola-slam.org/latest/demos.html), API r
 | mola_input_ros2 | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__mola_input_ros2__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__mola_input_ros2__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__mola_input_ros2__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__mola_input_ros2__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uJ64__mola_input_ros2__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uJ64__mola_input_ros2__ubuntu_jammy_amd64__binary/) |
 | mola_kernel | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__mola_kernel__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__mola_kernel__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__mola_kernel__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__mola_kernel__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uJ64__mola_kernel__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uJ64__mola_kernel__ubuntu_jammy_amd64__binary/) |
 | mola_launcher | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__mola_launcher__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__mola_launcher__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__mola_launcher__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__mola_launcher__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uJ64__mola_launcher__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uJ64__mola_launcher__ubuntu_jammy_amd64__binary/) |
-| mola_test_datasets | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__mola_test_datasets__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__mola_test_datasets__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__mola_test_datasets__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__mola_test_datasets__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uJ64__mola_test_datasets__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uJ64__mola_test_datasets__ubuntu_jammy_amd64__binary/) |
 | mola_viz | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__mola_viz__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__mola_viz__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__mola_viz__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__mola_viz__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uJ64__mola_viz__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uJ64__mola_viz__ubuntu_jammy_amd64__binary/) |
 | mola_yaml | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__mola_yaml__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__mola_yaml__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__mola_yaml__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__mola_yaml__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uJ64__mola_yaml__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uJ64__mola_yaml__ubuntu_jammy_amd64__binary/) |
 
-
-## Building
-
-Follow [these instructions](https://docs.mola-slam.org/latest/building.html) (in RST format [here](docs/source/building.rst)).
-
 ## Citation
 
-MOLA was initially presented in ([PDF](http://www.roboticsproceedings.org/rss15/p43.pdf)):
+The latest publications on MOLA are: 
+
+    mola_lidar_odometry: TBD!
+
+MOLA was initially presented in 2019 in ([PDF](http://www.roboticsproceedings.org/rss15/p43.pdf)):
 
 ```bibtex
 @INPROCEEDINGS{Blanco-Claraco-RSS-19, 
@@ -60,4 +55,4 @@ MOLA was initially presented in ([PDF](http://www.roboticsproceedings.org/rss15/
 
 ## License
 MOLA is released under the GNU GPL v3 license, except noted otherwise in each individual module. Other options available upon request.
-Some modules are released under BSD-3.
+Some modules are released under BSD-3. See the [official documentation](https://docs.mola-slam.org/latest/).
