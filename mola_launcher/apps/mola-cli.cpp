@@ -27,7 +27,7 @@
 #if defined(WIN32)
 #include <windows.h>  // SetConsoleCtrlHandler
 #endif
-MRPT_TODO("win32: add SetConsoleCtrlHandler");
+// TODO(jlbc): win32: add SetConsoleCtrlHandler
 
 // Declare supported cli switches ===========
 static TCLAP::CmdLine                        cmd("mola-cli");
@@ -86,7 +86,8 @@ static int mola_cli_launch_slam()
     // Load YAML config file:
     if (!arg_yaml_cfg.isSet())
     {
-        TCLAP::ArgException e("x.yaml is required to launch a SLAM system.");
+        TCLAP::ArgException e(
+            "mola-system.yaml is required to launch a SLAM system.");
         cmd.getOutput()->failure(cmd, e);
         return 1;
     }

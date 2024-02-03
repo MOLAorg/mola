@@ -45,7 +45,7 @@ modules:
   - type: mola::WheelOdometry
     name: wheel_odometry_fe
     launch_ignore: true
-    raw_data_source: rawlog_input
+    raw_data_source: dataset_input
     raw_sensor_label: ODOMETRY
     params:
       # Minimum Euclidean distance (x,y,z) between keyframes inserted into
@@ -60,7 +60,7 @@ modules:
   - type: mola::LidarOdometry
     name: lidar_fe
     launch_ignore: false
-    raw_data_source: rawlog_input
+    raw_data_source: dataset_input
     raw_sensor_label: SICK_FRONT_OBS
     params:
       # Minimum time (seconds) between scans for being attempted to be
@@ -125,7 +125,7 @@ modules:
       viz_decor_decimation: 5
       viz_decor_pointsize: 2.0
 # Offline or online sensory data sources =====================
-  - name: rawlog_input
+  - name: dataset_input
     type: mola::RawlogDataset
     execution_rate: 50 # Hz
     verbosity_level: INFO

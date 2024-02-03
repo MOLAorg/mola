@@ -9,7 +9,7 @@ modules:
   # KittiOdometryDataset
   # =====================
   - type: mola::KittiOdometryDataset
-    name: kitti_input
+    name: dataset_input
     execution_rate: 20 # Hz
     export_to_rawlog: kitti_${KITTI_SEQ}.rawlog
     #verbosity_level: INFO

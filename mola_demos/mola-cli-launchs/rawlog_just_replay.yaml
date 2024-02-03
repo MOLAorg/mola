@@ -9,7 +9,7 @@ modules:
   # =====================
   # RawlogDataset
   # =====================
-  - name: rawlog_input
+  - name: dataset_input
     type: mola::RawlogDataset
     execution_rate: 150 # Hz
     #verbosity_level: INFO

@@ -15,7 +15,7 @@ modules:
 # Setup of SLAM front-ends ====================================
   - name: mono_visual_fe
     type: VisualORB_Mono
-    raw_data_source: kitti_input
+    raw_data_source: dataset_input
     raw_sensor_label: image_0
     params:
       # Pyramids:
@@ -40,7 +40,7 @@ modules:
     # None required
 # Offline or online sensory data sources =====================
 # TODO: Create a YAML !include
-  - name: kitti_input
+  - name: dataset_input
     type: mola::KittiOdometryDataset
     execution_rate: 25 # Hz
     verbosity_level: INFO

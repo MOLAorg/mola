@@ -1,28 +1,26 @@
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 #                        SLAM system definition for MOLA
 #
-# This file just replays (no SLAM) the raw data of a sequence of the Mulran dataset
-# -----------------------------------------------------------------------------
+# This file just plays (no SLAM) the raw data of the Paris Luco dataset (CT-ICP) paper
+# --------------------------------------------------------------------------------------
 
 modules:
   # =====================
-  # MulranDataset
+  # ParisLucoDataset
   # =====================
-  - type: mola::MulranDataset
+  - type: mola::ParisLucoDataset
     name: dataset_input
     execution_rate: 20 # Hz
-    #export_to_rawlog: mulran_${MULRAN_SEQ}.rawlog
+    #export_to_rawlog: paris_luco.rawlog
     #verbosity_level: INFO
     gui_preview_sensors:
       - raw_sensor_label: lidar
         decimation: 1
         win_pos: 5 70 400 400
     params:
-      base_dir: ${MULRAN_BASE_DIR}
-      sequence: ${MULRAN_SEQ}
+      base_dir: ${PARIS_LUCO_BASE_DIR}
+      sequence: '00'  # There is only one sequence in this dataset
       time_warp_scale: 1.0
-      publish_lidar: true
-      publish_ground_truth: true
 
   # =====================
   # MolaViz

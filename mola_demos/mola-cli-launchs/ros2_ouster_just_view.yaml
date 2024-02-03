@@ -16,7 +16,7 @@ modules:
 # Offline or online sensory data sources =====================
 # (TODO: Move to an include)
   - type: mola::InputROS2
-    name: ros_input
+    name: dataset_input
     # In InputROS2, this execution rate (Hz) determines the
     # rate of publishing odometry observations, if enabled.
     # All other subscribed sensors are forwarded to the MOLA
