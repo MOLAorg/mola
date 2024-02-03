@@ -15,7 +15,7 @@ This repository contains the base open-sourced packages for the MOLA project. Ot
 
 Refer to the [official documentation](https://docs.mola-slam.org/latest/) for build instructions, demos, API reference, etc.
 
-![mola_kitti_00_demo_short](https://github.com/MOLAorg/mola/assets/5497818/e05bcc15-eeac-4c18-82e1-29d10b72db60)
+<center><img src="https://molaorg.github.io/static-media/kitti_demo_06.gif" /></center>
 
 
 ## Individual package build status
