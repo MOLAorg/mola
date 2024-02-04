@@ -58,6 +58,11 @@ class RawlogDataset : public RawDataSourceBase, public OfflineDatasetSource
 
     std::multimap<mrpt::Clock::time_point, mrpt::obs::CObservation::Ptr>
         read_ahead_;
+
+    void autoUnloadOldEntries() const;
+
+    mutable std::multimap<mrpt::Clock::time_point, mrpt::obs::CObservation::Ptr>
+        unload_queue_;
 };
 
 }  // namespace mola

@@ -131,6 +131,7 @@ void RawlogDataset::spinOnce()
         CObservation::Ptr obs = read_ahead_.begin()->second;
         this->sendObservationsToFrontEnds(obs);
 
+        unload_queue_.emplace(obs->getTimeStamp(), obs);
         read_ahead_.erase(read_ahead_.begin());
 
         MRPT_LOG_DEBUG_STREAM(
@@ -144,6 +145,7 @@ void RawlogDataset::spinOnce()
 }
 
 constexpr size_t READ_AHEAD_LEN = 10;
+constexpr size_t MAX_UNLOAD_LEN = 500;
 
 void RawlogDataset::doReadAheadFromFile()
 {
@@ -233,10 +235,26 @@ void RawlogDataset::doReadAheadFromEntireRawlog()
 
 void RawlogDataset::doReadAhead()
 {
-    if (read_all_first_)
+    if (read_all_first_)  //
         doReadAheadFromEntireRawlog();
     else
         doReadAheadFromFile();
+
+    // and also, unload() very old observations.
+    autoUnloadOldEntries();
+}
+
+void RawlogDataset::autoUnloadOldEntries() const
+{
+    // unload() very old observations.
+    // Motivation:
+    // the lazy-load data may remain loaded in the rawlog objects
+    // even if no shared_ptr is active in the client consumer anymore.
+    while (unload_queue_.size() > MAX_UNLOAD_LEN)
+    {
+        unload_queue_.begin()->second->unload();
+        unload_queue_.erase(unload_queue_.begin());
+    }
 }
 
 // See docs in base class:
@@ -258,6 +276,8 @@ mrpt::obs::CSensoryFrame::Ptr RawlogDataset::datasetGetObservations(
         "Using the OfflineDatasetSource API in this class requires setting "
         "'read_all_first' to 'true'");
 
+    autoUnloadOldEntries();  // see inside function comments for motivation
+
     const auto obj = rawlog_entire_.getAsGeneric(timestep);
 
     auto sfRet = mrpt::obs::CSensoryFrame::Create();
@@ -266,12 +286,17 @@ mrpt::obs::CSensoryFrame::Ptr RawlogDataset::datasetGetObservations(
     {  // Single observation:
 
         sfRet->insert(obs);
+
+        // enqueue for auto unload in the future:
+        unload_queue_.emplace(obs->getTimeStamp(), obs);
     }
     else  //
         if (auto sf = std::dynamic_pointer_cast<mrpt::obs::CSensoryFrame>(obj);
             sf)
     {
         sfRet = sf;
+
+        for (auto& o : *sf) unload_queue_.emplace(o->getTimeStamp(), o);
     }
     else if (auto acts =
                  std::dynamic_pointer_cast<mrpt::obs::CActionCollection>(obj);
