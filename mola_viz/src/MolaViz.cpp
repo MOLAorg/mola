@@ -49,6 +49,8 @@
 #include <mrpt/system/thread_name.h>
 #include <mrpt/version.h>
 
+#include "mola_icon_64x64.h"
+
 using namespace mola;
 
 IMPLEMENTS_MRPT_OBJECT(MolaViz, ExecutableBase, mola)
@@ -461,6 +463,11 @@ mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(
     subWindows_[name];
 
     auto& win = windows_[name].win;
+
+    // Apply custom MOLA icon:
+    win->setIconFromData(
+        mola_icon_data, mola_icon_width, mola_icon_height,
+        0xff /*transparent color*/);
 
     // Add a background scene:
     auto scene = mrpt::opengl::COpenGLScene::Create();
