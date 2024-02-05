@@ -35,3 +35,10 @@ mola_add_executable(
 	LINK_LIBRARIES
 		mrpt::poses
 )
+
+mola_add_executable(
+	TARGET  traj_rebase
+	SOURCES src/traj_rebase.cpp
+	LINK_LIBRARIES
+		mrpt::poses
+)
