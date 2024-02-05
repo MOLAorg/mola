@@ -115,6 +115,8 @@ class KittiOdometryDataset : public RawDataSourceBase,
 
     void load_img(const unsigned int cam_idx, const timestep_t step) const;
     void load_lidar(timestep_t step) const;
+
+    void autoUnloadOldEntries() const;
 };
 
 }  // namespace mola

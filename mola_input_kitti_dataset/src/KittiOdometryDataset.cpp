@@ -410,6 +410,9 @@ void KittiOdometryDataset::load_img(
 {
     MRPT_START
 
+    // unload() very old observations.
+    autoUnloadOldEntries();
+
     // Already loaded?
     if (read_ahead_image_obs_[step][cam_idx]) return;
 
@@ -443,6 +446,10 @@ void KittiOdometryDataset::load_img(
 void KittiOdometryDataset::load_lidar(timestep_t step) const
 {
     MRPT_START
+
+    // unload() very old observations.
+    autoUnloadOldEntries();
+
     // Already loaded?
     if (read_ahead_lidar_obs_[step]) return;
 
@@ -630,4 +637,15 @@ mrpt::obs::CSensoryFrame::Ptr KittiOdometryDataset::datasetGetObservations(
     if (publish_lidar_) { sf->insert(getPointCloud(timestep)); }
 
     return sf;
+}
+
+constexpr size_t MAX_UNLOAD_LEN = 250;
+
+void KittiOdometryDataset::autoUnloadOldEntries() const
+{
+    while (read_ahead_lidar_obs_.size() > MAX_UNLOAD_LEN)
+        read_ahead_lidar_obs_.erase(read_ahead_lidar_obs_.begin());
+
+    while (read_ahead_image_obs_.size() > MAX_UNLOAD_LEN)
+        read_ahead_image_obs_.erase(read_ahead_image_obs_.begin());
 }
