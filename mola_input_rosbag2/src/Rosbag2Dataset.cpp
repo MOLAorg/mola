@@ -629,7 +629,6 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toRotatingScan(
 
     // As a structured 2D range images, if we have ring numbers:
     auto obsRotScan = mrpt::obs::CObservationRotatingScan::Create();
-    // MRPT_TODO("Extract sensor pose from tf frames");
     const mrpt::poses::CPose3D sensorPose;
 
     if (!mrpt::ros2bridge::fromROS(pts, *obsRotScan, sensorPose))
