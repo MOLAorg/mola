@@ -331,6 +331,10 @@ void MulranDataset::spinOnce()
 void MulranDataset::load_lidar(timestep_t step) const
 {
     MRPT_START
+
+    // unload() very old observations.
+    autoUnloadOldEntries();
+
     // Already loaded?
     if (read_ahead_lidar_obs_[step]) return;
 
@@ -447,6 +451,7 @@ mrpt::obs::CObservationPointCloud::Ptr MulranDataset::getPointCloud(
 
     load_lidar(step);
     auto o = read_ahead_lidar_obs_.at(step);
+
     return o;
 }
 
@@ -464,4 +469,12 @@ mrpt::obs::CSensoryFrame::Ptr MulranDataset::datasetGetObservations(
     if (publish_lidar_) { sf->insert(getPointCloud(timestep)); }
 
     return sf;
+}
+
+constexpr size_t MAX_UNLOAD_LEN = 250;
+
+void MulranDataset::autoUnloadOldEntries() const
+{
+    while (read_ahead_lidar_obs_.size() > MAX_UNLOAD_LEN)
+        read_ahead_lidar_obs_.erase(read_ahead_lidar_obs_.begin());
 }

@@ -128,6 +128,7 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     std::string         seq_dir_;
 
     void load_lidar(timestep_t step) const;
+    void autoUnloadOldEntries() const;
 };
 
 }  // namespace mola

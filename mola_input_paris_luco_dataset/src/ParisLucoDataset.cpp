@@ -218,6 +218,10 @@ void ParisLucoDataset::spinOnce()
 void ParisLucoDataset::load_lidar(timestep_t step) const
 {
     MRPT_START
+
+    // unload() very old observations.
+    autoUnloadOldEntries();
+
     // Already loaded?
     if (read_ahead_lidar_obs_[step]) return;
 
@@ -289,4 +293,12 @@ mrpt::obs::CSensoryFrame::Ptr ParisLucoDataset::datasetGetObservations(
     auto sf = mrpt::obs::CSensoryFrame::Create();
     sf->insert(o);
     return sf;
+}
+
+constexpr size_t MAX_UNLOAD_LEN = 250;
+
+void ParisLucoDataset::autoUnloadOldEntries() const
+{
+    while (read_ahead_lidar_obs_.size() > MAX_UNLOAD_LEN)
+        read_ahead_lidar_obs_.erase(read_ahead_lidar_obs_.begin());
 }

@@ -106,6 +106,7 @@ class ParisLucoDataset : public RawDataSourceBase, public OfflineDatasetSource
 
     void load_lidar(timestep_t step) const;
     void readAheadSome();
+    void autoUnloadOldEntries() const;
 };
 
 }  // namespace mola
