@@ -17,6 +17,9 @@ modules:
       - raw_sensor_label: lidar
         decimation: 1
         win_pos: 5 70 400 400
+      - raw_sensor_label: gps
+        decimation: 1
+        win_pos: 5 400 400 400
     params:
       base_dir: ${MULRAN_BASE_DIR}
       sequence: ${MULRAN_SEQ}

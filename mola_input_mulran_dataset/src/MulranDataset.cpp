@@ -26,6 +26,7 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
+#include <mrpt/obs/gnss_messages_ascii_nmea.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 
@@ -86,12 +87,10 @@ void MulranDataset::initialize(const Yaml& c)
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
 
     // Optional params with default values:
-    time_warp_scale_ =
-        cfg.getOrDefault<double>("time_warp_scale", time_warp_scale_);
-    publish_lidar_ = cfg.getOrDefault<bool>("publish_lidar", publish_lidar_);
-
-    publish_ground_truth_ =
-        cfg.getOrDefault<bool>("publish_ground_truth", publish_ground_truth_);
+    YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
+    YAML_LOAD_MEMBER_OPT(publish_lidar, bool);
+    YAML_LOAD_MEMBER_OPT(publish_gps, bool);
+    YAML_LOAD_MEMBER_OPT(publish_ground_truth, bool);
 
     // Make list of all existing files and preload everything we may need later
     // to quickly replay the dataset in realtime:
@@ -114,16 +113,14 @@ void MulranDataset::initialize(const Yaml& c)
     // 1561000444390857630.bin
     //
     // => Filenames are nanoseconds since UNIX epoch.
-    std::map<double, size_t> pointTimestampToIndex;
     for (size_t i = 0; i < lstPointCloudFiles_.size(); i++)
     {
         // nanoseconds -> seconds
-        const double t =
-            1e-9 *
-            std::stod(mrpt::system::extractFileName(lstPointCloudFiles_[i]));
+        const double t = LidarFileNameToTimestamp(lstPointCloudFiles_[i]);
 
-        lidarTimestamps_.push_back(t);
-        pointTimestampToIndex[t] = i;
+        const Entry entry = {EntryType::Lidar, i};
+
+        datasetEntries_.emplace(t, entry);
     }
 
     // Load sensors calibration:
@@ -140,6 +137,39 @@ void MulranDataset::initialize(const Yaml& c)
             mrpt::math::CMatrixDouble44(T_lidar_to_base_data));
 
     MRPT_LOG_DEBUG_STREAM("ousterPoseOnVehicle = " << ousterPoseOnVehicle_);
+
+    // Read GPS, if found:
+    const auto gpsFile = mrpt::system::pathJoin({seq_dir_, "gps.csv"});
+    if (mrpt::system::fileExists(gpsFile))
+    {
+        try
+        {
+            gpsCsvData_.loadFromTextFile(gpsFile);
+            ASSERT_EQUAL_(gpsCsvData_.cols(), 13);
+        }
+        catch (const std::exception& e)
+        {
+            MRPT_LOG_ERROR_STREAM(
+                "Error parsing GPS file: '" << gpsFile << "':\n"
+                                            << e.what());
+            throw;
+        }
+
+        MRPT_LOG_INFO_STREAM(
+            "GPS found: " << gpsCsvData_.rows() << " entries.");
+
+        // Parse into the unified container:
+        for (int row = 0; row < gpsCsvData_.rows(); row++)
+        {
+            const double t    = 1e-9 * gpsCsvData_(row, 0);
+            const Entry entry = {EntryType::GNNS, static_cast<timestep_t>(row)};
+            datasetEntries_.emplace(t, entry);
+        }
+    }
+    else
+    {
+        MRPT_LOG_INFO_FMT("No GPS file found, expected: '%s'", gpsFile.c_str());
+    }
 
     // Load ground truth poses, if available:
     const auto gtFile = mrpt::system::pathJoin({seq_dir_, "global_pose.csv"});
@@ -181,12 +211,14 @@ void MulranDataset::initialize(const Yaml& c)
                 mrpt::poses::TInterpolatorMethod::imLinearSlerp);
             gtPoses.setMaxTimeInterpolation(std::chrono::seconds(1));
 
-            std::vector<size_t> lidarIdxsToRemove;
+            std::vector<timestep_t> lidarIdxsToRemove;
 
-            for (size_t i = 0; i < lidarTimestamps_.size(); i++)
+            // for (size_t i = 0; i < datasetEntries_.size(); i++)
+            for (const auto& [t, e] : datasetEntries_)
             {
-                const double t  = lidarTimestamps_[i];
-                const auto   ts = mrpt::Clock::fromDouble(t);
+                if (e.type != EntryType::Lidar) continue;
+
+                const auto ts = mrpt::Clock::fromDouble(t);
 
                 mrpt::poses::CPose3D p;
                 bool                 interpOk = false;
@@ -194,40 +226,38 @@ void MulranDataset::initialize(const Yaml& c)
 
                 if (!interpOk)
                 {
-                    lidarIdxsToRemove.push_back(i);
+                    lidarIdxsToRemove.push_back(e.lidarIdx);
                     continue;
                 }
 
                 groundTruthTrajectory_.insert(ts, p);
+
+                Entry entry = {EntryType::GroundTruth};
+                entry.gtIdx = groundTruthTrajectory_.size() - 1;
+                datasetEntries_.emplace(t, entry);
             }
 
-            for (auto it = lidarIdxsToRemove.rbegin();
-                 it != lidarIdxsToRemove.rend(); it++)
+            for (const timestep_t idx : lidarIdxsToRemove)
             {
-                const size_t idx = *it;
-                lidarTimestamps_.erase(
-                    std::next(lidarTimestamps_.begin(), idx));
                 lstPointCloudFiles_.erase(
                     std::next(lstPointCloudFiles_.begin(), idx));
             }
 
-            MRPT_LOG_DEBUG_FMT(
+            MRPT_LOG_INFO_FMT(
                 "LIDAR timestamps: %zu, matched ground truth timestamps: %zu, "
                 "from overall GT poses: %zu, removed %zu unmatched lidar "
                 "scans.",
-                lidarTimestamps_.size(), groundTruthTrajectory_.size(),
+                lidarIdxsToRemove.size(), groundTruthTrajectory_.size(),
                 gtPoses.size(), lidarIdxsToRemove.size());
         }
         else
         {
-            // just keep lidars and GT vectors are they are originally on the
-            // datasets:
+            // just keep lidars and GT vectors are they are originally.
         }
     }
 
-    ASSERT_EQUAL_(lidarTimestamps_.size(), lstPointCloudFiles_.size());
-
-    initialized_ = true;
+    replay_next_it_ = datasetEntries_.begin();
+    initialized_    = true;
 
     MRPT_END
 }  // end initialize()
@@ -252,76 +282,104 @@ void MulranDataset::spinOnce()
         mrpt::system::timeDifference(replay_begin_time_, mrpt::Clock::now()) *
         time_warp_scale_;
 
-    if (replay_next_tim_index_ >= lidarTimestamps_.size())
+    if (replay_next_it_ == datasetEntries_.end())
     {
         MRPT_LOG_THROTTLE_INFO(
             10.0,
             "End of dataset reached! Nothing else to publish (CTRL+C to quit)");
         return;
     }
-    else if (!lidarTimestamps_.empty())
+    else if (!datasetEntries_.empty())
     {
+        const auto pos =
+            std::distance(datasetEntries_.begin(), replay_next_it_);
+
         MRPT_LOG_THROTTLE_INFO_FMT(
             5.0, "Dataset replay progress: %lu / %lu  (%4.02f%%)",
-            static_cast<unsigned long>(replay_next_tim_index_),
-            static_cast<unsigned long>(lidarTimestamps_.size()),
-            (100.0 * replay_next_tim_index_) / (lidarTimestamps_.size()));
+            static_cast<unsigned long>(pos),
+            static_cast<unsigned long>(datasetEntries_.size()),
+            (100.0 * pos) / (datasetEntries_.size()));
     }
 
+    const double t0 = datasetEntries_.begin()->first;
+
+    std::optional<timestep_t> lastUsedLidarIdx;
+
     // We have to publish all observations until "t":
-    while (replay_next_tim_index_ < lidarTimestamps_.size() &&
-           t >=
-               (lidarTimestamps_[replay_next_tim_index_] - lidarTimestamps_[0]))
+    while (replay_next_it_ != datasetEntries_.end() &&
+           t >= (replay_next_it_->first - t0))
     {
         MRPT_LOG_DEBUG_STREAM(
             "Sending observations for replay time: "
             << mrpt::system::formatTimeInterval(t));
 
-        // Save one single timestamp for all observations, since they are in
-        // theory shynchronized in the Kitti datasets:
-        const auto obs_tim =
-            mrpt::Clock::fromDouble(lidarTimestamps_[replay_next_tim_index_]);
+        const auto& de = replay_next_it_->second;
 
-        if (publish_lidar_)
+        switch (de.type)
         {
-            ProfilerEntry tle(profiler_, "spinOnce.publishLidar");
-            load_lidar(replay_next_tim_index_);
-            auto o = read_ahead_lidar_obs_[replay_next_tim_index_];
-            // o->timestamp = obs_tim; // already done in load_lidar()
-            this->sendObservationsToFrontEnds(o);
-        }
+            case EntryType::Lidar:
+            {
+                if (!publish_lidar_) break;
 
-        if (publish_ground_truth_ &&
-            replay_next_tim_index_ < groundTruthTrajectory_.size())
-        {
-            // Get GT pose: it's already stored and correctly transformed
-            // into groundTruthTrajectory_:
-            auto it = groundTruthTrajectory_.begin();
-            std::advance(it, replay_next_tim_index_);
+                lastUsedLidarIdx = de.lidarIdx;
 
-            // Publish as robot pose observation:
-            auto o         = mrpt::obs::CObservationRobotPose::Create();
-            o->sensorLabel = "ground_truth";
-            o->pose.mean   = mrpt::poses::CPose3D(it->second);
-            // o->pose.cov? don't use
-            o->timestamp = obs_tim;
+                ProfilerEntry tle(profiler_, "spinOnce.publishLidar");
+                load_lidar(de.lidarIdx);
+                auto o = read_ahead_lidar_obs_.at(de.lidarIdx);
+                this->sendObservationsToFrontEnds(o);
 
-            this->sendObservationsToFrontEnds(o);
-        }
+                // Free memory in read-ahead buffers:
+                read_ahead_lidar_obs_.erase(de.lidarIdx);
+            }
+            break;
 
-        // Free memory in read-ahead buffers:
-        read_ahead_lidar_obs_.erase(replay_next_tim_index_);
+            case EntryType::GNNS:
+            {
+                if (!publish_gps_) break;
 
-        replay_next_tim_index_++;
+                auto o = getGPS(de.gpsIdx);
+                this->sendObservationsToFrontEnds(o);
+            }
+            break;
+
+            case EntryType::GroundTruth:
+            {
+                if (!publish_ground_truth_) break;
+
+                // Get GT pose: it's already stored and correctly transformed
+                // into groundTruthTrajectory_:
+                auto it = groundTruthTrajectory_.begin();
+                std::advance(it, de.gtIdx);
+
+                // Publish as robot pose observation:
+                auto o         = mrpt::obs::CObservationRobotPose::Create();
+                o->sensorLabel = "ground_truth";
+                o->pose.mean   = mrpt::poses::CPose3D(it->second);
+                // o->pose.cov? don't use
+                o->timestamp = it->first;
+
+                this->sendObservationsToFrontEnds(o);
+            }
+            break;
+
+            default:
+                THROW_EXCEPTION("Unhandled dataset entry type (!?)");
+        };
+
+        // move on:
+        replay_next_it_++;
     }
 
     // Read ahead to save delays in the next iteration:
-    if (replay_next_tim_index_ < lidarTimestamps_.size())
+    if (lastUsedLidarIdx)
     {
-        ProfilerEntry tle(profiler_, "spinOnce.read_ahead");
-        if (0 == read_ahead_lidar_obs_.count(replay_next_tim_index_))
+        const auto nextLidarIdx = *lastUsedLidarIdx + 1;
+
+        if (nextLidarIdx < lstPointCloudFiles_.size())
         {
-            if (publish_lidar_) load_lidar(replay_next_tim_index_);
+            ProfilerEntry tle(profiler_, "spinOnce.read_ahead");
+            if (0 == read_ahead_lidar_obs_.count(nextLidarIdx))
+                load_lidar(nextLidarIdx);
         }
     }
 
@@ -378,7 +436,8 @@ void MulranDataset::load_lidar(timestep_t step) const
 
     // Pose:
     obs->sensorPose = ousterPoseOnVehicle_;
-    obs->timestamp  = mrpt::Clock::fromDouble(lidarTimestamps_.at(step));
+    obs->timestamp  = mrpt::Clock::fromDouble(
+        LidarFileNameToTimestamp(lstPointCloudFiles_[step]));
 
 #if 0  // Export clouds to txt for debugging externally (e.g. python, matlab)
     pts->saveXYZIRT_to_text_file(
@@ -447,18 +506,74 @@ mrpt::obs::CObservationPointCloud::Ptr MulranDataset::getPointCloud(
     timestep_t step) const
 {
     ASSERT_(initialized_);
-    ASSERT_LT_(step, lidarTimestamps_.size());
+    ASSERT_LT_(step, datasetEntries_.size());
 
-    load_lidar(step);
-    auto o = read_ahead_lidar_obs_.at(step);
+    auto it = datasetEntries_.begin();
+    std::advance(it, step);
 
-    return o;
+    if (it->second.type != EntryType::Lidar) return {};
+
+    auto lidarIdx = it->second.lidarIdx;
+
+    load_lidar(lidarIdx);
+    return read_ahead_lidar_obs_.at(lidarIdx);
+}
+
+mrpt::obs::CObservationGPS::Ptr MulranDataset::getGPS(timestep_t step) const
+{
+    ASSERT_(initialized_);
+    ASSERT_LT_(step, datasetEntries_.size());
+
+    auto it = datasetEntries_.begin();
+    std::advance(it, step);
+
+    if (it->second.type != EntryType::GNNS) return {};
+
+    return get_gps_by_row_index(it->second.gpsIdx);
+}
+
+mrpt::obs::CObservationGPS::Ptr MulranDataset::get_gps_by_row_index(
+    size_t row) const
+{
+    ASSERT_(initialized_);
+    ASSERT_LT_(row, static_cast<size_t>(gpsCsvData_.rows()));
+
+    auto obs         = mrpt::obs::CObservationGPS::Create();
+    obs->sensorLabel = "gps";
+    obs->timestamp   = mrpt::Clock::fromDouble(1e-9 * gpsCsvData_(row, 0));
+
+    // clang-format off
+    // column order:
+    //   0       1         2         3        4 xx     5       6       7     8 yy     9       10     11      12 zz
+    // &stamp,&latitude,&longitude,&altitude,&cov[0],&cov[1],&cov[2],&cov[3],&cov[4],&cov[5],&cov[6],&cov[7],&cov[8]
+    // clang-format on
+
+    auto gga = new mrpt::obs::gnss::Message_NMEA_GGA();
+    auto msg = mrpt::obs::gnss::gnss_message_ptr(gga);
+
+    mrpt::system::TTimeParts tp;
+    mrpt::system::timestampToParts(obs->timestamp, tp);
+    gga->fields.UTCTime.hour   = tp.hour;
+    gga->fields.UTCTime.minute = tp.minute;
+    gga->fields.UTCTime.sec    = tp.second;
+
+    gga->fields.thereis_HDOP = true;
+    gga->fields.HDOP = std::sqrt(gpsCsvData_(row, 4)) / HDOP_REFERENCE_METERS;
+    gga->fields.altitude_meters   = gpsCsvData_(row, 3);
+    gga->fields.fix_quality       = 1;  // regular GPS fix.
+    gga->fields.latitude_degrees  = gpsCsvData_(row, 1);
+    gga->fields.longitude_degrees = gpsCsvData_(row, 2);
+    gga->fields.satellitesUsed    = 10;
+
+    obs->messages[mrpt::obs::gnss::NMEA_GGA] = msg;
+
+    return obs;
 }
 
 size_t MulranDataset::datasetSize() const
 {
     ASSERT_(initialized_);
-    return lidarTimestamps_.size();
+    return datasetEntries_.size();
 }
 
 mrpt::obs::CSensoryFrame::Ptr MulranDataset::datasetGetObservations(
@@ -466,7 +581,14 @@ mrpt::obs::CSensoryFrame::Ptr MulranDataset::datasetGetObservations(
 {
     auto sf = mrpt::obs::CSensoryFrame::Create();
 
-    if (publish_lidar_) { sf->insert(getPointCloud(timestep)); }
+    if (publish_lidar_)
+    {
+        if (auto o = getPointCloud(timestep); o) sf->insert(o);
+    }
+    if (publish_gps_)
+    {
+        if (auto o = getGPS(timestep); o) sf->insert(o);
+    }
 
     return sf;
 }
@@ -477,4 +599,9 @@ void MulranDataset::autoUnloadOldEntries() const
 {
     while (read_ahead_lidar_obs_.size() > MAX_UNLOAD_LEN)
         read_ahead_lidar_obs_.erase(read_ahead_lidar_obs_.begin());
+}
+
+double MulranDataset::LidarFileNameToTimestamp(const std::string& filename)
+{
+    return 1e-9 * std::stod(mrpt::system::extractFileName(filename));
 }

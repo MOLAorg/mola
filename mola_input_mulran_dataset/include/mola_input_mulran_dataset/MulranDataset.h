@@ -15,7 +15,9 @@
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/img/TCamera.h>
+#include <mrpt/math/CMatrixDynamic.h>
 #include <mrpt/math/TPose3D.h>
+#include <mrpt/obs/CObservationGPS.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/obs_frwds.h>
 
@@ -31,9 +33,13 @@ namespace mola
 {
 /** RawDataSource from Mulran datasets.
  * Each "sequence" directory contains these sensor streams:
- * - `lidar`: Ouster OS1-64 LIDAR
+ * - `lidar`: Ouster OS1-64 LIDAR. As mrpt::obs::CObservationPointCloud
+ *            with XYZIRT channels.
+ * - `gps`  : Consumer-grade GNNS receiver, as mrpt::obs::CObservationGPS with
+ *            a message type NMEA GGA (mrpt::obs::gnss::Message_NMEA_GGA).
+ *            HDOP in that struct is computed as reported standard deviation
+ *            from the dataset, divided by HDOP_REFERENCE_METERS.
  * - `radar`: Navtech CIR204-H (Not implemented yet).
- * - `gps`  : (TBD) (Not implemented yet).
  * - `imu`  : (TBD) (Not implemented yet).
  * - Ground truth poses
  *
@@ -76,6 +82,8 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     MulranDataset();
     ~MulranDataset() override = default;
 
+    static constexpr double HDOP_REFERENCE_METERS = 4.5;
+
     // See docs in base class
     void initialize(const Yaml& cfg) override;
     void spinOnce() override;
@@ -88,9 +96,13 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
         return groundTruthTrajectory_;
     }
 
-    /** Direct programmatic access to dataset observations.
+    /** Direct programmatic access to dataset observations. The return may be
+     * nullptr if the given index is not of the requested type.
+     *
+     * `step` is in the range `0` to `getGroundTruthTrajectory()-1`
      */
     mrpt::obs::CObservationPointCloud::Ptr getPointCloud(timestep_t step) const;
+    mrpt::obs::CObservationGPS::Ptr        getGPS(timestep_t step) const;
 
     // See docs in base class:
     size_t datasetSize() const override;
@@ -98,10 +110,7 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     mrpt::obs::CSensoryFrame::Ptr datasetGetObservations(
         size_t timestep) const override;
 
-    /** See:
-     *  "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
-     */
-    double VERTICAL_ANGLE_OFFSET = mrpt::DEG2RAD(0.205);
+    bool hasGPS() const { return !gpsCsvData_.empty(); }
 
    private:
     bool                    initialized_ = false;
@@ -109,11 +118,32 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     std::string             sequence_;  //!< "00", "01", ...
     bool                    lidar_to_ground_truth_1to1_ = true;
     mrpt::Clock::time_point replay_begin_time_{};
-    timestep_t              replay_next_tim_index_{0};
     bool                    replay_started_{false};
     bool                    publish_lidar_{true};
+    bool                    publish_gps_{true};
     bool                    publish_ground_truth_{true};
     double                  time_warp_scale_{1.0};
+
+    enum class EntryType : uint8_t
+    {
+        Invalid = 0,
+        Lidar,
+        GNNS,
+        GroundTruth,
+    };
+
+    struct Entry
+    {
+        EntryType type = EntryType::Invalid;
+
+        /// In lstPointCloudFiles_ and read_ahead_lidar_obs_
+        timestep_t lidarIdx = 0;  // idx in lstPointCloudFiles_
+        timestep_t gpsIdx   = 0;  // row indices in gpsCsvData_
+        timestep_t gtIdx    = 0;  // idx in groundTruthTrajectory_
+    };
+
+    std::multimap<double, Entry>           datasetEntries_;
+    std::multimap<double, Entry>::iterator replay_next_it_;
 
     std::vector<std::string> lstPointCloudFiles_;
 
@@ -121,14 +151,21 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     mutable std::map<timestep_t, mrpt::obs::CObservationPointCloud::Ptr>
         read_ahead_lidar_obs_;
 
+    mrpt::math::CMatrixDouble gpsCsvData_;
+
+    // I found no extrinsics for the GPS sensor in this dataset web (?):
+    mrpt::poses::CPose3D gpsPoseOnVehicle_ = mrpt::poses::CPose3D::Identity();
     mrpt::poses::CPose3D ousterPoseOnVehicle_;
 
-    std::vector<double> lidarTimestamps_;
-    double              replay_time_ = .0;
-    std::string         seq_dir_;
+    double      replay_time_ = .0;
+    std::string seq_dir_;
 
-    void load_lidar(timestep_t step) const;
+    void                            load_lidar(timestep_t step) const;
+    mrpt::obs::CObservationGPS::Ptr get_gps_by_row_index(size_t row) const;
+
     void autoUnloadOldEntries() const;
+
+    static double LidarFileNameToTimestamp(const std::string& filename);
 };
 
 }  // namespace mola
