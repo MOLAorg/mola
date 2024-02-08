@@ -38,6 +38,7 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
+#include <mrpt/obs/CObservationGPS.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
@@ -48,6 +49,8 @@
 #include <mrpt/opengl/stock_objects.h>
 #include <mrpt/system/thread_name.h>
 #include <mrpt/version.h>
+
+#include <array>
 
 #include "mola_icon_64x64.h"
 
@@ -373,6 +376,56 @@ void gui_handler_point_cloud(
         glPc->recolorizeByCoordinate(bb.min.z, bb.max.z);
     }
 }
+
+// CObservationGPS
+void gui_handler_gps(
+    const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
+    MolaViz::window_name_t parentWin, MolaViz* instance)
+{
+    auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationGPS>(o);
+    if (!obj) return;
+
+    std::array<nanogui::Label*, 5> labels;
+    if (w->children().size() == 1)
+    {
+        w->setLayout(new nanogui::GridLayout(
+            nanogui::Orientation::Horizontal, 1, nanogui::Alignment::Fill, 2,
+            2));
+
+        for (size_t i = 0; i < labels.size(); i++)
+            labels[i] = w->add<nanogui::Label>(" ");
+
+        const int winW = 200;
+        w->setSize({winW, 0});
+        w->setFixedSize({winW, 0});
+
+        instance->markWindowForReLayout(parentWin);
+    }
+    else
+    {
+        for (size_t i = 0; i < labels.size(); i++)
+            labels[i] = dynamic_cast<nanogui::Label*>(w->children().at(1 + i));
+    }
+    for (size_t i = 0; i < labels.size(); i++) { ASSERT_(labels[i]); }
+
+    if (auto* gga = obj->getMsgByClassPtr<mrpt::obs::gnss::Message_NMEA_GGA>();
+        gga)
+    {
+        labels[0]->setCaption(
+            mrpt::format("Latitude: %.02f deg", gga->fields.latitude_degrees));
+        labels[1]->setCaption(mrpt::format(
+            "Longitude: %.02f deg", gga->fields.longitude_degrees));
+        labels[2]->setCaption(
+            mrpt::format("Altitude: %.02f m", gga->fields.altitude_meters));
+        labels[3]->setCaption(mrpt::format("HDOP: %.02f", gga->fields.HDOP));
+        labels[4]->setCaption(mrpt::format(
+            "GGA UTC time: %02u:%02u:%02.03f",
+            static_cast<unsigned int>(gga->fields.UTCTime.hour),
+            static_cast<unsigned int>(gga->fields.UTCTime.minute),
+            gga->fields.UTCTime.sec));
+    }
+}
+
 }  // namespace
 
 MRPT_INITIALIZER(do_register_MolaViz)
@@ -383,6 +436,7 @@ MRPT_INITIALIZER(do_register_MolaViz)
     // Register GUI handlers for common sensor types:
     // clang-format off
     MolaViz::register_gui_handler("mrpt::obs::CObservationImage", &gui_handler_images);
+    MolaViz::register_gui_handler("mrpt::obs::CObservationGPS", &gui_handler_gps);
     MolaViz::register_gui_handler("mrpt::obs::CObservationPointCloud",   &gui_handler_point_cloud);
     MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_point_cloud);
     MolaViz::register_gui_handler("mrpt::obs::CObservation2DRangeScan",  &gui_handler_point_cloud);
