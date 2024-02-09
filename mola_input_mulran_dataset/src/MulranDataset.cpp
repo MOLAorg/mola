@@ -108,21 +108,6 @@ void MulranDataset::initialize(const Yaml& c)
 
     MRPT_LOG_INFO_STREAM("Ouster pointclouds: " << lstPointCloudFiles_.size());
 
-    // Extract timestamp from filename:
-    // 1702378966.xxx
-    // 1561000444390857630.bin
-    //
-    // => Filenames are nanoseconds since UNIX epoch.
-    for (size_t i = 0; i < lstPointCloudFiles_.size(); i++)
-    {
-        // nanoseconds -> seconds
-        const double t = LidarFileNameToTimestamp(lstPointCloudFiles_[i]);
-
-        const Entry entry = {EntryType::Lidar, i};
-
-        datasetEntries_.emplace(t, entry);
-    }
-
     // Load sensors calibration:
     const double T_lidar_to_base_data[4 * 4] = {
         -9.9998295e-01, -5.8398386e-03, -5.2257060e-06, 1.7042000e00,  //
@@ -214,7 +199,6 @@ void MulranDataset::initialize(const Yaml& c)
 
             std::vector<timestep_t> lidarIdxsToRemove;
 
-            // for (size_t i = 0; i < datasetEntries_.size(); i++)
             for (const auto& [t, e] : datasetEntries_)
             {
                 if (e.type != EntryType::Lidar) continue;
@@ -238,8 +222,12 @@ void MulranDataset::initialize(const Yaml& c)
                 datasetEntries_.emplace(t, entry);
             }
 
-            for (const timestep_t idx : lidarIdxsToRemove)
+            // remove in reverse order!
+            for (auto it = lidarIdxsToRemove.rbegin();
+                 it != lidarIdxsToRemove.rend(); ++it)
             {
+                auto idx = *it;
+
                 lstPointCloudFiles_.erase(
                     std::next(lstPointCloudFiles_.begin(), idx));
             }
@@ -255,6 +243,14 @@ void MulranDataset::initialize(const Yaml& c)
         {
             // just keep lidars and GT vectors are they are originally.
         }
+    }
+
+    for (size_t i = 0; i < lstPointCloudFiles_.size(); i++)
+    {
+        // nanoseconds -> seconds
+        const double t     = LidarFileNameToTimestamp(lstPointCloudFiles_[i]);
+        const Entry  entry = {EntryType::Lidar, i};
+        datasetEntries_.emplace(t, entry);
     }
 
     replay_next_it_ = datasetEntries_.begin();

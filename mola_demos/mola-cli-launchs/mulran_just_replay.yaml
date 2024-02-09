@@ -26,6 +26,7 @@ modules:
       time_warp_scale: 1.0
       publish_lidar: true
       publish_ground_truth: true
+      #lidar_to_ground_truth_1to1: false
 
   # =====================
   # MolaViz
