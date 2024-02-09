@@ -29,6 +29,7 @@
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/poses/CPose3DInterpolator.h>
 #include <mrpt/system/filesystem.h>
+#include <mrpt/system/string_utils.h>  // tokenize()
 
 #include <Eigen/Dense>
 #include <array>
@@ -99,8 +100,8 @@ static void do_kitti_eval_error()
     ASSERT_DIRECTORY_EXISTS_(kitti_basedir);
     std::cout << "Using kitti datasets basedir: " << kitti_basedir << "\n";
 
-    // ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "sequences"s);
-    ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "/poses"s);
+    if (!arg_override_gt_file.isSet())
+        ASSERT_DIRECTORY_EXISTS_(kitti_basedir + "/poses"s);
 
     // Run evaluation
     eval();
@@ -794,13 +795,24 @@ bool eval()  // string result_sha,Mail* mail)
 
     if (arg_override_gt_file.isSet())
     {
-        // custom ground truth TUM file:
-        auto& s = seqs.emplace_back();
+        // custom ground truth TUM file(s):
 
-        s.is_kitti           = false;
-        s.custom_gt_tum_file = arg_override_gt_file.getValue();
-        s.result_file        = arg_result_path.getValue();
-        s.file_name = mrpt::system::extractFileName(s.custom_gt_tum_file);
+        // multiple files?
+        std::vector<std::string> gtFiles, resultFiles;
+        mrpt::system::tokenize(arg_override_gt_file.getValue(), ",", gtFiles);
+        mrpt::system::tokenize(arg_result_path.getValue(), ",", resultFiles);
+
+        ASSERT_EQUAL_(gtFiles.size(), resultFiles.size());
+
+        for (size_t i = 0; i < gtFiles.size(); i++)
+        {
+            auto& s = seqs.emplace_back();
+
+            s.is_kitti           = false;
+            s.custom_gt_tum_file = gtFiles[i];
+            s.result_file        = resultFiles[i];
+            s.file_name = mrpt::system::extractFileName(s.custom_gt_tum_file);
+        }
     }
     else
     {
