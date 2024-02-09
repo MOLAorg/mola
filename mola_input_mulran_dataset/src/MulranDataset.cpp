@@ -161,8 +161,9 @@ void MulranDataset::initialize(const Yaml& c)
         // Parse into the unified container:
         for (int row = 0; row < gpsCsvData_.rows(); row++)
         {
-            const double t    = 1e-9 * gpsCsvData_(row, 0);
-            const Entry entry = {EntryType::GNNS, static_cast<timestep_t>(row)};
+            const double t     = 1e-9 * gpsCsvData_(row, 0);
+            Entry        entry = {EntryType::GNNS};
+            entry.gpsIdx       = row;
             datasetEntries_.emplace(t, entry);
         }
     }
@@ -337,7 +338,7 @@ void MulranDataset::spinOnce()
             {
                 if (!publish_gps_) break;
 
-                auto o = getGPS(de.gpsIdx);
+                auto o = get_gps_by_row_index(de.gpsIdx);
                 this->sendObservationsToFrontEnds(o);
             }
             break;

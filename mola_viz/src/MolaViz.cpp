@@ -386,6 +386,7 @@ void gui_handler_gps(
     if (!obj) return;
 
     std::array<nanogui::Label*, 5> labels;
+    labels.fill(nullptr);
     if (w->children().size() == 1)
     {
         w->setLayout(new nanogui::GridLayout(
@@ -395,7 +396,7 @@ void gui_handler_gps(
         for (size_t i = 0; i < labels.size(); i++)
             labels[i] = w->add<nanogui::Label>(" ");
 
-        const int winW = 200;
+        const int winW = 250;
         w->setSize({winW, 0});
         w->setFixedSize({winW, 0});
 
@@ -412,9 +413,9 @@ void gui_handler_gps(
         gga)
     {
         labels[0]->setCaption(
-            mrpt::format("Latitude: %.02f deg", gga->fields.latitude_degrees));
+            mrpt::format("Latitude: %.06f deg", gga->fields.latitude_degrees));
         labels[1]->setCaption(mrpt::format(
-            "Longitude: %.02f deg", gga->fields.longitude_degrees));
+            "Longitude: %.06f deg", gga->fields.longitude_degrees));
         labels[2]->setCaption(
             mrpt::format("Altitude: %.02f m", gga->fields.altitude_meters));
         labels[3]->setCaption(mrpt::format("HDOP: %.02f", gga->fields.HDOP));
