@@ -255,6 +255,7 @@ void gui_handler_point_cloud(
     }
     ASSERT_(glControl != nullptr);
     ASSERT_(glPc);
+    glPc->setPose(mrpt::poses::CPose3D::Identity());
 
     if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
         objPc)
@@ -262,6 +263,7 @@ void gui_handler_point_cloud(
         objPc->load();
         if (!objPc->pointcloud) return;
         glPc->loadFromPointsMap(objPc->pointcloud.get());
+        glPc->setPose(objPc->sensorPose);
 
         gui_handler_show_common_sensor_info(
             *objPc, w,
