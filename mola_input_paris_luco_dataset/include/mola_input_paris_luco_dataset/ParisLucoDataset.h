@@ -28,7 +28,12 @@ class CObservationPointCloud;
 
 namespace mola
 {
-/** RawDataSource from Paris Luco Dataset
+/** RawDataSource from Paris Luco Dataset.
+ *
+ * Dataset available from: https://github.com/jedeschaud/ct_icp
+ *
+ * The LiDAR sensor is a HDL-32, recording data at the Luxembourg Garden
+ * (Paris).
  *
  * Point clouds are published as mrpt::obs::CObservationPointCloud
  * with clouds of types mrpt::maps::CPointsMapXYZIRT, with these populated
@@ -38,6 +43,8 @@ namespace mola
  * - `T`: Time of each point, in range [-0.05, 0.05] seconds (scan rate=10 Hz),
  *   such that "t=0" (the observation/scan timestamp) corresponds to the moment
  *   the scanner is facing forward.
+ * - `R`: ring_id (0-31). It was not provided by the original dataset, but it is
+ *   reconstructed from point elevation data in this package.
  *
  * Expected contents under `base_dir` directory:
  *

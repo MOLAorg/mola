@@ -19,6 +19,7 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/core/round.h>
 #include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
@@ -249,6 +250,45 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
     std::transform(Ts->begin(), Ts->end(), Ts->begin(), [=](double t) {
         return t - shiftTime;
     });
+
+    // Fix missing RING_ID: ParisLuco does not have a RING_ID field,
+    // but we can generate it from the timestamps + pitch angle:
+    ASSERT_(pts->hasRingField());
+    ASSERT_EQUAL_(
+        pts->getPointsBufferRef_ring()->size(),
+        pts->getPointsBufferRef_timestamp()->size());
+    std::map<int /*ring*/, std::map<float /*time*/, size_t /*index*/>>
+        histogram;
+
+    // Equivalent matlab code:
+    // depth = sqrt(D(:,1).^2 + D(:,2).^2);  % (x,y) only
+    // pitch = asin((D(:,3)) ./ depth);
+    // [nn,xx] =hist(pitch,128);
+
+    const auto&  xs   = pts->getPointsBufferRef_x();
+    const auto&  ys   = pts->getPointsBufferRef_y();
+    const auto&  zs   = pts->getPointsBufferRef_z();
+    const size_t nPts = xs.size();
+
+    const float fov_down = mrpt::DEG2RAD(36.374f);
+    const float fov      = mrpt::DEG2RAD(10.860f) + fov_down;
+
+    for (size_t i = 0; i < nPts; i++)
+    {
+        const float depth = sqrt(mrpt::square(xs[i]) + mrpt::square(ys[i]));
+        if (depth < 0.05) continue;
+        const float pitch = asin(zs[i] / depth);
+
+        int iP = mrpt::round(31 * (pitch + fov_down) / fov);
+        mrpt::saturate(iP, 0, 31);
+
+        auto& vec     = histogram[iP];
+        vec[(*Ts)[i]] = i;
+    }
+
+    auto& Rs = *pts->getPointsBufferRef_ring();
+    for (const auto& [ringId, vec] : histogram)
+        for (const auto& [time, idx] : vec) Rs[idx] = ringId;
 
     // Lidar is at the origin of the vehicle frame:
     obs->sensorPose = mrpt::poses::CPose3D();
