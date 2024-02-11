@@ -102,6 +102,24 @@ void Rosbag2Dataset::initialize(const Yaml& c)
 
     ASSERT_FILE_EXISTS_(rosbag_filename_);
 
+    // auto guess rosbag_storage_id from rosbag2 extension:
+    if (rosbag_storage_id_.empty())
+    {
+        auto ext = mrpt::system::extractFileExtension(rosbag_filename_);
+        if (ext == "mcap")
+            rosbag_storage_id_ = "mcap";
+        else if (ext == "db3")
+            rosbag_storage_id_ = "sqlite3";
+        else
+        {
+            THROW_EXCEPTION_FMT(
+                "Argument 'rosbag_storage_id' was not provided and could not "
+                "determine the rosbag2 format from unknown extension of file "
+                "'%s'",
+                rosbag_filename_.c_str());
+        }
+    }
+
     // Open input ros bag:
     rosbag2_storage::StorageOptions storage_options;
 

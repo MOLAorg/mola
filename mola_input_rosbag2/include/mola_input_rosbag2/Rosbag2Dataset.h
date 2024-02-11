@@ -71,7 +71,8 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource
    private:
     bool        initialized_ = false;
     std::string rosbag_filename_;
-    std::string rosbag_storage_id_    = "mcap";
+    std::string rosbag_storage_id_;  // (sqlite3|mcap) Empty = autoguess
+
     std::string rosbag_serialization_ = "cdr";
     std::string base_link_frame_id_   = "base_footprint";
 
