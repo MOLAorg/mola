@@ -71,6 +71,9 @@ void MulranDataset::initialize(const Yaml& c)
     using namespace std::string_literals;
 
     MRPT_START
+
+    setLoggerName("MulranDataset");
+
     ProfilerEntry tle(profiler_, "initialize");
 
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << c);
@@ -199,10 +202,10 @@ void MulranDataset::initialize(const Yaml& c)
 
             std::vector<timestep_t> lidarIdxsToRemove;
 
-            for (const auto& [t, e] : datasetEntries_)
+            for (size_t i = 0; i < lstPointCloudFiles_.size(); i++)
             {
-                if (e.type != EntryType::Lidar) continue;
-
+                const double t =
+                    LidarFileNameToTimestamp(lstPointCloudFiles_[i]);
                 const auto ts = mrpt::Clock::fromDouble(t);
 
                 mrpt::poses::CPose3D p;
@@ -211,7 +214,7 @@ void MulranDataset::initialize(const Yaml& c)
 
                 if (!interpOk)
                 {
-                    lidarIdxsToRemove.push_back(e.lidarIdx);
+                    lidarIdxsToRemove.push_back(i);
                     continue;
                 }
 
@@ -236,7 +239,7 @@ void MulranDataset::initialize(const Yaml& c)
                 "LIDAR timestamps: %zu, matched ground truth timestamps: %zu, "
                 "from overall GT poses: %zu, removed %zu unmatched lidar "
                 "scans.",
-                lidarIdxsToRemove.size(), groundTruthTrajectory_.size(),
+                lstPointCloudFiles_.size(), groundTruthTrajectory_.size(),
                 gtPoses.size(), lidarIdxsToRemove.size());
         }
         else
