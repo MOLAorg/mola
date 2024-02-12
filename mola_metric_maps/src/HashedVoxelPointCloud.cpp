@@ -70,11 +70,12 @@ void HashedVoxelPointCloud::TMapDefinition::loadFromConfigFile_map_specific(
     ASSERT_(s.sectionExists(sectionPrefix + "_insertionOpts"s));
     insertionOpts.loadFromConfigFile(s, sectionPrefix + "_insertionOpts"s);
 
-    ASSERT_(s.sectionExists(sectionPrefix + "_likelihoodOpts"s));
-    likelihoodOpts.loadFromConfigFile(s, sectionPrefix + "_likelihoodOpts"s);
+    if (s.sectionExists(sectionPrefix + "_likelihoodOpts"s))
+        likelihoodOpts.loadFromConfigFile(
+            s, sectionPrefix + "_likelihoodOpts"s);
 
-    ASSERT_(s.sectionExists(sectionPrefix + "_renderOpts"s));
-    renderOpts.loadFromConfigFile(s, sectionPrefix + "_renderOpts"s);
+    if (s.sectionExists(sectionPrefix + "_renderOpts"s))
+        renderOpts.loadFromConfigFile(s, sectionPrefix + "_renderOpts"s);
 }
 
 void HashedVoxelPointCloud::TMapDefinition::dumpToTextStream_map_specific(
