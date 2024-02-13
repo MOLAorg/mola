@@ -350,6 +350,8 @@ void Rosbag2Dataset::spinOnce()
 
     if (rosbag_next_idx_ >= read_ahead_.size())
     {
+        onDatasetPlaybackEnds();  // notify base class
+
         MRPT_LOG_THROTTLE_INFO(
             10.0,
             "End of dataset reached! Nothing else to publish (CTRL+C to "

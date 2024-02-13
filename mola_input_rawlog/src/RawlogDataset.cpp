@@ -105,6 +105,8 @@ void RawlogDataset::spinOnce()
 
     if (read_ahead_.empty())
     {
+        onDatasetPlaybackEnds();  // notify base class
+
         MRPT_LOG_THROTTLE_INFO(
             10.0,
             "End of dataset reached! Nothing else to publish (CTRL+C to quit)");

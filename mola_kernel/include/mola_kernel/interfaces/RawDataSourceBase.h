@@ -50,6 +50,8 @@ class RawDataSourceBase : public mola::ExecutableBase
      * file.
      * - `force_load_lazy_load`: (Default=false) Force load() on all incoming
      * observations.
+     * - `quit_mola_app_on_dataset_end`: (Default=false) Quits the MOLA app when
+     * end of dataset is reached.
      */
     void initialize_common(const Yaml& cfg) override;
 
@@ -62,6 +64,10 @@ class RawDataSourceBase : public mola::ExecutableBase
      * set to `true` */
     virtual void prepareObservationBeforeFrontEnds(
         const CObservation::Ptr& obs) const;
+
+    /** Should be called by derived classes if the end of a dataset was reached
+     * during spin()  */
+    void onDatasetPlaybackEnds();
 
    private:
     /** Target of captured data */
@@ -81,7 +87,8 @@ class RawDataSourceBase : public mola::ExecutableBase
      * sensor_label */
     std::map<std::string, mrpt::pimpl<SensorViewerImpl>> sensor_preview_gui_;
 
-    bool force_load_lazy_load_ = false;
+    bool force_load_lazy_load_         = false;
+    bool quit_mola_app_on_dataset_end_ = false;
 };
 
 }  // namespace mola

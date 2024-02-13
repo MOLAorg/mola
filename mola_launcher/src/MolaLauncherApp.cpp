@@ -448,7 +448,8 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
 
         mrpt::system::CRateTimer timer(rds.execution_rate);
 
-        while (!threads_must_end_ && !rds.this_thread_must_end)
+        while (!threads_must_end_ && !rds.this_thread_must_end &&
+               !rds.impl->requestedShutdown())
         {
             // Only if all modules are correctly initialized:
             if (pending_initializations_ == 0)
@@ -470,6 +471,14 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
         // Give the module an opportunity to do any extra household tasks before
         // the actual dtors are invoked:
         rds.impl->onQuit();
+
+        if (rds.impl->requestedShutdown())
+        {
+            threads_must_end_ = true;
+
+            MRPT_LOG_INFO_STREAM(
+                "Shutdown requested by module `" << rds.name << "`");
+        }
     }
     catch (const std::exception& e)
     {

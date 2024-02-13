@@ -92,8 +92,8 @@ void RawDataSourceBase::initialize_common(const Yaml& cfg)
     }
 
     // Optional force load lazy-load observations:
-    force_load_lazy_load_ =
-        cfg.getOrDefault<bool>("force_load_lazy_load", force_load_lazy_load_);
+    YAML_LOAD_MEMBER_OPT(force_load_lazy_load, bool);
+    YAML_LOAD_MEMBER_OPT(quit_mola_app_on_dataset_end, bool);
 
     MRPT_TRY_END
 }
@@ -249,4 +249,11 @@ void RawDataSourceBase::prepareObservationBeforeFrontEnds(
         ASSERT_EQUAL_(pc.x.size(), pc.timestamp.size());
     }
     MRPT_TRY_END
+}
+
+void RawDataSourceBase::onDatasetPlaybackEnds()
+{
+    if (!quit_mola_app_on_dataset_end_) return;  // do nothing
+
+    this->requestShutdown();  // Quit mola app
 }

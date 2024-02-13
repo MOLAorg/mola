@@ -241,6 +241,8 @@ void EurocDataset::spinOnce()
 
     if (dataset_next_ == dataset_.end())
     {
+        onDatasetPlaybackEnds();  // notify base class
+
         MRPT_LOG_THROTTLE_INFO(
             10.0,
             "End of dataset reached! Nothing else to publish (CTRL+C to quit)");

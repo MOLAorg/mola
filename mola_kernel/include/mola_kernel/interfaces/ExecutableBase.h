@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -97,8 +98,23 @@ class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
      * enabled from MolaLauncherApp. */
     Profiler profiler_{false};
 
+    [[nodiscard]] bool requestedShutdown() const
+    {
+        auto lck = mrpt::lockHelper(requested_system_shutdown_mtx_);
+        return requested_system_shutdown_;
+    }
+
+   protected:
+    void requestShutdown()
+    {
+        auto lck = mrpt::lockHelper(requested_system_shutdown_mtx_);
+        requested_system_shutdown_ = true;
+    }
+
    private:
     std::string module_instance_name{"unnamed"};
+    bool        requested_system_shutdown_ = false;
+    std::mutex  requested_system_shutdown_mtx_;
 };
 
 // Impl:
