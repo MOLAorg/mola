@@ -40,25 +40,12 @@ local compoundStats = prepareCompound(compound)
 }
 $(getCompoundTocTree(compound))
 
-%{
-local hasDetails =
-	compoundStats.hasDocumentedItems or
-	compoundStats.hasBriefDocumentation and compoundStats.hasDetailedDocumentation
-
-if hasDetails then
-}
 Overview
 ~~~~~~~~
 
-$(getItemBriefDocumentation(compound))
-
-%{
-else
-}
 $(getItemDetailedDocumentation(compound))
 
 %{
-end -- if
 
 if #compound.groupArray > 0 or compound.hasGlobalNamespace then
 	local groupTree = ""
@@ -87,17 +74,6 @@ if compoundStats.hasItems or
 	includeFile("overview_compound.rst.in", compound, variableSectionName, functionSectionName)
 end
 
-if hasDetails then
-}
-.. _details-$(compound.id):
-
-Detailed Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-$(getItemDetailedDocumentation(compound))
-
-%{
-end -- if
 
 if compoundStats.hasDocumentedUnnamedEnumValues then
 	includeFile("details_unnamed_enum_values.rst.in", compound)
