@@ -118,6 +118,7 @@ class NavStateFuse
         std::optional<mrpt::Clock::time_point>         last_pose_obs_tim;
         std::optional<mrpt::poses::CPose3DPDFGaussian> last_pose;
         std::optional<mrpt::math::TTwist3D>            last_twist;
+        std::optional<mrpt::obs::CObservationOdometry> last_odom_obs;
     };
     // const State& current_state() const { return state_; }
 

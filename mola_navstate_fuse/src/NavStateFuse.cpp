@@ -45,8 +45,21 @@ void NavStateFuse::reset()
 
 void NavStateFuse::fuse_odometry(const mrpt::obs::CObservationOdometry& odom)
 {
-    // TODO(jlbc)
-    (void)odom;
+    // TODO(jlbc): proper time-based data fusion.
+
+    // temporarily, this will work well only for simple datasets:
+    if (state_.last_odom_obs && state_.last_pose)
+    {
+        const auto poseIncr = odom.odometry - state_.last_odom_obs->odometry;
+
+        state_.last_pose->mean =
+            state_.last_pose->mean + mrpt::poses::CPose3D(poseIncr);
+
+        // and discard velocity-based model:
+        state_.last_twist = mrpt::math::TTwist3D(0, 0, 0, 0, 0, 0);
+    }
+    // copy:
+    state_.last_odom_obs = odom;
 }
 
 void NavStateFuse::fuse_imu(const mrpt::obs::CObservationIMU& imu)
