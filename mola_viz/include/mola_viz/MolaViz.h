@@ -122,8 +122,9 @@ class MolaViz : public ExecutableBase, public VizInterface
     /** @name mola-viz module parameters
      * @{ */
 
-    double       console_text_font_size_ = 9.0;
-    unsigned int max_console_lines_      = 5;
+    double       console_text_font_size_   = 9.0;
+    unsigned int max_console_lines_        = 5;
+    bool         show_rgbd_as_point_cloud_ = false;  // too CPU demanding!
 
     /** @} */
 

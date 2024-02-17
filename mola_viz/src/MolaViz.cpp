@@ -66,8 +66,9 @@ struct HandlersContainer
         return o;
     }
 
-    std::map<MolaViz::class_name_t, MolaViz::update_handler_t> guiHandlers_;
-    std::mutex                                                 guiHandlersMtx_;
+    std::multimap<MolaViz::class_name_t, MolaViz::update_handler_t>
+               guiHandlers_;
+    std::mutex guiHandlersMtx_;
 
    private:
     HandlersContainer() = default;
@@ -163,16 +164,32 @@ void gui_handler_images(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w,
     MolaViz::window_name_t parentWin, MolaViz* instance)
 {
-    auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationImage>(o);
-    if (!obj) return;
+    mrpt::img::CImage imgToShow;
 
-    obj->load();
+    if (auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationImage>(o);
+        obj)
+    {
+        obj->load();
+        imgToShow = obj->image.makeShallowCopy();
+    }
+    else if (auto obj3D =
+                 std::dynamic_pointer_cast<mrpt::obs::CObservation3DRangeScan>(
+                     o);
+             obj3D && obj3D->hasIntensityImage)
+    {
+        imgToShow = obj3D->intensityImage.makeShallowCopy();
+    }
+    else
+    {
+        // dont know how to handle this class?
+        return;
+    }
 
     mrpt::gui::MRPT2NanoguiGLCanvas* glControl;
     if (w->children().size() == 1)
     {
         // Guess window size:
-        int winW = obj->image.getWidth(), winH = obj->image.getHeight();
+        int winW = imgToShow.getWidth(), winH = imgToShow.getHeight();
 
         // Guess if we need to decimate subwindow size:
         while (winW > 512 || winH > 512)
@@ -202,14 +219,15 @@ void gui_handler_images(
     obj->image.loadFromFile(obj->image.getExternalStorageFileAbsolutePath());
 #endif
 
-    const int imgW = obj->image.getWidth(), imgH = obj->image.getHeight();
-    const int imgChannels = obj->image.channelCount();
+    const int imgW = imgToShow.getWidth(), imgH = imgToShow.getHeight();
+    const int imgChannels = imgToShow.channelCount();
 
     auto lck = mrpt::lockHelper(glControl->scene_mtx);
-    glControl->scene->getViewport()->setImageView(obj->image);
+    glControl->scene->getViewport()->setImageView(imgToShow);
 
     gui_handler_show_common_sensor_info(
-        *obj, w, {mrpt::format("Size: %ix%ix%i", imgW, imgH, imgChannels)});
+        *std::dynamic_pointer_cast<mrpt::obs::CObservation>(o), w,
+        {mrpt::format("Size: %ix%ix%i", imgW, imgH, imgChannels)});
 }
 
 // CObservationPointCloud
@@ -301,7 +319,7 @@ void gui_handler_point_cloud(
         gui_handler_show_common_sensor_info(*objRS, w);
     }
     else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
-             obj3D)
+             instance->show_rgbd_as_point_cloud_ && obj3D)
     {
         if (obj3D->hasPoints3D)
         {
@@ -442,6 +460,7 @@ MRPT_INITIALIZER(do_register_MolaViz)
     MolaViz::register_gui_handler("mrpt::obs::CObservationGPS", &gui_handler_gps);
     MolaViz::register_gui_handler("mrpt::obs::CObservationPointCloud",   &gui_handler_point_cloud);
     MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_point_cloud);
+    MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_images);
     MolaViz::register_gui_handler("mrpt::obs::CObservation2DRangeScan",  &gui_handler_point_cloud);
     MolaViz::register_gui_handler("mrpt::obs::CObservationRotatingScan", &gui_handler_point_cloud);
     MolaViz::register_gui_handler("mrpt::obs::CObservationVelodyneScan", &gui_handler_point_cloud);
@@ -454,9 +473,9 @@ const MolaViz::window_name_t MolaViz::DEFAULT_WINDOW_NAME = "main";
 
 void MolaViz::register_gui_handler(class_name_t name, update_handler_t handler)
 {
-    auto& hc              = HandlersContainer::Instance();
-    auto  lck             = mrpt::lockHelper(hc.guiHandlersMtx_);
-    hc.guiHandlers_[name] = handler;
+    auto& hc  = HandlersContainer::Instance();
+    auto  lck = mrpt::lockHelper(hc.guiHandlersMtx_);
+    hc.guiHandlers_.emplace(name, handler);
 }
 
 MolaViz::MolaViz() {}
@@ -490,6 +509,7 @@ void MolaViz::initialize(const Yaml& c)
 
     YAML_LOAD_MEMBER_OPT(max_console_lines, unsigned int);
     YAML_LOAD_MEMBER_OPT(console_text_font_size, double);
+    YAML_LOAD_MEMBER_OPT(show_rgbd_as_point_cloud, bool);
 
     // Mark as initialized and up:
     instanceMtx_.lock();
@@ -646,11 +666,17 @@ std::future<bool> MolaViz::subwindow_update_visualization(
                 // thread calling me)
                 auto& hc = HandlersContainer::Instance();
 
-                if (auto itHandler = hc.guiHandlers_.find(objClassName);
-                    itHandler != hc.guiHandlers_.end())
+                bool any = false;
+                for (auto [it, rangeEnd] =
+                         hc.guiHandlers_.equal_range(objClassName);
+                     it != rangeEnd; ++it)
                 {
                     // Update GUI with object:
-                    itHandler->second(obj, subWin, parentWindow, this);
+                    it->second(obj, subWin, parentWindow, this);
+                    any = true;
+                }
+                if (any)
+                {  // done
                     return true;
                 }
                 else
