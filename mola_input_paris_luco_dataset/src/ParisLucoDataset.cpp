@@ -246,11 +246,13 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
     obs->sensorLabel = "lidar";
     obs->pointcloud  = pts;
 
-    const double shiftTime = -0.5 * lidarPeriod_;
-    auto*        Ts        = pts->getPointsBufferRef_timestamp();
+    auto* Ts = pts->getPointsBufferRef_timestamp();
     ASSERT_(Ts);
-    std::transform(Ts->begin(), Ts->end(), Ts->begin(), [=](double t) {
-        return t - shiftTime;
+    const float earliestTime = *std::min_element(Ts->cbegin(), Ts->cend());
+    const float shiftTime    = -earliestTime - 0.5 * lidarPeriod_;
+
+    std::transform(Ts->cbegin(), Ts->cend(), Ts->begin(), [=](double t) {
+        return t + shiftTime;
     });
 
     // Fix missing RING_ID: ParisLuco does not have a RING_ID field,
