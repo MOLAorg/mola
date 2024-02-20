@@ -25,6 +25,7 @@
  */
 #pragma once
 
+#include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/ExecutableBase.h>
 #include <mola_kernel/interfaces/VizInterface.h>
 #include <mrpt/gui/CDisplayWindowGUI.h>
@@ -157,6 +158,23 @@ class MolaViz : public ExecutableBase, public VizInterface
     task_queue_t            guiThreadPendingTasks_;
     std::set<window_name_t> guiThreadMustReLayoutTheseWindows_;
     std::mutex              guiThreadPendingTasksMtx_;
+
+    double lastTimeCheckForNewModules_ = 0;
+    double lastTimeUpdateDatasetUIs_   = 0;
+    struct DataPerDatasetUI
+    {
+        std::shared_ptr<mola::Dataset_UI> module;
+
+        nanogui::Window*   ui                 = nullptr;
+        nanogui::Label*    lbPlaybackPosition = nullptr;
+        nanogui::Slider*   slider             = nullptr;
+        nanogui::CheckBox* cbPaused           = nullptr;
+        nanogui::ComboBox* cmRate             = nullptr;
+    };
+    std::map<std::string, DataPerDatasetUI> datasetUIs_;
+
+    void dataset_ui_check_new_modules();
+    void dataset_ui_update();
 };
 
 }  // namespace mola

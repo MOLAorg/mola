@@ -56,7 +56,7 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
      * multiple sensors.
      *
      */
-    void initialize_common(const Yaml& cfg);
+    void initialize_common(const Yaml& cfg) override;
 
    protected:
     /** A list of one or multiple MOLA **module names** to which to subscribe

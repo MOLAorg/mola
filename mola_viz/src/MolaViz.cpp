@@ -523,7 +523,106 @@ void MolaViz::initialize(const Yaml& c)
 
 void MolaViz::spinOnce()
 {
-    // Nothing to do.
+    // once every X seconds, check for modules with automatically generated
+    // UI by this MolaViz:
+    const double PERIOD_CHECK_NEW_MODS    = 2.0;
+    const double PERIOD_UPDATE_DATASET_UI = 0.25;
+
+    const double tNow = mrpt::Clock::nowDouble();
+    if (tNow - lastTimeCheckForNewModules_ > PERIOD_CHECK_NEW_MODS)
+    {
+        dataset_ui_check_new_modules();
+        lastTimeCheckForNewModules_ = tNow;
+    }
+    if (tNow - lastTimeUpdateDatasetUIs_ > PERIOD_UPDATE_DATASET_UI)
+    {
+        dataset_ui_update();
+        lastTimeUpdateDatasetUIs_ = tNow;
+    }
+}
+
+void MolaViz::dataset_ui_check_new_modules()
+{
+    auto datasetUIs = findService<Dataset_UI>();
+    for (auto& module : datasetUIs)
+    {
+        const auto modUI = std::dynamic_pointer_cast<Dataset_UI>(module);
+        ASSERT_(modUI);
+
+        auto& e = datasetUIs_[module->getModuleInstanceName()];
+        if (e.module) continue;  // an already known one
+
+        e.module = modUI;
+
+        // Create UI:
+        auto fut = this->create_subwindow(module->getModuleInstanceName());
+        e.ui     = fut.get();
+        e.ui->requestFocus();
+        e.ui->setVisible(true);
+        e.ui->setPosition({300, 5});
+
+        e.ui->setLayout(new nanogui::BoxLayout(
+            nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 5,
+            2));
+        e.ui->setFixedWidth(650);
+        e.ui->setFixedHeight(60);
+
+        e.cbPaused = e.ui->add<nanogui::CheckBox>("Paused");
+        e.cbPaused->setChecked(modUI->datasetUI_paused());
+        e.cbPaused->setCallback(
+            [modUI](bool checked) { modUI->datasetUI_paused(checked); });
+
+        e.lbPlaybackPosition = e.ui->add<nanogui::Label>("Progress: ");
+        e.lbPlaybackPosition->setFixedWidth(100);
+        e.slider = e.ui->add<nanogui::Slider>();
+        e.slider->setFixedWidth(300);
+        e.slider->setCallback([modUI](float pos) {
+            modUI->datasetUI_teleport(static_cast<size_t>(pos));
+        });
+
+        e.ui->add<nanogui::Label>("Playback rate:");
+        e.cmRate                       = e.ui->add<nanogui::ComboBox>();
+        const std::vector<float> rates = {0.1,  0.25, 0.5, 0.75, 1.0,
+                                          1.25, 1.5,  2.0, 3.0,  5.0};
+        e.cmRate->setItems(
+            {"x0.1", "x0.25", "x0.5", "x0.75", "x1.0", "x1.25", "x1.5", "x2.0",
+             "x3.0", "x5.0"});
+        int          selIdx      = 4;
+        const double initialRate = modUI->datasetUI_playback_speed();
+        for (size_t i = 0; i < rates.size(); i++)
+            if (rates[i] == initialRate)
+            {
+                selIdx = i;
+                break;
+            }
+        e.cmRate->setSelectedIndex(selIdx);
+        e.cmRate->setCallback([rates, modUI](int idx) {
+            const double rate = rates.at(idx);
+            modUI->datasetUI_playback_speed(rate);
+        });
+
+        markWindowForReLayout(DEFAULT_WINDOW_NAME);
+    }
+}
+
+void MolaViz::dataset_ui_update()
+{
+    for (auto& kv : datasetUIs_)
+    {
+        this->enqueue_custom_nanogui_code([&kv]() {
+            auto& e = kv.second;  // lambda capture structured bind is >C++20
+            if (!e.module) return;
+
+            const size_t pos = e.module->datasetUI_lastQueriedTimestep();
+            const size_t N   = e.module->datasetUI_size();
+
+            e.lbPlaybackPosition->setCaption(mrpt::format("%zu / %zu", pos, N));
+            e.slider->setRange(std::make_pair<float>(0, N));
+            e.slider->setValue(pos);
+            e.slider->setHighlightedRange(
+                std::make_pair<float>(0.f, pos * 1.0f / (N)));
+        });
+    }
 }
 
 mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(
@@ -811,8 +910,8 @@ std::future<bool> MolaViz::update_3d_object(
                 topWin->background_scene->insert(glContainer, viewportName);
             }
 
-            // Move user contents and container properties (pose, scale, etc.)
-            // via the "operator=":
+            // Move user contents and container properties (pose, scale,
+            // etc.) via the "operator=":
             *glContainer = *obj;
 
             // (except the name! which we need to re-use in the next call)
