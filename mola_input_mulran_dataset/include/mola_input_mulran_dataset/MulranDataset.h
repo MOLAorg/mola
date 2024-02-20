@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
@@ -74,7 +75,9 @@ namespace mola
  *
  * \ingroup mola_input_mulran_dataset_grp
  */
-class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
+class MulranDataset : public RawDataSourceBase,
+                      public OfflineDatasetSource,
+                      public Dataset_UI
 {
     DEFINE_MRPT_OBJECT(MulranDataset, mola)
 
@@ -112,17 +115,50 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
 
     bool hasGPS() const { return !gpsCsvData_.empty(); }
 
+    // Virtual interface of Dataset_UI (see docs in derived class)
+    size_t datasetUI_size() const override { return datasetSize(); }
+    size_t datasetUI_lastQueriedTimestep() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return last_used_tim_index_;
+    }
+    double datasetUI_playback_speed() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return time_warp_scale_;
+    }
+    void datasetUI_playback_speed(double speed) override
+    {
+        auto lck         = mrpt::lockHelper(dataset_ui_mtx_);
+        time_warp_scale_ = speed;
+    }
+    bool datasetUI_paused() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return paused_;
+    }
+    void datasetUI_paused(bool paused) override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        paused_  = paused;
+    }
+    void datasetUI_teleport(size_t timestep) override
+    {
+        auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
+        teleport_here_ = timestep;
+    }
+
    private:
-    bool                    initialized_ = false;
-    std::string             base_dir_;  //!< base dir for "sequences/*".
-    std::string             sequence_;  //!< "00", "01", ...
-    bool                    lidar_to_ground_truth_1to1_ = true;
-    mrpt::Clock::time_point replay_begin_time_{};
-    bool                    replay_started_{false};
-    bool                    publish_lidar_{true};
-    bool                    publish_gps_{true};
-    bool                    publish_ground_truth_{true};
-    double                  time_warp_scale_{1.0};
+    bool        initialized_ = false;
+    std::string base_dir_;  //!< base dir for "sequences/*".
+    std::string sequence_;  //!< "00", "01", ...
+    bool        lidar_to_ground_truth_1to1_ = true;
+    bool        publish_lidar_{true};
+    bool        publish_gps_{true};
+    bool        publish_ground_truth_{true};
+
+    std::optional<mrpt::Clock::time_point> last_play_wallclock_time_;
+    double                                 last_dataset_time_ = 0;
 
     enum class EntryType : uint8_t
     {
@@ -166,6 +202,12 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource
     void autoUnloadOldEntries() const;
 
     static double LidarFileNameToTimestamp(const std::string& filename);
+
+    mutable timestep_t    last_used_tim_index_ = 0;
+    bool                  paused_              = false;
+    double                time_warp_scale_     = 1.0;
+    std::optional<size_t> teleport_here_;
+    mutable std::mutex    dataset_ui_mtx_;
 };
 
 }  // namespace mola

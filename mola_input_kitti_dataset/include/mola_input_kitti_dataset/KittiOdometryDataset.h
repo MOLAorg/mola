@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
@@ -35,13 +36,15 @@ namespace mola
  * - `lidar`: Velodyne 3D LIDAR
  * - Ground truth poses
  *
- * If the option `clouds_as_organized_points` is true (default), point cloud
+ * If the option `clouds_as_organized_points` is true, point cloud
  * are published as mrpt::obs::CObservationRotatingScan.
- * Otherwise, they are published as mrpt::obs::CObservationPointCloud.
+ * Otherwise (default), they are published as mrpt::obs::CObservationPointCloud
+ * with X,Y,Z,I channels.
  *
  * \ingroup mola_input_kitti_dataset_grp */
 class KittiOdometryDataset : public RawDataSourceBase,
-                             public OfflineDatasetSource
+                             public OfflineDatasetSource,
+                             public Dataset_UI
 {
     DEFINE_MRPT_OBJECT(KittiOdometryDataset, mola)
 
@@ -78,27 +81,60 @@ class KittiOdometryDataset : public RawDataSourceBase,
     mrpt::obs::CSensoryFrame::Ptr datasetGetObservations(
         size_t timestep) const override;
 
+    // Virtual interface of Dataset_UI (see docs in derived class)
+    size_t datasetUI_size() const override { return datasetSize(); }
+    size_t datasetUI_lastQueriedTimestep() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return last_used_tim_index_;
+    }
+    double datasetUI_playback_speed() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return time_warp_scale_;
+    }
+    void datasetUI_playback_speed(double speed) override
+    {
+        auto lck         = mrpt::lockHelper(dataset_ui_mtx_);
+        time_warp_scale_ = speed;
+    }
+    bool datasetUI_paused() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return paused_;
+    }
+    void datasetUI_paused(bool paused) override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        paused_  = paused;
+    }
+    void datasetUI_teleport(size_t timestep) override
+    {
+        auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
+        teleport_here_ = timestep;
+    }
+
     /** See:
      *  "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
      */
     double VERTICAL_ANGLE_OFFSET = mrpt::DEG2RAD(0.205);
 
    private:
-    bool                    initialized_ = false;
-    std::string             base_dir_;  //!< base dir for "sequences/*".
-    std::string             sequence_;  //!< "00", "01", ...
-    bool                    clouds_as_organized_points_ = false;
-    unsigned int            range_matrix_column_count_  = 2000;
-    unsigned int            range_matrix_row_count_     = 64;
-    mrpt::Clock::time_point replay_begin_time_{};
-    timestep_t              replay_next_tim_index_{0};
-    bool                    replay_started_{false};
-    bool                    publish_lidar_{true};
-    bool                    publish_ground_truth_{true};
-    std::array<bool, 4>     publish_image_{{true, true, true, true}};
-    double                  time_warp_scale_{1.0};
+    bool                initialized_ = false;
+    std::string         base_dir_;  //!< base dir for "sequences/*".
+    std::string         sequence_;  //!< "00", "01", ...
+    bool                clouds_as_organized_points_ = false;
+    unsigned int        range_matrix_column_count_  = 2000;
+    unsigned int        range_matrix_row_count_     = 64;
+    timestep_t          replay_next_tim_index_{0};
+    bool                publish_lidar_{true};
+    bool                publish_ground_truth_{true};
+    std::array<bool, 4> publish_image_{{true, true, true, true}};
     std::array<mrpt::img::TCamera, 4>  cam_intrinsics_;
     std::array<mrpt::math::TPose3D, 4> cam_poses_;  //!< wrt vehicle origin
+
+    std::optional<mrpt::Clock::time_point> last_play_wallclock_time_;
+    double                                 last_dataset_time_ = 0;
 
     std::array<std::vector<std::string>, 4> lst_image_;
     std::vector<std::string>                lst_velodyne_;
@@ -112,6 +148,12 @@ class KittiOdometryDataset : public RawDataSourceBase,
     std::vector<double> lst_timestamps_;
     double              replay_time_{.0};
     std::string         seq_dir_;
+
+    mutable timestep_t    last_used_tim_index_ = 0;
+    bool                  paused_              = false;
+    double                time_warp_scale_     = 1.0;
+    std::optional<size_t> teleport_here_;
+    mutable std::mutex    dataset_ui_mtx_;
 
     void load_img(const unsigned int cam_idx, const timestep_t step) const;
     void load_lidar(timestep_t step) const;

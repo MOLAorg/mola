@@ -101,6 +101,8 @@ void KittiOdometryDataset::initialize(const Yaml& c)
     // Optional params with default values:
     time_warp_scale_ =
         cfg.getOrDefault<double>("time_warp_scale", time_warp_scale_);
+    paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
+
     publish_lidar_ = cfg.getOrDefault<bool>("publish_lidar", publish_lidar_);
 
     publish_ground_truth_ =
@@ -299,17 +301,35 @@ void KittiOdometryDataset::spinOnce()
 
     ProfilerEntry tleg(profiler_, "spinOnce");
 
+    const auto tNow = mrpt::Clock::now();
+
     // Starting time:
-    if (!replay_started_)
-    {
-        replay_begin_time_ = mrpt::Clock::now();
-        replay_started_    = true;
-    }
+    if (!last_play_wallclock_time_) last_play_wallclock_time_ = tNow;
 
     // get current replay time:
-    const double t =
-        mrpt::system::timeDifference(replay_begin_time_, mrpt::Clock::now()) *
-        time_warp_scale_;
+    auto         lckUIVars       = mrpt::lockHelper(dataset_ui_mtx_);
+    const double time_warp_scale = time_warp_scale_;
+    const bool   paused          = paused_;
+    const auto   teleport_here   = teleport_here_;
+    teleport_here_.reset();
+    lckUIVars.unlock();
+
+    double dt = mrpt::system::timeDifference(*last_play_wallclock_time_, tNow) *
+                time_warp_scale;
+    last_play_wallclock_time_ = tNow;
+
+    // override by an special teleport order?
+    if (teleport_here.has_value() && *teleport_here < lst_timestamps_.size())
+    {
+        replay_next_tim_index_ = *teleport_here;
+        last_dataset_time_     = lst_timestamps_[replay_next_tim_index_];
+    }
+    else
+    {
+        if (paused) return;
+        // move forward replayed dataset time:
+        last_dataset_time_ += dt;
+    }
 
     if (replay_next_tim_index_ >= lst_timestamps_.size())
     {
@@ -331,11 +351,11 @@ void KittiOdometryDataset::spinOnce()
 
     // We have to publish all observations until "t":
     while (replay_next_tim_index_ < lst_timestamps_.size() &&
-           t >= lst_timestamps_[replay_next_tim_index_])
+           last_dataset_time_ >= lst_timestamps_[replay_next_tim_index_])
     {
         MRPT_LOG_DEBUG_STREAM(
             "Sending observations for replay time: "
-            << mrpt::system::formatTimeInterval(t));
+            << mrpt::system::formatTimeInterval(last_dataset_time_));
 
         // Save one single timestamp for all observations, since they are in
         // theory shynchronized in the Kitti datasets:
@@ -384,6 +404,12 @@ void KittiOdometryDataset::spinOnce()
         read_ahead_image_obs_.erase(replay_next_tim_index_);
 
         replay_next_tim_index_++;
+    }
+
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ =
+            replay_next_tim_index_ > 0 ? replay_next_tim_index_ - 1 : 0;
     }
 
     // Read ahead to save delays in the next iteration:
@@ -628,6 +654,11 @@ size_t KittiOdometryDataset::datasetSize() const
 mrpt::obs::CSensoryFrame::Ptr KittiOdometryDataset::datasetGetObservations(
     size_t timestep) const
 {
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = timestep;
+    }
+
     auto sf = mrpt::obs::CSensoryFrame::Create();
 
     for (size_t i = 0; i < publish_image_.size(); i++)

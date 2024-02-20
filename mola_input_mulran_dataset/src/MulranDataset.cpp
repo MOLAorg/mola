@@ -91,6 +91,8 @@ void MulranDataset::initialize(const Yaml& c)
 
     // Optional params with default values:
     YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
+    paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
+
     YAML_LOAD_MEMBER_OPT(publish_lidar, bool);
     YAML_LOAD_MEMBER_OPT(publish_gps, bool);
     YAML_LOAD_MEMBER_OPT(publish_ground_truth, bool);
@@ -270,17 +272,40 @@ void MulranDataset::spinOnce()
 
     ProfilerEntry tleg(profiler_, "spinOnce");
 
+    const auto tNow = mrpt::Clock::now();
+
     // Starting time:
-    if (!replay_started_)
-    {
-        replay_begin_time_ = mrpt::Clock::now();
-        replay_started_    = true;
-    }
+    if (!last_play_wallclock_time_) last_play_wallclock_time_ = tNow;
 
     // get current replay time:
-    const double t =
-        mrpt::system::timeDifference(replay_begin_time_, mrpt::Clock::now()) *
-        time_warp_scale_;
+    auto         lckUIVars       = mrpt::lockHelper(dataset_ui_mtx_);
+    const double time_warp_scale = time_warp_scale_;
+    const bool   paused          = paused_;
+    const auto   teleport_here   = teleport_here_;
+    teleport_here_.reset();
+    lckUIVars.unlock();
+
+    double dt = mrpt::system::timeDifference(*last_play_wallclock_time_, tNow) *
+                time_warp_scale;
+    last_play_wallclock_time_ = tNow;
+
+    const double t0 = datasetEntries_.begin()->first;
+
+    // override by an special teleport order?
+    if (teleport_here.has_value() && *teleport_here < datasetEntries_.size())
+    {
+        auto it = datasetEntries_.begin();
+        std::advance(it, *teleport_here);
+
+        replay_next_it_    = it;
+        last_dataset_time_ = it->first - t0;
+    }
+    else
+    {
+        if (paused) return;
+        // move forward replayed dataset time:
+        last_dataset_time_ += dt;
+    }
 
     if (replay_next_it_ == datasetEntries_.end())
     {
@@ -303,17 +328,15 @@ void MulranDataset::spinOnce()
             (100.0 * pos) / (datasetEntries_.size()));
     }
 
-    const double t0 = datasetEntries_.begin()->first;
-
     std::optional<timestep_t> lastUsedLidarIdx;
 
     // We have to publish all observations until "t":
     while (replay_next_it_ != datasetEntries_.end() &&
-           t >= (replay_next_it_->first - t0))
+           last_dataset_time_ >= (replay_next_it_->first - t0))
     {
         MRPT_LOG_DEBUG_STREAM(
             "Sending observations for replay time: "
-            << mrpt::system::formatTimeInterval(t));
+            << mrpt::system::formatTimeInterval(last_dataset_time_));
 
         const auto& de = replay_next_it_->second;
 
@@ -370,6 +393,12 @@ void MulranDataset::spinOnce()
 
         // move on:
         replay_next_it_++;
+    }
+
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ =
+            std::distance(datasetEntries_.begin(), replay_next_it_);
     }
 
     // Read ahead to save delays in the next iteration:
@@ -581,6 +610,11 @@ size_t MulranDataset::datasetSize() const
 mrpt::obs::CSensoryFrame::Ptr MulranDataset::datasetGetObservations(
     size_t timestep) const
 {
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = timestep;
+    }
+
     auto sf = mrpt::obs::CSensoryFrame::Create();
 
     if (publish_lidar_)
