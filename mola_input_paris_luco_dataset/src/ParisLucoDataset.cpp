@@ -80,6 +80,7 @@ void ParisLucoDataset::initialize(const Yaml& c)
     ASSERT_DIRECTORY_EXISTS_(seq_dir_);
 
     YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
+    paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
     // Make list of all existing files and preload everything we may need later
     // to quickly replay the dataset in realtime:
@@ -138,17 +139,34 @@ void ParisLucoDataset::spinOnce()
 
     ProfilerEntry tleg(profiler_, "spinOnce");
 
-    // Starting time:
-    if (!replay_started_)
-    {
-        replay_begin_time_ = mrpt::Clock::now();
-        replay_started_    = true;
-    }
+    const auto tNow = mrpt::Clock::now();
+
+    if (!last_play_wallclock_time_) last_play_wallclock_time_ = tNow;
 
     // get current replay time:
-    const double t =
-        mrpt::system::timeDifference(replay_begin_time_, mrpt::Clock::now()) *
-        time_warp_scale_;
+    auto         lckUIVars       = mrpt::lockHelper(dataset_ui_mtx_);
+    const double time_warp_scale = time_warp_scale_;
+    const bool   paused          = paused_;
+    const auto   teleport_here   = teleport_here_;
+    teleport_here_.reset();
+    lckUIVars.unlock();
+
+    double dt = mrpt::system::timeDifference(*last_play_wallclock_time_, tNow) *
+                time_warp_scale;
+    last_play_wallclock_time_ = tNow;
+
+    // override by an special teleport order?
+    if (teleport_here.has_value() && *teleport_here < lst_timestamps_.size())
+    {
+        replay_next_tim_index_ = *teleport_here;
+        last_dataset_time_     = lst_timestamps_.at(*teleport_here);
+    }
+    else
+    {
+        if (paused) return;
+        // move forward replayed dataset time:
+        last_dataset_time_ += dt;
+    }
 
     if (replay_next_tim_index_ >= lst_timestamps_.size())
     {
@@ -170,11 +188,11 @@ void ParisLucoDataset::spinOnce()
 
     // We have to publish all observations until "t":
     while (replay_next_tim_index_ < lst_timestamps_.size() &&
-           t >= lst_timestamps_[replay_next_tim_index_])
+           last_dataset_time_ >= lst_timestamps_[replay_next_tim_index_])
     {
         MRPT_LOG_DEBUG_STREAM(
             "Sending observations for replay time: "
-            << mrpt::system::formatTimeInterval(t));
+            << mrpt::system::formatTimeInterval(last_dataset_time_));
 
         // Save one single timestamp for all observations, since they are in
         // theory shynchronized in the Kitti datasets:
@@ -210,6 +228,11 @@ void ParisLucoDataset::spinOnce()
         read_ahead_lidar_obs_.erase(replay_next_tim_index_);
 
         replay_next_tim_index_++;
+    }
+
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = replay_next_tim_index_;
     }
 
     // Read ahead to save delays in the next iteration:
@@ -330,6 +353,11 @@ mrpt::obs::CSensoryFrame::Ptr ParisLucoDataset::datasetGetObservations(
 {
     ASSERT_(initialized_);
     ASSERT_LT_(timestep, lst_timestamps_.size());
+
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = timestep;
+    }
 
     load_lidar(timestep);
     auto o = read_ahead_lidar_obs_.at(timestep);

@@ -65,6 +65,7 @@ void EurocDataset::initialize(const Yaml& c)
 
     // Optional params with default values:
     YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
+    paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
     // Preload everything we may need later to quickly replay the dataset in
     // realtime:
@@ -223,21 +224,44 @@ void EurocDataset::spinOnce()
 
     ProfilerEntry tleg(profiler_, "spinOnce");
 
-    // Starting time:
-    if (!replay_started_)
-    {
-        replay_begin_time_ = mrpt::Clock::now();
-        replay_started_    = true;
-    }
+    const auto tNow = mrpt::Clock::now();
 
-    // get current replay time:
-    const double t =
-        mrpt::system::timeDifference(replay_begin_time_, mrpt::Clock::now()) *
-        time_warp_scale_;
+    if (!last_play_wallclock_time_) last_play_wallclock_time_ = tNow;
+
+    auto         lckUIVars       = mrpt::lockHelper(dataset_ui_mtx_);
+    const double time_warp_scale = time_warp_scale_;
+    const bool   paused          = paused_;
+    const auto   teleport_here   = teleport_here_;
+    teleport_here_.reset();
+    lckUIVars.unlock();
+
+    double dt = mrpt::system::timeDifference(*last_play_wallclock_time_, tNow) *
+                time_warp_scale;
+    last_play_wallclock_time_ = tNow;
+
+    const double t0 = dataset_.begin()->first;
+
+    // override by an special teleport order?
+    if (teleport_here.has_value() && *teleport_here < dataset_.size())
+    {
+        auto it = dataset_.begin();
+        std::advance(it, *teleport_here);
+
+        dataset_next_      = it;
+        dataset_cur_idx_   = *teleport_here;
+        last_dataset_time_ = (it->first - t0) * 1e-9;
+    }
+    else
+    {
+        if (paused) return;
+        // move forward replayed dataset time:
+        last_dataset_time_ += dt;
+    }
 
     // time in [ns]
     const euroc_timestamp_t tim =
-        static_cast<euroc_timestamp_t>(t * 1e9) + dataset_.begin()->first;
+        static_cast<euroc_timestamp_t>(last_dataset_time_ * 1e9) +
+        dataset_.begin()->first;
 
     if (dataset_next_ == dataset_.end())
     {
@@ -286,6 +310,11 @@ void EurocDataset::spinOnce()
         // Advance:
         ++dataset_next_;
         ++dataset_cur_idx_;
+    }
+
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = std::distance(dataset_.begin(), dataset_next_);
     }
 
     // Read ahead to save delays in the next iteration:
@@ -343,7 +372,7 @@ void EurocDataset::build_dataset_entry_obs(SensorIMU& s)
 
     ProfilerEntry tleg(profiler_, "build_obs_imu");
 
-    MRPT_TODO("Port to CObservationIMU::CreateAlloc() with mem pool");
+    // TODO(jlbc): Port to CObservationIMU::CreateAlloc() with mem pool?
 
     auto obs         = CObservationIMU::Create();
     obs->sensorLabel = s.sensor_name;

@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/io/CFileGZInputStream.h>
@@ -50,7 +51,9 @@ namespace mola
  *  robot frame.
  *
  * \ingroup mola_input_rosbag2_grp */
-class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource
+class Rosbag2Dataset : public RawDataSourceBase,
+                       public OfflineDatasetSource,
+                       public Dataset_UI
 {
     DEFINE_MRPT_OBJECT(Rosbag2Dataset, mola)
 
@@ -68,19 +71,52 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource
     mrpt::obs::CSensoryFrame::Ptr datasetGetObservations(
         size_t timestep) const override;
 
+    // Virtual interface of Dataset_UI (see docs in derived class)
+    size_t datasetUI_size() const override { return datasetSize(); }
+    size_t datasetUI_lastQueriedTimestep() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return last_used_tim_index_;
+    }
+    double datasetUI_playback_speed() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return time_warp_scale_;
+    }
+    void datasetUI_playback_speed(double speed) override
+    {
+        auto lck         = mrpt::lockHelper(dataset_ui_mtx_);
+        time_warp_scale_ = speed;
+    }
+    bool datasetUI_paused() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return paused_;
+    }
+    void datasetUI_paused(bool paused) override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        paused_  = paused;
+    }
+    void datasetUI_teleport(size_t timestep) override
+    {
+        auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
+        teleport_here_ = timestep;
+    }
+
    private:
     bool        initialized_ = false;
     std::string rosbag_filename_;
-    std::string rosbag_storage_id_;  // (sqlite3|mcap) Empty = autoguess
+    std::string rosbag_storage_id_;  // (sqlite3|mcap) Empty = auto guess
 
     std::string rosbag_serialization_ = "cdr";
     std::string base_link_frame_id_   = "base_footprint";
 
-    mrpt::Clock::time_point                replay_begin_time_{};
-    std::optional<mrpt::Clock::time_point> rawlog_begin_time_;
-    bool                                   replay_started_    = false;
-    double                                 time_warp_scale_   = 1.0;
+    std::optional<mrpt::Clock::time_point> rosbag_begin_time_;
     size_t                                 read_ahead_length_ = 15;
+
+    std::optional<mrpt::Clock::time_point> last_play_wallclock_time_;
+    double                                 last_dataset_time_ = 0;
 
     std::shared_ptr<rosbag2_cpp::readers::SequentialReader> reader_;
     size_t bagMessageCount_ = 0;
@@ -90,7 +126,8 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource
     SF::Ptr to_mrpt(const rosbag2_storage::SerializedBagMessage& rosmsg);
 
     void doReadAhead(
-        const std::optional<size_t>& requestedIndex = std::nullopt);
+        const std::optional<size_t>& requestedIndex  = std::nullopt,
+        bool                         skipBufferAhead = false);
 
     // timestep in this class is just the index of the message in the rosbag:
     struct DatasetEntry
@@ -157,6 +194,12 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource
         mrpt::poses::CPose3D& des, const std::string& target_frame,
         const std::string&                         source_frame,
         const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
+
+    mutable timestep_t    last_used_tim_index_ = 0;
+    bool                  paused_              = false;
+    double                time_warp_scale_     = 1.0;
+    std::optional<size_t> teleport_here_;
+    mutable std::mutex    dataset_ui_mtx_;
 };
 
 }  // namespace mola

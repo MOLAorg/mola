@@ -27,6 +27,7 @@ modules:
       base_dir: ${KITTI_BASE_DIR}
       sequence: ${KITTI_SEQ}
       time_warp_scale: 1.0
+      start_paused: ${MOLA_DATASET_START_PAUSED|false}
       publish_lidar: true
       publish_image_0: true
       publish_image_1: true

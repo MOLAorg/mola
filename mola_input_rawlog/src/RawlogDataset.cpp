@@ -51,6 +51,7 @@ void RawlogDataset::initialize(const Yaml& c)
     YAML_LOAD_MEMBER_REQ(rawlog_filename, std::string);
     YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
     YAML_LOAD_MEMBER_OPT(read_all_first, bool);
+    paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
     ASSERT_FILE_EXISTS_(rawlog_filename_);
 
@@ -90,16 +91,9 @@ void RawlogDataset::spinOnce()
     MRPT_START
     ProfilerEntry tleg(profiler_, "spinOnce");
 
-    // Starting time:
-    if (!replay_started_)
-    {
-        replay_begin_time_ = mrpt::Clock::now();
-        replay_started_    = true;
-    }
+    const auto tNow = mrpt::Clock::now();
 
-    // get current replay time:
-    const double t = timeDifference(replay_begin_time_, mrpt::Clock::now()) *
-                     time_warp_scale_;
+    if (!last_play_wallclock_time_) last_play_wallclock_time_ = tNow;
 
     doReadAhead();
 
@@ -125,9 +119,39 @@ void RawlogDataset::spinOnce()
     if (rawlog_begin_time_ == INVALID_TIMESTAMP)
         rawlog_begin_time_ = read_ahead_.begin()->first;
 
+    auto         lckUIVars       = mrpt::lockHelper(dataset_ui_mtx_);
+    const double time_warp_scale = time_warp_scale_;
+    const bool   paused          = paused_;
+    const auto   teleport_here   = teleport_here_;
+    teleport_here_.reset();
+    lckUIVars.unlock();
+
+    double dt = mrpt::system::timeDifference(*last_play_wallclock_time_, tNow) *
+                time_warp_scale;
+    last_play_wallclock_time_ = tNow;
+
+    // override by an special teleport order?
+    if (read_all_first_ && teleport_here.has_value() &&
+        *teleport_here < rawlog_entire_.size())
+    {
+        rawlog_next_idx_ = *teleport_here;
+        if (auto obs = rawlog_entire_.getAsObservation(rawlog_next_idx_); obs)
+            last_dataset_time_ = mrpt::system::timeDifference(
+                rawlog_begin_time_, obs->timestamp);
+    }
+    else
+    {
+        if (paused) return;
+        // move forward replayed dataset time:
+        last_dataset_time_ += dt;
+    }
+
+    doReadAhead();
+
     // Publish observations up to current time:
     while (!read_ahead_.empty() &&
-           t >= timeDifference(rawlog_begin_time_, read_ahead_.begin()->first))
+           last_dataset_time_ >=
+               timeDifference(rawlog_begin_time_, read_ahead_.begin()->first))
     {
         //
         CObservation::Ptr obs = read_ahead_.begin()->second;
@@ -138,11 +162,18 @@ void RawlogDataset::spinOnce()
 
         MRPT_LOG_DEBUG_STREAM(
             "Publishing " << obs->GetRuntimeClass()->className
-                          << " sensorLabel: " << obs->sensorLabel
-                          << " for t=" << t << " observation timestamp="
+                          << " sensorLabel: " << obs->sensorLabel << " for t="
+                          << last_dataset_time_ << " observation timestamp="
                           << mrpt::system::dateTimeLocalToString(
                                  obs->timestamp));
     }
+
+    if (read_all_first_)
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = rawlog_next_idx_;
+    }
+
     MRPT_END
 }
 
@@ -279,6 +310,11 @@ mrpt::obs::CSensoryFrame::Ptr RawlogDataset::datasetGetObservations(
         "'read_all_first' to 'true'");
 
     autoUnloadOldEntries();  // see inside function comments for motivation
+
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = timestep;
+    }
 
     const auto obj = rawlog_entire_.getAsGeneric(timestep);
 

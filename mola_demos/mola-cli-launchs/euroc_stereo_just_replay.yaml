@@ -2,6 +2,8 @@
 #                        SLAM system definition for MOLA
 # This file defines:
 #  an EUROC dataset reader. No actual SLAM or localization with this file!
+# Invoke setting EUROC_SEQ to the desired sequence, e.g:
+# EUROC_SEQ=machine_hall/MH_04_difficult  mola-cli xxx.yaml
 # -----------------------------------------------------------------------------
 
 modules:
@@ -15,14 +17,15 @@ modules:
     gui_preview_sensors:
       - raw_sensor_label: cam0
         decimation: 1
-        win_pos: 0 0 500 200 # [x,y,width,height]
+        win_pos: 5 80 500 200 # [x,y,width,height]
       - raw_sensor_label: cam1
         decimation: 1
-        win_pos: 510 0 500 200 # [x,y,width,height]
+        win_pos: 5 360 500 200 # [x,y,width,height]
     params:
       base_dir: ${EUROC_BASE_DIR}
-      sequence: vicon_room1/V1_01_easy/
+      sequence: ${EUROC_SEQ|vicon_room1/V1_01_easy/}
       time_warp_scale: 1.0
+      start_paused: ${MOLA_DATASET_START_PAUSED|false}
   # =====================
   # MolaViz
   # =====================

@@ -99,6 +99,7 @@ void Rosbag2Dataset::initialize(const Yaml& c)
     YAML_LOAD_MEMBER_OPT(rosbag_serialization, std::string);
     YAML_LOAD_MEMBER_OPT(base_link_frame_id, std::string);
     YAML_LOAD_MEMBER_OPT(read_ahead_length, size_t);
+    paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
     ASSERT_FILE_EXISTS_(rosbag_filename_);
 
@@ -337,16 +338,47 @@ void Rosbag2Dataset::spinOnce()
     MRPT_START
     ProfilerEntry tleg(profiler_, "spinOnce");
 
+    const auto tNow = mrpt::Clock::now();
+
     // Starting time:
-    if (!replay_started_)
-    {
-        replay_begin_time_ = mrpt::Clock::now();
-        replay_started_    = true;
-    }
+    if (!last_play_wallclock_time_) last_play_wallclock_time_ = tNow;
 
     // get current replay time:
-    const double t = timeDifference(replay_begin_time_, mrpt::Clock::now()) *
-                     time_warp_scale_;
+    auto         lckUIVars       = mrpt::lockHelper(dataset_ui_mtx_);
+    const double time_warp_scale = time_warp_scale_;
+    const bool   paused          = paused_;
+    const auto   teleport_here   = teleport_here_;
+    teleport_here_.reset();
+    lckUIVars.unlock();
+
+    double dt = mrpt::system::timeDifference(*last_play_wallclock_time_, tNow) *
+                time_warp_scale;
+    last_play_wallclock_time_ = tNow;
+
+    // const double t0 = mrpt::Clock::toDouble(rawlog_begin_time_);
+
+    if (!rosbag_begin_time_ && bagMessageCount_ > 0)
+    {
+        doReadAhead(0, true /* skip read ahead buffer */);
+        rosbag_begin_time_ = read_ahead_.at(0)->timestamp;
+    }
+
+    // override by an special teleport order?
+    if (teleport_here.has_value() && *teleport_here < bagMessageCount_)
+    {
+        rosbag_next_idx_       = *teleport_here;
+        rosbag_next_idx_write_ = *teleport_here;
+        doReadAhead(rosbag_next_idx_, true /* skip read ahead buffer */);
+
+        // this will force a reset with the first valid timestamp.
+        last_dataset_time_ = 0;
+    }
+    else
+    {
+        if (paused) return;
+        // move forward replayed dataset time:
+        last_dataset_time_ += dt;
+    }
 
     if (rosbag_next_idx_ >= read_ahead_.size())
     {
@@ -371,7 +403,13 @@ void Rosbag2Dataset::spinOnce()
     for (;;)
     {
         if (rosbag_next_idx_ >= rosbag_next_idx_write_)
+        {
+            MRPT_LOG_INFO_STREAM(
+                "rosbag_next_idx_: " << rosbag_next_idx_
+                                     << " >= " << rosbag_next_idx_write_);
+
             doReadAhead(rosbag_next_idx_);
+        }
 
         // EOF?
         if (rosbag_next_idx_ >= read_ahead_.size()) break;
@@ -384,12 +422,18 @@ void Rosbag2Dataset::spinOnce()
         // First rawlog timestamp?
         if (auto& de_tim = de->timestamp; de_tim)
         {
-            if (!rawlog_begin_time_) rawlog_begin_time_ = de_tim.value();
+            if (!rosbag_begin_time_) rosbag_begin_time_ = de_tim.value();
 
-            if (rawlog_begin_time_ &&
-                t < timeDifference(*rawlog_begin_time_, de_tim.value()))
+            if (rosbag_begin_time_)
             {
-                break;
+                const double thisTim =
+                    timeDifference(*rosbag_begin_time_, de_tim.value());
+
+                // Reset time after a "teleport"?
+                if (last_dataset_time_ == 0) last_dataset_time_ = thisTim;
+
+                // end of playback for now?
+                if (last_dataset_time_ < thisTim) break;
             }
         }
 
@@ -412,8 +456,8 @@ void Rosbag2Dataset::spinOnce()
 
                 MRPT_LOG_DEBUG_STREAM(
                     "Publishing "
-                    << obs->GetRuntimeClass()->className
-                    << " sensorLabel: " << obs->sensorLabel << " for t=" << t
+                    << obs->GetRuntimeClass()->className << " sensorLabel: "
+                    << obs->sensorLabel << " for t=" << last_dataset_time_
                     << " observation timestamp="
                     << mrpt::system::dateTimeLocalToString(obs->timestamp));
             }
@@ -422,13 +466,23 @@ void Rosbag2Dataset::spinOnce()
         // Free memory in read-ahead buffer:
         read_ahead_.at(rosbag_next_idx_).reset();
 
+        MRPT_LOG_INFO_STREAM("Freeing: " << rosbag_next_idx_);
+
         // Move on:
         rosbag_next_idx_++;
     }
+
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+
+        last_used_tim_index_ = rosbag_next_idx_;
+    }
+
     MRPT_END
 }
 
-void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex)
+void Rosbag2Dataset::doReadAhead(
+    const std::optional<size_t>& requestedIndex, bool skipBufferAhead)
 {
     MRPT_START
 
@@ -442,14 +496,18 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex)
 
     // End of read segment:
     size_t endIdx = startIdx + read_ahead_length_;
-    if (requestedIndex)
+    if (requestedIndex && !skipBufferAhead)
         mrpt::keep_max(endIdx, *requestedIndex + read_ahead_length_);
 
-    mrpt::saturate<size_t>(endIdx, 0, read_ahead_.size());
+    mrpt::saturate<size_t>(endIdx, 0, read_ahead_.size() - 1);
 
-    for (size_t idx = rosbag_next_idx_; idx < endIdx; idx++)
+    for (size_t idx = rosbag_next_idx_; idx <= endIdx; idx++)
     {
         if (read_ahead_.at(idx).has_value()) continue;  // already read:
+
+        MRPT_LOG_WARN_STREAM(
+            "requestedIndex: " << *requestedIndex << " idx: " << idx
+                               << " skipBufferAhead:" << skipBufferAhead);
 
         // serialized data
         ASSERT_EQUAL_(rosbag_next_idx_write_, idx);
@@ -464,7 +522,9 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex)
         de.obs = sf;
 
         if (!sf->empty())
+        {
             de.timestamp = sf->getObservationByIndex(0)->timestamp;
+        }
     }
 
     MRPT_END
@@ -482,6 +542,11 @@ mrpt::obs::CSensoryFrame::Ptr Rosbag2Dataset::datasetGetObservations(
     size_t timestep) const
 {
     ASSERTMSG_(initialized_, "You must call initialize() first");
+
+    {
+        auto lck             = mrpt::lockHelper(dataset_ui_mtx_);
+        last_used_tim_index_ = timestep;
+    }
 
     auto& me = const_cast<Rosbag2Dataset&>(*this);
 

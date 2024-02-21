@@ -21,6 +21,7 @@ modules:
       base_dir: ${PARIS_LUCO_BASE_DIR}
       sequence: '00'  # There is only one sequence in this dataset
       time_warp_scale: 1.0
+      start_paused: ${MOLA_DATASET_START_PAUSED|false}
 
   # =====================
   # MolaViz

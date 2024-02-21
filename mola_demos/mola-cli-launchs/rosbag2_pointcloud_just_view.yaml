@@ -52,7 +52,9 @@ modules:
       base_link_frame_id: 'base_footprint'
       
       time_warp_scale: 1.0
-      rosbag_storage_id: ${ROSBAG2_STORAGE_ID|'mcap'}
+      start_paused: ${MOLA_DATASET_START_PAUSED|false}
+      
+      #rosbag_storage_id: '' # Empty=auto guess. (mcap|sqlite3}
       #rosbag_serialization: 'cdr'
       
       # 'sensors' contains maps from output "sensorLabel"s, to the

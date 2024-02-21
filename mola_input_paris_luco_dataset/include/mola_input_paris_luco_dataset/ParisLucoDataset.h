@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mrpt/core/Clock.h>
@@ -63,7 +64,9 @@ namespace mola
  *
  * \ingroup mola_input_paris_luco_dataset_grp
  */
-class ParisLucoDataset : public RawDataSourceBase, public OfflineDatasetSource
+class ParisLucoDataset : public RawDataSourceBase,
+                         public OfflineDatasetSource,
+                         public Dataset_UI
 {
     DEFINE_MRPT_OBJECT(ParisLucoDataset, mola)
 
@@ -89,6 +92,39 @@ class ParisLucoDataset : public RawDataSourceBase, public OfflineDatasetSource
     mrpt::obs::CSensoryFrame::Ptr datasetGetObservations(
         size_t timestep) const override;
 
+    // Virtual interface of Dataset_UI (see docs in derived class)
+    size_t datasetUI_size() const override { return datasetSize(); }
+    size_t datasetUI_lastQueriedTimestep() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return last_used_tim_index_;
+    }
+    double datasetUI_playback_speed() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return time_warp_scale_;
+    }
+    void datasetUI_playback_speed(double speed) override
+    {
+        auto lck         = mrpt::lockHelper(dataset_ui_mtx_);
+        time_warp_scale_ = speed;
+    }
+    bool datasetUI_paused() const override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        return paused_;
+    }
+    void datasetUI_paused(bool paused) override
+    {
+        auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+        paused_  = paused;
+    }
+    void datasetUI_teleport(size_t timestep) override
+    {
+        auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
+        teleport_here_ = timestep;
+    }
+
    private:
     bool        initialized_ = false;
     std::string base_dir_;  //!< base dir for "00/*".
@@ -96,10 +132,9 @@ class ParisLucoDataset : public RawDataSourceBase, public OfflineDatasetSource
 
     const double lidarPeriod_ = 1.0 / 10.0;  // [s]
 
-    mrpt::Clock::time_point replay_begin_time_{};
-    timestep_t              replay_next_tim_index_{0};
-    bool                    replay_started_{false};
-    double                  time_warp_scale_{1.0};
+    timestep_t                             replay_next_tim_index_{0};
+    std::optional<mrpt::Clock::time_point> last_play_wallclock_time_;
+    double                                 last_dataset_time_ = 0;
 
     std::vector<std::string>  lstLidarFiles_;
     mrpt::math::CMatrixDouble groundTruthTranslations_;
@@ -114,6 +149,12 @@ class ParisLucoDataset : public RawDataSourceBase, public OfflineDatasetSource
     void load_lidar(timestep_t step) const;
     void readAheadSome();
     void autoUnloadOldEntries() const;
+
+    mutable timestep_t    last_used_tim_index_ = 0;
+    bool                  paused_              = false;
+    double                time_warp_scale_     = 1.0;
+    std::optional<size_t> teleport_here_;
+    mutable std::mutex    dataset_ui_mtx_;
 };
 
 }  // namespace mola
