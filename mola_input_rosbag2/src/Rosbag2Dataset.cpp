@@ -366,12 +366,25 @@ void Rosbag2Dataset::spinOnce()
     // override by an special teleport order?
     if (teleport_here.has_value() && *teleport_here < bagMessageCount_)
     {
-        rosbag_next_idx_       = *teleport_here;
-        rosbag_next_idx_write_ = *teleport_here;
-        doReadAhead(rosbag_next_idx_, true /* skip read ahead buffer */);
+        if (*teleport_here > rosbag_next_idx_write_)
+        {
+            MRPT_LOG_INFO_STREAM(
+                "Request to fast-forward ('teleport') to timestep: "
+                << *teleport_here);
 
-        // this will force a reset with the first valid timestamp.
-        last_dataset_time_ = 0;
+            rosbag_next_idx_ = *teleport_here;
+            doReadAhead(rosbag_next_idx_, true /* skip read ahead buffer */);
+
+            // this will force a reset with the first valid timestamp.
+            last_dataset_time_ = 0;
+        }
+        else
+        {
+            MRPT_LOG_WARN_STREAM(
+                "IGNORING order to go backwards in time to index="
+                << *teleport_here
+                << " due to limitation of serialized rosbag2 reader.");
+        }
     }
     else
     {
@@ -404,10 +417,6 @@ void Rosbag2Dataset::spinOnce()
     {
         if (rosbag_next_idx_ >= rosbag_next_idx_write_)
         {
-            MRPT_LOG_INFO_STREAM(
-                "rosbag_next_idx_: " << rosbag_next_idx_
-                                     << " >= " << rosbag_next_idx_write_);
-
             doReadAhead(rosbag_next_idx_);
         }
 
@@ -466,8 +475,6 @@ void Rosbag2Dataset::spinOnce()
         // Free memory in read-ahead buffer:
         read_ahead_.at(rosbag_next_idx_).reset();
 
-        MRPT_LOG_INFO_STREAM("Freeing: " << rosbag_next_idx_);
-
         // Move on:
         rosbag_next_idx_++;
     }
@@ -490,31 +497,39 @@ void Rosbag2Dataset::doReadAhead(
 
     // ensure we have observation data at the desired read point, plus a few
     // more:
-    const auto startIdx = rosbag_next_idx_;
+    const auto startIdx = rosbag_next_idx_write_;
 
     ASSERT_GT_(read_ahead_length_, 0);
 
     // End of read segment:
-    size_t endIdx = startIdx + read_ahead_length_;
-    if (requestedIndex && !skipBufferAhead)
-        mrpt::keep_max(endIdx, *requestedIndex + read_ahead_length_);
+    size_t endIdx;
+    if (requestedIndex)
+    {
+        if (skipBufferAhead)
+            endIdx = *requestedIndex;
+        else
+            endIdx = *requestedIndex + read_ahead_length_;
+    }
+    else
+    {
+        endIdx = rosbag_next_idx_ + read_ahead_length_;
+    }
 
     mrpt::saturate<size_t>(endIdx, 0, read_ahead_.size() - 1);
 
-    for (size_t idx = rosbag_next_idx_; idx <= endIdx; idx++)
+    for (size_t idx = startIdx; idx <= endIdx; idx++)
     {
         if (read_ahead_.at(idx).has_value()) continue;  // already read:
-
-        MRPT_LOG_WARN_STREAM(
-            "requestedIndex: " << *requestedIndex << " idx: " << idx
-                               << " skipBufferAhead:" << skipBufferAhead);
 
         // serialized data
         ASSERT_EQUAL_(rosbag_next_idx_write_, idx);
         rosbag_next_idx_write_++;
 
-        auto    serialized_message = reader_->read_next();
-        SF::Ptr sf                 = to_mrpt(*serialized_message);
+        auto serialized_message = reader_->read_next();
+
+        if (skipBufferAhead && idx != endIdx) continue;
+
+        SF::Ptr sf = to_mrpt(*serialized_message);
         ASSERT_(sf);
 
         DatasetEntry& de = read_ahead_.at(idx).emplace();
