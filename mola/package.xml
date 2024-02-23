@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mola</name>
+  <version>0.2.2</version>
+  <description>Metapackage with all core open-sourced MOLA packages.</description>
+  <maintainer email="jlblanco@ual.es">Jose-Luis Blanco-Claraco</maintainer>
+  <author>Jose-Luis Blanco-Claraco</author>
+  <license file="LICENSE">BSD</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>kitti_metrics_eval</depend>
+  <depend>mola_demos</depend>
+  <depend>mola_imu_preintegration</depend>
+  <depend>mola_input_euroc_dataset</depend>
+  <depend>mola_input_kitti_dataset</depend>
+  <depend>mola_input_mulran_dataset</depend>
+  <depend>mola_input_paris_luco_dataset</depend>
+  <depend>mola_input_rawlog</depend>
+  <depend>mola_input_ros2</depend>
+  <depend>mola_input_rosbag2</depend>
+  <depend>mola_kernel</depend>
+  <depend>mola_launcher</depend>
+  <depend>mola_metric_maps</depend>
+  <depend>mola_navstate_fuse</depend>
+  <depend>mola_traj_tools</depend>
+  <depend>mola_viz</depend>
+  <depend>mola_yaml</depend>
+
+  <depend>ament_lint_common</depend>
+  <depend>ament_lint_auto</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
