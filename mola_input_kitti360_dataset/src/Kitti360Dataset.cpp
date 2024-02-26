@@ -20,9 +20,11 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/core/round.h>
 #include <mrpt/io/CTextFileLinesParser.h>
 #include <mrpt/io/vector_loadsave.h>
 #include <mrpt/maps/CPointsMapXYZI.h>
+#include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
@@ -207,15 +209,23 @@ void Kitti360Dataset::initialize(const Yaml& c)
 
     // clear if does not exist:
     if (!mrpt::system::directoryExists(lidar_dir)) lidar_dir.clear();
+
     for (auto& imDir : images_dirs)
         if (!mrpt::system::directoryExists(imDir)) imDir.clear();
-    if (!mrpt::system::fileExists(gt_file)) gt_file.clear();
+
+    if (!mrpt::system::fileExists(gt_file))
+    {
+        MRPT_LOG_WARN_STREAM(
+            "Ground truth poses: not found. Expected file: " << gt_file);
+        gt_file.clear();
+    }
 
     // Optional params with default values:
     YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
     paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
     YAML_LOAD_MEMBER_OPT(publish_lidar, bool);
+    YAML_LOAD_MEMBER_OPT(generate_lidar_timestamps, bool);
     YAML_LOAD_MEMBER_OPT(publish_ground_truth, bool);
 
     for (unsigned int i = 0; i < 4; i++)
@@ -267,11 +277,11 @@ void Kitti360Dataset::initialize(const Yaml& c)
     }
 
     // Load sensors calibration:
-    const std::string filCalibCamToPose = lidar_dir = mrpt::system::pathJoin(
+    const std::string filCalibCamToPose = mrpt::system::pathJoin(
         {base_dir_, "calibration", "calib_cam_to_pose.txt"});
-    const std::string filCalibCamToVelo = lidar_dir = mrpt::system::pathJoin(
+    const std::string filCalibCamToVelo = mrpt::system::pathJoin(
         {base_dir_, "calibration", "calib_cam_to_velo.txt"});
-    const std::string filCalibCameras00_01 = lidar_dir =
+    const std::string filCalibCameras00_01 =
         mrpt::system::pathJoin({base_dir_, "calibration", "perspective.txt"});
 
     ASSERT_FILE_EXISTS_(filCalibCamToPose);
@@ -359,51 +369,41 @@ void Kitti360Dataset::initialize(const Yaml& c)
     }
 
     // Load ground truth poses, if available:
-#if 0
-    const auto gtFile = base_dir_ + "/poses/"s + sequence_ + ".txt"s;
-    if (mrpt::system::fileExists(gtFile))
+    if (!gt_file.empty())
     {
-        groundTruthPoses_.loadFromTextFile(gtFile);
+        mrpt::math::CMatrixDouble M;
+        M.loadFromTextFile(gt_file);
 
-        ASSERT_EQUAL_(groundTruthPoses_.cols(), 12U);
-        ASSERT_EQUAL_(
-            static_cast<size_t>(groundTruthPoses_.rows()),
-            lstLidarTimestamps_.size());
+        ASSERT_EQUAL_(M.cols(), 12U + 1U);
+
+        // 1st column: index
+        // rest: 3x4 matrix
 
         // Convert into the format expected by MOLA generic interface:
         mrpt::math::CMatrixDouble44 m = mrpt::math::CMatrixDouble44::Identity();
-        const auto cam0PoseInv        = -mrpt::poses::CPose3D(cam_poses_.at(0));
+        // T_veh_gps
 
-        using namespace mrpt::literals;  // _deg
-        const auto axisChange = mrpt::poses::CPose3D::FromYawPitchRoll(
-            -90.0_deg, 0.0_deg, -90.0_deg);
-
-        for (size_t i = 0; i < lstLidarTimestamps_.size(); i++)
+        for (int i = 0; i < M.rows(); i++)
         {
-            for (int row = 0, ij_idx = 0; row < 3; row++)
-                for (int col = 0; col < 4; col++, ij_idx++)
-                    m(row, col) = groundTruthPoses_(i, ij_idx);
+            const size_t idx = mrpt::round(M(i, 0));
 
-            // ground truth is for cam0:
-            const auto gtCam0Pose =
-                mrpt::poses::CPose3D::FromHomogeneousMatrix(m);
+            for (int row = 0, ij_idx = 1 + 0; row < 3; row++)
+                for (int col = 0; col < 4; col++, ij_idx++)
+                    m(row, col) = M(i, ij_idx);
+
+            // ground truth is for GPS/IMU:
+            const auto gtIMU = mrpt::poses::CPose3D::FromHomogeneousMatrix(m);
 
             // Convert it to the vehicle frame, for consistency with all MOLA
             // datasets:
-            const auto gtPose = axisChange + gtCam0Pose + cam0PoseInv;
+            const auto gtPose = gtIMU + T_veh_gps;
 
             groundTruthTrajectory_.insert(
-                mrpt::Clock::fromDouble(lstLidarTimestamps_.at(i)), gtPose);
+                mrpt::Clock::fromDouble(lstLidarTimestamps_.at(idx)), gtPose);
         }
 
         MRPT_LOG_INFO("Ground truth poses: Found");
     }
-    else
-    {
-        MRPT_LOG_WARN_STREAM(
-            "Ground truth poses: not found. Expected file: " << gtFile);
-    }
-#endif
 
     initialized_ = true;
 
@@ -619,10 +619,67 @@ void Kitti360Dataset::load_lidar(timestep_t step) const
         obs->pointcloud,
         mrpt::format("Error loading kitti scan file: '%s'", f.c_str()));
 
+    // Correct wrong intrinsic calibration in the original kitti datasets:
+    // Refer to these works & implementations (on which this solution is based
+    // on):
+    // - IMLS-SLAM
+    // - CT-ICP
+    // - KISS-ICP
+    //
+    // See:
+    // "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
+    //
+
+    // We need to "elevate" each point by this angle: VERTICAL_ANGLE_OFFSET
+    if (VERTICAL_ANGLE_OFFSET != 0)
+    {
+        // Due to the ring-like, rotating nature of 3D LIDARs, we cannot do this
+        // in any more efficient way than go through the points one by one:
+        auto& xs = obs->pointcloud->getPointsBufferRef_x();
+        auto& ys = obs->pointcloud->getPointsBufferRef_y();
+        auto& zs = obs->pointcloud->getPointsBufferRef_z();
+
+        const Eigen::Vector3d uz(0., 0., 1.);
+        for (size_t i = 0; i < xs.size(); i++)
+        {
+            const Eigen::Vector3d pt(xs[i], ys[i], zs[i]);
+            const Eigen::Vector3d rotationVector = pt.cross(uz);
+
+            const auto aa = Eigen::AngleAxisd(
+                VERTICAL_ANGLE_OFFSET, rotationVector.normalized());
+            const Eigen::Vector3d newPt = aa * pt;
+
+            obs->pointcloud->setPoint(i, {newPt.x(), newPt.y(), newPt.z()});
+        }
+    }
+
+    // estimate timestamps based on azimuth?
+    if (generate_lidar_timestamps_)
+    {
+        const auto& xs = obs->pointcloud->getPointsBufferRef_x();
+        const auto& ys = obs->pointcloud->getPointsBufferRef_y();
+
+        auto newPts = mrpt::maps::CPointsMapXYZIRT::Create();
+        newPts->reserve_XYZIRT(xs.size(), true /*I*/, false /*R*/, true /*T*/);
+
+        auto* trgTs = newPts->getPointsBufferRef_timestamp();
+        ASSERT_(trgTs);
+
+        for (size_t i = 0; i < xs.size(); i++)
+        {
+            newPts->insertPointFrom(*obs->pointcloud, i);
+
+            const auto  azimuth = std::atan2(ys[i], xs[i]);
+            const float ptTime  = -0.05f * (azimuth + M_PIf) / (2.0f * M_PIf);
+            (*trgTs).push_back(ptTime);
+        }
+
+        obs->pointcloud = newPts;
+    }
+
     // Pose: velodyne is at the origin of the vehicle coordinates in
     // Kitti datasets.
-    obs->sensorPose = mrpt::poses::CPose3D();
-    obs->timestamp  = mrpt::Clock::fromDouble(lstLidarTimestamps_.at(step));
+    obs->timestamp = mrpt::Clock::fromDouble(lstLidarTimestamps_.at(step));
 
 #if 0  // Export clouds to txt for debugging externally (e.g. python, matlab)
     obs->pointcloud->save3D_to_text_file(

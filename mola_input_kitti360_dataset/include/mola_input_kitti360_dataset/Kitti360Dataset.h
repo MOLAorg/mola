@@ -34,9 +34,11 @@ namespace mola
  *
  * Each "sequence" directory contains these sensor streams:
  * - `image_0` & `image_1`: Perspective cameras
- * - `image_2` & `image_3`: Fish-eye cameras
+ * - `image_2` & `image_3`: Fish-eye cameras (TO-DO)
  * - `lidar`: Velodyne 3D LIDAR. Published as mrpt::obs::CObservationPointCloud
- *    with X,Y,Z,I channels.
+ *    with X,Y,Z,I,T channels. The timestamp (T) channel is estimated from
+ *    azimuth of points (if `generate_lidar_timestamps` param is `true`), with
+ *    generated timestamps between [-0.05,+0.05] seconds.
  * - Ground truth poses
  *
  * The sequence to load is determined by the `sequence` parameter (e.g. via
@@ -191,12 +193,18 @@ class Kitti360Dataset : public RawDataSourceBase,
         teleport_here_ = timestep;
     }
 
+    /** See:
+     *  "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
+     */
+    double VERTICAL_ANGLE_OFFSET = mrpt::DEG2RAD(0.205);
+
    private:
     bool                initialized_ = false;
     std::string         base_dir_;  //!< base dir for "sequences/*".
     std::string         sequence_;  //!< "00", "01", ...
     timestep_t          replay_next_tim_index_{0};
     bool                publish_lidar_{true};
+    bool                generate_lidar_timestamps_{true};
     bool                publish_ground_truth_{true};
     std::array<bool, 4> publish_image_{{true, true, true, true}};
     std::array<mrpt::img::TCamera, 4>   cam_intrinsics_;
@@ -212,8 +220,7 @@ class Kitti360Dataset : public RawDataSourceBase,
     std::vector<std::string> lst_velodyne_;
     std::string              lst_velodyne_basedir_;
 
-    mrpt::math::CMatrixDouble groundTruthPoses_;
-    trajectory_t              groundTruthTrajectory_;
+    trajectory_t groundTruthTrajectory_;
     mutable std::map<timestep_t, mrpt::obs::CObservation::Ptr>
         read_ahead_lidar_obs_;
     mutable std::map<timestep_t, std::array<mrpt::obs::CObservation::Ptr, 4>>
