@@ -90,7 +90,8 @@ void gui_handler_show_common_sensor_info(
 
     constexpr unsigned int TXT_ID_TIMESTAMP   = 0;
     constexpr unsigned int TXT_ID_RATE        = 1;
-    constexpr unsigned int TXT_ID_ADDITIONALS = 2;
+    constexpr unsigned int TXT_ID_SENSOR_POSE = 2;
+    constexpr unsigned int TXT_ID_ADDITIONALS = 3;
 
     mrpt::opengl::TFontParams fp;
     fp.color        = {1.0f, 1.0f, 1.0f};
@@ -108,6 +109,14 @@ void gui_handler_show_common_sensor_info(
         mrpt::format(
             "Timestamp: %s",
             mrpt::system::dateTimeToString(obs.timestamp).c_str()),
+        TXT_ID_TIMESTAMP, fp);
+
+    mrpt::poses::CPose3D sensorPose;
+    obs.getSensorPose(sensorPose);
+
+    glView->addTextMessage(
+        2, line_y(TXT_ID_SENSOR_POSE),
+        mrpt::format("Sensor pose: %s", sensorPose.asString().c_str()),
         TXT_ID_TIMESTAMP, fp);
 
     // Estimate the sensor rate: one mean rate value stored per subwindow
@@ -243,6 +252,7 @@ void gui_handler_point_cloud(
 
     mrpt::gui::MRPT2NanoguiGLCanvas*            glControl;
     mrpt::opengl::CPointCloudColoured::Ptr      glPc;
+    mrpt::opengl::CSetOfObjects::Ptr            glCornerRef, glCornerSensor;
     std::optional<mrpt::LockHelper<std::mutex>> lck;
     bool                                        recolorizeAtEnd = true;
 
@@ -258,6 +268,11 @@ void gui_handler_point_cloud(
         glPc = mrpt::opengl::CPointCloudColoured::Create();
         glControl->scene->insert(glPc);
 
+        glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
+        glCornerSensor = mrpt::opengl::stock_objects::CornerXYZ(0.5f);
+        glControl->scene->insert(glCornerRef);
+        glControl->scene->insert(glCornerSensor);
+
         glPc->setPointSize(3.0);
         instance->markWindowForReLayout(parentWin);
     }
@@ -270,10 +285,25 @@ void gui_handler_point_cloud(
 
         glPc =
             glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
+
+        glCornerRef =
+            glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(0);
+        glCornerSensor =
+            glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(1);
     }
     ASSERT_(glControl != nullptr);
     ASSERT_(glPc);
+    ASSERT_(glCornerRef);
+    ASSERT_(glCornerSensor);
+
     glPc->setPose(mrpt::poses::CPose3D::Identity());
+
+    if (auto obs = std::dynamic_pointer_cast<CObservation>(o); obs)
+    {
+        mrpt::poses::CPose3D p;
+        obs->getSensorPose(p);
+        glCornerSensor->setPose(p);
+    }
 
     if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
         objPc)
