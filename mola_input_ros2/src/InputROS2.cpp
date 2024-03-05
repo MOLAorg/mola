@@ -299,7 +299,7 @@ bool InputROS2::waitForTransform(
     {
         geometry_msgs::msg::TransformStamped ref_to_trgFrame =
             tf_buffer_->lookupTransform(
-                target_frame, source_frame, time,
+                source_frame, target_frame, time,
                 tf2::durationFromSec(timeout.seconds()));
 
         tf2::Transform tf;

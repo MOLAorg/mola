@@ -587,13 +587,13 @@ bool Rosbag2Dataset::findOutSensorPose(
     {
         geometry_msgs::msg::TransformStamped ref_to_trgFrame =
             tfBuffer_->lookupTransform(
-                target_frame, source_frame, {} /*latest value*/);
+                source_frame, target_frame, {} /*latest value*/);
 
         tf2::Transform tf;
         tf2::fromMsg(ref_to_trgFrame.transform, tf);
         des = mrpt::ros2bridge::fromROS(tf);
 
-        MRPT_LOG_INFO_FMT(
+        MRPT_LOG_DEBUG_FMT(
             "[findOutSensorPose] Found pose %s -> %s: %s", source_frame.c_str(),
             target_frame.c_str(), des.asString().c_str());
 
