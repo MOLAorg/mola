@@ -71,8 +71,7 @@ class WorldModel : public ExecutableBase
     WorldModel();
 
     // Virtual interface of any ExecutableBase. See base docs:
-    void initialize_common(const Yaml&) override {}
-    void initialize(const Yaml& cfg) override;
+    void initialize(const Yaml&) override final;
     void spinOnce() override;
 
     /** The WorldModel is launched first, before most other modules. */

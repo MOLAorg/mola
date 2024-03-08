@@ -74,7 +74,7 @@ Rosbag2Dataset::Rosbag2Dataset()
     tfBuffer_ = std::make_shared<tf2::BufferCore>();
 }
 
-void Rosbag2Dataset::initialize(const Yaml& c)
+void Rosbag2Dataset::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

@@ -23,7 +23,7 @@ IMPLEMENTS_VIRTUAL_MRPT_OBJECT(FrontEndBase, ExecutableBase, mola)
 
 FrontEndBase::FrontEndBase() = default;
 
-void FrontEndBase::initialize_common(const Yaml& cfg)
+void FrontEndBase::initialize(const Yaml& cfg)
 {
     MRPT_TRY_START
 
@@ -119,6 +119,9 @@ void FrontEndBase::initialize_common(const Yaml& cfg)
             MRPT_LOG_INFO("Attached to a VizInterface module");
         }
     }
+
+    // children params:
+    this->initialize_frontend(cfg);
 
     MRPT_TRY_END
 }

@@ -58,7 +58,6 @@ class EurocDataset : public RawDataSourceBase, public Dataset_UI
     ~EurocDataset() override = default;
 
     // See docs in base class
-    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
     // Virtual interface of Dataset_UI (see docs in derived class)
@@ -93,6 +92,10 @@ class EurocDataset : public RawDataSourceBase, public Dataset_UI
         auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
         teleport_here_ = timestep;
     }
+
+   protected:
+    // See docs in base class
+    void initialize_rds(const Yaml& cfg) override;
 
    private:
     std::string base_dir_;  //!< base dir for `xxx/xx/mav0/...`

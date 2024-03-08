@@ -436,7 +436,6 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
             lock = std::make_unique<std::unique_lock<std::mutex>>(
                 thread_launch_init_mtx_);
 
-        rds.impl->initialize_common(rds.yaml_cfg_block);
         rds.impl->initialize(rds.yaml_cfg_block);
 
         // Notify that we are done with initialization:

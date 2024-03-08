@@ -168,7 +168,7 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
     }
 }
 
-void InputROS2::initialize(const Yaml& c)
+void InputROS2::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

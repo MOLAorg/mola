@@ -78,7 +78,7 @@ static void parse_calib_line(
     MRPT_TRY_END
 }
 
-void KittiOdometryDataset::initialize(const Yaml& c)
+void KittiOdometryDataset::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

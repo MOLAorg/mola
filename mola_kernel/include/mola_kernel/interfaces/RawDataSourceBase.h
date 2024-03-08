@@ -42,8 +42,7 @@ class RawDataSourceBase : public mola::ExecutableBase
      * reference to the object. */
     void attachToDataConsumer(RawDataConsumer& rdc);
 
-    /** Loads common parameters for all RDS. Called by launcher just before
-     * initialize().
+    /** Loads common parameters for all RDS.
      * This handles:
      * - `gui_preview_sensors`: Enable displaying sensor data in a subwindow.
      * - `export_to_rawlog`: If defined, save observations to the given rawlog
@@ -53,8 +52,13 @@ class RawDataSourceBase : public mola::ExecutableBase
      * - `quit_mola_app_on_dataset_end`: (Default=false) Quits the MOLA app when
      * end of dataset is reached.
      */
-    void initialize_common(const Yaml& cfg) override;
+    void initialize(const Yaml& cfg) override final;
 
+   protected:
+    /** Loads children specific parameters */
+    virtual void initialize_rds(const Yaml& cfg) = 0;
+
+   public:
    protected:
     /** Send an observation to the associated target front-ends */
     void sendObservationsToFrontEnds(const CObservation::Ptr& obs);

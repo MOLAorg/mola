@@ -50,12 +50,15 @@ class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
 
     /** @name Virtual interface of any ExecutableBase
      *{ */
-    virtual void initialize_common(const Yaml& cfg) = 0;
-    virtual void initialize(const Yaml& cfg);
+
+    /** This must be implemented to read all the required parameters */
+    virtual void initialize(const Yaml& cfg) = 0;
+
+    /** Runs any required action on a timely manner */
     virtual void spinOnce() = 0;
 
     /** Modules will be initialized in the order determined by:
-     * - First: the "oder priority", which is the number returned here.
+     * - First: the "order priority", which is the number returned here.
      * - Second: modules with the same "priority", will be sorted by ascending
      * lexicographical order or their "instance names".
      */

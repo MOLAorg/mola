@@ -53,7 +53,6 @@ class KittiOdometryDataset : public RawDataSourceBase,
     ~KittiOdometryDataset() override = default;
 
     // See docs in base class
-    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
     bool hasGroundTruthTrajectory() const override
     {
@@ -118,6 +117,10 @@ class KittiOdometryDataset : public RawDataSourceBase,
      *  "IMLS-SLAM: scan-to-model matching based on 3D data", JE Deschaud, 2018.
      */
     double VERTICAL_ANGLE_OFFSET = mrpt::DEG2RAD(0.205);
+
+   protected:
+    // See docs in base class
+    void initialize_rds(const Yaml& cfg) override;
 
    private:
     bool                initialized_ = false;

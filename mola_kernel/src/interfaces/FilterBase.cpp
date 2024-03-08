@@ -22,7 +22,7 @@ IMPLEMENTS_VIRTUAL_MRPT_OBJECT(FilterBase, ExecutableBase, mola)
 FilterBase::FilterBase() = default;
 
 // Virtual interface of any RawDataSource
-void FilterBase::initialize(const Yaml& cfg)
+void FilterBase::initialize_rds(const Yaml& cfg)
 {
     if (!cfg.empty())
     {

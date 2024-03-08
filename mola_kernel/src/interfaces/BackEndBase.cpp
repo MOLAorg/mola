@@ -24,7 +24,7 @@ IMPLEMENTS_VIRTUAL_MRPT_OBJECT(BackEndBase, ExecutableBase, mola)
 
 BackEndBase::BackEndBase() = default;
 
-void BackEndBase::initialize_common([[maybe_unused]] const Yaml& cfg)
+void BackEndBase::initialize(const Yaml& cfg)
 {
     MRPT_TRY_START
 
@@ -39,6 +39,9 @@ void BackEndBase::initialize_common([[maybe_unused]] const Yaml& cfg)
     MRPT_LOG_INFO_FMT(
         "Attached to WorldModel module `%s`",
         worldmodel_->getModuleInstanceName().c_str());
+
+    // children config:
+    this->initialize_backend(cfg);
 
     MRPT_TRY_END
 }

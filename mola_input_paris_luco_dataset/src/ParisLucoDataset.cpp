@@ -60,7 +60,7 @@ static void build_list_files(
         [](auto& fil) { return fil.name; });
 }
 
-void ParisLucoDataset::initialize(const Yaml& c)
+void ParisLucoDataset::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

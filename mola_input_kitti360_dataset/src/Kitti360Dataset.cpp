@@ -125,7 +125,7 @@ std::vector<double> parseKitti360Timestamps(const std::string& fil)
 
 }  // namespace
 
-void Kitti360Dataset::initialize(const Yaml& c)
+void Kitti360Dataset::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

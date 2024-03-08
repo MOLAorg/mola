@@ -49,7 +49,6 @@ class MolaViz : public ExecutableBase, public VizInterface
     ~MolaViz() override;
 
     // See docs in base class
-    void initialize_common(const Yaml&) override {}
     void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 

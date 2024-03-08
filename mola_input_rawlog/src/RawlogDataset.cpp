@@ -36,7 +36,7 @@ MRPT_INITIALIZER(do_register_RawlogDataset)
 
 RawlogDataset::RawlogDataset() = default;
 
-void RawlogDataset::initialize(const Yaml& c)
+void RawlogDataset::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

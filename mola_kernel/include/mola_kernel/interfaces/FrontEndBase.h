@@ -39,8 +39,7 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
     FrontEndBase();
     virtual ~FrontEndBase() = default;
 
-    /** Loads common parameters for all front-ends. Called by launcher just
-     * before initialize().
+    /** Loads common parameters for all front-ends.
      *
      * These parameters are handled here:
      * - `raw_data_source`: A list of one (e.g. `raw_data_source: 'moduleName'`)
@@ -56,8 +55,13 @@ class FrontEndBase : public ExecutableBase, RawDataConsumer
      * multiple sensors.
      *
      */
-    void initialize_common(const Yaml& cfg) override;
+    void initialize(const Yaml& cfg) override final;
 
+   protected:
+    /** Loads children specific parameters */
+    virtual void initialize_frontend(const Yaml& cfg) = 0;
+
+   public:
    protected:
     /** A list of one or multiple MOLA **module names** to which to subscribe
      * for input raw observations.

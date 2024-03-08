@@ -88,7 +88,6 @@ class MulranDataset : public RawDataSourceBase,
     static constexpr double HDOP_REFERENCE_METERS = 4.5;
 
     // See docs in base class
-    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
     bool hasGroundTruthTrajectory() const override
     {
@@ -147,6 +146,10 @@ class MulranDataset : public RawDataSourceBase,
         auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
         teleport_here_ = timestep;
     }
+
+   protected:
+    // See docs in base class
+    void initialize_rds(const Yaml& cfg) override;
 
    private:
     bool        initialized_ = false;

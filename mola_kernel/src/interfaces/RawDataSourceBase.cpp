@@ -50,7 +50,7 @@ RawDataSourceBase::~RawDataSourceBase()
     gui_updater_threadpool_.clear();
 }
 
-void RawDataSourceBase::initialize_common(const Yaml& cfg)
+void RawDataSourceBase::initialize(const Yaml& cfg)
 {
     MRPT_TRY_START
 
@@ -94,6 +94,9 @@ void RawDataSourceBase::initialize_common(const Yaml& cfg)
     // Optional force load lazy-load observations:
     YAML_LOAD_MEMBER_OPT(force_load_lazy_load, bool);
     YAML_LOAD_MEMBER_OPT(quit_mola_app_on_dataset_end, bool);
+
+    // children params:
+    this->initialize_rds(cfg);
 
     MRPT_TRY_END
 }

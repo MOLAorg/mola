@@ -38,10 +38,14 @@ class BackEndBase : public ExecutableBase
     BackEndBase();
     virtual ~BackEndBase() = default;
 
-    /** Loads common parameters for all back-ends. Called by launcher just
-     * before initialize(). */
-    void initialize_common(const Yaml& cfg);
+    /** Loads common parameters for all back-ends. */
+    void initialize(const Yaml& cfg) override final;
 
+   protected:
+    /** Loads children specific parameters */
+    virtual void initialize_backend(const Yaml& cfg) = 0;
+
+   public:
     /** @name User interface for a SLAM back-end
      *{ */
 

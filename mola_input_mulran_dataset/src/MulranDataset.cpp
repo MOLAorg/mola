@@ -66,7 +66,7 @@ void build_list_files(
 
 }  // namespace
 
-void MulranDataset::initialize(const Yaml& c)
+void MulranDataset::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

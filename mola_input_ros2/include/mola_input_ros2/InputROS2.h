@@ -22,7 +22,8 @@
 
 namespace mola
 {
-/**
+/** A bridge to read sensor observations from ROS 2 topics and forwarding them
+ * to other MOLA subsystems.
  *
  * The MOLA nodelet execution rate (Hz) determines the rate of publishing
  * odometry observations, if enabled.
@@ -39,8 +40,11 @@ class InputROS2 : public RawDataSourceBase
     ~InputROS2() override = default;
 
     // See docs in base class
-    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
+
+   protected:
+    // See docs in base class
+    void initialize_rds(const Yaml& cfg) override;
 
    private:
     std::thread rosNodeThread_;

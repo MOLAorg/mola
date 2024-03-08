@@ -38,12 +38,14 @@ class FilterBase : public RawDataSourceBase, RawDataConsumer
     virtual CObservation::Ptr doFilter(const CObservation::Ptr& o) = 0;
     /** @} */
 
-    // Virtual interface of any RawDataSource
-    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
     // Virtual interface of any RawDataConsumer
     void onNewObservation(const CObservation::Ptr& o) override;
+
+   protected:
+    // Virtual interface of any RawDataSource
+    void initialize_rds(const Yaml& cfg) override;
 
    private:
     mrpt::WorkerThreadsPool thread_pool_;

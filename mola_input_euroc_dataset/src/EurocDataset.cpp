@@ -42,7 +42,7 @@ MRPT_INITIALIZER(do_register_EurocDataset)
 
 EurocDataset::EurocDataset() = default;
 
-void EurocDataset::initialize(const Yaml& c)
+void EurocDataset::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 

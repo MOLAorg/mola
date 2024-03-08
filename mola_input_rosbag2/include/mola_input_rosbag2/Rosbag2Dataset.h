@@ -62,7 +62,6 @@ class Rosbag2Dataset : public RawDataSourceBase,
     ~Rosbag2Dataset() override = default;
 
     // See docs in base class
-    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
     // See docs in base class:
@@ -103,6 +102,10 @@ class Rosbag2Dataset : public RawDataSourceBase,
         auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
         teleport_here_ = timestep;
     }
+
+   protected:
+    // See docs in base class
+    void initialize_rds(const Yaml& cfg) override;
 
    private:
     bool        initialized_ = false;
