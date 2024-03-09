@@ -68,7 +68,8 @@ void FrontEndBase::initialize(const Yaml& cfg)
     }
     else
     {
-        MRPT_LOG_WARN_STREAM(
+        // This may be OK if we are running outside of the context of mola-cli
+        MRPT_LOG_DEBUG_STREAM(
             "No 'raw_data_source' entry found in the YAML definition for a "
             "FrontEndBase: YAML contents:\n"
             << cfg << "\n");
