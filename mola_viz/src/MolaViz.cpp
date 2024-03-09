@@ -435,7 +435,7 @@ void gui_handler_gps(
     auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationGPS>(o);
     if (!obj) return;
 
-    std::array<nanogui::Label*, 5> labels;
+    std::array<nanogui::Label*, 6> labels;
     labels.fill(nullptr);
     if (w->children().size() == 1)
     {
@@ -474,6 +474,16 @@ void gui_handler_gps(
             static_cast<unsigned int>(gga->fields.UTCTime.hour),
             static_cast<unsigned int>(gga->fields.UTCTime.minute),
             gga->fields.UTCTime.sec));
+    }
+    if (obj->covariance_enu.has_value())
+    {
+        const auto&  cov   = obj->covariance_enu.value();
+        const double std_x = std::sqrt(cov(0, 0));
+        const double std_y = std::sqrt(cov(1, 1));
+        const double std_z = std::sqrt(cov(2, 2));
+
+        labels[5]->setCaption(mrpt::format(
+            "sigmas [m]: x=%.02f  y=%.02f  z=%.02f", std_x, std_y, std_z));
     }
 }
 

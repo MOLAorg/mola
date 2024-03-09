@@ -598,6 +598,12 @@ mrpt::obs::CObservationGPS::Ptr MulranDataset::get_gps_by_row_index(
 
     obs->messages[mrpt::obs::gnss::NMEA_GGA] = msg;
 
+    // full 3x3 cov:
+    auto& cov = obs->covariance_enu.emplace();
+    for (int r = 0, i = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++)  //
+            cov(r, c) = gpsCsvData_(row, 4 + (i++));
+
     return obs;
 }
 
