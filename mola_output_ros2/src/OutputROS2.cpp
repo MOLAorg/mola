@@ -41,6 +41,8 @@
 // ROS 2:
 #include <rclcpp/node.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 using namespace mola;
@@ -159,6 +161,11 @@ void OutputROS2::onNewObservation(const CObservation::Ptr& o)
     {
         return internalOn(*oPc);
     }
+    else if (auto oLS = std::dynamic_pointer_cast<CObservation2DRangeScan>(o);
+             oLS)
+    {
+        return internalOn(*oLS);
+    }
     else
     {
         MRPT_LOG_THROTTLE_WARN_FMT(
@@ -221,6 +228,56 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationImage& obs)
     }
 }
 
+void OutputROS2::internalOn(const mrpt::obs::CObservation2DRangeScan& obs)
+{
+    auto lck = mrpt::lockHelper(rosPubsMtx_);
+
+    // Create the publisher the first time an observation arrives:
+    const bool is_1st_pub = rosPubs_.pub_sensors.find(obs.sensorLabel) ==
+                            rosPubs_.pub_sensors.end();
+    auto& pub = rosPubs_.pub_sensors[obs.sensorLabel];
+
+    if (is_1st_pub)
+    {
+        pub = rosNode()->create_publisher<sensor_msgs::msg::LaserScan>(
+            obs.sensorLabel, params_.publisher_history_len);
+    }
+    lck.unlock();
+
+    rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr pubLS =
+        std::dynamic_pointer_cast<
+            rclcpp::Publisher<sensor_msgs::msg::LaserScan>>(pub);
+    ASSERT_(pubLS);
+
+    const std::string sSensorFrameId = obs.sensorLabel;
+
+    // Send TF:
+    mrpt::poses::CPose3D sensorPose;
+    obs.getSensorPose(sensorPose);
+
+    tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(sensorPose);
+
+    geometry_msgs::msg::TransformStamped tfStmp;
+    tfStmp.transform       = tf2::toMsg(transform);
+    tfStmp.child_frame_id  = sSensorFrameId;
+    tfStmp.header.frame_id = params_.base_link_frame;
+    tfStmp.header.stamp    = myNow(obs.timestamp);
+    tf_bc_->sendTransform(tfStmp);
+
+    // Send observation:
+    {
+        obs.load();
+
+        // Convert observation MRPT -> ROS
+        sensor_msgs::msg::LaserScan msg;
+        mrpt::ros2bridge::toROS(obs, msg);
+
+        msg.header.stamp    = myNow(obs.timestamp);
+        msg.header.frame_id = sSensorFrameId;
+
+        pubLS->publish(msg);
+    }
+}
 void OutputROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
 {
     using namespace std::string_literals;

@@ -18,11 +18,10 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <tf2_ros/transform_broadcaster.h>
 
-#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
-#include <nav_msgs/msg/odometry.hpp>
 #include <optional>
-#include <sensor_msgs/msg/laser_scan.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
+
+// ROS 2 msgs:
+#include <nav_msgs/msg/odometry.hpp>
 
 namespace mola
 {
@@ -99,10 +98,10 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
 
     struct RosPubs
     {
-        /// Publisher of "odom" topic
-        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_odom;
-        /// "base_pose_ground_truth" topic
-        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_ground_truth;
+        /// Map <sensor_label> => publisher
+        std::map<
+            std::string, rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr>
+            pub_poses;
 
         /// Map <sensor_label> => publisher
         std::map<std::string, rclcpp::PublisherBase::SharedPtr> pub_sensors;
@@ -126,6 +125,7 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
     void   doLookForNewMolaSubs();
 
     void internalOn(const mrpt::obs::CObservationImage& obs);
+    void internalOn(const mrpt::obs::CObservation2DRangeScan& obs);
     void internalOn(const mrpt::obs::CObservationPointCloud& obs);
 };
 
