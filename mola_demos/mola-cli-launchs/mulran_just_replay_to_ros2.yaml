@@ -1,37 +1,33 @@
 # -----------------------------------------------------------------------------
 #                        SLAM system definition for MOLA
 #
-# This file just replays (no SLAM) the raw data of a sequence of the KITTI dataset
+# This file just replays (no SLAM) the raw data of a sequence of the Mulran dataset
 # -----------------------------------------------------------------------------
 
 modules:
   # =====================
-  # KittiOdometryDataset
+  # MulranDataset
   # =====================
-  - type: mola::KittiOdometryDataset
+  - type: mola::MulranDataset
     name: dataset_input
     execution_rate: 20 # Hz
-    #export_to_rawlog: kitti_${KITTI_SEQ}.rawlog
+    #export_to_rawlog: mulran_${MULRAN_SEQ}.rawlog
     #verbosity_level: INFO
     gui_preview_sensors:
       - raw_sensor_label: lidar
         decimation: 1
         win_pos: 5 70 400 400
-      - raw_sensor_label: image_0
+      - raw_sensor_label: gps
         decimation: 1
-        win_pos: 5 370 600 200
-      - raw_sensor_label: image_1
-        decimation: 1
-        win_pos: 5 500 600 200
+        win_pos: 5 400 400 400
     params:
-      base_dir: ${KITTI_BASE_DIR}
-      sequence: ${KITTI_SEQ}
+      base_dir: ${MULRAN_BASE_DIR}
+      sequence: ${MULRAN_SEQ}
       time_warp_scale: 1.0
       start_paused: ${MOLA_DATASET_START_PAUSED|false}
       publish_lidar: true
-      publish_image_0: true
-      publish_image_1: true
       publish_ground_truth: true
+      #lidar_to_ground_truth_1to1: false
 
 # MOLA -> ROS 2 bridge  =====================
   - type: mola::OutputROS2
@@ -51,10 +47,9 @@ modules:
       publish_odometry_msgs_from_slam: true
 
 
-  # ========================
+  # =====================
   # MolaViz
-  # (Remove if not needed)
-  # ========================
+  # =====================
   - name: viz
     type: mola::MolaViz
     #verbosity_level: DEBUG

@@ -44,6 +44,19 @@ MRPT_INITIALIZER(do_register_InputROS2) { MOLA_REGISTER_MODULE(InputROS2); }
 
 InputROS2::InputROS2() = default;
 
+InputROS2::~InputROS2()
+{
+    try
+    {
+        rclcpp::shutdown();
+        if (rosNodeThread_.joinable()) rosNodeThread_.join();
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "[~InputROS2] Exception in destructor:\n" << e.what();
+    }
+}
+
 // The ROS node starts with MOLA::initialize() and ends with its dtor
 void InputROS2::ros_node_thread_main(Yaml cfg)
 {

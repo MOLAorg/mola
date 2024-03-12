@@ -74,6 +74,12 @@ static TCLAP::SwitchArg arg_list_module_shared_dirs(
     "can be added with the environment variable MOLA_MODULES_SHARED_PATH.",
     cmd);
 
+static TCLAP::SwitchArg arg_ros_args(
+    "", "ros-args",
+    "Dummy flag, defined just to allow the program invocation from ROS 2 "
+    "launch files.",
+    cmd);
+
 void mola_signal_handler(int s);
 void mola_install_signal_handler();
 

@@ -57,6 +57,19 @@ OutputROS2::OutputROS2()
     mrpt::system::COutputLogger::setLoggerName("OutputROS2");
 }
 
+OutputROS2::~OutputROS2()
+{
+    try
+    {
+        rclcpp::shutdown();
+        if (rosNodeThread_.joinable()) rosNodeThread_.join();
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "[~OutputROS2] Exception in destructor:\n" << e.what();
+    }
+}
+
 // The ROS node starts with MOLA::initialize() and ends with its dtor
 void OutputROS2::ros_node_thread_main([[maybe_unused]] Yaml cfg)
 {

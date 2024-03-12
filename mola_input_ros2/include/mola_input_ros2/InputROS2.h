@@ -37,7 +37,7 @@ class InputROS2 : public RawDataSourceBase
 
    public:
     InputROS2();
-    ~InputROS2() override = default;
+    ~InputROS2() override;
 
     // See docs in base class
     void spinOnce() override;

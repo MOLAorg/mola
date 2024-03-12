@@ -40,7 +40,7 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
 
    public:
     OutputROS2();
-    ~OutputROS2() override = default;
+    ~OutputROS2() override;
 
     // See docs in base class
     void initialize(const Yaml& cfg) override;

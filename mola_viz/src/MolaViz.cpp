@@ -117,7 +117,7 @@ void gui_handler_show_common_sensor_info(
     glView->addTextMessage(
         2, line_y(TXT_ID_SENSOR_POSE),
         mrpt::format("Sensor pose: %s", sensorPose.asString().c_str()),
-        TXT_ID_TIMESTAMP, fp);
+        TXT_ID_SENSOR_POSE, fp);
 
     // Estimate the sensor rate: one mean rate value stored per subwindow
     // (1 subwindow = 1 sensor stream)

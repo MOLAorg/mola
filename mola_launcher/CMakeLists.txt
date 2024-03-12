@@ -10,6 +10,10 @@
 # Minimum CMake vesion: limited by CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS
 cmake_minimum_required(VERSION 3.4)
 
+if("$ENV{ROS_VERSION}" STREQUAL "2")
+	set(DETECTED_ROS2 TRUE)
+endif()
+
 # Tell CMake we'll use C++ for use in its tests/flags
 project(mola_launcher LANGUAGES CXX)
 
@@ -52,3 +56,33 @@ target_compile_definitions(${PROJECT_NAME}
 
 # apps:
 add_subdirectory(apps)
+
+
+# -----------------------------------------------------------------------------
+#  ROS2
+# -----------------------------------------------------------------------------
+if (DETECTED_ROS2)
+
+
+	# Mark executables and/or libraries for installation
+	set(CATKIN_PACKAGE_LIB_DESTINATION lib)
+	set(CATKIN_PACKAGE_BIN_DESTINATION lib/${PROJECT_NAME})
+	set(CATKIN_PACKAGE_INCLUDE_DESTINATION include)
+	set(CATKIN_PACKAGE_SHARE_DESTINATION share/${PROJECT_NAME})
+
+	# Mark executables and/or libraries for installation
+	install(TARGETS mola-cli
+		ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+		LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+		RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+	)
+
+	# find dependencies
+	find_package(ament_cmake REQUIRED)
+
+	#ament_target_dependencies(MY_TARGET
+	#  rclcpp...
+	#)
+
+	ament_package()
+endif()
