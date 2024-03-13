@@ -32,6 +32,32 @@ namespace mola
  *  - Expose the results of a MOLA SLAM/odometry system to the rest of a ROS 2
  *    system.
  *
+ * Every few seconds, this module will peek the MOLA subsystem for modules of
+ * these types, and subscribes to all their outputs:
+ *  - mola::RawDataSourceBase: For all their sensor readings (as
+ *    children classes of mrpt::obs::CObservation). See list of mappings below.
+ *  - mola::LocalizationSourceBase: For SLAM/odometry method outputs.
+ *  - mola::MapSourceBase: For SLAM/odometry metric maps. Point maps are
+ *    published as sensor_msgs/PointCloud2
+ *
+ * The following mappings are currently implemented between MOLA=>ROS2:
+ *  - mrpt::obs::CObservation2DRangeScan  ==> sensor_msgs/LaserScan
+ *  - mrpt::obs::CObservationPointCloud   ==> sensor_msgs/PointCloud2
+ *  - mrpt::obs::CObservationImage        ==> sensor_msgs/Image
+ *  - mrpt::obs::CObservationRobotPose    ==> nav_msgs/Odometry with
+ *    frame_id=the robot (default: `base_link`) and parent frame the global one
+ *    (default:`map`, may make sense to change to `odom` depending on your
+ *    application). It will be also published as a transform to `/tf`.
+ *
+ * For all sensors, the mrpt::obs::CObservation::sensorPose will be also
+ * broadcasted to `/tf` with respect to the vehicle frame (default:
+ * `base_link`).
+ *
+ * See example launch files in `mola_demos` and in `mola_lidar_odometry`.
+ *
+ * Another bridge in the inverse direction ROS2=>MOLA is provided in
+ * the package mola_input_ros2.
+ *
  * \ingroup mola_output_ros2_grp
  */
 class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
@@ -55,7 +81,7 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
     struct Params
     {
         /// tf frame name with respect to sensor poses are measured:
-        std::string base_link_frame = "base_footprint";
+        std::string base_link_frame = "base_link";
 
         /// tf frame name for odometry's frame of reference:
         std::string reference_frame = "map";
@@ -127,6 +153,7 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
     void internalOn(const mrpt::obs::CObservationImage& obs);
     void internalOn(const mrpt::obs::CObservation2DRangeScan& obs);
     void internalOn(const mrpt::obs::CObservationPointCloud& obs);
+    void internalOn(const mrpt::obs::CObservationRobotPose& obs);
 };
 
 }  // namespace mola

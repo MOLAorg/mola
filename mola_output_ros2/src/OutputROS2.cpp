@@ -31,6 +31,7 @@
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservationOdometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/obs/CObservationRobotPose.h>
 #include <mrpt/ros2bridge/image.h>
 #include <mrpt/ros2bridge/laser_scan.h>
 #include <mrpt/ros2bridge/point_cloud2.h>
@@ -39,6 +40,7 @@
 #include <mrpt/system/filesystem.h>
 
 // ROS 2:
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/node.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
@@ -178,6 +180,11 @@ void OutputROS2::onNewObservation(const CObservation::Ptr& o)
              oLS)
     {
         return internalOn(*oLS);
+    }
+    else if (auto oRP = std::dynamic_pointer_cast<CObservationRobotPose>(o);
+             oRP)
+    {
+        return internalOn(*oRP);
     }
     else
     {
@@ -371,6 +378,55 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
         }
 
         pubPoints->publish(msg_pts);
+    }
+}
+
+void OutputROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
+{
+    auto lck = mrpt::lockHelper(rosPubsMtx_);
+
+    ASSERT_(!obs.sensorLabel.empty());
+
+    // Create the publisher the first time an observation arrives:
+    const bool is_1st_pub = rosPubs_.pub_sensors.find(obs.sensorLabel) ==
+                            rosPubs_.pub_sensors.end();
+    auto& pub = rosPubs_.pub_sensors[obs.sensorLabel];
+
+    if (is_1st_pub)
+    {
+        pub = rosNode()->create_publisher<nav_msgs::msg::Odometry>(
+            obs.sensorLabel, params_.publisher_history_len);
+    }
+    lck.unlock();
+
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdo =
+        std::dynamic_pointer_cast<rclcpp::Publisher<nav_msgs::msg::Odometry>>(
+            pub);
+    ASSERT_(pubOdo);
+
+    // Send TF:
+    tf2::Transform transform =
+        mrpt::ros2bridge::toROS_tfTransform(obs.pose.mean);
+
+    geometry_msgs::msg::TransformStamped tfStmp;
+    tfStmp.transform       = tf2::toMsg(transform);
+    tfStmp.child_frame_id  = params_.base_link_frame;
+    tfStmp.header.frame_id = params_.reference_frame;
+    tfStmp.header.stamp    = myNow(obs.timestamp);
+    tf_bc_->sendTransform(tfStmp);
+
+    // Send observation:
+    {
+        obs.load();
+
+        // Convert observation MRPT -> ROS
+        nav_msgs::msg::Odometry msg;
+        msg.header.stamp    = myNow(obs.timestamp);
+        msg.header.frame_id = params_.reference_frame;
+
+        msg.pose = mrpt::ros2bridge::toROS_Pose(obs.pose);
+
+        pubOdo->publish(msg);
     }
 }
 
