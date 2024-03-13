@@ -31,7 +31,7 @@ namespace mola
  * - Use your own logic to enqueue a task into a worker thread pool (preferred).
  *
  * \ingroup mola_kernel_grp */
-class FrontEndBase : public ExecutableBase, RawDataConsumer
+class FrontEndBase : public ExecutableBase, public RawDataConsumer
 {
     DEFINE_VIRTUAL_MRPT_OBJECT(FrontEndBase)
 
