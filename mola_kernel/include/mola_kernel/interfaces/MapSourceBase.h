@@ -59,6 +59,12 @@ class MapSourceBase
     }
 
    protected:
+    bool anyUpdateMapSubscriber()
+    {
+        auto lck = mrpt::lockHelper(mapUpdSubsMtx_);
+        return !mapUpdSubs_.empty();
+    }
+
     void advertiseUpdatedMap(const MapUpdate& l)
     {
         auto lck = mrpt::lockHelper(mapUpdSubsMtx_);

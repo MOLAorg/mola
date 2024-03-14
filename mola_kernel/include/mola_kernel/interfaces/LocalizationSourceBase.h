@@ -67,6 +67,12 @@ class LocalizationSourceBase
     }
 
    protected:
+    bool anyUpdateLocalizationSubscriber()
+    {
+        auto lck = mrpt::lockHelper(locUpdSubsMtx_);
+        return !locUpdSubs_.empty();
+    }
+
     void advertiseUpdatedLocalization(const LocalizationUpdate& l)
     {
         auto lck = mrpt::lockHelper(locUpdSubsMtx_);
