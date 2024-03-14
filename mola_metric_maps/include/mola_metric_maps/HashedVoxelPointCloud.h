@@ -359,6 +359,10 @@ class HashedVoxelPointCloud : public mrpt::maps::CMetricMap,
     void saveMetricMapRepresentationToFile(
         const std::string& filNamePrefix) const override;
 
+    /// Returns a cached point cloud view of the hash map.
+    /// Not efficient at all. Only for MOLA->ROS2 bridge.
+    const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const override;
+
     /** @} */
 
     /** Options for insertObservation()
@@ -524,6 +528,9 @@ class HashedVoxelPointCloud : public mrpt::maps::CMetricMap,
     // See docs in base class
     bool internal_canComputeObservationLikelihood(
         const mrpt::obs::CObservation& obs) const override;
+
+    /// Used for getAsSimplePointsMap only.
+    mutable mrpt::maps::CSimplePointsMap::Ptr cachedPoints_;
 };
 
 }  // namespace mola

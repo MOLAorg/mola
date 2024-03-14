@@ -1080,3 +1080,17 @@ void HashedVoxelPointCloud::internal_insertPointCloud3D(
 
     MRPT_TRY_END
 }
+
+const mrpt::maps::CSimplePointsMap*
+    HashedVoxelPointCloud::getAsSimplePointsMap() const
+{
+    if (!cachedPoints_) cachedPoints_ = mrpt::maps::CSimplePointsMap::Create();
+
+    cachedPoints_->clear();
+
+    this->visitAllPoints([this](const mrpt::math::TPoint3Df& p) {
+        cachedPoints_->insertPointFast(p.x, p.y, p.z);
+    });
+
+    return cachedPoints_.get();
+}
