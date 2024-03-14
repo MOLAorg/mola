@@ -101,6 +101,16 @@ void OutputROS2::ros_node_thread_main([[maybe_unused]] Yaml cfg)
 
         tf_bc_ = std::make_shared<tf2_ros::TransformBroadcaster>(rosNode_);
 
+        auto timerLoc = rosNode_->create_wall_timer(
+            std::chrono::microseconds(static_cast<unsigned int>(
+                1e6 * params_.period_publish_new_localization)),
+            std::bind(&OutputROS2::timerPubLocalization, this));
+
+        auto timerMap = rosNode_->create_wall_timer(
+            std::chrono::microseconds(static_cast<unsigned int>(
+                1e6 * params_.period_publish_new_map)),
+            std::bind(&OutputROS2::timerPubMap, this));
+
         // Spin:
         rclcpp::spin(rosNode_);
         rclcpp::shutdown();
@@ -133,6 +143,9 @@ void OutputROS2::initialize(const Yaml& c)
     YAML_LOAD_OPT(params_, reference_frame, std::string);
     YAML_LOAD_OPT(params_, publish_odometry_msgs_from_slam, bool);
     YAML_LOAD_OPT(params_, publish_in_sim_time, bool);
+    YAML_LOAD_OPT(params_, period_publish_new_localization, double);
+    YAML_LOAD_OPT(params_, period_publish_new_map, double);
+    YAML_LOAD_OPT(params_, publish_tf_from_robot_pose_observations, bool);
 
     // Launch ROS node:
     rosNodeThread_ =
@@ -298,7 +311,17 @@ void OutputROS2::internalOn(const mrpt::obs::CObservation2DRangeScan& obs)
         pubLS->publish(msg);
     }
 }
+
 void OutputROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
+{
+    internalOn(
+        obs, true /*it is a real sensor, publish its /tf*/,
+        obs.sensorLabel /* frame_id */);
+}
+
+void OutputROS2::internalOn(
+    const mrpt::obs::CObservationPointCloud& obs, bool publishSensorPoseToTF,
+    const std::string& sSensorFrameId)
 {
     using namespace std::string_literals;
 
@@ -329,21 +352,24 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
     // POINTS
     // --------
 
-    const std::string sSensorFrameId = obs.sensorLabel;
-
     // Send TF:
-    mrpt::poses::CPose3D sensorPose = obs.sensorPose;
+    if (publishSensorPoseToTF)
+    {
+        mrpt::poses::CPose3D sensorPose = obs.sensorPose;
 
-    tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(sensorPose);
+        tf2::Transform transform =
+            mrpt::ros2bridge::toROS_tfTransform(sensorPose);
 
-    geometry_msgs::msg::TransformStamped tfStmp;
-    tfStmp.transform       = tf2::toMsg(transform);
-    tfStmp.child_frame_id  = sSensorFrameId;
-    tfStmp.header.frame_id = params_.base_link_frame;
-    tfStmp.header.stamp    = myNow(obs.timestamp);
-    tf_bc_->sendTransform(tfStmp);
+        geometry_msgs::msg::TransformStamped tfStmp;
+        tfStmp.transform       = tf2::toMsg(transform);
+        tfStmp.child_frame_id  = sSensorFrameId;
+        tfStmp.header.frame_id = params_.base_link_frame;
+        tfStmp.header.stamp    = myNow(obs.timestamp);
+        tf_bc_->sendTransform(tfStmp);
+    }
 
     // Send observation:
+    if (obs.pointcloud)
     {
         // Convert observation MRPT -> ROS
         sensor_msgs::msg::PointCloud2 msg_pts;
@@ -373,8 +399,10 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
         }
         else
         {
-            THROW_EXCEPTION(
-                "Do not know how to handle this variant of CPointsMap");
+            THROW_EXCEPTION_FMT(
+                "Do not know how to handle this variant of CPointsMap: "
+                "class='%s'",
+                obs.pointcloud->GetRuntimeClass()->className);
         }
 
         pubPoints->publish(msg_pts);
@@ -405,15 +433,18 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
     ASSERT_(pubOdo);
 
     // Send TF:
-    tf2::Transform transform =
-        mrpt::ros2bridge::toROS_tfTransform(obs.pose.mean);
+    if (params_.publish_tf_from_robot_pose_observations)
+    {
+        tf2::Transform transform =
+            mrpt::ros2bridge::toROS_tfTransform(obs.pose.mean);
 
-    geometry_msgs::msg::TransformStamped tfStmp;
-    tfStmp.transform       = tf2::toMsg(transform);
-    tfStmp.child_frame_id  = params_.base_link_frame;
-    tfStmp.header.frame_id = params_.reference_frame;
-    tfStmp.header.stamp    = myNow(obs.timestamp);
-    tf_bc_->sendTransform(tfStmp);
+        geometry_msgs::msg::TransformStamped tfStmp;
+        tfStmp.transform       = tf2::toMsg(transform);
+        tfStmp.child_frame_id  = params_.base_link_frame;
+        tfStmp.header.frame_id = params_.reference_frame;
+        tfStmp.header.stamp    = myNow(obs.timestamp);
+        tf_bc_->sendTransform(tfStmp);
+    }
 
     // Send observation:
     {
@@ -434,6 +465,7 @@ void OutputROS2::doLookForNewMolaSubs()
 {
     auto lck = mrpt::lockHelper(molaSubsMtx_);
 
+    // RawDataSourceBase:
     auto listRDS = this->findService<mola::RawDataSourceBase>();
     for (auto& module : listRDS)
     {
@@ -451,6 +483,46 @@ void OutputROS2::doLookForNewMolaSubs()
             rds->attachToDataConsumer(*this);
         }
     }
+
+    // LocalizationSourceBase:
+    auto listLoc = this->findService<mola::LocalizationSourceBase>();
+    for (auto& module : listLoc)
+    {
+        auto loc =
+            std::dynamic_pointer_cast<mola::LocalizationSourceBase>(module);
+        ASSERT_(loc);
+
+        if (molaSubs_.locSources.count(loc) == 0)
+        {
+            MRPT_LOG_INFO_STREAM(
+                "Subscribing to MOLA localization source module '"
+                << module->getModuleInstanceName() << "'");
+
+            // a new one:
+            molaSubs_.locSources.insert(loc);
+            loc->subscribeToLocalizationUpdates(
+                [this](const auto& l) { onNewLocalization(l); });
+        }
+    }
+
+    // MapSourceBase
+    auto listMap = this->findService<mola::MapSourceBase>();
+    for (auto& module : listMap)
+    {
+        auto ms = std::dynamic_pointer_cast<mola::MapSourceBase>(module);
+        ASSERT_(ms);
+
+        if (molaSubs_.mapSources.count(ms) == 0)
+        {
+            MRPT_LOG_INFO_STREAM(
+                "Subscribing to MOLA map source module '"
+                << module->getModuleInstanceName() << "'");
+
+            // a new one:
+            molaSubs_.mapSources.insert(ms);
+            ms->subscribeToMapUpdates([this](const auto& m) { onNewMap(m); });
+        }
+    }
 }
 
 rclcpp::Time OutputROS2::myNow(const mrpt::Clock::time_point& observationStamp)
@@ -459,4 +531,127 @@ rclcpp::Time OutputROS2::myNow(const mrpt::Clock::time_point& observationStamp)
         return mrpt::ros2bridge::toROS(observationStamp);
     else
         return mrpt::ros2bridge::toROS(mrpt::Clock::now());
+}
+
+void OutputROS2::onNewLocalization(
+    const mola::LocalizationSourceBase::LocalizationUpdate& l)
+{
+    auto lck = mrpt::lockHelper(lastLocMapMtx_);
+
+    lastLoc_ = l;
+}
+
+void OutputROS2::onNewMap(const mola::MapSourceBase::MapUpdate& m)
+{
+    auto lck = mrpt::lockHelper(lastLocMapMtx_);
+
+    lastMaps_[m.map_name] = m;
+}
+
+void OutputROS2::timerPubLocalization()
+{
+    using namespace std::string_literals;
+
+    // get a copy of the data minimizing the time owning the mutex:
+    std::optional<mola::LocalizationSourceBase::LocalizationUpdate> l;
+    {
+        auto lck = mrpt::lockHelper(lastLocMapMtx_);
+        l        = lastLoc_;
+        lastLoc_.reset();
+    }
+    if (!l) return;
+
+    MRPT_LOG_DEBUG_STREAM(
+        "New localization available from '"
+        << l->method << "' frame: '" << l->reference_frame
+        << "' t=" << mrpt::system::dateTimeLocalToString(l->timestamp)
+        << " pose=" << l->pose.asString());
+
+    // 1/2: Publish to /tf:
+    const std::string locLabel =
+        (l->method.empty() ? "slam"s : l->method) + "/pose"s;
+
+    auto lck = mrpt::lockHelper(rosPubsMtx_);
+
+    // Create the publisher the first time an observation arrives:
+    const bool is_1st_pub =
+        rosPubs_.pub_sensors.find(locLabel) == rosPubs_.pub_sensors.end();
+    auto& pub = rosPubs_.pub_sensors[locLabel];
+
+    if (is_1st_pub)
+    {
+        pub = rosNode()->create_publisher<nav_msgs::msg::Odometry>(
+            locLabel, params_.publisher_history_len);
+    }
+    lck.unlock();
+
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdo =
+        std::dynamic_pointer_cast<rclcpp::Publisher<nav_msgs::msg::Odometry>>(
+            pub);
+    ASSERT_(pubOdo);
+
+    // Send TF:
+    tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(l->pose);
+
+    geometry_msgs::msg::TransformStamped tfStmp;
+    tfStmp.transform       = tf2::toMsg(transform);
+    tfStmp.child_frame_id  = params_.base_link_frame;
+    tfStmp.header.frame_id = params_.reference_frame;
+    tfStmp.header.stamp    = myNow(l->timestamp);
+    tf_bc_->sendTransform(tfStmp);
+
+    // 2/2: Publish Odometry msg:
+    if (params_.publish_odometry_msgs_from_slam)
+    {
+        // Convert observation MRPT -> ROS
+        nav_msgs::msg::Odometry msg;
+        msg.header.stamp    = myNow(l->timestamp);
+        msg.header.frame_id = params_.reference_frame;
+
+        mrpt::poses::CPose3DPDFGaussian posePdf;
+        posePdf.mean = mrpt::poses::CPose3D(l->pose);
+        if (l->cov) posePdf.cov = l->cov.value();
+
+        msg.pose = mrpt::ros2bridge::toROS_Pose(posePdf);
+
+        pubOdo->publish(msg);
+    }
+}
+
+void OutputROS2::timerPubMap()
+{
+    using namespace std::string_literals;
+
+    // get a copy of the data minimizing the time owning the mutex:
+    std::map<std::string /*map_name*/, mola::MapSourceBase::MapUpdate> m;
+    {
+        auto lck  = mrpt::lockHelper(lastLocMapMtx_);
+        m         = std::move(lastMaps_);
+        lastMaps_ = {};
+    }
+    if (m.empty()) return;
+
+    MRPT_LOG_DEBUG_STREAM("New map layers (" << m.size() << ") received");
+
+    for (const auto& [layerName, mu] : m)
+    {
+        const std::string mapTopic =
+            (mu.method.empty() ? "slam"s : mu.method) + "/"s + layerName;
+
+        // Reuse code for point cloud observations: build a "fake" observation:
+        mrpt::obs::CObservationPointCloud obs;
+        obs.sensorLabel = mapTopic;
+        obs.pointcloud =
+            std::dynamic_pointer_cast<mrpt::maps::CPointsMap>(mu.map);
+        if (!obs.pointcloud)
+        {
+            MRPT_LOG_WARN_STREAM(
+                "Do not know how to publish map layer '"
+                << layerName << "' of type '"
+                << mu.map->GetRuntimeClass()->className << "'");
+            continue;
+        }
+
+        internalOn(obs, false /*no tf*/, mu.reference_frame);
+    }
 }

@@ -11,17 +11,22 @@
  */
 #pragma once
 
+// MOLA virtual interfaces:
 #include <mola_kernel/interfaces/ExecutableBase.h>
+#include <mola_kernel/interfaces/LocalizationSourceBase.h>
+#include <mola_kernel/interfaces/MapSourceBase.h>
 #include <mola_kernel/interfaces/RawDataConsumer.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
+
+// MRPT:
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+
+// ROS & others
 #include <tf2_ros/transform_broadcaster.h>
 
-#include <optional>
-
-// ROS 2 msgs:
 #include <nav_msgs/msg/odometry.hpp>
+#include <optional>
 
 namespace mola
 {
@@ -88,9 +93,14 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
 
         bool publish_odometry_msgs_from_slam = true;
 
+        bool publish_tf_from_robot_pose_observations = true;
+
         /// If true, the original dataset timestamps will be used to publish.
         /// Otherwise, the wallclock time will be used.
         bool publish_in_sim_time = false;
+
+        double period_publish_new_localization = 0.2;  // [s]
+        double period_publish_new_map          = 5.0;  // [s]
 
         double period_check_new_mola_subs = 1.0;  // [s]
 
@@ -141,11 +151,26 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
 
     struct MolaSubs
     {
-        std::set<mola::RawDataSourceBase::Ptr> dataSources;
+        std::set<mola::RawDataSourceBase::Ptr>                  dataSources;
+        std::set<std::shared_ptr<mola::LocalizationSourceBase>> locSources;
+        std::set<std::shared_ptr<mola::MapSourceBase>>          mapSources;
     };
 
     MolaSubs   molaSubs_;
     std::mutex molaSubsMtx_;
+
+    void onNewLocalization(
+        const mola::LocalizationSourceBase::LocalizationUpdate& l);
+
+    void onNewMap(const mola::MapSourceBase::MapUpdate& m);
+
+    std::mutex lastLocMapMtx_;
+    std::optional<mola::LocalizationSourceBase::LocalizationUpdate> lastLoc_;
+    std::map<std::string /*map_name*/, mola::MapSourceBase::MapUpdate>
+        lastMaps_;
+
+    void timerPubLocalization();
+    void timerPubMap();
 
     double lastTimeCheckMolaSubs_ = 0;
     void   doLookForNewMolaSubs();
@@ -154,6 +179,10 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
     void internalOn(const mrpt::obs::CObservation2DRangeScan& obs);
     void internalOn(const mrpt::obs::CObservationPointCloud& obs);
     void internalOn(const mrpt::obs::CObservationRobotPose& obs);
+
+    void internalOn(
+        const mrpt::obs::CObservationPointCloud& obs,
+        bool publishSensorPoseToTF, const std::string& sSensorFrameId);
 };
 
 }  // namespace mola
