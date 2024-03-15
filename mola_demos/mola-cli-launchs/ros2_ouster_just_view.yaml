@@ -37,6 +37,7 @@ modules:
           output_sensor_label: lidar_points
           # If present, this will override whatever /tf tells about the sensor pose:
           fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg''
+          #use_fixed_sensor_pose: true
           #queue_size: 100  # QoS "history" length
         - topic: /odom
           type: Odometry

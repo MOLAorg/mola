@@ -85,8 +85,8 @@ void OutputROS2::ros_node_thread_main([[maybe_unused]] Yaml cfg)
         const int         argc    = 1;
         char const* const argv[2] = {NODE_NAME, nullptr};
 
-        // Initialize ROS:
-        rclcpp::init(argc, argv);
+        // Initialize ROS (only once):
+        if (!rclcpp::ok()) { rclcpp::init(argc, argv); }
 
         auto lckNode = mrpt::lockHelper(rosNodeMtx_);
 
@@ -463,6 +463,8 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
 
 void OutputROS2::doLookForNewMolaSubs()
 {
+    using namespace std::string_literals;
+
     auto lck = mrpt::lockHelper(molaSubsMtx_);
 
     // RawDataSourceBase:
@@ -471,6 +473,12 @@ void OutputROS2::doLookForNewMolaSubs()
     {
         auto rds = std::dynamic_pointer_cast<mola::RawDataSourceBase>(module);
         ASSERT_(rds);
+
+        // Skip ROS input module, as this would be a pointless re-publishing to
+        // ROS!
+        if (std::string(rds->GetRuntimeClass()->className) ==
+            "mola::InputROS2"s)
+            continue;
 
         if (molaSubs_.dataSources.count(rds) == 0)
         {

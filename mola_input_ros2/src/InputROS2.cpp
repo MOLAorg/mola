@@ -71,7 +71,9 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
         char const* const argv[2] = {NODE_NAME, nullptr};
 
         // Initialize ROS:
-        rclcpp::init(argc, argv);
+        // Initialize ROS (only once):
+        if (!rclcpp::ok()) { rclcpp::init(argc, argv); }
+
         auto node = std::make_shared<rclcpp::Node>(NODE_NAME);
 
         {
@@ -120,7 +122,9 @@ void InputROS2::ros_node_thread_main(Yaml cfg)
 
             // Optional: fixed sensorPose (then ignores/don't need "tf" data):
             std::optional<mrpt::poses::CPose3D> fixedSensorPose;
-            if (topic.has("fixed_sensor_pose"))
+            if (topic.has("fixed_sensor_pose") &&
+                (!topic.has("use_fixed_sensor_pose") ||
+                 !topic["use_fixed_sensor_pose"].as<bool>()))
             {
                 fixedSensorPose = mrpt::poses::CPose3D::FromString(
                     "["s + topic["fixed_sensor_pose"].as<std::string>() + "]"s);
