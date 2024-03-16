@@ -4,9 +4,9 @@
      side-by-side to ROS packages in a catkin/ament environment.
 -->
 <package format="3">
-  <name>mola_input_ros2</name>
+  <name>mola_bridge_ros2</name>
   <version>0.2.2</version>
-  <description>RawDataSource acting as a bridge: ROS2 -> MOLA</description>
+  <description>Bidirectional bridge ROS2-MOLA</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>

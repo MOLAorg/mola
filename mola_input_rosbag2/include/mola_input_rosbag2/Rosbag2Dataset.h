@@ -184,6 +184,11 @@ class Rosbag2Dataset : public RawDataSourceBase,
         const rosbag2_storage::SerializedBagMessage& rosmsg,
         const std::optional<mrpt::poses::CPose3D>&   fixedSensorPose);
 
+    Obs toGPS(
+        std::string_view                             msg,
+        const rosbag2_storage::SerializedBagMessage& rosmsg,
+        const std::optional<mrpt::poses::CPose3D>&   fixedSensorPose);
+
     Obs toOdometry(
         std::string_view                             msg,
         const rosbag2_storage::SerializedBagMessage& rosmsg);

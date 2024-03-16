@@ -33,9 +33,9 @@ modules:
       publish_image_1: true
       publish_ground_truth: true
 
-# MOLA -> ROS 2 bridge  =====================
-  - type: mola::OutputROS2
-    name: ros2_output
+  # MOLA -> ROS 2 bridge  =====================
+  - type: mola::BridgeROS2
+    name: ros2_bridge
     # In OutputROS2, this execution rate (Hz) is not relevant.
     execution_rate: 20 # Hz
     #verbosity_level: INFO
@@ -43,7 +43,7 @@ modules:
       # Whenever a MOLA odometry/SLAM system publishes a new pose estimate
       # it will be forwarded to /tf as a transformation between: 
       # `reference_frame` -> `base_link_frame`
-      base_link_frame: base_footprint
+      base_link_frame: base_link
       reference_frame: map
 
       # If true, an nav_msgs/Odometry message will be also published

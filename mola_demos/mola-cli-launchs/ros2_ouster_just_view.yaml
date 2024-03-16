@@ -15,9 +15,9 @@ modules:
 
 # Offline or online sensory data sources =====================
 # (TODO: Move to an include)
-  - type: mola::InputROS2
+  - type: mola::BridgeROS2
     name: dataset_input
-    # In InputROS2, this execution rate (Hz) determines the
+    # In BridgeROS2, this execution rate (Hz) determines the
     # rate of publishing odometry observations, if enabled.
     # All other subscribed sensors are forwarded to the MOLA
     # system without delay as they are received from ROS.
@@ -28,9 +28,12 @@ modules:
         decimation: 1
         win_pos: 5 5 400 400
     params:
-      base_link_frame: base_footprint
+      base_link_frame: base_link
       odom_frame: odom
-      publish_odometry_from_tf: false
+
+      # If true, the /tf 'odom_frame'->'base_link_frame' will be forwarded to MOLA as CObservationOdometry.
+      forward_ros_tf_as_mola_odometry_observations: false
+
       subscribe:
         - topic: /ouster/points
           type: PointCloud2

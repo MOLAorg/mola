@@ -4,10 +4,10 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   OutputROS2.h
- * @brief  Bridge MOLA->ROS2
+ * @file   BridgeROS2.h
+ * @brief  Bridge between MOLA-ROS2
  * @author Jose Luis Blanco Claraco
- * @date   Mar 7, 2024
+ * @date   Sep 7, 2023
  */
 #pragma once
 
@@ -23,16 +23,31 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 
 // ROS & others
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <optional>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 namespace mola
 {
-/** Bridge: MOLA ==> ROS2
+/** A bridge to read sensor observations from ROS 2 topics and forwarding them
+ * to other MOLA subsystems, and to publish MOLA topics, localization, and maps
+ * to ROS 2.
  *
- * This class can be used to:
+ * ## Bridge ROS2=>MOLA
+ * The MOLA nodelet execution rate (Hz) determines the rate of publishing
+ * odometry observations, if enabled.
+ * All other subscribed sensors are forwarded to the MOLA system without delay
+ * as they are received from ROS.
+ *
+ * ## Bridge MOLA=>ROS2
  *  - Publish datasets from any of the MOLA dataset input modules to ROS 2.
  *  - Expose the results of a MOLA SLAM/odometry system to the rest of a ROS 2
  *    system.
@@ -60,25 +75,25 @@ namespace mola
  *
  * See example launch files in `mola_demos` and in `mola_lidar_odometry`.
  *
- * Another bridge in the inverse direction ROS2=>MOLA is provided in
- * the package mola_input_ros2.
- *
- * \ingroup mola_output_ros2_grp
+ * \ingroup mola_bridge_ros2_grp
  */
-class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
+class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 {
-    DEFINE_MRPT_OBJECT(OutputROS2, mola)
+    DEFINE_MRPT_OBJECT(BridgeROS2, mola)
 
    public:
-    OutputROS2();
-    ~OutputROS2() override;
+    BridgeROS2();
+    ~BridgeROS2() override;
 
     // See docs in base class
-    void initialize(const Yaml& cfg) override;
     void spinOnce() override;
 
     // RawDataConsumer implementation:
     void onNewObservation(const CObservation::Ptr& o) override;
+
+   protected:
+    // See docs in base class
+    void initialize_rds(const Yaml& cfg) override;
 
    private:
     std::thread rosNodeThread_;
@@ -89,9 +104,13 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
         std::string base_link_frame = "base_link";
 
         /// tf frame name for odometry's frame of reference:
+        std::string odom_frame = "odom";
+
+        /// tf frame name for odometry's frame of reference:
         std::string reference_frame = "map";
 
-        bool publish_odometry_msgs_from_slam = true;
+        bool forward_ros_tf_as_mola_odometry_observations = false;
+        bool publish_odometry_msgs_from_slam              = true;
 
         bool publish_tf_from_robot_pose_observations = true;
 
@@ -105,12 +124,17 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
         double period_check_new_mola_subs = 1.0;  // [s]
 
         unsigned int publisher_history_len = 10;
+
+        int wait_for_tf_timeout_milliseconds = 100;
     };
 
     Params params_;
 
     // Yaml is NOT a reference on purpose.
     void ros_node_thread_main(Yaml cfg);
+
+    std::shared_ptr<tf2_ros::Buffer>            tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_bc_;
 
@@ -127,6 +151,47 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
         auto lck = mrpt::lockHelper(rosNodeMtx_);
         return rosNode_;
     }
+    std::vector<rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr>
+        subsPointCloud_;
+
+    std::vector<rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr>
+        subsLaserScan_;
+
+    std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr>
+        subsOdometry_;
+
+    std::vector<rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr>
+        subsImu_;
+
+    std::vector<rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr>
+        subsGNNS_;
+
+    void callbackOnPointCloud2(
+        const sensor_msgs::msg::PointCloud2&       o,
+        const std::string&                         outSensorLabel,
+        const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
+
+    void callbackOnLaserScan(
+        const sensor_msgs::msg::LaserScan& o, const std::string& outSensorLabel,
+        const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
+
+    void callbackOnImu(
+        const sensor_msgs::msg::Imu& o, const std::string& outSensorLabel,
+        const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
+
+    void callbackOnNavSatFix(
+        const sensor_msgs::msg::NavSatFix& o, const std::string& outSensorLabel,
+        const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
+
+    void callbackOnOdometry(
+        const nav_msgs::msg::Odometry& o, const std::string& outSensorLabel);
+
+    bool waitForTransform(
+        mrpt::poses::CPose3D& des, const std::string& target_frame,
+        const std::string& source_frame, const rclcpp::Time& time,
+        const int timeoutMilliseconds, bool printErrors);
+
+    void publishOdometry();
 
     /// Returns either the wallclock "now" (params_.use_sim_time = false)
     /// or the equivalent of the passed argument in ROS 2 format otherwise.
@@ -183,6 +248,9 @@ class OutputROS2 : public mola::ExecutableBase, public mola::RawDataConsumer
     void internalOn(
         const mrpt::obs::CObservationPointCloud& obs,
         bool publishSensorPoseToTF, const std::string& sSensorFrameId);
+
+    void internalAnalyzeTopicsToSubscribe(
+        const mrpt::containers::yaml& ds_subscribe);
 };
 
 }  // namespace mola

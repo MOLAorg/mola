@@ -11,7 +11,7 @@
 cmake_minimum_required(VERSION 3.4)
 
 # Tell CMake we'll use C++ for use in its tests/flags
-project(mola_input_ros2 LANGUAGES CXX)
+project(mola_bridge_ros2 LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola_common REQUIRED)

@@ -11,7 +11,7 @@ activation script being sourced **before** invoking CMake to configure and build
 See package docs for instructions and options to install ROS prerequisites.
 
 Provided MOLA modules:
-* `InputROS2`, type RawDataSourceBase.
+* `BridgeROS2`, type RawDataSourceBase.
 
 ## Build and install
 Refer to the [root MOLA repository](https://github.com/MOLAorg/mola).

@@ -28,6 +28,7 @@
 #include <mrpt/obs/CObservationOdometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
+#include <mrpt/ros2bridge/gps.h>
 #include <mrpt/ros2bridge/imu.h>
 #include <mrpt/ros2bridge/laser_scan.h>
 #include <mrpt/ros2bridge/point_cloud2.h>
@@ -83,6 +84,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {"sensor_msgs/msg/Image", "CObservationImage"},
         {"sensor_msgs/msg/PointCloud2", "CObservationPointCloud"},
         {"sensor_msgs/msg/LaserScan", "CObservation2DRangeScan"},
+        {"sensor_msgs/msg/NavSatFix", "CObservationGPS"},
     };
 
     MRPT_START
@@ -311,6 +313,14 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
                     return toIMU(sensorLabel, m, fixedSensorPose);
+                };
+            lookup_[topic].emplace_back(callback);
+        }
+        else if (sensorType == "CObservationGPS")
+        {
+            auto callback =
+                [=](const rosbag2_storage::SerializedBagMessage& m) {
+                    return toGPS(sensorLabel, m, fixedSensorPose);
                 };
             lookup_[topic].emplace_back(callback);
         }
@@ -775,6 +785,32 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toIMU(
     ASSERT_(sensorPoseOK);
 
     return {imuObs};
+}
+
+Rosbag2Dataset::Obs Rosbag2Dataset::toGPS(
+    std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+    rclcpp::SerializedMessage serMsg(*rosmsg.serialized_data);
+    static rclcpp::Serialization<sensor_msgs::msg::NavSatFix> serializer;
+
+    sensor_msgs::msg::NavSatFix gps;
+    serializer.deserialize_message(&serMsg, &gps);
+
+    auto gpsObs = mrpt::obs::CObservationGPS::Create();
+
+    gpsObs->sensorLabel = msg;
+    gpsObs->timestamp   = mrpt::ros2bridge::fromROS(gps.header.stamp);
+
+    // Convert data:
+    mrpt::ros2bridge::fromROS(gps, *gpsObs);
+
+    bool sensorPoseOK = findOutSensorPose(
+        gpsObs->sensorPose, gps.header.frame_id, base_link_frame_id_,
+        fixedSensorPose);
+    ASSERT_(sensorPoseOK);
+
+    return {gpsObs};
 }
 
 Rosbag2Dataset::Obs Rosbag2Dataset::toOdometry(

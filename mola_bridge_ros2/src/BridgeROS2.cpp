@@ -4,24 +4,22 @@
  * See LICENSE for license information.
  * ------------------------------------------------------------------------- */
 /**
- * @file   OutputROS2.h
- * @brief  Bridge MOLA->ROS2
+ * @file   BridgeROS2.cpp
+ * @brief  Bridge between MOLA-ROS2
  * @author Jose Luis Blanco Claraco
- * @date   Mar 7, 2024
+ * @date   Sep 7, 2023
  */
 
-/** \defgroup mola_output_ros2_grp mola_output_ros2_grp.
- * Bridge: MOLA ==> ROS2
+/** \defgroup mola_bridge_ros2_grp mola_bridge_ros2
+ * Bidirectional bridge ROS2-MOLA
  *
  */
 
-// MOLA interfaces:
-#include <mola_kernel/pretty_print_exception.h>
-
 // me:
-#include <mola_output_ros2/OutputROS2.h>
+#include <mola_bridge_ros2/BridgeROS2.h>
 
 // MOLA/MRPT:
+#include <mola_kernel/pretty_print_exception.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
@@ -29,10 +27,14 @@
 #include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
+#include <mrpt/obs/CObservationGPS.h>
+#include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationOdometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
+#include <mrpt/ros2bridge/gps.h>
 #include <mrpt/ros2bridge/image.h>
+#include <mrpt/ros2bridge/imu.h>
 #include <mrpt/ros2bridge/laser_scan.h>
 #include <mrpt/ros2bridge/point_cloud2.h>
 #include <mrpt/ros2bridge/pose.h>
@@ -42,24 +44,18 @@
 // ROS 2:
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/node.hpp>
-#include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/msg/laser_scan.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 using namespace mola;
 
 // arguments: class_name, parent_class, class namespace
-IMPLEMENTS_MRPT_OBJECT(OutputROS2, mola::ExecutableBase, mola)
+IMPLEMENTS_MRPT_OBJECT(BridgeROS2, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_OutputROS2) { MOLA_REGISTER_MODULE(OutputROS2); }
+MRPT_INITIALIZER(do_register_InputROS2) { MOLA_REGISTER_MODULE(BridgeROS2); }
 
-OutputROS2::OutputROS2()
-{
-    mrpt::system::COutputLogger::setLoggerName("OutputROS2");
-}
+BridgeROS2::BridgeROS2() = default;
 
-OutputROS2::~OutputROS2()
+BridgeROS2::~BridgeROS2()
 {
     try
     {
@@ -68,30 +64,29 @@ OutputROS2::~OutputROS2()
     }
     catch (const std::exception& e)
     {
-        std::cerr << "[~OutputROS2] Exception in destructor:\n" << e.what();
+        std::cerr << "[~BridgeROS2] Exception in destructor:\n" << e.what();
     }
 }
 
 // The ROS node starts with MOLA::initialize() and ends with its dtor
-void OutputROS2::ros_node_thread_main([[maybe_unused]] Yaml cfg)
+void BridgeROS2::ros_node_thread_main(Yaml cfg)
 {
-    using std::placeholders::_1;
     using namespace std::string_literals;
 
-    const char* NODE_NAME = "mola_output_ros2";
+    const char* NODE_NAME = "mola_bridge_ros2";
 
     try
     {
         const int         argc    = 1;
         char const* const argv[2] = {NODE_NAME, nullptr};
 
+        // Initialize ROS:
         // Initialize ROS (only once):
         if (!rclcpp::ok()) { rclcpp::init(argc, argv); }
 
         auto lckNode = mrpt::lockHelper(rosNodeMtx_);
 
         rosNode_ = std::make_shared<rclcpp::Node>(NODE_NAME);
-
         lckNode.unlock();
 
         {
@@ -99,17 +94,37 @@ void OutputROS2::ros_node_thread_main([[maybe_unused]] Yaml cfg)
             ros_clock_ = rosNode_->get_clock();
         }
 
+        // TF buffer:
+        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(ros_clock_);
+        tf_buffer_->setUsingDedicatedThread(true);
+        tf_listener_ =
+            std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+        // TF broadcaster:
         tf_bc_ = std::make_shared<tf2_ros::TransformBroadcaster>(rosNode_);
+
+        // Subscribe to topics as described by MOLA YAML parameters:
+        auto ds_subscribe = cfg["subscribe"];
+        if (!ds_subscribe.isSequence() || ds_subscribe.asSequence().empty())
+        {
+            MRPT_LOG_INFO(
+                "No ROS2 topic found for subscription under YAML entry "
+                "`subscribe`.");
+        }
+        else
+        {
+            internalAnalyzeTopicsToSubscribe(ds_subscribe);
+        }
 
         auto timerLoc = rosNode_->create_wall_timer(
             std::chrono::microseconds(static_cast<unsigned int>(
                 1e6 * params_.period_publish_new_localization)),
-            std::bind(&OutputROS2::timerPubLocalization, this));
+            std::bind(&BridgeROS2::timerPubLocalization, this));
 
         auto timerMap = rosNode_->create_wall_timer(
             std::chrono::microseconds(static_cast<unsigned int>(
                 1e6 * params_.period_publish_new_map)),
-            std::bind(&OutputROS2::timerPubMap, this));
+            std::bind(&BridgeROS2::timerPubMap, this));
 
         // Spin:
         rclcpp::spin(rosNode_);
@@ -117,11 +132,11 @@ void OutputROS2::ros_node_thread_main([[maybe_unused]] Yaml cfg)
     }
     catch (const std::exception& e)
     {
-        mola::pretty_print_exception(e, "OutputROS2::ros_node_thread_main");
+        mola::pretty_print_exception(e, "BridgeROS2::ros_node_thread_main");
     }
 }
 
-void OutputROS2::initialize(const Yaml& c)
+void BridgeROS2::initialize_rds(const Yaml& c)
 {
     using namespace std::string_literals;
 
@@ -138,7 +153,13 @@ void OutputROS2::initialize(const Yaml& c)
 
     MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfgCopy);
 
-    // General params:
+    // params of the ROS2->MOLA part:
+    YAML_LOAD_OPT(params_, base_link_frame, std::string);
+    YAML_LOAD_OPT(params_, odom_frame, std::string);
+    YAML_LOAD_OPT(params_, forward_ros_tf_as_mola_odometry_observations, bool);
+    YAML_LOAD_OPT(params_, wait_for_tf_timeout_milliseconds, int);
+
+    // params of the MOLA-ROS2 part:
     YAML_LOAD_OPT(params_, base_link_frame, std::string);
     YAML_LOAD_OPT(params_, reference_frame, std::string);
     YAML_LOAD_OPT(params_, publish_odometry_msgs_from_slam, bool);
@@ -149,17 +170,20 @@ void OutputROS2::initialize(const Yaml& c)
 
     // Launch ROS node:
     rosNodeThread_ =
-        std::thread(&OutputROS2::ros_node_thread_main, this, cfgCopy);
+        std::thread(&BridgeROS2::ros_node_thread_main, this, cfgCopy);
 
     MRPT_END
 }  // end initialize()
 
-void OutputROS2::spinOnce()
+void BridgeROS2::spinOnce()
 {
     using mrpt::system::timeDifference;
 
     MRPT_START
     ProfilerEntry tleg(profiler_, "spinOnce");
+
+    // Publish odometry?
+    publishOdometry();
 
     // Check for new mola data sources?
     if (mrpt::Clock::nowDouble() - lastTimeCheckMolaSubs_ >
@@ -172,7 +196,290 @@ void OutputROS2::spinOnce()
     MRPT_END
 }
 
-void OutputROS2::onNewObservation(const CObservation::Ptr& o)
+void BridgeROS2::callbackOnPointCloud2(
+    const sensor_msgs::msg::PointCloud2& o, const std::string& outSensorLabel,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+    MRPT_START
+    ProfilerEntry tle(profiler_, "callbackOnPointCloud2");
+
+    const std::set<std::string> fields = mrpt::ros2bridge::extractFields(o);
+
+    mrpt::maps::CPointsMap::Ptr mapPtr;
+
+    if (fields.count("time") || fields.count("timestamp") ||
+        fields.count("ring"))
+    {
+        auto p = mrpt::maps::CPointsMapXYZIRT::Create();
+        if (!mrpt::ros2bridge::fromROS(o, *p))
+            throw std::runtime_error("Error converting ros->mrpt(?)");
+
+        mapPtr = p;
+    }
+    else if (fields.count("intensity"))
+    {
+        auto p = mrpt::maps::CPointsMapXYZI::Create();
+        if (!mrpt::ros2bridge::fromROS(o, *p))
+            throw std::runtime_error("Error converting ros->mrpt(?)");
+
+        mapPtr = p;
+    }
+    else
+    {
+        auto p = mrpt::maps::CSimplePointsMap::Create();
+        if (!mrpt::ros2bridge::fromROS(o, *p))
+            throw std::runtime_error("Error converting ros->mrpt(?)");
+
+        mapPtr = p;
+    }
+
+    auto obs_pc         = mrpt::obs::CObservationPointCloud::Create();
+    obs_pc->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
+    obs_pc->sensorLabel = outSensorLabel;
+    obs_pc->pointcloud  = mapPtr;
+
+    // Sensor pose wrt robot base:
+    if (fixedSensorPose)
+    {
+        // use a fixed, user-provided sensor pose:
+        obs_pc->sensorPose = fixedSensorPose.value();
+    }
+    else
+    {
+        // Get pose from tf:
+        bool ok = waitForTransform(
+            obs_pc->sensorPose, o.header.frame_id, params_.base_link_frame,
+            o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
+            true /*print errors*/);
+        ASSERTMSG_(
+            ok,
+            mrpt::format(
+                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+                params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+    }
+
+    // send it out:
+    this->sendObservationsToFrontEnds(obs_pc);
+
+    MRPT_END
+}
+
+bool BridgeROS2::waitForTransform(
+    mrpt::poses::CPose3D& des, const std::string& target_frame,
+    const std::string& source_frame, const rclcpp::Time& time,
+    const int timeoutMilliseconds, bool printErrors)
+{
+    const rclcpp::Duration timeout(0, 1000 * timeoutMilliseconds);
+    try
+    {
+        geometry_msgs::msg::TransformStamped ref_to_trgFrame =
+            tf_buffer_->lookupTransform(
+                source_frame, target_frame, time,
+                tf2::durationFromSec(timeout.seconds()));
+
+        tf2::Transform tf;
+        tf2::fromMsg(ref_to_trgFrame.transform, tf);
+        des = mrpt::ros2bridge::fromROS(tf);
+
+        MRPT_LOG_DEBUG_FMT(
+            "[waitForTransform] Found pose %s -> %s: %s", source_frame.c_str(),
+            target_frame.c_str(), des.asString().c_str());
+
+        return true;
+    }
+    catch (const tf2::TransformException& ex)
+    {
+        if (printErrors) MRPT_LOG_ERROR(ex.what());
+        return false;
+    }
+}
+
+void BridgeROS2::callbackOnOdometry(
+    const nav_msgs::msg::Odometry& o, const std::string& outSensorLabel)
+{
+    MRPT_START
+    ProfilerEntry tle(profiler_, "callbackOnOdometry");
+
+    auto obs         = mrpt::obs::CObservationOdometry::Create();
+    obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
+    obs->sensorLabel = outSensorLabel;
+    obs->odometry =
+        mrpt::poses::CPose2D(mrpt::ros2bridge::fromROS(o.pose.pose));
+
+    obs->hasVelocities       = true;
+    obs->velocityLocal.vx    = o.twist.twist.linear.x;
+    obs->velocityLocal.vy    = o.twist.twist.linear.y;
+    obs->velocityLocal.omega = o.twist.twist.angular.z;
+
+    // send it out:
+    this->sendObservationsToFrontEnds(obs);
+
+    MRPT_END
+}
+
+void BridgeROS2::publishOdometry()
+{
+    if (!params_.forward_ros_tf_as_mola_odometry_observations) return;
+
+    // Is the node already initialized?
+    {
+        auto lck = mrpt::lockHelper(ros_clock_mtx_);
+        if (!ros_clock_) return;  // nope...
+    }
+
+    // Get pose from tf:
+    mrpt::poses::CPose3D odomPose;
+
+    // ros_clock_->now();
+    const auto now = rclcpp::Time();  // last one.
+
+    bool odom_tf_ok = waitForTransform(
+        odomPose, params_.base_link_frame, params_.odom_frame, now,
+        params_.wait_for_tf_timeout_milliseconds, false /*dont print errors*/);
+    if (!odom_tf_ok)
+    {
+        MRPT_LOG_THROTTLE_WARN_FMT(
+            5.0,
+            "forward_ros_tf_as_mola_odometry_observations=true, but could not "
+            "resolve /tf for "
+            "odometry: "
+            "'%s'->'%s'",
+            params_.base_link_frame.c_str(), params_.odom_frame.c_str());
+        return;
+    }
+
+    auto obs         = mrpt::obs::CObservationOdometry::Create();
+    obs->sensorLabel = "odom";
+    obs->timestamp   = mrpt::ros2bridge::fromROS(now);
+    obs->odometry    = mrpt::poses::CPose2D(odomPose);
+
+    sendObservationsToFrontEnds(obs);
+}
+
+void BridgeROS2::callbackOnLaserScan(
+    const sensor_msgs::msg::LaserScan& o, const std::string& outSensorLabel,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+    MRPT_START
+    ProfilerEntry tle(profiler_, "callbackOnLaserScan");
+
+    // Sensor pose wrt robot base:
+    mrpt::poses::CPose3D sensorPose;
+    if (fixedSensorPose)
+    {
+        // use a fixed, user-provided sensor pose:
+        sensorPose = fixedSensorPose.value();
+    }
+    else
+    {
+        // Get pose from tf:
+        bool ok = waitForTransform(
+            sensorPose, o.header.frame_id, params_.base_link_frame,
+            o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
+            true /*print errors*/);
+        ASSERTMSG_(
+            ok,
+            mrpt::format(
+                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+                params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+    }
+
+    auto obs = mrpt::obs::CObservation2DRangeScan::Create();
+    mrpt::ros2bridge::fromROS(o, sensorPose, *obs);
+
+    obs->sensorLabel = outSensorLabel;
+
+    // send it out:
+    this->sendObservationsToFrontEnds(obs);
+
+    MRPT_END
+}
+
+void BridgeROS2::callbackOnImu(
+    const sensor_msgs::msg::Imu& o, const std::string& outSensorLabel,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+    MRPT_START
+    ProfilerEntry tle(profiler_, "callbackOnImu");
+
+    // Sensor pose wrt robot base:
+    mrpt::poses::CPose3D sensorPose;
+    if (fixedSensorPose)
+    {
+        // use a fixed, user-provided sensor pose:
+        sensorPose = fixedSensorPose.value();
+    }
+    else
+    {
+        // Get pose from tf:
+        bool ok = waitForTransform(
+            sensorPose, o.header.frame_id, params_.base_link_frame,
+            o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
+            true /*print errors*/);
+        ASSERTMSG_(
+            ok,
+            mrpt::format(
+                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+                params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+    }
+
+    auto obs = mrpt::obs::CObservationIMU::Create();
+    mrpt::ros2bridge::fromROS(o, *obs);
+
+    obs->sensorPose  = sensorPose;
+    obs->sensorLabel = outSensorLabel;
+
+    // send it out:
+    this->sendObservationsToFrontEnds(obs);
+
+    MRPT_END
+}
+
+void BridgeROS2::callbackOnNavSatFix(
+    const sensor_msgs::msg::NavSatFix& o, const std::string& outSensorLabel,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+    MRPT_START
+    ProfilerEntry tle(profiler_, "callbackOnNavSatFix");
+
+    // Sensor pose wrt robot base:
+    mrpt::poses::CPose3D sensorPose;
+    if (fixedSensorPose)
+    {
+        // use a fixed, user-provided sensor pose:
+        sensorPose = fixedSensorPose.value();
+    }
+    else
+    {
+        // Get pose from tf:
+        bool ok = waitForTransform(
+            sensorPose, o.header.frame_id, params_.base_link_frame,
+            o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
+            true /*print errors*/);
+        ASSERTMSG_(
+            ok,
+            mrpt::format(
+                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+                params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+    }
+
+    auto obs = mrpt::obs::CObservationGPS::Create();
+    mrpt::ros2bridge::fromROS(o, *obs);
+
+    obs->sensorPose  = sensorPose;
+    obs->sensorLabel = outSensorLabel;
+
+    // send it out:
+    this->sendObservationsToFrontEnds(obs);
+
+    MRPT_END
+}
+
+void BridgeROS2::onNewObservation(const CObservation::Ptr& o)
 {
     using namespace mrpt::obs;
 
@@ -209,7 +516,7 @@ void OutputROS2::onNewObservation(const CObservation::Ptr& o)
     }
 }
 
-void OutputROS2::internalOn(const mrpt::obs::CObservationImage& obs)
+void BridgeROS2::internalOn(const mrpt::obs::CObservationImage& obs)
 {
     auto lck = mrpt::lockHelper(rosPubsMtx_);
 
@@ -261,7 +568,7 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationImage& obs)
     }
 }
 
-void OutputROS2::internalOn(const mrpt::obs::CObservation2DRangeScan& obs)
+void BridgeROS2::internalOn(const mrpt::obs::CObservation2DRangeScan& obs)
 {
     auto lck = mrpt::lockHelper(rosPubsMtx_);
 
@@ -312,14 +619,14 @@ void OutputROS2::internalOn(const mrpt::obs::CObservation2DRangeScan& obs)
     }
 }
 
-void OutputROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
+void BridgeROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
 {
     internalOn(
         obs, true /*it is a real sensor, publish its /tf*/,
         obs.sensorLabel /* frame_id */);
 }
 
-void OutputROS2::internalOn(
+void BridgeROS2::internalOn(
     const mrpt::obs::CObservationPointCloud& obs, bool publishSensorPoseToTF,
     const std::string& sSensorFrameId)
 {
@@ -409,7 +716,7 @@ void OutputROS2::internalOn(
     }
 }
 
-void OutputROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
+void BridgeROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
 {
     auto lck = mrpt::lockHelper(rosPubsMtx_);
 
@@ -461,7 +768,7 @@ void OutputROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
     }
 }
 
-void OutputROS2::doLookForNewMolaSubs()
+void BridgeROS2::doLookForNewMolaSubs()
 {
     using namespace std::string_literals;
 
@@ -474,10 +781,9 @@ void OutputROS2::doLookForNewMolaSubs()
         auto rds = std::dynamic_pointer_cast<mola::RawDataSourceBase>(module);
         ASSERT_(rds);
 
-        // Skip ROS input module, as this would be a pointless re-publishing to
-        // ROS!
+        // Skip myself!
         if (std::string(rds->GetRuntimeClass()->className) ==
-            "mola::InputROS2"s)
+            "mola::BridgeROS2"s)
             continue;
 
         if (molaSubs_.dataSources.count(rds) == 0)
@@ -533,7 +839,7 @@ void OutputROS2::doLookForNewMolaSubs()
     }
 }
 
-rclcpp::Time OutputROS2::myNow(const mrpt::Clock::time_point& observationStamp)
+rclcpp::Time BridgeROS2::myNow(const mrpt::Clock::time_point& observationStamp)
 {
     if (params_.publish_in_sim_time)
         return mrpt::ros2bridge::toROS(observationStamp);
@@ -541,7 +847,7 @@ rclcpp::Time OutputROS2::myNow(const mrpt::Clock::time_point& observationStamp)
         return mrpt::ros2bridge::toROS(mrpt::Clock::now());
 }
 
-void OutputROS2::onNewLocalization(
+void BridgeROS2::onNewLocalization(
     const mola::LocalizationSourceBase::LocalizationUpdate& l)
 {
     auto lck = mrpt::lockHelper(lastLocMapMtx_);
@@ -549,14 +855,14 @@ void OutputROS2::onNewLocalization(
     lastLoc_ = l;
 }
 
-void OutputROS2::onNewMap(const mola::MapSourceBase::MapUpdate& m)
+void BridgeROS2::onNewMap(const mola::MapSourceBase::MapUpdate& m)
 {
     auto lck = mrpt::lockHelper(lastLocMapMtx_);
 
     lastMaps_[m.map_name] = m;
 }
 
-void OutputROS2::timerPubLocalization()
+void BridgeROS2::timerPubLocalization()
 {
     using namespace std::string_literals;
 
@@ -626,7 +932,7 @@ void OutputROS2::timerPubLocalization()
     }
 }
 
-void OutputROS2::timerPubMap()
+void BridgeROS2::timerPubMap()
 {
     using namespace std::string_literals;
 
@@ -661,5 +967,109 @@ void OutputROS2::timerPubMap()
         }
 
         internalOn(obs, false /*no tf*/, mu.reference_frame);
+    }
+}
+
+void BridgeROS2::internalAnalyzeTopicsToSubscribe(
+    const mrpt::containers::yaml& ds_subscribe)
+{
+    using namespace std::string_literals;
+
+    // TODO: Expose QoS params?
+    rmw_qos_profile_t qosProfile;
+    qosProfile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+
+    for (const auto& topicItem : ds_subscribe.asSequence())
+    {
+        const auto topic = mrpt::containers::yaml(topicItem);
+
+        ENSURE_YAML_ENTRY_EXISTS(topic, "topic");
+        ENSURE_YAML_ENTRY_EXISTS(topic, "msg_type");
+        ENSURE_YAML_ENTRY_EXISTS(topic, "output_sensor_label");
+
+        const auto topic_name = topic["topic"].as<std::string>();
+        const auto type       = topic["msg_type"].as<std::string>();
+        const auto output_sensor_label =
+            topic["output_sensor_label"].as<std::string>();
+        const auto queue_size = topic.getOrDefault<int>("queue_size", 100);
+
+        MRPT_LOG_DEBUG_STREAM(
+            "Creating ros2 subscriber for topic='" << topic_name << "' ("
+                                                   << type << ")");
+
+        // Optional: fixed sensorPose (then ignores/don't need "tf" data):
+        std::optional<mrpt::poses::CPose3D> fixedSensorPose;
+        if (topic.has("fixed_sensor_pose") &&
+            (!topic.has("use_fixed_sensor_pose") ||
+             !topic["use_fixed_sensor_pose"].as<bool>()))
+        {
+            fixedSensorPose = mrpt::poses::CPose3D::FromString(
+                "["s + topic["fixed_sensor_pose"].as<std::string>() + "]"s);
+        }
+
+        qosProfile.depth   = queue_size;
+        const auto qosInit = rclcpp::QoSInitialization::from_rmw(qosProfile);
+        const rclcpp::QoS qos{qosInit, qosProfile};
+
+        if (type == "PointCloud2")
+        {
+            subsPointCloud_.emplace_back(
+                rosNode_->create_subscription<sensor_msgs::msg::PointCloud2>(
+                    topic_name, qos,
+                    [this, output_sensor_label,
+                     fixedSensorPose](const sensor_msgs::msg::PointCloud2& o) {
+                        this->callbackOnPointCloud2(
+                            o, output_sensor_label, fixedSensorPose);
+                    }));
+        }
+        else if (type == "LaserScan")
+        {
+            subsLaserScan_.emplace_back(
+                rosNode_->create_subscription<sensor_msgs::msg::LaserScan>(
+                    topic_name, qos,
+                    [this, output_sensor_label,
+                     fixedSensorPose](const sensor_msgs::msg::LaserScan& o) {
+                        this->callbackOnLaserScan(
+                            o, output_sensor_label, fixedSensorPose);
+                    }));
+        }
+        else if (type == "Imu")
+        {
+            subsImu_.emplace_back(
+                rosNode_->create_subscription<sensor_msgs::msg::Imu>(
+                    topic_name, qos,
+                    [this, output_sensor_label,
+                     fixedSensorPose](const sensor_msgs::msg::Imu& o) {
+                        this->callbackOnImu(
+                            o, output_sensor_label, fixedSensorPose);
+                    }));
+        }
+        else if (type == "NavSatFix")
+        {
+            subsGNNS_.emplace_back(
+                rosNode_->create_subscription<sensor_msgs::msg::NavSatFix>(
+                    topic_name, qos,
+                    [this, output_sensor_label,
+                     fixedSensorPose](const sensor_msgs::msg::NavSatFix& o) {
+                        this->callbackOnNavSatFix(
+                            o, output_sensor_label, fixedSensorPose);
+                    }));
+        }
+        else if (type == "Odometry")
+        {
+            subsOdometry_.emplace_back(
+                rosNode_->create_subscription<nav_msgs::msg::Odometry>(
+                    topic_name, qos,
+                    [this,
+                     output_sensor_label](const nav_msgs::msg::Odometry& o) {
+                        this->callbackOnOdometry(o, output_sensor_label);
+                    }));
+        }
+        else
+        {
+            THROW_EXCEPTION_FMT(
+                "Unhandled type=`%s` for topic=`%s`", type.c_str(),
+                topic_name.c_str());
+        }
     }
 }
