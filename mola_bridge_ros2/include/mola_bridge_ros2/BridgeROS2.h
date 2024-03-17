@@ -123,8 +123,6 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 
         double period_check_new_mola_subs = 1.0;  // [s]
 
-        unsigned int publisher_history_len = 10;
-
         int wait_for_tf_timeout_milliseconds = 100;
     };
 
@@ -246,8 +244,8 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     void internalOn(const mrpt::obs::CObservationRobotPose& obs);
 
     void internalOn(
-        const mrpt::obs::CObservationPointCloud& obs,
-        bool publishSensorPoseToTF, const std::string& sSensorFrameId);
+        const mrpt::obs::CObservationPointCloud& obs, bool isSensorTopic,
+        const std::string& sSensorFrameId);
 
     void internalAnalyzeTopicsToSubscribe(
         const mrpt::containers::yaml& ds_subscribe);

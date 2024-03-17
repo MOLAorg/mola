@@ -527,8 +527,10 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationImage& obs)
 
     if (is_1st_pub)
     {
+        // REP-2003: Sensor sources should use SystemDefaultsQoS
+        // See: https://ros.org/reps/rep-2003.html
         pub = rosNode()->create_publisher<sensor_msgs::msg::Image>(
-            obs.sensorLabel, params_.publisher_history_len);
+            obs.sensorLabel, rclcpp::SystemDefaultsQoS());
     }
     lck.unlock();
 
@@ -579,8 +581,10 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservation2DRangeScan& obs)
 
     if (is_1st_pub)
     {
+        // REP-2003: Sensor sources should use SystemDefaultsQoS
+        // See: https://ros.org/reps/rep-2003.html
         pub = rosNode()->create_publisher<sensor_msgs::msg::LaserScan>(
-            obs.sensorLabel, params_.publisher_history_len);
+            obs.sensorLabel, rclcpp::SystemDefaultsQoS());
     }
     lck.unlock();
 
@@ -627,7 +631,7 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationPointCloud& obs)
 }
 
 void BridgeROS2::internalOn(
-    const mrpt::obs::CObservationPointCloud& obs, bool publishSensorPoseToTF,
+    const mrpt::obs::CObservationPointCloud& obs, bool isSensorTopic,
     const std::string& sSensorFrameId)
 {
     using namespace std::string_literals;
@@ -644,8 +648,16 @@ void BridgeROS2::internalOn(
 
     if (is_1st_pub)
     {
+        // REP-2003: https://ros.org/reps/rep-2003.html#id5
+        // - Sensors: SystemDefaultsQoS()
+        // - Maps:  reliable transient-local
+        auto qos =
+            isSensorTopic
+                ? rclcpp::SystemDefaultsQoS()
+                : rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable();
+
         pubPts = rosNode()->create_publisher<sensor_msgs::msg::PointCloud2>(
-            lbPoints, params_.publisher_history_len);
+            lbPoints, qos);
     }
     lck.unlock();
 
@@ -660,7 +672,7 @@ void BridgeROS2::internalOn(
     // --------
 
     // Send TF:
-    if (publishSensorPoseToTF)
+    if (isSensorTopic)
     {
         mrpt::poses::CPose3D sensorPose = obs.sensorPose;
 
@@ -729,8 +741,10 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
 
     if (is_1st_pub)
     {
+        // REP-2003: Sensor sources should use SystemDefaultsQoS
+        // See: https://ros.org/reps/rep-2003.html
         pub = rosNode()->create_publisher<nav_msgs::msg::Odometry>(
-            obs.sensorLabel, params_.publisher_history_len);
+            obs.sensorLabel, rclcpp::SystemDefaultsQoS());
     }
     lck.unlock();
 
@@ -895,7 +909,7 @@ void BridgeROS2::timerPubLocalization()
     if (is_1st_pub)
     {
         pub = rosNode()->create_publisher<nav_msgs::msg::Odometry>(
-            locLabel, params_.publisher_history_len);
+            locLabel, rclcpp::SystemDefaultsQoS());
     }
     lck.unlock();
 
@@ -975,9 +989,9 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(
 {
     using namespace std::string_literals;
 
-    // TODO: Expose QoS params?
-    rmw_qos_profile_t qosProfile;
-    qosProfile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    // Should be used to subscribe to sensor topics, per REP-2003:
+    // https://ros.org/reps/rep-2003.html
+    const rclcpp::QoS qos = rclcpp::SensorDataQoS();
 
     for (const auto& topicItem : ds_subscribe.asSequence())
     {
@@ -991,7 +1005,6 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(
         const auto type       = topic["msg_type"].as<std::string>();
         const auto output_sensor_label =
             topic["output_sensor_label"].as<std::string>();
-        const auto queue_size = topic.getOrDefault<int>("queue_size", 100);
 
         MRPT_LOG_DEBUG_STREAM(
             "Creating ros2 subscriber for topic='" << topic_name << "' ("
@@ -1006,10 +1019,6 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(
             fixedSensorPose = mrpt::poses::CPose3D::FromString(
                 "["s + topic["fixed_sensor_pose"].as<std::string>() + "]"s);
         }
-
-        qosProfile.depth   = queue_size;
-        const auto qosInit = rclcpp::QoSInitialization::from_rmw(qosProfile);
-        const rclcpp::QoS qos{qosInit, qosProfile};
 
         if (type == "PointCloud2")
         {
