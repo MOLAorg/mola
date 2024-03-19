@@ -32,6 +32,6 @@ def process_directories(path, items_to_remove, pattern_text):
 path_to_search = '..'
 items_to_remove = ['scripts', 'docs',
                    '.vscode', '.github', '.circleci', '.git']
-pattern_text = "| {name} | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__{name}__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__{name}__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__{name}__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__{name}__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uJ64__{name}__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uJ64__{name}__ubuntu_jammy_amd64__binary/) |"
+pattern_text = "| {name} | [![Build Status](https://build.ros2.org/job/Hbin_uJ64__{name}__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Hbin_uJ64__{name}__ubuntu_jammy_amd64__binary/) | [![Build Status](https://build.ros2.org/job/Ibin_uJ64__{name}__ubuntu_jammy_amd64__binary/badge/icon)](https://build.ros2.org/job/Ibin_uJ64__{name}__ubuntu_jammy_amd64__binary/)| [![Build Status](https://build.ros2.org/job/Rbin_uN64__{name}__ubuntu_noble_amd64__binary/badge/icon)](https://build.ros2.org/job/Rbin_uN64__{name}__ubuntu_noble_amd64__binary/) |"
 
 process_directories(path_to_search, items_to_remove, pattern_text)
