@@ -2,6 +2,12 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* copyright update
+* reorganize as monorepo
+* Contributors: Jose Luis Blanco-Claraco
+
 0.2.2 (2023-09-08)
 ------------------
 * Fix package name in docs

@@ -2,6 +2,14 @@
 Changelog for package mola_input_euroc_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* New option to shutdown automatically mola-cli after dataset ends
+* Show dataset replay progress percent
+* Correct usage of mola:: namespace in cmake targets
+* copyright update
+* Contributors: Jose Luis Blanco-Claraco
+
 0.2.2 (2023-09-08)
 ------------------
 * Correct references to license

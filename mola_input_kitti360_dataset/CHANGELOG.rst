@@ -2,6 +2,13 @@
 Changelog for package mola_input_kitti_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Refactor initialize()
+* Kitti360: add point timestamps, add ground truth
+* Add Kitti360 dataset source
+* Contributors: Jose Luis Blanco-Claraco
+
 0.2.2 (2023-09-08)
 ------------------
 * Correct references to license
