@@ -2,8 +2,8 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2024-03-19)
+------------------
 * ROS2 launch demos
 * reorganize as monorepo
 * Contributors: Jose Luis Blanco-Claraco

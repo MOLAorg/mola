@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2024-03-19)
+------------------
 * add methods to query for subscribers
 * New interfaces
 * Refactor initialize()

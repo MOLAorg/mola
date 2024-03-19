@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_kernel</name>
-  <version>0.2.2</version>
+  <version>1.0.0</version>
   <description>Fundamental C++ virtual interfaces and data types for the rest of MOLA modules</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>

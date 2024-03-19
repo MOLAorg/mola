@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_launcher</name>
-  <version>0.2.2</version>
+  <version>1.0.0</version>
   <description>Launcher app for MOLA systems</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>

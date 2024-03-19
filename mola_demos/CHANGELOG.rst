@@ -2,8 +2,8 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2024-03-19)
+------------------
 * Add use_fixed_sensor_pose flag
 * Publish ground truth to ROS2 too
 * ROS 2 launch demos

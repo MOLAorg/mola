@@ -2,8 +2,8 @@
 Changelog for package mola_input_rawlog
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2024-03-19)
+------------------
 * Refactor initialize()
 * Implement UI Dataset in the rest of dataset sources
 * New option to shutdown automatically mola-cli after dataset ends

@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+1.0.0 (2024-03-19)
+------------------
 * tolerate missing tf data temporarily
 * Merge ROS2 input and output in one module
 * Add use_fixed_sensor_pose flag

@@ -3,8 +3,8 @@ Changelog for package kitti_metrics_eval
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+1.0.0 (2024-03-19)
+------------------
 * Add option to use several groundtruth/result file pairs
 * copyright update
 * kitti eval cli moves to its own package

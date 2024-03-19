@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_imu_preintegration</name>
-  <version>0.2.2</version>
+  <version>1.0.0</version>
   <description>Integrator of IMU angular velocity readings</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>

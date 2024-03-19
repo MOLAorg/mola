@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_bridge_ros2</name>
-  <version>0.2.2</version>
+  <version>1.0.0</version>
   <description>Bidirectional bridge ROS2-MOLA</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>

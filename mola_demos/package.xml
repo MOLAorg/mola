@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_demos</name>
-  <version>0.2.2</version>
+  <version>1.0.0</version>
   <description>Demo and example launch files for MOLA</description>
 
   <author     email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</author>

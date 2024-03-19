@@ -2,8 +2,8 @@
 Changelog for package mola_traj_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2024-03-19)
+------------------
 * Add tool to rebase TUM trajectory
 * new package with small TUM trajectory cli tools
 * Contributors: Jose Luis Blanco-Claraco
