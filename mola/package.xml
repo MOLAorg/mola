@@ -15,6 +15,7 @@
   <depend>mola_demos</depend>
   <depend>mola_imu_preintegration</depend>
   <depend>mola_input_euroc_dataset</depend>
+  <depend>mola_input_kitti360_dataset</depend>
   <depend>mola_input_kitti_dataset</depend>
   <depend>mola_input_mulran_dataset</depend>
   <depend>mola_input_paris_luco_dataset</depend>
