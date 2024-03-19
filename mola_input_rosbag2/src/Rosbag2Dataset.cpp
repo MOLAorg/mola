@@ -267,7 +267,9 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
-                    return toPointCloud2(sensorLabel, m, fixedSensorPose);
+                    return catchExceptions([=]() {
+                        return toPointCloud2(sensorLabel, m, fixedSensorPose);
+                    });
                 };
             lookup_[topic].emplace_back(callback);
         }
@@ -287,7 +289,9 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
-                    return toImage(sensorLabel, m, fixedSensorPose);
+                    return catchExceptions([=]() {
+                        return toImage(sensorLabel, m, fixedSensorPose);
+                    });
                 };
             lookup_[topic].emplace_back(callback);
         }
@@ -295,7 +299,9 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
-                    return toLidar2D(sensorLabel, m, fixedSensorPose);
+                    return catchExceptions([=]() {
+                        return toLidar2D(sensorLabel, m, fixedSensorPose);
+                    });
                 };
 
             lookup_[topic].emplace_back(callback);
@@ -304,7 +310,9 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
-                    return toRotatingScan(sensorLabel, m, fixedSensorPose);
+                    return catchExceptions([=]() {
+                        return toRotatingScan(sensorLabel, m, fixedSensorPose);
+                    });
                 };
             lookup_[topic].emplace_back(callback);
         }
@@ -312,7 +320,9 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
-                    return toIMU(sensorLabel, m, fixedSensorPose);
+                    return catchExceptions([=]() {
+                        return toIMU(sensorLabel, m, fixedSensorPose);
+                    });
                 };
             lookup_[topic].emplace_back(callback);
         }
@@ -320,7 +330,9 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
-                    return toGPS(sensorLabel, m, fixedSensorPose);
+                    return catchExceptions([=]() {
+                        return toGPS(sensorLabel, m, fixedSensorPose);
+                    });
                 };
             lookup_[topic].emplace_back(callback);
         }
@@ -328,7 +340,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {
             auto callback =
                 [=](const rosbag2_storage::SerializedBagMessage& m) {
-                    return toOdometry(sensorLabel, m);
+                    return catchExceptions(
+                        [=]() { return toOdometry(sensorLabel, m); });
                 };
             lookup_[topic].emplace_back(callback);
         }
@@ -919,3 +932,20 @@ Rosbag2Dataset::SF::Ptr Rosbag2Dataset::to_mrpt(
     }
     return rets;
 }  // end to_mrpt()
+
+Rosbag2Dataset::Obs Rosbag2Dataset::catchExceptions(
+    const std::function<Obs()>& f)
+{
+    try
+    {
+        return f();
+    }
+    catch (const std::exception& e)
+    {
+        MRPT_LOG_ERROR_STREAM(
+            "Exception while processing topic message (ignore if the error "
+            "stops later one, e.g. missing /tf):\n"
+            << e.what());
+        return {};
+    }
+}

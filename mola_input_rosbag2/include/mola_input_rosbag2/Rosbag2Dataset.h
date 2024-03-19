@@ -198,6 +198,8 @@ class Rosbag2Dataset : public RawDataSourceBase,
         const rosbag2_storage::SerializedBagMessage& rosmsg,
         const std::optional<mrpt::poses::CPose3D>&   fixedSensorPose);
 
+    Obs catchExceptions(const std::function<Obs()>& f);
+
     bool findOutSensorPose(
         mrpt::poses::CPose3D& des, const std::string& target_frame,
         const std::string&                         source_frame,
