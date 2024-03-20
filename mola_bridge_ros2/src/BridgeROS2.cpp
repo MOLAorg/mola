@@ -1014,7 +1014,7 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(
         std::optional<mrpt::poses::CPose3D> fixedSensorPose;
         if (topic.has("fixed_sensor_pose") &&
             (!topic.has("use_fixed_sensor_pose") ||
-             !topic["use_fixed_sensor_pose"].as<bool>()))
+             topic["use_fixed_sensor_pose"].as<bool>()))
         {
             fixedSensorPose = mrpt::poses::CPose3D::FromString(
                 "["s + topic["fixed_sensor_pose"].as<std::string>() + "]"s);

@@ -257,7 +257,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         std::optional<mrpt::poses::CPose3D> fixedSensorPose;
         if (sensor.count("fixed_sensor_pose") != 0 &&
             (sensor.count("use_fixed_sensor_pose") == 0 ||
-             !sensor.at("use_fixed_sensor_pose").as<bool>()))
+             sensor.at("use_fixed_sensor_pose").as<bool>()))
         {
             fixedSensorPose = mrpt::poses::CPose3D::FromString(
                 "["s + sensor.at("fixed_sensor_pose").as<std::string>() + "]"s);
