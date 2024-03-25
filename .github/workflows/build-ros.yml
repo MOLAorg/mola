@@ -37,7 +37,7 @@ jobs:
             ros_version: 2
 
           # Rolling Ridley (No End-Of-Life)
-          - docker_image: ubuntu:jammy
+          - docker_image: ubuntu:noble
             ros_distribution: rolling
             ros_version: 2
 
