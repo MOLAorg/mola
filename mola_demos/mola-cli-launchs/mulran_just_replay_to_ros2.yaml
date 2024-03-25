@@ -46,6 +46,9 @@ modules:
       # 
       publish_odometry_msgs_from_slam: true
 
+      # Do not publish /tf from ground truth dataset observations:
+      publish_tf_from_robot_pose_observations: false
+
 
   # =====================
   # MolaViz

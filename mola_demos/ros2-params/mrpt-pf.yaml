@@ -14,8 +14,8 @@
     # Otherwise,the 3D mode (SE(3)) is enabled.
     use_se3_pf: false
     
-    # Number of particles upon initialization.
-    initial_particle_count: 1500
+    # Particle density (particles/m²) upon initialization:
+    initial_particles_per_m2: 10
 
     # You can include the initial pose here as parameter, or send it via a topic or service.
     initial_pose:

@@ -42,6 +42,12 @@ def generate_launch_description():
             'topic_sensors_point_clouds': '/pf_input_points',
             'topic_gnns': '/gps',
             'pf_params_file': pf_params_file,
+
+            # For robots with odometry, use: 'base_link'->'odom'->'map'.
+            # For systems without wheels odometry, use: 'base_link'->'base_link'->'map'.
+            'base_link_frame_id': 'base_link',
+            'odom_frame_id': 'base_link',
+            'global_frame_id': 'map',
         }.items()
     )
 
@@ -68,7 +74,8 @@ def generate_launch_description():
             'show_gui': 'False',
             'one_observation_per_topic': 'True',
             'frameid_robot': 'base_link',
-            'frameid_reference': 'odom',
+            'frameid_reference': 'base_link',
+            # frameid_reference was 'odom': We can use the same frame_id if we are not accumulating past observations
         }.items()
     )
 
