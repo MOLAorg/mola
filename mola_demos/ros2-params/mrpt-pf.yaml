@@ -15,7 +15,7 @@
     use_se3_pf: false
     
     # Number of particles upon initialization.
-    initial_particle_count: 2500
+    initial_particle_count: 1500
 
     # You can include the initial pose here as parameter, or send it via a topic or service.
     initial_pose:
@@ -75,7 +75,6 @@
     initialize_from_gnns: true
 
     # (the ROS topic to listen for GNNS is ser via a launch argument)
-
 
 
     # Particle filter options:

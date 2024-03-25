@@ -27,6 +27,7 @@ add_library(${PROJECT_NAME} INTERFACE)
 install(DIRECTORY
   mola-cli-launchs
   ros2-launchs
+  ros2-params
   rviz2
   DESTINATION
     share/${PROJECT_NAME}
