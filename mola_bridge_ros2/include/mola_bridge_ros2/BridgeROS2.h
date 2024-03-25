@@ -19,6 +19,7 @@
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 
 // MRPT:
+#include <mrpt/obs/CObservationGPS.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 
@@ -242,6 +243,7 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     void internalOn(const mrpt::obs::CObservation2DRangeScan& obs);
     void internalOn(const mrpt::obs::CObservationPointCloud& obs);
     void internalOn(const mrpt::obs::CObservationRobotPose& obs);
+    void internalOn(const mrpt::obs::CObservationGPS& obs);
 
     void internalOn(
         const mrpt::obs::CObservationPointCloud& obs, bool isSensorTopic,
