@@ -103,6 +103,11 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
         // TF broadcaster:
         tf_bc_ = std::make_shared<tf2_ros::TransformBroadcaster>(rosNode_);
 
+        // It seems /tf does not find the connection between frames correctly if
+        // using tf_static (!)
+        tf_static_bc_ =
+            std::make_shared<tf2_ros::StaticTransformBroadcaster>(rosNode_);
+
         // Subscribe to topics as described by MOLA YAML parameters:
         auto ds_subscribe = cfg["subscribe"];
         if (!ds_subscribe.isSequence() || ds_subscribe.asSequence().empty())
@@ -119,15 +124,22 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
         auto timerLoc = rosNode_->create_wall_timer(
             std::chrono::microseconds(static_cast<unsigned int>(
                 1e6 * params_.period_publish_new_localization)),
-            std::bind(&BridgeROS2::timerPubLocalization, this));
+            [this]() { timerPubLocalization(); });
 
         auto timerMap = rosNode_->create_wall_timer(
             std::chrono::microseconds(static_cast<unsigned int>(
                 1e6 * params_.period_publish_new_map)),
-            std::bind(&BridgeROS2::timerPubMap, this));
+            [this]() { timerPubMap(); });
+
+        // Static tf:
+        auto timerStaticTFs = rosNode_->create_wall_timer(
+            std::chrono::microseconds(static_cast<unsigned int>(
+                1e6 * params_.period_publish_static_tfs)),
+            [this]() { publishStaticTFs(); });
 
         // Spin:
         rclcpp::spin(rosNode_);
+
         rclcpp::shutdown();
     }
     catch (const std::exception& e)
@@ -156,8 +168,19 @@ void BridgeROS2::initialize_rds(const Yaml& c)
     // params of the ROS2->MOLA part:
     YAML_LOAD_OPT(params_, base_link_frame, std::string);
     YAML_LOAD_OPT(params_, odom_frame, std::string);
+    YAML_LOAD_OPT(params_, base_footprint_frame, std::string);
+
     YAML_LOAD_OPT(params_, forward_ros_tf_as_mola_odometry_observations, bool);
     YAML_LOAD_OPT(params_, wait_for_tf_timeout_milliseconds, int);
+
+    if (cfg.has("base_footprint_to_base_link_tf"))
+    {
+        const auto s = cfg["base_footprint_to_base_link_tf"].as<std::string>();
+
+        // Format: "[x y z yaw pitch roll]" (meters & degrees)
+        params_.base_footprint_to_base_link_tf =
+            mrpt::math::TPose3D::FromString(s);
+    }
 
     // params of the MOLA-ROS2 part:
     YAML_LOAD_OPT(params_, base_link_frame, std::string);
@@ -1138,5 +1161,24 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(
                 "Unhandled type=`%s` for topic=`%s`", type.c_str(),
                 topic_name.c_str());
         }
+    }
+}
+
+void BridgeROS2::publishStaticTFs()
+{
+    if (!params_.base_footprint_frame.empty())
+    {
+        const tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(
+            params_.base_footprint_to_base_link_tf);
+
+        geometry_msgs::msg::TransformStamped tfStmp;
+
+        tfStmp.transform       = tf2::toMsg(transform);
+        tfStmp.child_frame_id  = params_.base_link_frame;
+        tfStmp.header.frame_id = params_.base_footprint_frame;
+        tfStmp.header.stamp    = myNow(mrpt::Clock::now());
+
+        tf_static_bc_->sendTransform(tfStmp);
+        // tf_bc_->sendTransform(tfStmp);
     }
 }
