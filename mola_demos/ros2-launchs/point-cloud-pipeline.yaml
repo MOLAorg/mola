@@ -1,0 +1,63 @@
+# -----------------------------------------------------------------------------
+#        mp2p_icp filters definition file for mrpt_pointcloud_pipeline
+#
+# See docs for MP2P_ICP library: https://docs.mola-slam.org/mp2p_icp/
+# -----------------------------------------------------------------------------
+
+# ---------------------------------------------------------------
+# 1) Create temporary point map to accumulate 1+ sensor observations:
+# ---------------------------------------------------------------
+generators:
+  - class_name: mp2p_icp_filters::Generator
+    params:
+      target_layer: 'accumulated_points'
+      throw_on_unhandled_observation_class: true
+      process_class_names_regex: ''  # NONE: don't process observations in the generator, just used to create the metric map.
+      #process_sensor_labels_regex: '.*'
+      # metric_map_definition_ini_file: '${CURRENT_YAML_FILE_PATH}/map_definition.ini'  # Use either an external INI file, or the 'metric_map_definition' YAML entry below
+
+      metric_map_definition:
+        # Any class derived from mrpt::maps::CMetricMap https://docs.mrpt.org/reference/latest/group_mrpt_maps_grp.html
+        class: mrpt::maps::CSimplePointsMap
+        #creationOpts:  # none needed
+        #insertionOpts: # none needed
+        #renderOpts: # none needed
+
+  # Then, use default generator: generate the observation raw points
+  - class_name: mp2p_icp_filters::Generator
+    params:
+      target_layer: 'raw'
+      throw_on_unhandled_observation_class: true
+      process_class_names_regex: '.*'
+      process_sensor_labels_regex: '.*'
+
+
+# ---------------------------------------------------------------
+# 2) Pipeline for each individual observation
+# ---------------------------------------------------------------
+per_observation:
+  # Remove the robot body:
+  - class_name: mp2p_icp_filters::FilterBoundingBox
+    params:
+      input_pointcloud_layer: 'raw'
+      outside_pointcloud_layer: 'filtered'
+      bounding_box_min: [ -2, -2, -2 ]
+      bounding_box_max: [  2,  2,  2 ]
+
+  - class_name: mp2p_icp_filters::FilterMerge
+    params:
+      input_pointcloud_layer: 'filtered'
+      target_layer: 'accumulated_points'
+
+# ---------------------------------------------------------------
+# 3) Pipeline to apply to the merged data
+# ---------------------------------------------------------------
+final:
+  # Downsample points:
+  - class_name: mp2p_icp_filters::FilterDecimateVoxels
+    params:
+      input_pointcloud_layer: 'accumulated_points'
+      output_pointcloud_layer: 'output_for_pf'
+      voxel_filter_resolution: 1.0  # [m]
+      decimate_method: DecimateMethod::FirstPoint
+
