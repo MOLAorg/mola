@@ -58,6 +58,6 @@ final:
     params:
       input_pointcloud_layer: 'accumulated_points'
       output_pointcloud_layer: 'output_for_pf'
-      voxel_filter_resolution: 1.0  # [m]
+      voxel_filter_resolution: 4.0  # [m]
       decimate_method: DecimateMethod::FirstPoint
 
