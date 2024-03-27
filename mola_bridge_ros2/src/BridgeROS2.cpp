@@ -274,12 +274,16 @@ void BridgeROS2::callbackOnPointCloud2(
             obs_pc->sensorPose, o.header.frame_id, params_.base_link_frame,
             o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
             true /*print errors*/);
-        ASSERTMSG_(
-            ok,
-            mrpt::format(
-                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+
+        if (!ok)
+        {
+            MRPT_LOG_ERROR_FMT(
+                "Could not forward ROS2 observation to MOLA due to timeout "
+                "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
                 params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
-                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9);
+            return;
+        }
     }
 
     // send it out:
@@ -401,12 +405,16 @@ void BridgeROS2::callbackOnLaserScan(
             sensorPose, o.header.frame_id, params_.base_link_frame,
             o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
             true /*print errors*/);
-        ASSERTMSG_(
-            ok,
-            mrpt::format(
-                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+
+        if (!ok)
+        {
+            MRPT_LOG_ERROR_FMT(
+                "Could not forward ROS2 observation to MOLA due to timeout "
+                "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
                 params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
-                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9);
+            return;
+        }
     }
 
     auto obs = mrpt::obs::CObservation2DRangeScan::Create();
@@ -441,12 +449,15 @@ void BridgeROS2::callbackOnImu(
             sensorPose, o.header.frame_id, params_.base_link_frame,
             o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
             true /*print errors*/);
-        ASSERTMSG_(
-            ok,
-            mrpt::format(
-                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+        if (!ok)
+        {
+            MRPT_LOG_ERROR_FMT(
+                "Could not forward ROS2 observation to MOLA due to timeout "
+                "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
                 params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
-                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9);
+            return;
+        }
     }
 
     auto obs = mrpt::obs::CObservationIMU::Create();
@@ -482,12 +493,15 @@ void BridgeROS2::callbackOnNavSatFix(
             sensorPose, o.header.frame_id, params_.base_link_frame,
             o.header.stamp, params_.wait_for_tf_timeout_milliseconds,
             true /*print errors*/);
-        ASSERTMSG_(
-            ok,
-            mrpt::format(
-                "Timeout waiting for /tf transform '%s'->'%s' for timestamp=%f",
+        if (!ok)
+        {
+            MRPT_LOG_ERROR_FMT(
+                "Could not forward ROS2 observation to MOLA due to timeout "
+                "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
                 params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
-                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9));
+                o.header.stamp.sec + o.header.stamp.nanosec * 1e-9);
+            return;
+        }
     }
 
     auto obs = mrpt::obs::CObservationGPS::Create();
