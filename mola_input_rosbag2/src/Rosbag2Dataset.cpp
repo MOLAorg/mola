@@ -316,8 +316,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     }
     else if (sensorType == "CObservationRotatingScan")
     {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      {
+      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m) {
         return catchExceptions([=]() { return toRotatingScan(sensorLabel, m, fixedSensorPose); });
       };
       lookup_[topic].emplace_back(callback);
