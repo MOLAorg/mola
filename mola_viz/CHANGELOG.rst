@@ -2,8 +2,8 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.3.0 (2025-12-15)
+------------------
 * Fix: missing uint fields stats in PCD preview GUI in mola_viz
 * mola-viz: fix NaNs in range of each point channel preview window
 * Viz: Fix handling multi-line messages in the UI terminal

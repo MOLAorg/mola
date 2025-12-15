@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.3.0 (2025-12-15)
+------------------
 * KF metric map: change heuristic to select nearby KFs for NN matching taking into account the orientation
 * KeyFramePointCloudMap: new rendering option to show XYZ axes
 * Contributors: Jose Luis Blanco-Claraco
