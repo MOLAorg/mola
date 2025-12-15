@@ -2,6 +2,11 @@
 Changelog for package mola_input_kitti_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fix build against mrpt>=2.15.3
+* Contributors: Jose Luis Blanco-Claraco
+
 2.2.1 (2025-11-08)
 ------------------
 

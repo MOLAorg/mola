@@ -2,6 +2,9 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 2.2.1 (2025-11-08)
 ------------------
 * Fix embedded FindFilesystem.cmake to avoid cmake warnings

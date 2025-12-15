@@ -3,6 +3,11 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Import all pcd fields from ros2 messages using CGenericPointsMap
+* Contributors: Jose Luis Blanco-Claraco
+
 2.2.1 (2025-11-08)
 ------------------
 * BridgeROS2: more debug traces in map publishing

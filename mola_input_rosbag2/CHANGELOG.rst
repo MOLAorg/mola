@@ -3,6 +3,11 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Import all pcd fields from ros2 messages using CGenericPointsMap
+* Contributors: Jose Luis Blanco-Claraco
+
 2.2.1 (2025-11-08)
 ------------------
 

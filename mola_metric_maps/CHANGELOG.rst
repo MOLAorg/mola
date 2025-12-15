@@ -2,6 +2,12 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* KF metric map: change heuristic to select nearby KFs for NN matching taking into account the orientation
+* KeyFramePointCloudMap: new rendering option to show XYZ axes
+* Contributors: Jose Luis Blanco-Claraco
+
 2.2.1 (2025-11-08)
 ------------------
 * Metric maps: implement missing loading 'color.A' from config files
