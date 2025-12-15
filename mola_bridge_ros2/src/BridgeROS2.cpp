@@ -341,9 +341,9 @@ void BridgeROS2::callbackOnPointCloud2(
   mrpt::maps::CPointsMap::Ptr mapPtr;
 
   if (fields.count("time") || fields.count("timestamp") || fields.count("t") ||
-      fields.count("ring"))
+      fields.count("ring") || fields.count("intensity"))
   {
-    auto p = mrpt::maps::CPointsMapXYZIRT::Create();
+    auto p = mrpt::maps::CGenericPointsMap::Create();
     if (!mrpt::ros2bridge::fromROS(o, *p))
     {
       throw std::runtime_error("Error converting ros->mrpt(?)");
@@ -357,8 +357,7 @@ void BridgeROS2::callbackOnPointCloud2(
 #else
     auto ts = p->getPointsBufferRef_timestamp();
 #endif
-    ASSERT_(ts);
-    if (!ts->empty())
+    if (ts && !ts->empty())
     {
       const auto [minIt, maxIt] = std::minmax_element(ts->begin(), ts->end());
       const float time_span     = *maxIt - *minIt;
@@ -370,16 +369,6 @@ void BridgeROS2::callbackOnPointCloud2(
           t *= 1e-9F;
         }
       }
-    }
-
-    mapPtr = p;
-  }
-  else if (fields.count("intensity"))
-  {
-    auto p = mrpt::maps::CPointsMapXYZI::Create();
-    if (!mrpt::ros2bridge::fromROS(o, *p))
-    {
-      throw std::runtime_error("Error converting ros->mrpt(?)");
     }
 
     mapPtr = p;
@@ -1664,8 +1653,7 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     else if (type == "Odometry")
     {
       subsOdometry_.emplace_back(rosNode_->create_subscription<nav_msgs::msg::Odometry>(
-          topic_name, qos,
-          [this, output_sensor_label](const nav_msgs::msg::Odometry& o)
+          topic_name, qos, [this, output_sensor_label](const nav_msgs::msg::Odometry& o)
           { this->callbackOnOdometry(o, output_sensor_label); }));
     }
     else
