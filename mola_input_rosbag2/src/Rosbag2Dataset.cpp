@@ -316,7 +316,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     }
     else if (sensorType == "CObservationRotatingScan")
     {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m) {
+      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
+      {
         return catchExceptions([=]() { return toRotatingScan(sensorLabel, m, fixedSensorPose); });
       };
       lookup_[topic].emplace_back(callback);
@@ -676,18 +677,16 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
     return {};
   }
 
+  // Generic map:
   if (fields.count("ring") || fields.count("time") || fields.count("timestamp") ||
-      fields.count("t"))
+      fields.count("t") || fields.count("intensity"))
   {
-    // XYZIRT
-    auto mrptPts       = mrpt::maps::CPointsMapXYZIRT::Create();
+    auto mrptPts       = mrpt::maps::CGenericPointsMap::Create();
     ptsObs->pointcloud = mrptPts;
 
     if (!mrpt::ros2bridge::fromROS(pts, *mrptPts))
     {
-      THROW_EXCEPTION(
-          "Could not convert pointcloud from ROS to "
-          "CPointsMapXYZIRT");
+      THROW_EXCEPTION("Could not convert pointcloud from ROS to CGenericPointsMap");
     }
 
     // Fix timestamps for Livox driver:
@@ -698,8 +697,7 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
 #else
     auto ts = mrptPts->getPointsBufferRef_timestamp();
 #endif
-    ASSERT_(ts);
-    if (!ts->empty())
+    if (ts && !ts->empty())
     {
       const auto [minIt, maxIt] = std::minmax_element(ts->begin(), ts->end());
       const float time_span     = *maxIt - *minIt;
@@ -717,34 +715,14 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
     return {ptsObs};
   }
 
-  if (fields.count("intensity"))
+  // Simple XYZ map
   {
-    // XYZI
-    auto mrptPts       = mrpt::maps::CPointsMapXYZI::Create();
-    ptsObs->pointcloud = mrptPts;
-
-    if (!mrpt::ros2bridge::fromROS(pts, *mrptPts))
-    {
-      MRPT_LOG_ONCE_WARN(
-          "Could not convert pointcloud from ROS to "
-          "CPointsMapXYZI. Trying with XYZ");
-    }
-    else
-    {  // converted ok:
-      return {ptsObs};
-    }
-  }
-
-  {
-    // XYZ
     auto mrptPts       = mrpt::maps::CSimplePointsMap::Create();
     ptsObs->pointcloud = mrptPts;
 
     if (!mrpt::ros2bridge::fromROS(pts, *mrptPts))
     {
-      THROW_EXCEPTION(
-          "Could not convert pointcloud from ROS to "
-          "CSimplePointsMap");
+      THROW_EXCEPTION("Could not convert pointcloud from ROS to CSimplePointsMap");
     }
   }
 
