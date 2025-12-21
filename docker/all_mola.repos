@@ -1,0 +1,33 @@
+repositories:
+  mola:
+    type: git
+    url: https://github.com/MOLAorg/mola.git
+    version: develop
+  mola_common:
+    type: git
+    url: https://github.com/MOLAorg/mola_common.git
+    version: develop
+  mola_gnss_to_markers:
+    type: git
+    url: https://github.com/MOLAorg/mola_gnss_to_markers.git
+    version: develop
+  mola_imu_preintegration:
+    type: git
+    url: https://github.com/MOLAorg/mola_imu_preintegration.git
+    version: develop
+  mola_lidar_odometry:
+    type: git
+    url: https://github.com/MOLAorg/mola_lidar_odometry.git
+    version: develop
+  mola_sm_loop_closure:
+    type: git
+    url: https://github.com/MOLAorg/mola_sm_loop_closure.git
+    version: develop
+  mola_state_estimation:
+    type: git
+    url: https://github.com/MOLAorg/mola_state_estimation.git
+    version: develop
+  mp2p_icp:
+    type: git
+    url: https://github.com/MOLAorg/mp2p_icp.git
+    version: develop
