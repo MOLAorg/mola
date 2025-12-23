@@ -64,7 +64,6 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
 
  public:
   Rosbag2Dataset();
-  ~Rosbag2Dataset() override = default;
 
   // See docs in base class
   void spinOnce() override;

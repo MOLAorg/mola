@@ -77,7 +77,6 @@ class ParisLucoDataset : public RawDataSourceBase, public OfflineDatasetSource, 
 
  public:
   ParisLucoDataset();
-  ~ParisLucoDataset() override = default;
 
   // See docs in base class
   void         spinOnce() override;

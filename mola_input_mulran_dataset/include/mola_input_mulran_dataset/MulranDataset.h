@@ -89,13 +89,6 @@ class MulranDataset : public RawDataSourceBase, public OfflineDatasetSource, pub
 
  public:
   MulranDataset();
-  ~MulranDataset() override = default;
-
-  // Prevent copying and moving
-  MulranDataset(const MulranDataset&)            = delete;
-  MulranDataset& operator=(const MulranDataset&) = delete;
-  MulranDataset(MulranDataset&&)                 = delete;
-  MulranDataset& operator=(MulranDataset&&)      = delete;
 
   static constexpr double HDOP_REFERENCE_METERS = 4.5;
 

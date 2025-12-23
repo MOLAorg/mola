@@ -62,7 +62,6 @@ class EurocDataset : public RawDataSourceBase, public Dataset_UI
 
  public:
   EurocDataset();
-  ~EurocDataset() override = default;
 
   // See docs in base class
   void spinOnce() override;
