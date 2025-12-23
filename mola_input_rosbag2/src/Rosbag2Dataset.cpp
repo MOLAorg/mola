@@ -247,13 +247,18 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     const std::string topic  = sensor.at("topic").as<std::string>();
 
     std::string sensorLabel = topic;
-    if (sensor.count("sensorLabel")) sensorLabel = sensor.at("sensorLabel").as<std::string>();
+    if (sensor.count("sensorLabel"))
+    {
+      sensorLabel = sensor.at("sensorLabel").as<std::string>();
+    }
 
     // Map to MOLA class: auto or manual:
     std::string sensorType;
 
     if (sensor.count("type"))
+    {
       sensorType = sensor.at("type").as<std::string>();
+    }
     else
     {
       ASSERTMSG_(
@@ -316,7 +321,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     }
     else if (sensorType == "CObservationRotatingScan")
     {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m) {
+      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
+      {
         return catchExceptions([=]() { return toRotatingScan(sensorLabel, m, fixedSensorPose); });
       };
       lookup_[topic].emplace_back(callback);
@@ -355,12 +361,15 @@ void Rosbag2Dataset::spinOnce()
   ASSERTMSG_(initialized_, "You must call initialize() first");
 
   MRPT_START
-  ProfilerEntry tleg(profiler_, "spinOnce");
+  ProfilerEntry tle(profiler_, "spinOnce");
 
   const auto tNow = mrpt::Clock::now();
 
   // Starting time:
-  if (!last_play_wallclock_time_) last_play_wallclock_time_ = tNow;
+  if (!last_play_wallclock_time_)
+  {
+    last_play_wallclock_time_ = tNow;
+  }
 
   // get current replay time:
   auto         lckUIVars       = mrpt::lockHelper(dataset_ui_mtx_);
@@ -403,7 +412,10 @@ void Rosbag2Dataset::spinOnce()
   }
   else
   {
-    if (paused) return;
+    if (paused)
+    {
+      return;
+    }
     // move forward replayed dataset time:
     last_dataset_time_ += dt;
   }
@@ -690,7 +702,10 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
 
     // Fix timestamps for Livox driver:
     // It uses doubles for timestamps, but they are actually nanoseconds!
-#if MRPT_VERSION >= 0x020f00  // 2.15.0
+#if MRPT_VERSION >= 0x020f03  // 2.15.3
+    auto ts =
+        mrptPts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+#elif MRPT_VERSION >= 0x020f00  // 2.15.0
     auto ts = mrptPts->getPointsBufferRef_float_field(
         mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_TIMESTAMP);
 #else
