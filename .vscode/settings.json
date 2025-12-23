@@ -47,8 +47,18 @@
         "eigen",
         "ENTYPO",
         "gicp",
+        "HDOP",
         "Luco",
+        "NMEA",
         "recolorize",
+        "rgbd",
         "Velodyne"
+    ],
+    "cSpell.ignoreWords": [
+        "CPointsMapXYZIRT",
+        "JLBC",
+        "Laux",
+        "rclcpp",
+        "rosmsg"
     ]
 }
