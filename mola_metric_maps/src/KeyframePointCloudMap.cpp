@@ -20,6 +20,7 @@
 #include <mola_metric_maps/KeyframePointCloudMap.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/obs/customizable_obs_viz.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/Scene.h>
 #include <mrpt/opengl/stock_objects.h>
@@ -1180,62 +1181,6 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
     return cached_viz_;
   }
 
-  auto doColorizeByIntensity = [&](const mrpt::img::TColormap&        colormap,
-                                   const mrpt::maps::CPointsMap*      org_cloud,
-                                   mrpt::opengl::CPointCloudColoured& cloud)
-  {
-    if (colormap == mrpt::img::TColormap::cmNONE)
-    {
-      return;
-    }
-
-#if MRPT_VERSION >= 0x020f00  // 2.15.0
-    // Colorize by intensity with custom color map?
-    if (!org_cloud || !org_cloud->hasPointField("intensity"))
-    {
-      return;
-    }
-
-    const auto* Is = org_cloud->getPointsBufferRef_float_field("intensity");
-#else
-    // Colorize by intensity with custom color map?
-    if (!org_cloud || !org_cloud->hasField_Intensity())
-    {
-      return;
-    }
-
-    const auto* Is = org_cloud->getPointsBufferRef_intensity();
-#endif
-    ASSERT_(Is);
-
-    // Thread-local cache for max intensity
-    thread_local float max_intensity_cache = 1.0f;
-
-    // Find max intensity in current cloud
-    float current_max = 0.0f;
-    for (const auto& I : *Is)
-    {
-      if (I > current_max)
-      {
-        current_max = I;
-      }
-    }
-
-    // Smooth update of max intensity
-    max_intensity_cache = 0.9f * max_intensity_cache + 0.1f * current_max;
-    const float scale   = (max_intensity_cache > 0.0f) ? (1.0f / max_intensity_cache) : 1.0f;
-
-    for (size_t i = 0; i < Is->size(); i++)
-    {
-      const float I_norm = (*Is)[i] * scale;  // normalize to [0,1] using smoothed max
-      float       r = 0, g = 0, b = 0;
-      mrpt::img::colormap(colormap, I_norm, r, g, b);
-      cloud.setPointColor_fast(i, r, g, b);
-    }
-
-    cloud.markAllPointsAsNew();
-  };
-
   const uint8_t alpha_u8 = mrpt::f2u8(ro.color.A);
   auto          obj      = mrpt::opengl::CPointCloudColoured::Create();
 
@@ -1248,57 +1193,11 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
     obj->setAllPointsAlpha(alpha_u8);
   }
 
-  if (ro.colormap != mrpt::img::cmNONE)
-  {
-    const auto recolor_idx_from_field = [](const std::string& field) -> int
-    {
-      if (field == "x")
-      {
-        return 0;
-      }
-      if (field == "y")
-      {
-        return 1;
-      }
-      // Default to "z" (2)
-      return 2;
-    };
-    const int idx = recolor_idx_from_field(ro.recolorByPointField);
-    MRPT_TODO("Refactor this to make color by any channel");
+  mrpt::obs::PointCloudRecoloringParameters pcdCol;
+  pcdCol.colorMap        = ro.colormap;
+  pcdCol.colorizeByField = ro.recolorByPointField;
 
-    ASSERT_(idx >= 0 && idx <= 3);
-
-    if (idx == 3)
-    {
-      // Intensity:
-      doColorizeByIntensity(ro.colormap, pointcloud().get(), *obj);
-    }
-    else
-    {
-      // XYZ
-      float       minCoord = 0;
-      float       maxCoord = 0;
-      const auto& bb       = localBoundingBox();
-      switch (idx)
-      {
-        case 0:
-          minCoord = bb.min.x;
-          maxCoord = bb.max.x;
-          break;
-        case 1:
-          minCoord = bb.min.y;
-          maxCoord = bb.max.y;
-          break;
-        case 2:
-          minCoord = bb.min.z;
-          maxCoord = bb.max.z;
-          break;
-        default:
-          THROW_EXCEPTION("Should not reach here!");
-      };
-      obj->recolorizeByCoordinate(minCoord, maxCoord, idx, ro.colormap);
-    }
-  }
+  mrpt::obs::recolorize3Dpc(obj, pointcloud().get(), pcdCol);
 
   cached_viz_ = obj;
   return cached_viz_;
