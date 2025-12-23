@@ -406,6 +406,17 @@ void gui_handler_point_cloud(
             *itMax));
       }
     }
+    for (const auto& field : objPc->pointcloud->getPointFieldNames_uint8())
+    {
+      if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint8_field(field);
+          buf && !buf->empty())
+      {
+        const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
+        additionalMsgs.push_back(mrpt::format(
+            "%.*s range: [%i,%i]", static_cast<int>(field.size()), field.data(), static_cast<int>(*itMin),
+            static_cast<int>(*itMax)));
+      }
+    }
 #endif
 
 #else
