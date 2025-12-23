@@ -17,7 +17,7 @@ project(mola_input_bin_dataset LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # find dependencies:
-find_package(mrpt-maps REQUIRED)    # For CPointsMapXYZI
+find_package(mrpt-maps REQUIRED)    # For CGenericPointsMap
 find_package(mrpt-obs REQUIRED)     # For CObservationPointCloud
 find_package(mrpt-system REQUIRED)  # For file system utilities
 find_package(mrpt-core REQUIRED)    # For mrpt::Clock
