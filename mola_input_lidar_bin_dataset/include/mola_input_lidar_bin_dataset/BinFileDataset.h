@@ -25,7 +25,7 @@
 #include <mutex>
 #include <string>
 
-// fwrd decls:
+// forward declarations:
 namespace mrpt::obs
 {
 class CObservationPointCloud;

@@ -26,9 +26,7 @@
 #include <mrpt/math/TPose3D.h>
 #include <mrpt/obs/obs_frwds.h>
 
-#include <array>
-
-// fwrd decls:
+// forward declarations:
 namespace mrpt::obs
 {
 class CObservationPointCloud;

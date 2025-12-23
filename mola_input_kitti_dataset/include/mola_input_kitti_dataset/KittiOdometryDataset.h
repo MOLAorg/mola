@@ -28,7 +28,7 @@
 
 #include <array>
 
-// fwrd decls:
+// forward declarations:
 namespace mrpt::obs
 {
 class CObservationPointCloud;
