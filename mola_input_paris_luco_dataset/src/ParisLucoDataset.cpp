@@ -27,7 +27,6 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/round.h>
-#include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
@@ -35,6 +34,12 @@
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 #include <mrpt/version.h>
+
+#if MRPT_VERSION >= 0x020f04  // 2.15.4
+#include <mrpt/maps/CGenericPointsMap.h>
+#else
+#include <mrpt/maps/CPointsMapXYZIRT.h>
+#endif
 
 #include <Eigen/Dense>
 
@@ -51,7 +56,10 @@ static void build_list_files(
     const std::string& dir, const std::string& file_extension, std::vector<std::string>& out_lst)
 {
   out_lst.clear();
-  if (!mrpt::system::directoryExists(dir)) return;
+  if (!mrpt::system::directoryExists(dir))
+  {
+    return;
+  }
 
   using direxpl = mrpt::system::CDirectoryExplorer;
   direxpl::TFileInfoList lstFiles;
@@ -134,7 +142,7 @@ void ParisLucoDataset::spinOnce()
 
   ASSERT_(initialized_);
 
-  ProfilerEntry tleg(profiler_, "spinOnce");
+  ProfilerEntry tle(profiler_, "spinOnce");
 
   const auto tNow = mrpt::Clock::now();
 
@@ -201,7 +209,7 @@ void ParisLucoDataset::spinOnce()
     const auto obs_tim = mrpt::Clock::fromDouble(lst_timestamps_[replay_next_tim_index_]);
 
     {
-      ProfilerEntry tle(profiler_, "spinOnce.publishLidar");
+      ProfilerEntry tle_2(profiler_, "spinOnce.publishLidar");
       load_lidar(replay_next_tim_index_);
       auto o = read_ahead_lidar_obs_[replay_next_tim_index_];
       // o->timestamp = obs_tim; // already done in load_lidar()
@@ -255,12 +263,16 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
     return;
   }
 
-  ProfilerEntry tleg(profiler_, "load_lidar");
+  ProfilerEntry tleGlobal(profiler_, "load_lidar");
 
   // Load velodyne pointcloud:
   const auto f = mrpt::system::pathJoin({seq_dir_, "frames", lstLidarFiles_[step]});
 
-  auto pts = mrpt::maps::CPointsMapXYZIRT::Create();
+#if MRPT_VERSION >= 0x020f04  // 2.15.4
+  auto pts = mrpt::maps::CGenericPointsMap::Create();
+#else
+  auto  pts = mrpt::maps::CPointsMapXYZIRT::Create();
+#endif
 
   bool ok = pts->loadFromPlyFile(f);
   if (!ok)
@@ -273,7 +285,10 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
   obs->sensorLabel = "lidar";
   obs->pointcloud  = pts;
 
-#if MRPT_VERSION >= 0x020f00  // 2.15.0
+#if MRPT_VERSION >= 0x020f04  // 2.15.4
+  auto* Ts = pts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+  auto* Rs = pts->getPointsBufferRef_uint16_field(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
+#elif MRPT_VERSION >= 0x020f00  // 2.15.0
   auto* Ts =
       pts->getPointsBufferRef_float_field(mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_TIMESTAMP);
   auto* Rs = pts->getPointsBufferRef_uint_field(mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_RING_ID);
@@ -289,7 +304,7 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
 
   // Fix missing RING_ID: ParisLuco does not have a RING_ID field,
   // but we can generate it from the timestamps + pitch angle:
-  ASSERT_(pts->hasRingField());
+  ASSERT_(Rs);
   ASSERT_EQUAL_(Rs->size(), Ts->size());
   std::map<int /*ring*/, std::map<float /*time*/, size_t /*index*/>> histogram;
 

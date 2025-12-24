@@ -384,22 +384,24 @@ void gui_handler_point_cloud(
           buf && !buf->empty())
       {
         const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
-        additionalMsgs.push_back(
-            mrpt::format(
-                "%.*s range: [%.02f,%.02f]", static_cast<int>(field.size()), field.data(), *itMin,
-                *itMax));
+        additionalMsgs.push_back(mrpt::format(
+            "%.*s range: [%.02f,%.02f]", static_cast<int>(field.size()), field.data(), *itMin,
+            *itMax));
       }
     }
     for (const auto& field : objPc->pointcloud->getPointFieldNames_uint16())
     {
+#if MRPT_VERSION >= 0x020f04  // 2.15.4
+      if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint16_field(field);
+          buf && !buf->empty())
+#else
       if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint_field(field);
           buf && !buf->empty())
+#endif
       {
         const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
-        additionalMsgs.push_back(
-            mrpt::format(
-                "%.*s range: [%hu,%hu]", static_cast<int>(field.size()), field.data(), *itMin,
-                *itMax));
+        additionalMsgs.push_back(mrpt::format(
+            "%.*s range: [%hu,%hu]", static_cast<int>(field.size()), field.data(), *itMin, *itMax));
       }
     }
 #if MRPT_VERSION >= 0x020f03  // 2.15.3
@@ -409,10 +411,9 @@ void gui_handler_point_cloud(
           buf && !buf->empty())
       {
         const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
-        additionalMsgs.push_back(
-            mrpt::format(
-                "%.*s range: [%.02lf,%.02lf]", static_cast<int>(field.size()), field.data(), *itMin,
-                *itMax));
+        additionalMsgs.push_back(mrpt::format(
+            "%.*s range: [%.02lf,%.02lf]", static_cast<int>(field.size()), field.data(), *itMin,
+            *itMax));
       }
     }
     for (const auto& field : objPc->pointcloud->getPointFieldNames_uint8())
@@ -421,10 +422,9 @@ void gui_handler_point_cloud(
           buf && !buf->empty())
       {
         const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
-        additionalMsgs.push_back(
-            mrpt::format(
-                "%.*s range: [%i,%i]", static_cast<int>(field.size()), field.data(),
-                static_cast<int>(*itMin), static_cast<int>(*itMax)));
+        additionalMsgs.push_back(mrpt::format(
+            "%.*s range: [%i,%i]", static_cast<int>(field.size()), field.data(),
+            static_cast<int>(*itMin), static_cast<int>(*itMax)));
       }
     }
 #endif
@@ -608,10 +608,9 @@ void gui_handler_gps(
     labels[1]->setCaption(mrpt::format("Longitude: %.06f deg", gga->fields.longitude_degrees));
     labels[2]->setCaption(mrpt::format("Altitude: %.02f m", gga->fields.altitude_meters));
     labels[3]->setCaption(mrpt::format("HDOP: %.02f", gga->fields.HDOP));
-    labels[4]->setCaption(
-        mrpt::format(
-            "GGA UTC time: %02u:%02u:%02.03f", static_cast<unsigned int>(gga->fields.UTCTime.hour),
-            static_cast<unsigned int>(gga->fields.UTCTime.minute), gga->fields.UTCTime.sec));
+    labels[4]->setCaption(mrpt::format(
+        "GGA UTC time: %02u:%02u:%02.03f", static_cast<unsigned int>(gga->fields.UTCTime.hour),
+        static_cast<unsigned int>(gga->fields.UTCTime.minute), gga->fields.UTCTime.sec));
   }
   if (obj->covariance_enu.has_value())
   {
@@ -685,10 +684,9 @@ void gui_handler_imu(
 
   if (obj->has(mrpt::obs::IMU_WX))
   {
-    txts.push_back(
-        mrpt::format(
-            "omega=(%7.04f,%7.04f,%7.04f)", obj->get(mrpt::obs::IMU_WX),
-            obj->get(mrpt::obs::IMU_WY), obj->get(mrpt::obs::IMU_WZ)));
+    txts.push_back(mrpt::format(
+        "omega=(%7.04f,%7.04f,%7.04f)", obj->get(mrpt::obs::IMU_WX), obj->get(mrpt::obs::IMU_WY),
+        obj->get(mrpt::obs::IMU_WZ)));
   }
   else
   {
@@ -697,10 +695,9 @@ void gui_handler_imu(
 
   if (obj->has(mrpt::obs::IMU_X_ACC))
   {
-    txts.push_back(
-        mrpt::format(
-            "acc=(%7.04f,%7.04f,%7.04f)", obj->get(mrpt::obs::IMU_X_ACC),
-            obj->get(mrpt::obs::IMU_Y_ACC), obj->get(mrpt::obs::IMU_Z_ACC)));
+    txts.push_back(mrpt::format(
+        "acc=(%7.04f,%7.04f,%7.04f)", obj->get(mrpt::obs::IMU_X_ACC),
+        obj->get(mrpt::obs::IMU_Y_ACC), obj->get(mrpt::obs::IMU_Z_ACC)));
   }
   else
   {
@@ -1616,9 +1613,9 @@ void MolaViz::internal_handle_decaying_clouds()
       {
         const auto  decay_time = static_cast<float>(decay_cloud.decay_time_seconds);
         const float new_alpha  = mrpt::saturate_val(
-            decay_cloud.initial_alpha *
-                (1.0f - (decay_time - threshold_time) / DECAY_FADE_OUT_TIME),
-            0.0f, 1.0f);
+             decay_cloud.initial_alpha *
+                 (1.0f - (decay_time - threshold_time) / DECAY_FADE_OUT_TIME),
+             0.0f, 1.0f);
         decay_cloud.cloud->setAllPointsAlpha(mrpt::f2u8(new_alpha));
       }
 #endif
