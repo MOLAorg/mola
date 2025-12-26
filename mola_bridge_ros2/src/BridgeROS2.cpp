@@ -31,9 +31,8 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/maps/COccupancyGridMap2D.h>
-#include <mrpt/maps/CPointsMapXYZI.h>
-#include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/maps/CVoxelMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
@@ -52,6 +51,12 @@
 #include <mrpt/ros2bridge/time.h>
 #include <mrpt/system/filesystem.h>
 #include <mrpt/topography/conversions.h>
+#include <mrpt/version.h>
+
+#if MRPT_VERSION < 0x030000  // Support deprecated classes for mrpt < 3.0.0
+#include <mrpt/maps/CPointsMapXYZI.h>
+#include <mrpt/maps/CPointsMapXYZIRT.h>
+#endif
 
 // Other mrpt pkgs:
 #include <mrpt_nav_interfaces/msg/georeferencing_metadata.hpp>
@@ -342,8 +347,8 @@ void BridgeROS2::callbackOnPointCloud2(
 
   mrpt::maps::CPointsMap::Ptr mapPtr;
 
-  if (fields.count("time") || fields.count("timestamp") || fields.count("t") ||
-      fields.count("ring") || fields.count("intensity"))
+  // If we have anything apart of (x,y,z), use the generic cloud with multiple fields:
+  if (fields.size() > 3)
   {
     auto p = mrpt::maps::CGenericPointsMap::Create();
     if (!mrpt::ros2bridge::fromROS(o, *p))
@@ -820,8 +825,14 @@ void BridgeROS2::internalOn(
 
     obs.load();
 
-    if (auto* xyzirt = dynamic_cast<const mrpt::maps::CPointsMapXYZIRT*>(obs.pointcloud.get());
-        xyzirt)
+    if (auto* xyzgen = dynamic_cast<const mrpt::maps::CGenericPointsMap*>(obs.pointcloud.get());
+        xyzgen)
+    {
+      mrpt::ros2bridge::toROS(*xyzgen, msg_header, msg_pts);
+    }
+#if MRPT_VERSION < 0x030000  // older than v3.0.0, support deprecated classes
+    else if (auto* xyzirt = dynamic_cast<const mrpt::maps::CPointsMapXYZIRT*>(obs.pointcloud.get());
+             xyzirt)
     {
       mrpt::ros2bridge::toROS(*xyzirt, msg_header, msg_pts);
     }
@@ -830,6 +841,7 @@ void BridgeROS2::internalOn(
     {
       mrpt::ros2bridge::toROS(*xyzi, msg_header, msg_pts);
     }
+#endif
     else if (auto* sPts = dynamic_cast<const mrpt::maps::CSimplePointsMap*>(obs.pointcloud.get());
              sPts)
     {
