@@ -209,6 +209,7 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 
   std::shared_ptr<tf2_ros::TransformBroadcaster>       tf_bc_;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_bc_;
+  std::mutex                                           ros_tf_bc_mtx_;
 
   rclcpp::Clock::SharedPtr ros_clock_;
   std::mutex               ros_clock_mtx_;
