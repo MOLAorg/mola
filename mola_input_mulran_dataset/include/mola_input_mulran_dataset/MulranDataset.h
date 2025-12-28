@@ -51,13 +51,12 @@ namespace mola
  * - Ground truth poses
  *
  * Point clouds are published as mrpt::obs::CObservationPointCloud
- * with clouds of types mrpt::maps::CPointsMapXYZIRT, with these populated
- * fields:
+ * with clouds with these populated fields:
  * - `XYZ`
- * - `I`: Intensity, range [0.0 - 1.0?]
+ * - `I`: Intensity, range [0.0 - 1.0]
  * - `T`: Time of each point, in range [-0.05, 0.05] seconds (scan rate=10 Hz),
  *   such that "t=0" (the observation/scan timestamp) corresponds to the moment
- * the scanner is facing forward.
+ *   the scanner is facing forward.
  *
  * Expected contents under `base_dir` directory:
  *

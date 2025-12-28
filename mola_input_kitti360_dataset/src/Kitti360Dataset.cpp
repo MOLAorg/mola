@@ -30,8 +30,7 @@
 #include <mrpt/core/round.h>
 #include <mrpt/io/CTextFileLinesParser.h>
 #include <mrpt/io/vector_loadsave.h>
-#include <mrpt/maps/CPointsMapXYZI.h>
-#include <mrpt/maps/CPointsMapXYZIRT.h>
+#include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
@@ -669,27 +668,20 @@ void Kitti360Dataset::load_lidar(timestep_t step) const
     const auto& xs = obs->pointcloud->getPointsBufferRef_x();
     const auto& ys = obs->pointcloud->getPointsBufferRef_y();
 
-    auto newPts = mrpt::maps::CPointsMapXYZIRT::Create();
-    newPts->reserve_XYZIRT(xs.size(), true /*I*/, false /*R*/, true /*T*/);
+    auto newPts = mrpt::maps::CGenericPointsMap::Create();
+    newPts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+    newPts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY);
+    newPts->reserve(xs.size());
 
-#if MRPT_VERSION >= 0x020f00  // 2.15.0
     auto* trgTs =
-        newPts->getPointsBufferRef_float_field(mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_TIMESTAMP);
+        newPts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+
     auto ctx = newPts->prepareForInsertPointsFrom(*obs->pointcloud);
-#else
-    auto* trgTs = newPts->getPointsBufferRef_timestamp();
-#endif
     ASSERT_(trgTs);
 
     for (size_t i = 0; i < xs.size(); i++)
     {
-#if MRPT_VERSION >= 0x020f03  // 2.15.3
       newPts->insertPointFrom(i, ctx);
-#elif MRPT_VERSION >= 0x020f00  // 2.15.0
-      newPts->insertPointFrom(*obs->pointcloud, i, ctx);
-#else
-      newPts->insertPointFrom(*obs->pointcloud, i);
-#endif
 
       const auto  azimuth = std::atan2(ys[i], xs[i]);
       const float ptTime  = -0.05f * (azimuth + M_PIf) / (2.0f * M_PIf);
