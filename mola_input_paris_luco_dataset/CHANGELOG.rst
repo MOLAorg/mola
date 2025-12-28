@@ -3,8 +3,8 @@ Changelog for package mola_input_paris_luco_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+2.4.0 (2025-12-28)
+------------------
 * Fix build against upcoming mrpt 2.15.4
 * fix clang-tidy warnings
 * simplify destructors declarations

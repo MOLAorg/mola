@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_metric_maps</name>
-  <version>2.3.0</version>
+  <version>2.4.0</version>
   <description>Advanced metric map classes, using the generic `mrpt::maps::CMetricMap` interface, for use in other MOLA odometry and SLAM modules.</description>
 
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>

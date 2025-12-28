@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_relocalization</name>
-  <version>2.3.0</version>
+  <version>2.4.0</version>
   <description>C++ library with algorithms for relocalization, global localization, or pose estimation given a large initial uncertainty</description>
 
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>

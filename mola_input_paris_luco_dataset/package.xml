@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_input_paris_luco_dataset</name>
-  <version>2.3.0</version>
+  <version>2.4.0</version>
   <description>Offline RawDataSource from Paris LUCO (CT-ICP) odometry/SLAM datasets</description>
 
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>

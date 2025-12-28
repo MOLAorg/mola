@@ -2,8 +2,8 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.4.0 (2025-12-28)
+------------------
 * Fix build against upcoming mrpt 2.15.4
 * Prepare for deprecated mrpt::maps classes towards mrpt 3.0.0
 * viz pointclouds preview: fix missing uint8_t fields

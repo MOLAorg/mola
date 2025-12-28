@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+2.4.0 (2025-12-28)
+------------------
 * Fix build against upcoming mrpt 2.15.4
 * prepare for mrpt 2.15.4
 * simplify destructors declarations

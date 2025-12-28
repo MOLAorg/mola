@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.4.0 (2025-12-28)
+------------------
 * KeyframePointCloudMap: viz now reuses mrpt function for better generalized per-field coloring and avoid code duplication
 * Contributors: Jose Luis Blanco-Claraco
 

@@ -2,8 +2,8 @@
 Changelog for package mola_input_kitti_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.4.0 (2025-12-28)
+------------------
 * Use newer mrpt map classes
 * fix clang-tidy warnings
 * simplify destructors declarations

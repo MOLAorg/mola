@@ -2,8 +2,8 @@
 Changelog for package mola_input_euroc_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.4.0 (2025-12-28)
+------------------
 * simplify destructors declarations
 * Contributors: Jose Luis Blanco-Claraco
 
