@@ -3,6 +3,13 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Fix build against upcoming mrpt 2.15.4
+* prepare for mrpt 2.15.4
+* simplify destructors declarations
+* Contributors: Jose Luis Blanco-Claraco
+
 2.3.0 (2025-12-15)
 ------------------
 * Import all pcd fields from ros2 messages using CGenericPointsMap

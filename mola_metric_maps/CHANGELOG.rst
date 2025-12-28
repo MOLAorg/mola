@@ -2,6 +2,11 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* KeyframePointCloudMap: viz now reuses mrpt function for better generalized per-field coloring and avoid code duplication
+* Contributors: Jose Luis Blanco-Claraco
+
 2.3.0 (2025-12-15)
 ------------------
 * KF metric map: change heuristic to select nearby KFs for NN matching taking into account the orientation

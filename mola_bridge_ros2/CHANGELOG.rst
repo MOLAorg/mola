@@ -3,6 +3,12 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Prepare for not using deprecated mrpt_maps types starting for mrpt >=3.0.0
+* FIX: Potential segfault if observations come before ROS2 /tf broadcasters are initialized
+* Contributors: Jose Luis Blanco-Claraco
+
 2.3.0 (2025-12-15)
 ------------------
 * Import all pcd fields from ros2 messages using CGenericPointsMap

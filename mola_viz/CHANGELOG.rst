@@ -2,6 +2,13 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fix build against upcoming mrpt 2.15.4
+* Prepare for deprecated mrpt::maps classes towards mrpt 3.0.0
+* viz pointclouds preview: fix missing uint8_t fields
+* Contributors: Jose Luis Blanco-Claraco
+
 2.3.0 (2025-12-15)
 ------------------
 * Fix: missing uint fields stats in PCD preview GUI in mola_viz

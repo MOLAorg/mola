@@ -2,6 +2,12 @@
 Changelog for package mola_input_lidar_bin_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix clang-tidy warnings
+* Prepare for deprecated mrpt::maps classes towards mrpt 3.0.0
+* Contributors: Jose Luis Blanco-Claraco
+
 2.3.0 (2025-12-15)
 ------------------
 
