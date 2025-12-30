@@ -82,6 +82,19 @@ BridgeROS2::~BridgeROS2()
 {
   try
   {
+    shouldExit_ = true;
+
+    // Wait briefly for thread to start spinning (if it hasn't yet)
+    for (int i = 0; i < 50 && !isSpinning_ && rosNodeThread_.joinable(); i++)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    if (rclcpp::ok())
+    {
+      rclcpp::shutdown();
+    }
+
     rclcpp::shutdown();
     if (rosNodeThread_.joinable())
     {
@@ -234,8 +247,12 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     }
 
     // Spin:
-    rclcpp::spin(rosNode_);
-
+    isSpinning_ = true;
+    while (rclcpp::ok() && !shouldExit_)
+    {
+      rclcpp::spin_some(rosNode_);
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
     rclcpp::shutdown();
   }
   catch (const std::exception& e)
@@ -1712,8 +1729,7 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     else if (type == "Odometry")
     {
       subsOdometry_.emplace_back(rosNode_->create_subscription<nav_msgs::msg::Odometry>(
-          topic_name, qos,
-          [this, output_sensor_label](const nav_msgs::msg::Odometry& o)
+          topic_name, qos, [this, output_sensor_label](const nav_msgs::msg::Odometry& o)
           { this->callbackOnOdometry(o, output_sensor_label); }));
     }
     else

@@ -41,6 +41,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <atomic>
 #include <nav_msgs/msg/odometry.hpp>
 #include <optional>
 #include <sensor_msgs/msg/image.hpp>
@@ -216,6 +217,9 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 
   std::shared_ptr<rclcpp::Node> rosNode_;
   std::mutex                    rosNodeMtx_;
+
+  std::atomic<bool> shouldExit_{false};
+  std::atomic<bool> isSpinning_{false};
 
   /// Returns a copy of the shared_ptr to the ROS 2 node, or empty if not
   /// initialized yet.
