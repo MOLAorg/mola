@@ -38,7 +38,7 @@ Following the default :ref:`installation instructions <installing>` is enough.
 1. Launching the LiDAR ROS driver
 ----------------------------------
 In the following we will assume an Ouster sensor, so change these commands accordingly for other manufacturers.
-
+  
 First, clone the ROS 2 "driver" package for your LiDAR into your ROS 2 workspace and build it:
 
 .. code-block:: bash
@@ -145,11 +145,23 @@ In one terminal, launch MOLA-LIO ROS 2 node in localization mode:
 
 Then, either launch again the live LiDAR or ``ros2 bag play`` another dataset you want to use for localization.
 
-Finally, two key actions are required: we need to tell MOLA-LIO an initial localization guess and, only after that,
-**enable** it so incoming LiDAR scans are actually processed and matched against the prebuilt map.
+Finally, two key actions are required: we need to tell MOLA-LIO an initial localization guess 
+(e.g. using RViz InitialPose button) and, only after that,
+**enable** it so incoming LiDAR scans are actually processed and matched against the prebuilt map:
+
+
+   .. code-block:: bash
+
+      # active: true
+      ros2 service call /mola_runtime_param_set mola_msgs/srv/MolaRuntimeParamSet \
+         "{parameters: \"mola::LidarOdometry:lidar_odom:\n  active: true\n\"}"
+
+Check the complete service call documentation :ref:`here <ros2api_runtime_params>`.
+
 
 .. note::
     Other initialization options, such as GNSS-based, are possible via the smoother state estimation.
+    Documentation and examples to come soon!
 
 
 |
