@@ -42,7 +42,10 @@ using namespace mola;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(KittiOdometryDataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_KittiOdometryDataset) { MOLA_REGISTER_MODULE(KittiOdometryDataset); }
+MRPT_INITIALIZER(do_register_KittiOdometryDataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(KittiOdometryDataset);
+}
 
 KittiOdometryDataset::KittiOdometryDataset()
 {

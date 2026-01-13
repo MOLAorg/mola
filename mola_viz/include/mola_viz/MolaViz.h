@@ -184,7 +184,7 @@ class MolaViz : public ExecutableBase, public VizInterface
   struct PerWindowData
   {
     mrpt::gui::CDisplayWindowGUI::Ptr win;
-    std::vector<std::string>          console_messages = {};
+    std::vector<std::string>          console_messages;
     std::deque<DecayingCloud>         decaying_clouds;
   };
 

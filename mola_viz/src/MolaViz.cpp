@@ -115,12 +115,23 @@ std::pair<Iter, Iter> minmax_ignore_nan(Iter begin, Iter end)
   return {itMin, itMax};
 }
 
+template <typename Iter>
+std::string minmax_ignore_nan_str(Iter begin, Iter end)
+{
+  const auto [itMin, itMax] = minmax_ignore_nan(begin, end);
+  if (itMin == end)
+  {
+    return "[N/A,N/A]";
+  }
+  return "[" + std::to_string(*itMin) + "," + std::to_string(*itMax) + "]";
+}
+
 void gui_handler_show_common_sensor_info(
     const mrpt::obs::CObservation& obs, nanogui::Window* w,
     const double sensor_rate_decimation = 1.0, const std::vector<std::string>& additionalMsgs = {})
 {
-  auto glControl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
-  if (!glControl)
+  auto* glControl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
+  if (glControl == nullptr)
   {
     return;
   }
@@ -178,7 +189,7 @@ void gui_handler_show_common_sensor_info(
     const double curHz = (At > 0 ? (1.0 / At) : 1.0) * sensor_rate_decimation;
     const double alpha = 0.9;
 
-    double showHz;
+    double showHz = 0;
 
     if (estimatedHzs.count(w) == 0)
     {
@@ -232,7 +243,7 @@ void gui_handler_images(
     return;
   }
 
-  mrpt::gui::MRPT2NanoguiGLCanvas* glControl;
+  mrpt::gui::MRPT2NanoguiGLCanvas* glControl = nullptr;
   if (w->children().size() == 1)
   {
     // Guess window size:
@@ -381,50 +392,47 @@ void gui_handler_point_cloud(
     for (const auto& field : objPc->pointcloud->getPointFieldNames_float())
     {
       if (const auto* buf = objPc->pointcloud->getPointsBufferRef_float_field(field);
-          buf && !buf->empty())
+          buf != nullptr && !buf->empty())
       {
-        const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
         additionalMsgs.push_back(mrpt::format(
-            "%.*s range: [%.02f,%.02f]", static_cast<int>(field.size()), field.data(), *itMin,
-            *itMax));
+            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
       }
     }
     for (const auto& field : objPc->pointcloud->getPointFieldNames_uint16())
     {
 #if MRPT_VERSION >= 0x020f04  // 2.15.4
       if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint16_field(field);
-          buf && !buf->empty())
+          buf != nullptr && !buf->empty())
 #else
       if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint_field(field);
           buf && !buf->empty())
 #endif
       {
-        const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
         additionalMsgs.push_back(mrpt::format(
-            "%.*s range: [%hu,%hu]", static_cast<int>(field.size()), field.data(), *itMin, *itMax));
+            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
       }
     }
 #if MRPT_VERSION >= 0x020f03  // 2.15.3
     for (const auto& field : objPc->pointcloud->getPointFieldNames_double())
     {
       if (const auto* buf = objPc->pointcloud->getPointsBufferRef_double_field(field);
-          buf && !buf->empty())
+          buf != nullptr && !buf->empty())
       {
-        const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
         additionalMsgs.push_back(mrpt::format(
-            "%.*s range: [%.02lf,%.02lf]", static_cast<int>(field.size()), field.data(), *itMin,
-            *itMax));
+            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
       }
     }
     for (const auto& field : objPc->pointcloud->getPointFieldNames_uint8())
     {
       if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint8_field(field);
-          buf && !buf->empty())
+          buf != nullptr && !buf->empty())
       {
-        const auto [itMin, itMax] = minmax_ignore_nan(buf->begin(), buf->end());
         additionalMsgs.push_back(mrpt::format(
-            "%.*s range: [%i,%i]", static_cast<int>(field.size()), field.data(),
-            static_cast<int>(*itMin), static_cast<int>(*itMax)));
+            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
       }
     }
 #endif
@@ -709,7 +717,7 @@ void gui_handler_imu(
 
 }  // namespace
 
-MRPT_INITIALIZER(do_register_MolaViz)
+MRPT_INITIALIZER(do_register_MolaViz)  // NOLINT(misc-use-anonymous-namespace)
 {
   // Register MOLA module:
   MOLA_REGISTER_MODULE(MolaViz);
@@ -1602,13 +1610,12 @@ void MolaViz::internal_handle_decaying_clouds()
     {
       auto& decay_cloud = *it;
 
-      const float delta_time =
+      const auto delta_time =
           static_cast<float>(mrpt::system::timeDifference(decay_cloud.insertion_stamp, tNow));
 
       const float threshold_time =
           static_cast<float>(decay_cloud.decay_time_seconds) - DECAY_FADE_OUT_TIME;
 
-#if MRPT_VERSION >= 0x20e0c  // v2.14.12 (setAllPointsAlpha)
       if (delta_time > threshold_time && decay_cloud.decay_time_seconds > 0)
       {
         const auto  decay_time = static_cast<float>(decay_cloud.decay_time_seconds);
@@ -1618,7 +1625,6 @@ void MolaViz::internal_handle_decaying_clouds()
              0.0f, 1.0f);
         decay_cloud.cloud->setAllPointsAlpha(mrpt::f2u8(new_alpha));
       }
-#endif
 
       // clouds to be deleted?
       if (delta_time > static_cast<float>(decay_cloud.decay_time_seconds))

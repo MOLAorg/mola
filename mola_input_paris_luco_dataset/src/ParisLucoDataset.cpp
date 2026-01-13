@@ -48,7 +48,10 @@ using namespace mola;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(ParisLucoDataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_ParisLucoDataset) { MOLA_REGISTER_MODULE(ParisLucoDataset); }
+MRPT_INITIALIZER(do_register_ParisLucoDataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(ParisLucoDataset);
+}
 
 ParisLucoDataset::ParisLucoDataset() = default;
 

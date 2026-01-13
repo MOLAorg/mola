@@ -20,7 +20,7 @@
 #include <mrpt/core/initializer.h>
 
 // To be run at .so/.dll load:
-MRPT_INITIALIZER(do_register_mola_kernel)
+MRPT_INITIALIZER(do_register_mola_kernel)  // NOLINT(misc-use-anonymous-namespace)
 {
   // using namespace mola;
 

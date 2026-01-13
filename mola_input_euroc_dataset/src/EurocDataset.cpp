@@ -42,7 +42,10 @@ using namespace mola;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(EurocDataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_EurocDataset) { MOLA_REGISTER_MODULE(EurocDataset); }
+MRPT_INITIALIZER(do_register_EurocDataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(EurocDataset);
+}
 
 EurocDataset::EurocDataset() = default;
 

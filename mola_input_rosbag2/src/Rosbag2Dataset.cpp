@@ -73,7 +73,10 @@ using namespace mola;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(Rosbag2Dataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_Rosbag2Dataset) { MOLA_REGISTER_MODULE(Rosbag2Dataset); }
+MRPT_INITIALIZER(do_register_Rosbag2Dataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(Rosbag2Dataset);
+}
 
 Rosbag2Dataset::Rosbag2Dataset()
 {

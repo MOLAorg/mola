@@ -33,7 +33,10 @@ using namespace mrpt::system;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(BinFileDataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_BinFileDataset) { MOLA_REGISTER_MODULE(BinFileDataset); }
+MRPT_INITIALIZER(do_register_BinFileDataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(BinFileDataset);
+}
 
 namespace
 {

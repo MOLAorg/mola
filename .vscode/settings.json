@@ -44,6 +44,7 @@
         "Boxf",
         "Colorf",
         "Copiable",
+        "CPose3DPDFGaussian",
         "eigen",
         "ENTYPO",
         "gicp",
@@ -51,6 +52,7 @@
         "Luco",
         "NMEA",
         "recolorize",
+        "relocalize",
         "rgbd",
         "Velodyne"
     ],
@@ -58,6 +60,7 @@
         "CPointsMapXYZIRT",
         "JLBC",
         "Laux",
+        "TUTMCoords",
         "rclcpp",
         "rosmsg"
     ]
