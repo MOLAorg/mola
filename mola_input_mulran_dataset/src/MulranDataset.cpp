@@ -45,7 +45,10 @@ using namespace mola;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(MulranDataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_MulranDataset) { MOLA_REGISTER_MODULE(MulranDataset); }
+MRPT_INITIALIZER(do_register_MulranDataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(MulranDataset);
+}
 
 MulranDataset::MulranDataset() = default;
 

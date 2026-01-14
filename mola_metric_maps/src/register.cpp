@@ -33,7 +33,7 @@
 
 using namespace mola;
 
-MRPT_INITIALIZER(do_register_mola_metric_maps)
+MRPT_INITIALIZER(do_register_mola_metric_maps)  // NOLINT(misc-use-anonymous-namespace)
 {
   using mrpt::rtti::registerClass;
 

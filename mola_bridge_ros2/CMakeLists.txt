@@ -13,8 +13,6 @@ cmake_minimum_required(VERSION 3.5)
 # Tell CMake we'll use C++ for use in its tests/flags
 project(mola_bridge_ros2 LANGUAGES CXX)
 
-# MOLA CMake scripts: "mola_xxx()"
-find_package(mola_common REQUIRED)
 # find dependencies:
 find_package(mrpt-maps REQUIRED)
 
@@ -25,17 +23,18 @@ if(NOT mrpt-ros2bridge_FOUND)
   return()
 endif()
 
-# Find MOLA pkgs:
-find_mola_package(mola_kernel)
-
+# MOLA core dependencies:
+# MOLA CMake scripts: "mola_xxx()"
+find_package(mola_common REQUIRED)
+find_mola_package(mola_kernel REQUIRED)
 
 # Find ROS 2 pkgs:
 mola_find_package_or_return(ament_cmake REQUIRED)
 mola_find_package_or_return(geometry_msgs REQUIRED)
 mola_find_package_or_return(nav_msgs REQUIRED)
-mola_find_package_or_return(rclcpp)
+mola_find_package_or_return(rclcpp REQUIRED)
 mola_find_package_or_return(sensor_msgs REQUIRED)
-mola_find_package_or_return(sensor_msgs)
+mola_find_package_or_return(geographic_msgs REQUIRED)
 mola_find_package_or_return(tf2 REQUIRED)
 mola_find_package_or_return(tf2_geometry_msgs REQUIRED)
 
@@ -60,6 +59,7 @@ mola_add_library(
     rclcpp::rclcpp
     tf2::tf2
     ${geometry_msgs_TARGETS}
+    ${geographic_msgs_TARGETS}
     ${nav_msgs_TARGETS}
     ${sensor_msgs_TARGETS}
     ${tf2_geometry_msgs_TARGETS}
@@ -88,7 +88,5 @@ if(BUILD_TESTING)
   #set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-
-
 
 ament_package()

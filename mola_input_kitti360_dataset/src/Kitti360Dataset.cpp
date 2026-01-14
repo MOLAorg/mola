@@ -47,7 +47,10 @@ using namespace mola;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(Kitti360Dataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_Kitti360Dataset) { MOLA_REGISTER_MODULE(Kitti360Dataset); }
+MRPT_INITIALIZER(do_register_Kitti360Dataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(Kitti360Dataset);
+}
 
 Kitti360Dataset::Kitti360Dataset() = default;
 

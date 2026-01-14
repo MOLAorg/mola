@@ -108,6 +108,12 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   BridgeROS2();
   ~BridgeROS2() override;
 
+  // disabled copy & move ctors:
+  BridgeROS2(const BridgeROS2&)            = delete;
+  BridgeROS2(BridgeROS2&&)                 = delete;
+  BridgeROS2& operator=(const BridgeROS2&) = delete;
+  BridgeROS2& operator=(BridgeROS2&&)      = delete;
+
   // See docs in base class
   void spinOnce() override;
 
@@ -151,7 +157,7 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     /// How to publish localization to /tf:
     /// - ``false``(direct mode): reference_frame ("map") -> base_link ("base_link")
     ///   Note that reference_frame in this case comes from the localization source module
-    ///   (e.g. mola_lida_odometry), it is not configured here.
+    ///   (e.g. mola_lidar_odometry), it is not configured here.
     ///
     ///  - ``true`` (indirect mode), following ROS [REP
     ///  105](https://ros.org/reps/rep-0105.html):
@@ -166,14 +172,18 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     bool publish_odometry_msgs_from_slam = true;
 
     // Which source will be forwarded (empty=any)
-    std::string publish_odometry_msgs_from_slam_source = {};
+    std::string publish_odometry_msgs_from_slam_source;
 
     /// If enabled, SLAM/Localization results will be published as tf messages, for frames
     /// according to explained above for `publish_localization_following_rep105`.
     bool publish_tf_from_slam = true;
 
     // Which source will be forwarded (empty=any)
-    std::string publish_tf_from_slam_source = {};
+    std::string publish_tf_from_slam_source;
+
+    /// If enabled, SLAM/Localization results in geo-referenced maps will be published as
+    /// geographic_msgs/GeoPoseStamped messages.
+    bool publish_geo_referenced_poses_from_slam = true;
 
     /// If enabled, robot pose observations (typically, ground truth from datasets), will be
     /// forwarded to ROS as /tf messages: ``${reference_frame} => ${base_link}``
@@ -261,14 +271,14 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   void callbackOnRelocalizeTopic(const geometry_msgs::msg::PoseWithCovarianceStamped& o);
 
   bool waitForTransform(
-      mrpt::poses::CPose3D& des, const std::string& target_frame, const std::string& source_frame,
+      mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
       bool printErrors);
 
   void importRosOdometryToMOLA();
 
   /// Returns either the wallclock "now" (params_.use_sim_time = false)
   /// or the equivalent of the passed argument in ROS 2 format otherwise.
-  rclcpp::Time myNow(const mrpt::Clock::time_point& observationStamp);
+  rclcpp::Time myNow(const mrpt::Clock::time_point& observationStamp) const;
 
   /// Generic Map <topic> => publisher
   std::map<std::string, rclcpp::PublisherBase::SharedPtr> rosPubs_;
@@ -318,28 +328,28 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   rclcpp::Service<mola_msgs::srv::MolaRuntimeParamSet>::SharedPtr          srvParamSet_;
 
   void service_relocalize_from_se(
-      const std::shared_ptr<mola_msgs::srv::RelocalizeFromStateEstimator::Request> request,
-      std::shared_ptr<mola_msgs::srv::RelocalizeFromStateEstimator::Response>      response);
+      std::shared_ptr<mola_msgs::srv::RelocalizeFromStateEstimator::Request>  request,
+      std::shared_ptr<mola_msgs::srv::RelocalizeFromStateEstimator::Response> response);
 
   void service_relocalize_near_pose(
-      const std::shared_ptr<mola_msgs::srv::RelocalizeNearPose::Request> request,
-      std::shared_ptr<mola_msgs::srv::RelocalizeNearPose::Response>      response);
+      std::shared_ptr<mola_msgs::srv::RelocalizeNearPose::Request>  request,
+      std::shared_ptr<mola_msgs::srv::RelocalizeNearPose::Response> response);
 
   void service_map_load(
-      const std::shared_ptr<mola_msgs::srv::MapLoad::Request> request,
-      std::shared_ptr<mola_msgs::srv::MapLoad::Response>      response);
+      std::shared_ptr<mola_msgs::srv::MapLoad::Request>  request,
+      std::shared_ptr<mola_msgs::srv::MapLoad::Response> response);
 
   void service_map_save(
-      const std::shared_ptr<mola_msgs::srv::MapSave::Request> request,
-      std::shared_ptr<mola_msgs::srv::MapSave::Response>      response);
+      std::shared_ptr<mola_msgs::srv::MapSave::Request>  request,
+      std::shared_ptr<mola_msgs::srv::MapSave::Response> response);
 
   void service_param_get(
-      const std::shared_ptr<mola_msgs::srv::MolaRuntimeParamGet::Request> request,
-      std::shared_ptr<mola_msgs::srv::MolaRuntimeParamGet::Response>      response);
+      std::shared_ptr<mola_msgs::srv::MolaRuntimeParamGet::Request>  request,
+      std::shared_ptr<mola_msgs::srv::MolaRuntimeParamGet::Response> response);
 
   void service_param_set(
-      const std::shared_ptr<mola_msgs::srv::MolaRuntimeParamSet::Request> request,
-      std::shared_ptr<mola_msgs::srv::MolaRuntimeParamSet::Response>      response);
+      std::shared_ptr<mola_msgs::srv::MolaRuntimeParamSet::Request>  request,
+      std::shared_ptr<mola_msgs::srv::MolaRuntimeParamSet::Response> response);
 
   void onNewLocalization(const mola::LocalizationSourceBase::LocalizationUpdate& l);
 
@@ -349,8 +359,26 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   std::vector<mola::LocalizationSourceBase::LocalizationUpdate>           lastLocUpdates_;
   std::multimap<std::string /*map_name*/, mola::MapSourceBase::MapUpdate> lastMaps_;
 
+  // The latest georef info received from any state estimator / SLAM method.
+  std::mutex                    georefInfoMtx_;
+  std::optional<Georeferencing> georeferencingInfo_;
+
+  std::optional<Georeferencing> georeferencingInfo()
+  {
+    std::lock_guard<std::mutex> lck(georefInfoMtx_);
+    return this->georeferencingInfo_;
+  }
+
+  // Different publish localization parts:
   void timerPubLocalization();
+  void timerPubLocalizationTf(const LocalizationSourceBase::LocalizationUpdate& l);
+  void timerPubLocalizationOdom(const LocalizationSourceBase::LocalizationUpdate& l);
+  void timerPubLocalizationQuality(const LocalizationSourceBase::LocalizationUpdate& l);
+  void timerPubLocalizationGeoRef(const LocalizationSourceBase::LocalizationUpdate& l);
+
+  // Different publish map parts:
   void timerPubMap();
+  void timerPubMapLayer(const std::string& layerName, const MapSourceBase::MapUpdate& mu);
 
   double lastTimeCheckMolaSubs_ = 0;
   void   doLookForNewMolaSubs();

@@ -36,7 +36,10 @@ using namespace mola;
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(RawlogDataset, RawDataSourceBase, mola)
 
-MRPT_INITIALIZER(do_register_RawlogDataset) { MOLA_REGISTER_MODULE(RawlogDataset); }
+MRPT_INITIALIZER(do_register_RawlogDataset)  // NOLINT(misc-use-anonymous-namespace)
+{
+  MOLA_REGISTER_MODULE(RawlogDataset);
+}
 
 RawlogDataset::RawlogDataset() = default;
 
