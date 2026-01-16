@@ -19,7 +19,6 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
-#include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>
@@ -67,18 +66,18 @@ BinFileDataset::~BinFileDataset() = default;
 /**
  * @brief Initializes the module by reading parameters, finding files, and generating timestamps.
  */
-void BinFileDataset::initialize_rds(const mrpt::containers::yaml& c)
+void BinFileDataset::initialize_rds(const mrpt::containers::yaml& params)
 {
   using namespace std::string_literals;
 
   MRPT_START
   ProfilerEntry tle(profiler_, "initialize");
 
-  MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << c);
+  MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << params);
 
   // Mandatory parameters:
-  ENSURE_YAML_ENTRY_EXISTS(c, "params");
-  auto cfg = c["params"];
+  ENSURE_YAML_ENTRY_EXISTS(params, "params");
+  auto cfg = params["params"];
 
   // 1. Get parameters: 'path' (required) and 'rate_hz' (optional)
   YAML_LOAD_MEMBER_REQ(bin_dir, std::string);
@@ -126,7 +125,7 @@ size_t BinFileDataset::datasetSize() const { return lst_bin_files_.size(); }
  */
 void BinFileDataset::load_lidar(timestep_t step) const
 {
-  if (read_ahead_lidar_obs_.count(step))
+  if (read_ahead_lidar_obs_.count(step) != 0)
   {
     return;  // Already loaded
   }
@@ -209,7 +208,10 @@ void BinFileDataset::spinOnce()
   }
   else
   {
-    if (paused) return;
+    if (paused)
+    {
+      return;
+    }
     // move forward replayed dataset time:
     last_dataset_time_ += dt;
   }

@@ -27,8 +27,6 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
-#include <mrpt/maps/CPointsMapXYZI.h>
-#include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
@@ -37,6 +35,13 @@
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
 #include <mrpt/version.h>
+
+#if MRPT_VERSION >= 0x020f04
+#include <mrpt/maps/CGenericPointsMap.h>
+#else
+#include <mrpt/maps/CPointsMapXYZI.h>
+#include <mrpt/maps/CPointsMapXYZIRT.h>
+#endif
 
 #include <Eigen/Dense>
 
@@ -501,32 +506,36 @@ void MulranDataset::load_lidar(timestep_t step) const
   auto obs         = mrpt::obs::CObservationPointCloud::Create();
   obs->sensorLabel = "lidar";
 
-  auto pts        = mrpt::maps::CPointsMapXYZIRT::Create();
+#if MRPT_VERSION >= 0x020f04
+  auto pts = mrpt::maps::CGenericPointsMap::Create();
+#else
+  auto pts = mrpt::maps::CPointsMapXYZIRT::Create();
+#endif
   obs->pointcloud = pts;
 
   // Load XYZI from kitti-like file:
   {
+#if MRPT_VERSION >= 0x020f04
+    mrpt::maps::CGenericPointsMap kittiData;
+#else
     mrpt::maps::CPointsMapXYZI kittiData;
+#endif
 
     bool loadOk = kittiData.loadFromKittiVelodyneFile(f);
     ASSERTMSG_(loadOk, mrpt::format("Error loading kitti scan file: '%s'", f.c_str()));
 
     // Normalize intensity data so it's maximum 1.0
 #if MRPT_VERSION >= 0x020f00  // 2.15.0
-    auto* Is = kittiData.getPointsBufferRef_float_field(
-        mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_INTENSITY);
+    auto* Is = kittiData.getPointsBufferRef_float_field("intensity");
 #else
-    auto* Is = kittiData.getPointsBufferRef_intensity();
+    auto*                      Is = kittiData.getPointsBufferRef_intensity();
 #endif
     ASSERT_(Is && !Is->empty());
     const float max_intensity_inv = 1.0f / normalize_intensity_channel_maximum_;
     for (float& intensity : *Is)
     {
       intensity *= max_intensity_inv;
-      if (intensity > 1.0f)
-      {
-        intensity = 1.0f;
-      }
+      intensity = std::min(1.0f, intensity);
     }
 
     // Copy XYZI:
@@ -535,7 +544,21 @@ void MulranDataset::load_lidar(timestep_t step) const
 
   const size_t nPts = pts->size();
   ASSERT_EQUAL_(nPts, static_cast<size_t>(1024U) * 64U);
+
+#if MRPT_VERSION >= 0x020f04
+  pts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY);
+  pts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+  pts->registerField_uint16(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
+
+  pts->resize(nPts);
+
+  auto* Ts = pts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+  auto* Rs = pts->getPointsBufferRef_uint16_field(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
+  ASSERT_(Ts);
+  ASSERT_(Rs);
+#else
   pts->resize_XYZIRT(nPts, true /*i*/, true /*R*/, true /*t*/);
+#endif
 
   // Fixed to 10 Hz rotation in this dataset:
   const float sweepDuration = 0.1f;  //  [s]
@@ -545,70 +568,18 @@ void MulranDataset::load_lidar(timestep_t step) const
   {
     const int row = static_cast<int>(i) % 64;
     const int col = static_cast<int>(i) / 64;
+#if MRPT_VERSION >= 0x020f04
+    (*Ts)[i] = At + sweepDuration * static_cast<float>(col) / 1024.0f;
+    (*Rs)[i] = row;
+#else
     pts->setPointTime(i, At + sweepDuration * static_cast<float>(col) / 1024.0f);
     pts->setPointRing(i, row);
+#endif
   }
 
   // Pose:
   obs->sensorPose = ousterPoseOnVehicle_;
   obs->timestamp  = mrpt::Clock::fromDouble(LidarFileNameToTimestamp(lstPointCloudFiles_[step]));
-
-#if 0  // Export clouds to txt for debugging externally (e.g. python, matlab)
-    pts->saveXYZIRT_to_text_file(
-        mrpt::format("mulran_%s_%06zu.txt", sequence_.c_str(), step));
-#endif
-
-#if 0
-    {
-        auto rs         = mrpt::obs::CObservationRotatingScan::Create();
-        rs->sensorPose  = obs->sensorPose;
-        rs->sensorLabel = obs->sensorLabel;
-        rs->timestamp   = obs->timestamp;
-
-        rs->sweepDuration = 0.10;  // [sec]
-        rs->lidarModel    = "OS1-64";
-        rs->minRange      = 0.1;
-        rs->maxRange      = 120.0;
-
-        rs->columnCount     = 1024;
-        rs->rowCount        = 64;
-        rs->rangeResolution = 1e-2;  // 1 cm
-
-        rs->organizedPoints.resize(rs->rowCount, rs->columnCount);
-        rs->intensityImage.resize(rs->rowCount, rs->columnCount);
-        rs->rangeImage.resize(rs->rowCount, rs->columnCount);
-
-        auto ptsXYZI = std::dynamic_pointer_cast<mrpt::maps::CPointsMapXYZI>(
-            obs->pointcloud);
-        ASSERT_(ptsXYZI);
-
-        const auto& xs = ptsXYZI->getPointsBufferRef_x();
-        const auto& ys = ptsXYZI->getPointsBufferRef_y();
-        const auto& zs = ptsXYZI->getPointsBufferRef_z();
-
-        const size_t nPts = xs.size();
-
-        ASSERT_EQUAL_(nPts, 1024 * 64);
-
-        for (size_t i = 0; i < nPts; i++)
-        {
-            const int row = i % 64;
-            const int col = i / 64;
-
-            // intensity comes normalized [0,1]
-            const float ptInt = ptsXYZI->getPointIntensity(i);
-
-            const auto pt = mrpt::math::TPoint3Df(xs[i], ys[i], zs[i]);
-
-            rs->rangeImage(row, col)      = pt.norm() / rs->rangeResolution;
-            rs->intensityImage(row, col)  = (ptInt / 2048.0) * 255;
-            rs->organizedPoints(row, col) = pt;
-        }
-
-        // save:
-        o = std::dynamic_pointer_cast<mrpt::obs::CObservation>(rs);
-    }
-#endif
 
   // Store in the output queue:
   read_ahead_lidar_obs_[step] = std::move(obs);
@@ -683,8 +654,8 @@ mrpt::obs::CObservationGPS::Ptr MulranDataset::get_gps_by_row_index(size_t row) 
     // &stamp,&latitude,&longitude,&altitude,&cov[0],&cov[1],&cov[2],&cov[3],&cov[4],&cov[5],&cov[6],&cov[7],&cov[8]
   // clang-format on
 
-  auto gga = new mrpt::obs::gnss::Message_NMEA_GGA();
-  auto msg = mrpt::obs::gnss::gnss_message_ptr(gga);
+  auto* gga = new mrpt::obs::gnss::Message_NMEA_GGA();
+  auto  msg = mrpt::obs::gnss::gnss_message_ptr(gga);
 
   mrpt::system::TTimeParts tp;
   mrpt::system::timestampToParts(obs->timestamp, tp);

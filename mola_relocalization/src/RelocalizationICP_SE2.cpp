@@ -101,7 +101,10 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
                 in.on_progress_callback(p);
               }
 
-              if (icpResult.quality < in.icp_minimum_quality) return;
+              if (icpResult.quality < in.icp_minimum_quality)
+              {
+                return;
+              }
 
               // accept result:
               auto lck2 = mrpt::lockHelper(resultMtx);

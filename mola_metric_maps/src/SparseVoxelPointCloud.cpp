@@ -178,7 +178,10 @@ void SparseVoxelPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
 void SparseVoxelPointCloud::VoxelData::insertPoint(
     const mrpt::math::TPoint3Df& p, InnerGrid& parent)
 {
-  if (numPoints_ >= HARDLIMIT_MAX_POINTS_PER_VOXEL) return;
+  if (numPoints_ >= HARDLIMIT_MAX_POINTS_PER_VOXEL)
+  {
+    return;
+  }
 
   mean_ = (numPoints_ * mean_ + p);
 
@@ -219,7 +222,10 @@ std::string SparseVoxelPointCloud::asString() const
 void SparseVoxelPointCloud::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
 {
   MRPT_START
-  if (!genericMapParams.enableSaveAs3DObject) return;
+  if (!genericMapParams.enableSaveAs3DObject)
+  {
+    return;
+  }
 
   if (renderOptions.colormap == mrpt::img::cmNONE)
   {
@@ -273,7 +279,10 @@ void SparseVoxelPointCloud::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
                                          const outer_index3d_t&, const inner_plain_index_t,
                                          const VoxelData& v, const InnerGrid& parentGrid)
       {
-        if (v.points(parentGrid).empty()) return;
+        if (v.points(parentGrid).empty())
+        {
+          return;
+        }
         const auto& m = v.mean();
         obj->insertPoint({m.x, m.y, m.z, 0, 0, 0});
         for (int i = 0; i < 3; i++) hists[i].add(m[i]);
@@ -558,7 +567,10 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
 
     const bool found = nn_single_search(gPt, closest, closest_err, closest_id);
-    if (!found) continue;
+    if (!found)
+    {
+      continue;
+    }
 
     // Put a limit:
     mrpt::keep_min(closest_err, max_sqr_err);
@@ -700,7 +712,10 @@ void SparseVoxelPointCloud::nn_radius_search(
   out_dists_sqr.clear();
   resultIndicesOrIDs.clear();
 
-  if (search_radius_sqr <= 0) return;
+  if (search_radius_sqr <= 0)
+  {
+    return;
+  }
 
   const float radius   = std::sqrt(search_radius_sqr);
   const auto  diagonal = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) * radius;
@@ -733,7 +748,10 @@ void SparseVoxelPointCloud::nn_radius_search(
       {
         const auto& m       = v->mean();
         const float distSqr = (m - query).sqrNorm();
-        if (distSqr > search_radius_sqr) return;
+        if (distSqr > search_radius_sqr)
+        {
+          return;
+        }
         //  Unique ID for each global index triplet
         const auto id = g2plain(p);
         lmbAddCandidate(distSqr, m, id);
@@ -745,7 +763,10 @@ void SparseVoxelPointCloud::nn_radius_search(
         {
           const auto& pt      = pts[i];
           float       distSqr = (pt - query).sqrNorm();
-          if (distSqr > search_radius_sqr) continue;
+          if (distSqr > search_radius_sqr)
+          {
+            continue;
+          }
 
           lmbAddCandidate(distSqr, pt, g2plain(p, i));
         }

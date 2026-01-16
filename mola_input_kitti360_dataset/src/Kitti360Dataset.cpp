@@ -60,7 +60,10 @@ void build_list_files(
     const std::string& dir, const std::string& file_extension, std::vector<std::string>& out_lst)
 {
   out_lst.clear();
-  if (!mrpt::system::directoryExists(dir)) return;
+  if (!mrpt::system::directoryExists(dir))
+  {
+    return;
+  }
 
   using direxpl = mrpt::system::CDirectoryExplorer;
   direxpl::TFileInfoList lstFiles;
@@ -672,19 +675,22 @@ void Kitti360Dataset::load_lidar(timestep_t step) const
     const auto& ys = obs->pointcloud->getPointsBufferRef_y();
 
     auto newPts = mrpt::maps::CGenericPointsMap::Create();
-    newPts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
-    newPts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY);
+    newPts->registerField_float("t");
+    newPts->registerField_float("intensity");
     newPts->reserve(xs.size());
 
-    auto* trgTs =
-        newPts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+    auto* trgTs = newPts->getPointsBufferRef_float_field("t");
 
     auto ctx = newPts->prepareForInsertPointsFrom(*obs->pointcloud);
     ASSERT_(trgTs);
 
     for (size_t i = 0; i < xs.size(); i++)
     {
+#if MRPT_VERSION >= 0x020f03  // 2.15.3
       newPts->insertPointFrom(i, ctx);
+#else
+      newPts->insertPointFrom(*obs->pointcloud, i, ctx);
+#endif
 
       const auto  azimuth = std::atan2(ys[i], xs[i]);
       const float ptTime  = -0.05f * (azimuth + M_PIf) / (2.0f * M_PIf);

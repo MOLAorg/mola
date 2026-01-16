@@ -273,6 +273,8 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
 
 #if MRPT_VERSION >= 0x020f04  // 2.15.4
   auto pts = mrpt::maps::CGenericPointsMap::Create();
+  pts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+  pts->registerField_uint16(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
 #else
   auto  pts = mrpt::maps::CPointsMapXYZIRT::Create();
 #endif
@@ -326,12 +328,12 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
 
   for (size_t i = 0; i < nPts; i++)
   {
-    const float depth = sqrt(mrpt::square(xs[i]) + mrpt::square(ys[i]));
+    const float depth = std::sqrt(mrpt::square(xs[i]) + mrpt::square(ys[i]));
     if (depth < 0.05)
     {
       continue;
     }
-    const float pitch = asin(zs[i] / depth);
+    const float pitch = std::asin(zs[i] / depth);
 
     int iP = mrpt::round(31 * (pitch + fov_down) / fov);
     mrpt::saturate(iP, 0, 31);
@@ -351,11 +353,6 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
   // Lidar is at the origin of the vehicle frame:
   obs->sensorPose = mrpt::poses::CPose3D();
   obs->timestamp  = mrpt::Clock::fromDouble(lst_timestamps_.at(step));
-
-#if 0  // Export clouds to txt for debugging externally (e.g. python, matlab)
-    obs->pointcloud->save3D_to_text_file(
-        mrpt::format("paris_%s_%06zu.txt", sequence_.c_str(), step));
-#endif
 
   mrpt::obs::CObservation::Ptr o;
   o                           = std::dynamic_pointer_cast<mrpt::obs::CObservation>(obs);

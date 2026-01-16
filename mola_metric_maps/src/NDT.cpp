@@ -767,7 +767,10 @@ void NDT::insertPoint(const mrpt::math::TPoint3Df& pt, const mrpt::math::TPoint3
     const float minDistSqr = mrpt::square(insertionOptions.min_distance_between_points);
 
     // Skip if the point is too close to existing ones:
-    if (curClosestDistSqr.value() < minDistSqr) return;
+    if (curClosestDistSqr.value() < minDistSqr)
+    {
+      return;
+    }
   }
 
   v.insertPoint(pt, sensorPose);
