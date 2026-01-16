@@ -1193,11 +1193,13 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
     obj->setAllPointsAlpha(alpha_u8);
   }
 
+#if MRPT_VERSION >= 0x020f03
   mrpt::obs::PointCloudRecoloringParameters pcdCol;
   pcdCol.colorMap        = ro.colormap;
   pcdCol.colorizeByField = ro.recolorByPointField;
 
   mrpt::obs::recolorize3Dpc(obj, pointcloud().get(), pcdCol);
+#endif
 
   cached_viz_ = obj;
   return cached_viz_;

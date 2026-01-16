@@ -66,7 +66,10 @@ void ExecutableBase::exposeParameters(const mrpt::containers::yaml& names_values
 {
   auto lck = mrpt::lockHelper(module_params_mtx_);
 
-  if (names_values.isNullNode() || names_values.empty()) return;
+  if (names_values.isNullNode() || names_values.empty())
+  {
+    return;
+  }
 
   ASSERT_(names_values.isMap());
 
@@ -89,7 +92,10 @@ void ExecutableBase::changeParameters(const mrpt::containers::yaml& names_values
 {
   auto lck = mrpt::lockHelper(module_params_mtx_);
 
-  if (names_values.isNullNode() || names_values.empty()) return;
+  if (names_values.isNullNode() || names_values.empty())
+  {
+    return;
+  }
   ASSERT_(names_values.isMap());
 
   for (const auto& [k, v] : names_values.asMapRange())

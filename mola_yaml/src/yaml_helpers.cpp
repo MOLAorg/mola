@@ -219,7 +219,10 @@ void recursiveParseNodeForIncludes(yaml::node_t& n, const mola::YAMLParseOptions
     std::string text = n.as<std::string>();
 
     const auto start = text.find("$include{");
-    if (start == std::string::npos) return;
+    if (start == std::string::npos)
+    {
+      return;
+    }
 
     const std::string pre  = text.substr(0, start);
     const std::string post = text.substr(start + 9);

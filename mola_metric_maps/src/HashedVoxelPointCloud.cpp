@@ -196,7 +196,10 @@ std::string HashedVoxelPointCloud::asString() const
 void HashedVoxelPointCloud::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
 {
   MRPT_START
-  if (!genericMapParams.enableSaveAs3DObject) return;
+  if (!genericMapParams.enableSaveAs3DObject)
+  {
+    return;
+  }
 
   if (renderOptions.colormap == mrpt::img::cmNONE)
   {
@@ -535,7 +538,10 @@ double HashedVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
 
     const bool found = nn_single_search(gPt, closest, closest_err, closest_id);
-    if (!found) continue;
+    if (!found)
+    {
+      continue;
+    }
 
     // Put a limit:
     mrpt::keep_min(closest_err, max_sqr_err);
@@ -613,7 +619,10 @@ void HashedVoxelPointCloud::insertPoint(const mrpt::math::TPoint3Df& pt)
     const float minDistSqr = mrpt::square(insertionOptions.min_distance_between_points);
 
     // Skip if the point is too close to existing ones:
-    if (curClosestDistSqr.value() < minDistSqr) return;
+    if (curClosestDistSqr.value() < minDistSqr)
+    {
+      return;
+    }
   }
 
   v.insertPoint(pt);
@@ -718,7 +727,10 @@ void HashedVoxelPointCloud::nn_multiple_search_impl(
     {
       if (sqrDist < matches[i].sqrDist) break;
     }
-    if (i >= MAX_KNN) return;
+    if (i >= MAX_KNN)
+    {
+      return;
+    }
 
     // insert new one at [i], shift [i+1:end] one position.
     const size_t last = std::min(foundMatches + 1, MAX_KNN);
@@ -770,7 +782,10 @@ void HashedVoxelPointCloud::nn_radius_search(
   out_dists_sqr.clear();
   resultIndicesOrIDs.clear();
 
-  if (search_radius_sqr <= 0) return;
+  if (search_radius_sqr <= 0)
+  {
+    return;
+  }
 
   const float radius   = std::sqrt(search_radius_sqr);
   const auto  diagonal = mrpt::math::TPoint3Df(1.0f, 1.0f, 1.0f) * radius;
@@ -799,7 +814,10 @@ void HashedVoxelPointCloud::nn_radius_search(
     {
       if (sqrDist < matches[i].sqrDist) break;
     }
-    if (i >= HARD_MAX_MATCHES) return;
+    if (i >= HARD_MAX_MATCHES)
+    {
+      return;
+    }
 
     // insert new one at [i], shift [i+1:end] one position.
     const size_t last = std::min(foundMatches + 1, HARD_MAX_MATCHES);
@@ -821,7 +839,10 @@ void HashedVoxelPointCloud::nn_radius_search(
       {
         const auto& pt      = pts[i];
         float       distSqr = (pt - query).sqrNorm();
-        if (distSqr > search_radius_sqr) continue;
+        if (distSqr > search_radius_sqr)
+        {
+          continue;
+        }
 
         const auto id = g2plain(p, i);
 

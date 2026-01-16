@@ -42,14 +42,14 @@ namespace mola
  * (Paris).
  *
  * Point clouds are published as mrpt::obs::CObservationPointCloud
- * with clouds of types mrpt::maps::CPointsMapXYZIRT, with these populated
+ * with clouds of types mrpt::maps::CGenericPointsMap, with these populated
  * fields:
  * - `XYZ`
- * - `I`: Intensity, range [0.0 - 1.0?]
- * - `T`: Time of each point, in range [-0.05, 0.05] seconds (scan rate=10 Hz),
+ * - `intensity`: Intensity, range [0.0 - 1.0?]
+ * - `t`: Time of each point, in range [-0.05, 0.05] seconds (scan rate=10 Hz),
  *   such that "t=0" (the observation/scan timestamp) corresponds to the moment
  *   the scanner is facing forward.
- * - `R`: ring_id (0-31). It was not provided by the original dataset, but it is
+ * - `ring`: ring_id (0-31). It was not provided by the original dataset, but it is
  *   reconstructed from point elevation data in this package.
  *
  * Expected contents under `base_dir` directory:

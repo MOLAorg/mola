@@ -73,7 +73,10 @@ void from_env_var_to_list(
   // Append to list:
   for (const auto& path : pathList)
   {
-    if (!subStringPattern.empty() && path.find(subStringPattern) == std::string::npos) continue;
+    if (!subStringPattern.empty() && path.find(subStringPattern) == std::string::npos)
+    {
+      continue;
+    }
     safe_add_to_list(path, lst);
   }
 }
@@ -112,7 +115,10 @@ MolaLauncherApp::MolaLauncherApp() : mrpt::system::COutputLogger("MolaLauncherAp
 
 MolaLauncherApp::~MolaLauncherApp()
 {
-  if (running_threads_.empty()) return;
+  if (running_threads_.empty())
+  {
+    return;
+  }
   this->shutdown();
 }
 
@@ -238,7 +244,10 @@ void MolaLauncherApp::setup(
       ENSURE_YAML_ENTRY_EXISTS(ds, "params");
 
       // Allow quickly disabling sections:
-      if (!ds.getOrDefault("enabled", true)) continue;
+      if (!ds.getOrDefault("enabled", true))
+      {
+        continue;
+      }
 
       const auto ds_label = ds["name"].as<std::string>();
       ASSERTMSG_(!ds_label.empty(), "`name` cannot be empty!");
@@ -273,7 +282,10 @@ void MolaLauncherApp::setup(
         mola::Yaml old = mola::Yaml::Map();
         for (const auto& [k, v] : info.yaml_cfg_block.asMap())
         {
-          if (k.as<std::string>() == "params") continue;
+          if (k.as<std::string>() == "params")
+          {
+            continue;
+          }
           old[k.as<std::string>()] = v;
         }
 
@@ -400,7 +412,10 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
 {
   try
   {
-    if (threads_must_end_) return;
+    if (threads_must_end_)
+    {
+      return;
+    }
 
     // Initilize:
     MRPT_LOG_DEBUG_STREAM(
@@ -530,7 +545,10 @@ std::map<MolaLauncherApp::module_name_t, MolaLauncherApp::module_shared_path_t>
     direxpl::explore(path, FILE_ATTRIB_DIRECTORY, lst);
     for (const auto& dir : lst)
     {
-      if (!mrpt::system::fileExists(dir.wholePath + "/mola-module.yml"s)) continue;
+      if (!mrpt::system::fileExists(dir.wholePath + "/mola-module.yml"s))
+      {
+        continue;
+      }
 
       found.emplace(dir.name, dir.wholePath);
     }

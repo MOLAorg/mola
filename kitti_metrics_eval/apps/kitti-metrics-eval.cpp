@@ -371,7 +371,10 @@ vector<errors> calcSequenceErrors(vector<Matrix>& poses_gt, vector<Matrix>& pose
       int32_t last_frame = lastFrameFromSegmentLength(dist, first_frame, len);
 
       // continue, if sequence not long enough
-      if (last_frame == -1) continue;
+      if (last_frame == -1)
+      {
+        continue;
+      }
 
       // compute rotational and translational errors
       Matrix pose_delta_gt     = (poses_gt[first_frame]).inverse() * poses_gt[last_frame];
