@@ -20,27 +20,27 @@ jobs:
         # https://ros.org/reps/rep-2000.html
         include:
           # Humble Hawksbill (May 2022 - May 2027)
-          #- docker_image: ubuntu:jammy
-          #  ros_distribution: humble
-          #  use_ros_testing: false
+          - docker_image: ubuntu:jammy
+            ros_distribution: humble
+            use_ros_testing: false
 
           - docker_image: ubuntu:jammy
             ros_distribution: humble
             use_ros_testing: true
 
           # Jazzy (2024 - 2029)
-          #- docker_image: ubuntu:noble
-          #  ros_distribution: jazzy
-          #  use_ros_testing: false
+          - docker_image: ubuntu:noble
+            ros_distribution: jazzy
+            use_ros_testing: false
 
           - docker_image: ubuntu:noble
             ros_distribution: jazzy
             use_ros_testing: true
 
           # Rolling Ridley (No End-Of-Life)
-          #- docker_image: ubuntu:noble
-          #  ros_distribution: rolling
-          #  use_ros_testing: false
+          - docker_image: ubuntu:noble
+            ros_distribution: rolling
+            use_ros_testing: false
 
           - docker_image: ubuntu:noble
             ros_distribution: rolling
