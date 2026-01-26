@@ -128,6 +128,17 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
     return {};  // Default: none
   }
 
+  /** (Optional virtual method) Returns true if the estimator has converged
+   *  to a stable state with uncertainty below reasonable thresholds.
+   *  \param[out] pose The current estimated pose with covariance (in the "map" frame_id)
+   *  \return true if converged, false otherwise or if not implemented.
+   */
+  virtual bool has_converged_localization(
+      [[maybe_unused]] mrpt::poses::CPose3DPDFGaussian& pose_in_map) const
+  {
+    return false;  // Default: not implemented
+  }
+
  private:
   /// A list of one or multiple MOLA **module names** to which to subscribe
   std::set<std::string> navstate_source_names_;
