@@ -1385,6 +1385,18 @@ void BridgeROS2::publishSingleLocalization(
       << "'  <<  t=" << mrpt::system::dateTimeLocalToString(l.timestamp)
       << " pose=" << l.pose.asString());
 
+  {
+    auto lckNode = mrpt::lockHelper(rosNodeMtx_);
+    if (!rosNode_)
+    {
+      MRPT_LOG_WARN_STREAM(
+          "DROPPING new localization available from '"  //
+          << l.method << "' since the ROS node is not ready yet.");
+
+      return;
+    }
+  }
+
   // 1) Publish to /tf:
   publishLocalizationTf(l);
 
