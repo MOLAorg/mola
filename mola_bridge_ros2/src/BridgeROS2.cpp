@@ -182,21 +182,6 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
       internalAnalyzeTopicsToSubscribe(ds_subscribe);
     }
 
-    auto timerLoc = rosNode_->create_wall_timer(
-        std::chrono::microseconds(
-            static_cast<unsigned int>(1e6 * params_.period_publish_new_localization)),
-        [this]()
-        {
-          try
-          {
-            timerPubLocalization();
-          }
-          catch (const std::exception& e)
-          {
-            MRPT_LOG_ERROR(e.what());
-          }
-        });
-
     auto timerMap = rosNode_->create_wall_timer(
         std::chrono::microseconds(static_cast<unsigned int>(1e6 * params_.period_publish_new_map)),
         [this]()
@@ -325,7 +310,6 @@ void BridgeROS2::initialize_rds(const Yaml& c)
   YAML_LOAD_OPT(params_, publish_geo_referenced_poses_from_slam, bool);
 
   YAML_LOAD_OPT(params_, publish_in_sim_time, bool);
-  YAML_LOAD_OPT(params_, period_publish_new_localization, double);
   YAML_LOAD_OPT(params_, period_publish_new_map, double);
   YAML_LOAD_OPT(params_, period_publish_static_tfs, double);
   YAML_LOAD_OPT(params_, period_publish_diagnostics, double);
@@ -364,6 +348,11 @@ void BridgeROS2::callbackOnPointCloud2(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnPointCloud2: received PointCloud2 on topic '"
+      << outSensorLabel << "' with " << o.width * o.height << " points.");
+
   const ProfilerEntry tle(profiler_, "callbackOnPointCloud2");
 
   const std::set<std::string> fields = mrpt::ros2bridge::extractFields(o);
@@ -547,6 +536,11 @@ void BridgeROS2::callbackOnLaserScan(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnLaserScan: received LaserScan on topic '"
+      << outSensorLabel << "' with " << o.ranges.size() << " points.");
+
   const ProfilerEntry tle(profiler_, "callbackOnLaserScan");
 
   // Sensor pose wrt robot base:
@@ -589,6 +583,10 @@ void BridgeROS2::callbackOnImu(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnImu: received IMU on topic '" << outSensorLabel << "'.");
+
   const ProfilerEntry tle(profiler_, "callbackOnImu");
 
   // Sensor pose wrt robot base:
@@ -631,6 +629,10 @@ void BridgeROS2::callbackOnNavSatFix(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnNavSatFix: received NavSatFix on topic '" << outSensorLabel << "'.");
+
   const ProfilerEntry tle(profiler_, "callbackOnNavSatFix");
 
   // Sensor pose wrt robot base:
@@ -898,6 +900,10 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
   // See: https://ros.org/reps/rep-2003.html
   auto pubOdo =
       get_publisher<nav_msgs::msg::Odometry>(obs.sensorLabel, rclcpp::SystemDefaultsQoS());
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::internalOn CObservationRobotPose: publishing robot pose observation from '"
+      << obs.sensorLabel << "'");
 
   // Send TF:
   if (params_.publish_tf_from_robot_pose_observations)
@@ -1366,14 +1372,35 @@ rclcpp::Time BridgeROS2::myNow(const mrpt::Clock::time_point& observationStamp) 
 
 void BridgeROS2::onNewLocalization(const mola::LocalizationSourceBase::LocalizationUpdate& l)
 {
-  auto lck = mrpt::lockHelper(lastLocMapMtx_);
+  // Publish immediately, don't buffer
+  publishSingleLocalization(l);
+}
 
-  lastLocUpdates_.push_back(l);
+void BridgeROS2::publishSingleLocalization(
+    const mola::LocalizationSourceBase::LocalizationUpdate& l)
+{
+  MRPT_LOG_DEBUG_STREAM(
+      "New localization available from '"
+      << l.method << "' ref.frame: '" << l.reference_frame << "' child_frame: '" << l.child_frame
+      << "'  <<  t=" << mrpt::system::dateTimeLocalToString(l.timestamp)
+      << " pose=" << l.pose.asString());
+
+  // 1) Publish to /tf:
+  publishLocalizationTf(l);
+
+  // 2) Publish Odometry msg:
+  publishLocalizationOdom(l);
+
+  // 3) and always publish quality:
+  publishLocalizationQuality(l);
+
+  // 4) and if possible, geo-referenced pose:
+  publishLocalizationGeoRef(l);
 }
 
 void BridgeROS2::onNewMap(const mola::MapSourceBase::MapUpdate& m)
 {
-  auto lck = mrpt::lockHelper(lastLocMapMtx_);
+  auto lck = mrpt::lockHelper(lastMapMtx_);
 
   if (m.keep_last_one_only)
   {
@@ -1385,43 +1412,7 @@ void BridgeROS2::onNewMap(const mola::MapSourceBase::MapUpdate& m)
   lastMaps_.insert({m.map_name, m});
 }
 
-void BridgeROS2::timerPubLocalization()
-{
-  // get a copy of the data minimizing the time owning the mutex:
-  std::vector<mola::LocalizationSourceBase::LocalizationUpdate> ls;
-  {
-    auto lck = mrpt::lockHelper(lastLocMapMtx_);
-    ls       = lastLocUpdates_;
-    lastLocUpdates_.clear();
-  }
-  if (ls.empty())
-  {
-    return;
-  }
-
-  for (const auto& l : ls)
-  {
-    MRPT_LOG_DEBUG_STREAM(
-        "New localization available from '"
-        << l.method << "' ref.frame: '" << l.reference_frame << "' child_frame: '" << l.child_frame
-        << "'  <<  t=" << mrpt::system::dateTimeLocalToString(l.timestamp)
-        << " pose=" << l.pose.asString());
-
-    // 1) Publish to /tf:
-    timerPubLocalizationTf(l);
-
-    // 2) Publish Odometry msg:
-    timerPubLocalizationOdom(l);
-
-    // 3) and always publish quality:
-    timerPubLocalizationQuality(l);
-
-    // 4) and if possible, geo-referenced pose:
-    timerPubLocalizationGeoRef(l);
-  }
-}
-
-void BridgeROS2::timerPubLocalizationTf(const LocalizationSourceBase::LocalizationUpdate& l)
+void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::LocalizationUpdate& l)
 {
   // Send TF with localization result
   // 1) Direct mode:    reference_frame ("map") -> base_link ("base_link")
@@ -1476,7 +1467,7 @@ void BridgeROS2::timerPubLocalizationTf(const LocalizationSourceBase::Localizati
   }
 }
 
-void BridgeROS2::timerPubLocalizationOdom(const LocalizationSourceBase::LocalizationUpdate& l)
+void BridgeROS2::publishLocalizationOdom(const LocalizationSourceBase::LocalizationUpdate& l)
 {
   using namespace std::string_literals;
 
@@ -1510,7 +1501,7 @@ void BridgeROS2::timerPubLocalizationOdom(const LocalizationSourceBase::Localiza
   pubOdo->publish(msg);
 }
 
-void BridgeROS2::timerPubLocalizationQuality(const LocalizationSourceBase::LocalizationUpdate& l)
+void BridgeROS2::publishLocalizationQuality(const LocalizationSourceBase::LocalizationUpdate& l)
 {
   using namespace std::string_literals;
   const std::string locQualityLabel = (l.method.empty() ? "slam"s : l.method) + "/pose_quality"s;
@@ -1523,7 +1514,7 @@ void BridgeROS2::timerPubLocalizationQuality(const LocalizationSourceBase::Local
   pubOdoQuality->publish(msg);
 }
 
-void BridgeROS2::timerPubLocalizationGeoRef(const LocalizationSourceBase::LocalizationUpdate& l)
+void BridgeROS2::publishLocalizationGeoRef(const LocalizationSourceBase::LocalizationUpdate& l)
 {
   using namespace std::string_literals;
 
@@ -1580,7 +1571,7 @@ void BridgeROS2::timerPubLocalizationGeoRef(const LocalizationSourceBase::Locali
   }
   catch (const std::exception& e)
   {
-    MRPT_LOG_WARN_STREAM("Error in timerPubLocalizationGeoRef: " << e.what());
+    MRPT_LOG_WARN_STREAM("Error in publishLocalizationGeoRef: " << e.what());
   }
 }
 
@@ -1589,7 +1580,7 @@ void BridgeROS2::timerPubMap()
   // get a copy of the data minimizing the time owning the mutex:
   std::multimap<std::string /*map_name*/, mola::MapSourceBase::MapUpdate> m;
   {
-    auto lck  = mrpt::lockHelper(lastLocMapMtx_);
+    auto lck  = mrpt::lockHelper(lastMapMtx_);
     m         = std::move(lastMaps_);
     lastMaps_ = {};
   }

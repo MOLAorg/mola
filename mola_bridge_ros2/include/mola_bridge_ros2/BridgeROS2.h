@@ -195,10 +195,9 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     /// Otherwise, the wallclock time will be used.
     bool publish_in_sim_time = false;
 
-    double period_publish_new_localization = 0.2;  // [s]
-    double period_publish_new_map          = 5.0;  // [s]
-    double period_publish_static_tfs       = 1.0;  // [s]
-    double period_publish_diagnostics      = 1.0;  // [s]
+    double period_publish_new_map     = 5.0;  // [s]
+    double period_publish_static_tfs  = 1.0;  // [s]
+    double period_publish_diagnostics = 1.0;  // [s]
 
     double period_check_new_mola_subs = 1.0;  // [s]
 
@@ -353,10 +352,11 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 
   void onNewLocalization(const mola::LocalizationSourceBase::LocalizationUpdate& l);
 
+  void publishSingleLocalization(const mola::LocalizationSourceBase::LocalizationUpdate& l);
+
   void onNewMap(const mola::MapSourceBase::MapUpdate& m);
 
-  std::mutex                                                              lastLocMapMtx_;
-  std::vector<mola::LocalizationSourceBase::LocalizationUpdate>           lastLocUpdates_;
+  std::mutex                                                              lastMapMtx_;
   std::multimap<std::string /*map_name*/, mola::MapSourceBase::MapUpdate> lastMaps_;
 
   // The latest georef info received from any state estimator / SLAM method.
@@ -370,11 +370,10 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   }
 
   // Different publish localization parts:
-  void timerPubLocalization();
-  void timerPubLocalizationTf(const LocalizationSourceBase::LocalizationUpdate& l);
-  void timerPubLocalizationOdom(const LocalizationSourceBase::LocalizationUpdate& l);
-  void timerPubLocalizationQuality(const LocalizationSourceBase::LocalizationUpdate& l);
-  void timerPubLocalizationGeoRef(const LocalizationSourceBase::LocalizationUpdate& l);
+  void publishLocalizationTf(const LocalizationSourceBase::LocalizationUpdate& l);
+  void publishLocalizationOdom(const LocalizationSourceBase::LocalizationUpdate& l);
+  void publishLocalizationQuality(const LocalizationSourceBase::LocalizationUpdate& l);
+  void publishLocalizationGeoRef(const LocalizationSourceBase::LocalizationUpdate& l);
 
   // Different publish map parts:
   void timerPubMap();
