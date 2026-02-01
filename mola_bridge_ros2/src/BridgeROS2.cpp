@@ -364,6 +364,11 @@ void BridgeROS2::callbackOnPointCloud2(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnPointCloud2: received PointCloud2 on topic '"
+      << outSensorLabel << "' with " << o.width * o.height << " points.");
+
   const ProfilerEntry tle(profiler_, "callbackOnPointCloud2");
 
   const std::set<std::string> fields = mrpt::ros2bridge::extractFields(o);
@@ -547,6 +552,11 @@ void BridgeROS2::callbackOnLaserScan(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnLaserScan: received LaserScan on topic '"
+      << outSensorLabel << "' with " << o.ranges.size() << " points.");
+
   const ProfilerEntry tle(profiler_, "callbackOnLaserScan");
 
   // Sensor pose wrt robot base:
@@ -589,6 +599,10 @@ void BridgeROS2::callbackOnImu(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnImu: received IMU on topic '" << outSensorLabel << "'.");
+
   const ProfilerEntry tle(profiler_, "callbackOnImu");
 
   // Sensor pose wrt robot base:
@@ -631,6 +645,10 @@ void BridgeROS2::callbackOnNavSatFix(
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
   MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnNavSatFix: received NavSatFix on topic '" << outSensorLabel << "'.");
+
   const ProfilerEntry tle(profiler_, "callbackOnNavSatFix");
 
   // Sensor pose wrt robot base:
@@ -898,6 +916,10 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationRobotPose& obs)
   // See: https://ros.org/reps/rep-2003.html
   auto pubOdo =
       get_publisher<nav_msgs::msg::Odometry>(obs.sensorLabel, rclcpp::SystemDefaultsQoS());
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::internalOn CObservationRobotPose: publishing robot pose observation from '"
+      << obs.sensorLabel << "'");
 
   // Send TF:
   if (params_.publish_tf_from_robot_pose_observations)
