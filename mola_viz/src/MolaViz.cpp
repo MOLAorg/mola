@@ -83,11 +83,12 @@ namespace
 
 constexpr const char* DECAY_CLOUDS_NAME = "__viz_decaying_clouds";
 
+// Ignore NaN and Inf
 template <typename Iter>
 std::pair<Iter, Iter> minmax_ignore_nan(Iter begin, Iter end)
 {
-  // Find first non-NaN element
-  Iter first = std::find_if(begin, end, [](auto x) { return !std::isnan(x); });
+  // Find first non-{NaN,Inf} element
+  Iter first = std::find_if(begin, end, [](auto x) { return !std::isnan(x) && !std::isinf(x); });
 
   if (first == end)
   {
@@ -99,7 +100,7 @@ std::pair<Iter, Iter> minmax_ignore_nan(Iter begin, Iter end)
 
   for (Iter it = std::next(first); it != end; ++it)
   {
-    if (!std::isnan(*it))
+    if (!std::isnan(*it) && !std::isinf(*it))
     {
       if (*it < *itMin)
       {
