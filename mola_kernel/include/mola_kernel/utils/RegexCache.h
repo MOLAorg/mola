@@ -20,6 +20,8 @@
  */
 #pragma once
 
+#include <mrpt/core/exceptions.h>
+
 #include <optional>
 #include <regex>
 #include <string>
@@ -37,8 +39,20 @@ class RegexCache
   {
     if (!cachedRegex_ || regExpression != cachedExpression_)
     {
-      cachedExpression_ = regExpression;
-      cachedRegex_.emplace(cachedExpression_, std::regex::ECMAScript);
+      try
+      {
+        cachedExpression_ = regExpression;
+        cachedRegex_.emplace(cachedExpression_, std::regex::ECMAScript);
+      }
+      catch (const std::regex_error& e)
+      {
+        // Clear the cache state so we don't return a stale regex next time
+        cachedRegex_.reset();
+
+        throw std::runtime_error(mrpt::format(
+            "Error compiling regex expression '%s': %s (code: %d)", regExpression.c_str(), e.what(),
+            static_cast<int>(e.code())));
+      }
     }
     return *cachedRegex_;
   }
