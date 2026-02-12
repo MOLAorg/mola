@@ -53,6 +53,10 @@
 #include <mrpt/topography/conversions.h>
 #include <mrpt/version.h>
 
+#if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
+#include <mrpt/ros2bridge/ros_to_mrpt_obs.h>
+#endif
+
 #if MRPT_VERSION < 0x030000  // Support deprecated classes for mrpt < 3.0.0
 #include <mrpt/maps/CPointsMapXYZI.h>
 #include <mrpt/maps/CPointsMapXYZIRT.h>
@@ -343,6 +347,37 @@ void BridgeROS2::spinOnce()
   MRPT_END
 }
 
+#if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
+void BridgeROS2::callbackOnPointCloud2(
+    const sensor_msgs::msg::PointCloud2& o, const std::string& outSensorLabel,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+  MRPT_START
+  const ProfilerEntry tle(profiler_, "callbackOnPointCloud2");
+
+  auto obs_pc = mrpt::ros2bridge::pointCloud2ToObservation(o, outSensorLabel);
+
+  // Sensor pose:
+  if (fixedSensorPose)
+  {
+    obs_pc->sensorPose = fixedSensorPose.value();
+  }
+  else
+  {
+    if (!mrpt::ros2bridge::lookupSensorPose(
+            obs_pc->sensorPose, *tf_buffer_, o.header.frame_id, params_.base_link_frame))
+    {
+      MRPT_LOG_ERROR_FMT(
+          "Could not get /tf '%s'->'%s'", params_.base_link_frame.c_str(),
+          o.header.frame_id.c_str());
+      return;
+    }
+  }
+
+  this->sendObservationsToFrontEnds(obs_pc);
+  MRPT_END
+}
+#else
 void BridgeROS2::callbackOnPointCloud2(
     const sensor_msgs::msg::PointCloud2& o, const std::string& outSensorLabel,
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
@@ -438,6 +473,7 @@ void BridgeROS2::callbackOnPointCloud2(
 
   MRPT_END
 }
+#endif
 
 bool BridgeROS2::waitForTransform(
     mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
