@@ -56,7 +56,10 @@ mola_add_library(
 # Convert package versions to hex so they can be used in preprocessor for wider
 # versions compatibility of "one-source for all":
 mola_version_to_hexadecimal(cv_bridge_VERSION_HEX ${cv_bridge_VERSION})
-
 target_compile_definitions(${PROJECT_NAME} PRIVATE CV_BRIDGE_VERSION=${cv_bridge_VERSION_HEX})
-
 message(STATUS "Found: cv_bridge_VERSION: ${cv_bridge_VERSION} (${cv_bridge_VERSION_HEX})")
+
+# Same for mrpt_libros_bridge
+mola_version_to_hexadecimal(mrpt_libros_bridge_VERSION_HEX ${mrpt_libros_bridge_VERSION})
+target_compile_definitions(${PROJECT_NAME} PRIVATE MRPT_ROS2_BRIDGE_VERSION=${mrpt_libros_bridge_VERSION_HEX})
+message(STATUS "Found: mrpt_libros_bridge_VERSION: ${mrpt_libros_bridge_VERSION} (${mrpt_libros_bridge_VERSION_HEX})")
