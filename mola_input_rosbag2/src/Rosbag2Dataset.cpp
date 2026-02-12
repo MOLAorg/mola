@@ -54,6 +54,10 @@
 #include <cv_bridge/cv_bridge.hpp>
 #endif
 
+#if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
+#include <mrpt/ros2bridge/rosbag2_to_mrpt.h>
+#endif
+
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/serialization.hpp>
@@ -246,11 +250,11 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
 
   for (auto& sensorNode : sensorsYaml.asSequence())
   {
-    const auto&       sensor = sensorNode.asMap();
-    const std::string topic  = sensor.at("topic").as<std::string>();
+    const auto& sensor = sensorNode.asMap();
+    const auto  topic  = sensor.at("topic").as<std::string>();
 
     std::string sensorLabel = topic;
-    if (sensor.count("sensorLabel"))
+    if (sensor.count("sensorLabel") != 0)
     {
       sensorLabel = sensor.at("sensorLabel").as<std::string>();
     }
@@ -258,7 +262,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     // Map to MOLA class: auto or manual:
     std::string sensorType;
 
-    if (sensor.count("type"))
+    if (sensor.count("type") != 0)
     {
       sensorType = sensor.at("type").as<std::string>();
     }
@@ -291,13 +295,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
           "["s + sensor.at("fixed_sensor_pose").as<std::string>() + "]"s);
     }
 
-    if (sensorType == "CObservationPointCloud")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      { return catchExceptions([=]() { return toPointCloud2(sensorLabel, m, fixedSensorPose); }); };
-      lookup_[topic].emplace_back(callback);
-    }
-#if 0
+#if 0  // TODO ?
 			else if (sensorType == "CObservation3DRangeScan")
 			{
 				bool rangeIsDepth = sensor.count("rangeIsDepth")
@@ -309,6 +307,108 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
 				};
 			}
 #endif
+
+    // TODO: Remove the #else branch once mrpt_ros2_bridge > 3.4.0 is generally available
+
+    using rosbag2_storage::SerializedBagMessage;
+
+#if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
+    if (sensorType == "CObservationPointCloud")
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [this, sensorLabel, fixedSensorPose, m]() -> Obs
+            {
+              return mrpt::ros2bridge::rosbag2ToPointCloud2(
+                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
+            });
+      };
+      lookup_[topic].emplace_back(callback);
+    }
+    else if (sensorType == "CObservationImage")
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [this, sensorLabel, fixedSensorPose, m]() -> Obs
+            {
+              return mrpt::ros2bridge::rosbag2ToImage(
+                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
+            });
+      };
+      lookup_[topic].emplace_back(callback);
+    }
+    else if (sensorType == "CObservation2DRangeScan")
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [this, sensorLabel, fixedSensorPose, m]() -> Obs
+            {
+              return mrpt::ros2bridge::rosbag2ToLidar2D(
+                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
+            });
+      };
+      lookup_[topic].emplace_back(callback);
+    }
+    else if (sensorType == "CObservationRotatingScan")
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [this, sensorLabel, fixedSensorPose, m]() -> Obs
+            {
+              return mrpt::ros2bridge::rosbag2ToRotatingScan(
+                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
+            });
+      };
+      lookup_[topic].emplace_back(callback);
+    }
+    else if (sensorType == "CObservationIMU")
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [this, sensorLabel, fixedSensorPose, m]() -> Obs
+            {
+              return mrpt::ros2bridge::rosbag2ToIMU(
+                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
+            });
+      };
+      lookup_[topic].emplace_back(callback);
+    }
+    else if (sensorType == "CObservationGPS")
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [this, sensorLabel, fixedSensorPose, m]() -> Obs
+            {
+              return mrpt::ros2bridge::rosbag2ToGPS(
+                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
+            });
+      };
+      lookup_[topic].emplace_back(callback);
+    }
+    else if (sensorType == "CObservationOdometry")
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [sensorLabel, fixedSensorPose, m]() -> Obs
+            { return mrpt::ros2bridge::rosbag2ToOdometry(sensorLabel, m); });
+      };
+      lookup_[topic].emplace_back(callback);
+    }
+#else
+    // To be removed:
+    if (sensorType == "CObservationPointCloud")
+    {
+      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
+      { return catchExceptions([=]() { return toPointCloud2(sensorLabel, m, fixedSensorPose); }); };
+      lookup_[topic].emplace_back(callback);
+    }
     else if (sensorType == "CObservationImage")
     {
       auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
@@ -347,6 +447,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       { return catchExceptions([=]() { return toOdometry(sensorLabel, m); }); };
       lookup_[topic].emplace_back(callback);
     }
+#endif
 
     // TODO: Handle more cases?
 
@@ -629,6 +730,8 @@ mrpt::obs::CSensoryFrame::Ptr Rosbag2Dataset::datasetGetObservations(size_t time
   return read_ahead_.at(timestep)->obs;
 }
 
+// TODO: Remove once this package is well available
+#if MRPT_ROS2_BRIDGE_VERSION < 0x030400
 bool Rosbag2Dataset::findOutSensorPose(
     mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose, const std::string_view label)
@@ -912,6 +1015,9 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toImage(
 
   return {imgObs};
 }
+#endif
+
+// TODO: When removed the code above, port this one too:
 
 template <bool isStatic>
 Rosbag2Dataset::Obs Rosbag2Dataset::toTf(const rosbag2_storage::SerializedBagMessage& rosmsg)

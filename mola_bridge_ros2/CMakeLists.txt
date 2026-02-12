@@ -70,6 +70,11 @@ mola_add_library(
     mrpt-maps
 )
 
+# Same for mrpt_libros_bridge
+mola_version_to_hexadecimal(mrpt_libros_bridge_VERSION_HEX ${mrpt_libros_bridge_VERSION})
+target_compile_definitions(${PROJECT_NAME} PRIVATE MRPT_ROS2_BRIDGE_VERSION=${mrpt_libros_bridge_VERSION_HEX})
+message(STATUS "Found: mrpt_libros_bridge_VERSION: ${mrpt_libros_bridge_VERSION} (${mrpt_libros_bridge_VERSION_HEX})")
+
 ament_export_dependencies()
 # Export modern CMake targets
 #ament_export_targets(export_${PROJECT_NAME})
@@ -90,3 +95,5 @@ if(BUILD_TESTING)
 endif()
 
 ament_package()
+
+

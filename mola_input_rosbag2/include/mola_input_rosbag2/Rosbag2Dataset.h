@@ -166,6 +166,8 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
   template <bool isStatic>
   Obs toTf(const rosbag2_storage::SerializedBagMessage& rosmsg);
 
+#if MRPT_ROS2_BRIDGE_VERSION < 0x030400
+
   Obs toPointCloud2(
       std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
       const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
@@ -192,13 +194,14 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
       std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg,
       const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
 
-  Obs catchExceptions(const std::function<Obs()>& f);
-
-  void autoUnloadOldEntries() const;
-
   bool findOutSensorPose(
       mrpt::poses::CPose3D& des, const std::string& target_frame, const std::string& source_frame,
       const std::optional<mrpt::poses::CPose3D>& fixedSensorPose, const std::string_view label);
+#endif
+
+  Obs catchExceptions(const std::function<Obs()>& f);
+
+  void autoUnloadOldEntries() const;
 
   mutable timestep_t    last_used_tim_index_ = 0;
   bool                  paused_              = false;
