@@ -546,7 +546,7 @@ void MulranDataset::load_lidar(timestep_t step) const
   ASSERT_EQUAL_(nPts, static_cast<size_t>(1024U) * 64U);
 
 #if MRPT_VERSION >= 0x020f04
-  pts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY);
+  // Intensity already exists.
   pts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
   pts->registerField_uint16(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
 
