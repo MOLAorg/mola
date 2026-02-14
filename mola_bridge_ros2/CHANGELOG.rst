@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+2.5.0 (2026-02-14)
+------------------
 * Merge pull request `#105 <https://github.com/MOLAorg/mola/issues/105>`_ from MOLAorg/feat/refactor-ros2-bridges
   Refactor to use external rosbag2 conversion in mrpt_ros_bridge
 * Use refactored ros2mrpt bridge in live node too

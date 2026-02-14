@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.5.0 (2026-02-14)
+------------------
 * Merge pull request `#104 <https://github.com/MOLAorg/mola/issues/104>`_ from MOLAorg/feat/better-regex
   Explain error on bad regex
 * Explain error on bad regex
