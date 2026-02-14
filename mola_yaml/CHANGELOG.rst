@@ -2,6 +2,13 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#100 <https://github.com/MOLAorg/mola/issues/100>`_ from MOLAorg/fix/remove-mrpt-deprecated-maps
+  Remove use of mrpt deprecated maps
+* Avoid use of deprecated mrpt::maps classes
+* Contributors: Jose Luis Blanco-Claraco
+
 2.4.0 (2025-12-28)
 ------------------
 

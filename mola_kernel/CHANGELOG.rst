@@ -2,6 +2,29 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#104 <https://github.com/MOLAorg/mola/issues/104>`_ from MOLAorg/feat/better-regex
+  Explain error on bad regex
+* Explain error on bad regex
+* Merge pull request `#103 <https://github.com/MOLAorg/mola/issues/103>`_ from MOLAorg/feat/RegexCache
+  Add utility RegexCache
+* Add utility RegexCache
+* Add has_converged_localization() method for state estimation
+* Merge pull request `#100 <https://github.com/MOLAorg/mola/issues/100>`_ from MOLAorg/fix/remove-mrpt-deprecated-maps
+  Remove use of mrpt deprecated maps
+* Avoid use of deprecated mrpt::maps classes
+* Merge pull request `#99 <https://github.com/MOLAorg/mola/issues/99>`_ from MOLAorg/feat/ros2-bridge-pub-geographic
+  ROS2 bridge: publish geographic poses too
+* ros2 bridge: use geographic_msgs, store the last georeference info internally, and publish georef poses
+  merge of these commits:
+  - Enable many more clang-tidy checks
+  - lint clean
+  - implement publishing georeferenced poses
+  - mola-viz: fix potential crash on edge case with all points having NaN value
+  - FIX: potential crash if no MapServer is present and map services are called
+* Contributors: Jose Luis Blanco-Claraco
+
 2.4.0 (2025-12-28)
 ------------------
 

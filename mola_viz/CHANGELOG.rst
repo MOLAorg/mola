@@ -2,6 +2,20 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fix: mola_viz lidar preview didn't filter Inf ranges in stats
+* Merge pull request `#99 <https://github.com/MOLAorg/mola/issues/99>`_ from MOLAorg/feat/ros2-bridge-pub-geographic
+  ROS2 bridge: publish geographic poses too
+* ros2 bridge: use geographic_msgs, store the last georeference info internally, and publish georef poses
+  merge of these commits:
+  - Enable many more clang-tidy checks
+  - lint clean
+  - implement publishing georeferenced poses
+  - mola-viz: fix potential crash on edge case with all points having NaN value
+  - FIX: potential crash if no MapServer is present and map services are called
+* Contributors: Jose Luis Blanco-Claraco
+
 2.4.0 (2025-12-28)
 ------------------
 * Fix build against upcoming mrpt 2.15.4

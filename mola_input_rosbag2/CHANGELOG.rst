@@ -3,6 +3,22 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#105 <https://github.com/MOLAorg/mola/issues/105>`_ from MOLAorg/feat/refactor-ros2-bridges
+  Refactor to use external rosbag2 conversion in mrpt_ros_bridge
+* Refactor to use external rosbag2 conversion in mrpt_ros_bridge
+* Merge pull request `#99 <https://github.com/MOLAorg/mola/issues/99>`_ from MOLAorg/feat/ros2-bridge-pub-geographic
+  ROS2 bridge: publish geographic poses too
+* ros2 bridge: use geographic_msgs, store the last georeference info internally, and publish georef poses
+  merge of these commits:
+  - Enable many more clang-tidy checks
+  - lint clean
+  - implement publishing georeferenced poses
+  - mola-viz: fix potential crash on edge case with all points having NaN value
+  - FIX: potential crash if no MapServer is present and map services are called
+* Contributors: Jose Luis Blanco-Claraco
+
 2.4.0 (2025-12-28)
 ------------------
 * Fix build against upcoming mrpt 2.15.4

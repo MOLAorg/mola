@@ -3,6 +3,29 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#105 <https://github.com/MOLAorg/mola/issues/105>`_ from MOLAorg/feat/refactor-ros2-bridges
+  Refactor to use external rosbag2 conversion in mrpt_ros_bridge
+* Use refactored ros2mrpt bridge in live node too
+* Fix: potential access to the ROS2 node before it's ready
+* Merge pull request `#101 <https://github.com/MOLAorg/mola/issues/101>`_ from MOLAorg/fix/mola-bridge-no-pub-queue
+  Fix: mola bridge no pub queue
+* BridgeRos2: publish localization updates immediately, do not buffer them
+* Add debug traces
+* Merge pull request `#99 <https://github.com/MOLAorg/mola/issues/99>`_ from MOLAorg/feat/ros2-bridge-pub-geographic
+  ROS2 bridge: publish geographic poses too
+* ros2 bridge: use geographic_msgs, store the last georeference info internally, and publish georef poses
+  merge of these commits:
+  - Enable many more clang-tidy checks
+  - lint clean
+  - implement publishing georeferenced poses
+  - mola-viz: fix potential crash on edge case with all points having NaN value
+  - FIX: potential crash if no MapServer is present and map services are called
+* fix clang-format
+* FIX: potential deadlock in BridgeROS2 dtor due to early errors before ros2 is initialized
+* Contributors: Jose Luis Blanco-Claraco
+
 2.4.0 (2025-12-28)
 ------------------
 * Prepare for not using deprecated mrpt_maps types starting for mrpt >=3.0.0
@@ -89,7 +112,7 @@ Changelog for package mola_bridge_ros2
 * BridgeROS2: add source filter for forwarding localization updates to ROS2
 * ROS2: base_footprint_frame /tf is broadcasted now as base_link -> base_footprint to avoid /tf warnings (better as a child than as a second parent in the tf tree)
 * FIX: In parsing base_footprint_to_base_link_tf
-* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+* Contributors: Jose Luis Blanco-Claraco
 
 1.6.1 (2025-02-13)
 ------------------
