@@ -243,9 +243,9 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   }
 
   // Start creating topic observers for /tf and all sensors:
-  lookup_["/tf"].emplace_back([=](const rosbag2_storage::SerializedBagMessage& rosmsg)
+  lookup_["/tf"].emplace_back([this](const rosbag2_storage::SerializedBagMessage& rosmsg)
                               { return toTf<false>(rosmsg); });
-  lookup_["/tf_static"].emplace_back([=](const rosbag2_storage::SerializedBagMessage& rosmsg)
+  lookup_["/tf_static"].emplace_back([this](const rosbag2_storage::SerializedBagMessage& rosmsg)
                                      { return toTf<true>(rosmsg); });
 
   for (auto& sensorNode : sensorsYaml.asSequence())
@@ -313,85 +313,34 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     using rosbag2_storage::SerializedBagMessage;
 
 #if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
-    if (sensorType == "CObservationPointCloud")
+    // Map sensor type → rosbag2 conversion function
+    using ConvFunc = std::function<Obs(
+        std::string_view, const SerializedBagMessage&, tf2::BufferCore&, const std::string&,
+        const std::optional<mrpt::poses::CPose3D>&)>;
+
+    static const std::map<std::string, ConvFunc> converters = {
+        {"CObservationPointCloud", &mrpt::ros2bridge::rosbag2ToPointCloud2},
+        {"CObservationImage", &mrpt::ros2bridge::rosbag2ToImage},
+        {"CObservation2DRangeScan", &mrpt::ros2bridge::rosbag2ToLidar2D},
+        {"CObservationRotatingScan", &mrpt::ros2bridge::rosbag2ToRotatingScan},
+        {"CObservationIMU", &mrpt::ros2bridge::rosbag2ToIMU},
+        {"CObservationGPS", &mrpt::ros2bridge::rosbag2ToGPS},
+    };
+    if (auto it = converters.find(sensorType); it != converters.end())
     {
-      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      auto convFn   = it->second;
+      auto callback = [this, sensorLabel, fixedSensorPose,
+                       convFn](const SerializedBagMessage& m) -> Obs
       {
         return catchExceptions(
-            [this, sensorLabel, fixedSensorPose, m]() -> Obs
-            {
-              return mrpt::ros2bridge::rosbag2ToPointCloud2(
-                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
-            });
+            [this, sensorLabel, fixedSensorPose, convFn, m]() -> Obs
+            { return convFn(sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose); });
       };
       lookup_[topic].emplace_back(callback);
     }
-    else if (sensorType == "CObservationImage")
-    {
-      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
-      {
-        return catchExceptions(
-            [this, sensorLabel, fixedSensorPose, m]() -> Obs
-            {
-              return mrpt::ros2bridge::rosbag2ToImage(
-                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
-            });
-      };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservation2DRangeScan")
-    {
-      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
-      {
-        return catchExceptions(
-            [this, sensorLabel, fixedSensorPose, m]() -> Obs
-            {
-              return mrpt::ros2bridge::rosbag2ToLidar2D(
-                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
-            });
-      };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationRotatingScan")
-    {
-      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
-      {
-        return catchExceptions(
-            [this, sensorLabel, fixedSensorPose, m]() -> Obs
-            {
-              return mrpt::ros2bridge::rosbag2ToRotatingScan(
-                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
-            });
-      };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationIMU")
-    {
-      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
-      {
-        return catchExceptions(
-            [this, sensorLabel, fixedSensorPose, m]() -> Obs
-            {
-              return mrpt::ros2bridge::rosbag2ToIMU(
-                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
-            });
-      };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationGPS")
-    {
-      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
-      {
-        return catchExceptions(
-            [this, sensorLabel, fixedSensorPose, m]() -> Obs
-            {
-              return mrpt::ros2bridge::rosbag2ToGPS(
-                  sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
-            });
-      };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationOdometry")
+
+    // This one has a different signature has to be handled apart:
+    if (sensorType == "CObservationOdometry")
     {
       auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
       {
@@ -646,7 +595,7 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bo
   ASSERT_GT_(read_ahead_length_, 0);
 
   // End of read segment:
-  size_t endIdx;
+  size_t endIdx = 0;
   if (requestedIndex)
   {
     if (skipBufferAhead)
@@ -788,14 +737,14 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
   std::set<std::string> fields = mrpt::ros2bridge::extractFields(pts);
 
   // We need X Y Z:
-  if (!fields.count("x") || !fields.count("y") || !fields.count("z"))
+  if (0 == fields.count("x") || 0 == fields.count("y") || 0 == fields.count("z"))
   {
     return {};
   }
 
   // Generic map:
-  if (fields.count("ring") || fields.count("time") || fields.count("timestamp") ||
-      fields.count("t") || fields.count("intensity"))
+  if (fields.count("ring") != 0 || fields.count("time") != 0 || fields.count("timestamp") != 0 ||
+      fields.count("t") != 0 || fields.count("intensity") != 0)
   {
     auto mrptPts       = mrpt::maps::CGenericPointsMap::Create();
     ptsObs->pointcloud = mrptPts;
@@ -808,7 +757,7 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
     // Fix timestamps for Livox driver:
     // It uses doubles for timestamps, but they are actually nanoseconds!
 #if MRPT_VERSION >= 0x020f03  // 2.15.3
-    auto ts =
+    auto* ts =
         mrptPts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
 #elif MRPT_VERSION >= 0x020f00  // 2.15.0
     auto ts = mrptPts->getPointsBufferRef_float_field(
