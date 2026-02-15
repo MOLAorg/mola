@@ -75,7 +75,7 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<void> subwindow_grid_layout(
-      const std::string& subWindowTitle, const bool orientationVertical, int resolution,
+      const std::string& subWindowTitle, bool orientationVertical, int resolution,
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<void> subwindow_move_resize(
@@ -95,9 +95,8 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> insert_point_cloud_with_decay(
-      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud,
-      const double decay_time_seconds, const std::string& viewportName = "main",
-      const std::string& parentWindow = "main") override;
+      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
+      const std::string& viewportName = "main", const std::string& parentWindow = "main") override;
 
   std::future<bool> clear_all_point_clouds_with_decay(
       const std::string& viewportName = "main", const std::string& parentWindow = "main") override;
@@ -107,11 +106,11 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> update_viewport_camera_azimuth(
-      const double azimuth, bool absolute_falseForRelative = true,
+      double azimuth, bool absolute_falseForRelative = true,
       const std::string& viewportName = "main", const std::string& parentWindow = "main") override;
 
   std::future<bool> update_viewport_camera_orthographic(
-      const bool orthographic, const std::string& viewportName = "main",
+      bool orthographic, const std::string& viewportName = "main",
       const std::string& parentWindow = "main") override;
 
   std::future<bool> execute_custom_code_on_background_scene(
@@ -163,10 +162,10 @@ class MolaViz : public ExecutableBase, public VizInterface
   {
     DecayingCloud() = default;
     DecayingCloud(
-        const std::string& opengl_viewport_name_, const mrpt::Clock::time_point& insertion_stamp_,
+        std::string opengl_viewport_name_, const mrpt::Clock::time_point& insertion_stamp_,
         const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud_,
         double decay_time_seconds_, float initial_alpha_)  // NOLINT
-        : opengl_viewport_name(opengl_viewport_name_),
+        : opengl_viewport_name(std::move(opengl_viewport_name_)),
           insertion_stamp(insertion_stamp_),
           cloud(cloud_),
           decay_time_seconds(decay_time_seconds_),
