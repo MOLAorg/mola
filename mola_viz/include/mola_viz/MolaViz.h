@@ -137,6 +137,10 @@ class MolaViz : public ExecutableBase, public VizInterface
   unsigned int max_console_lines_        = 5;
   bool         show_rgbd_as_point_cloud_ = false;  // too CPU demanding!
 
+  /// Assumed sensor rate [Hz] for computing the max number of decaying
+  /// clouds from the decay_time_seconds API parameter.
+  double assumed_sensor_rate_hz_ = 10.0;
+
   /** @} */
 
   void markWindowForReLayout(const window_name_t& name)
@@ -154,22 +158,17 @@ class MolaViz : public ExecutableBase, public VizInterface
   {
     DecayingCloud() = default;
     DecayingCloud(
-        std::string opengl_viewport_name_, const mrpt::Clock::time_point& insertion_stamp_,
-        const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud_,
-        double decay_time_seconds_, float initial_alpha_)  // NOLINT
+        std::string                                               opengl_viewport_name_,
+        const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud_, float initial_alpha_)
         : opengl_viewport_name(std::move(opengl_viewport_name_)),
-          insertion_stamp(insertion_stamp_),
           cloud(cloud_),
-          decay_time_seconds(decay_time_seconds_),
           initial_alpha(initial_alpha_)
     {
     }
 
     std::string                                        opengl_viewport_name;
-    mrpt::Clock::time_point                            insertion_stamp;
     std::shared_ptr<mrpt::opengl::CPointCloudColoured> cloud;
-    double                                             decay_time_seconds = 0;
-    float                                              initial_alpha      = 1.0f;
+    float                                              initial_alpha = 1.0f;
   };
 
   struct PerWindowData
@@ -177,6 +176,7 @@ class MolaViz : public ExecutableBase, public VizInterface
     mrpt::gui::CDisplayWindowGUI::Ptr win;
     std::vector<std::string>          console_messages;
     std::deque<DecayingCloud>         decaying_clouds;
+    size_t                            max_decaying_clouds = 100;
   };
 
   std::map<window_name_t, PerWindowData>                                windows_;

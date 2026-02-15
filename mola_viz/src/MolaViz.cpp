@@ -286,6 +286,258 @@ void gui_handler_images(
       {mrpt::format("Size: %ix%ix%i", imgW, imgH, imgChannels)});
 }
 
+// ---- Helper: set up or reuse the GL canvas + point cloud objects ----
+struct PointCloudGLObjects
+{
+  mrpt::gui::MRPT2NanoguiGLCanvas*            glControl = nullptr;
+  mrpt::opengl::CPointCloudColoured::Ptr      glPc;
+  mrpt::opengl::CSetOfObjects::Ptr            glCornerRef;
+  mrpt::opengl::CSetOfObjects::Ptr            glCornerSensor;
+  std::optional<mrpt::LockHelper<std::mutex>> lck;
+};
+
+PointCloudGLObjects setup_or_reuse_point_cloud_gl(
+    nanogui::Window* w, float point_size, const MolaViz::window_name_t& parentWin,
+    MolaViz* instance)
+{
+  PointCloudGLObjects gl;
+
+  if (w->children().size() == 1)
+  {
+    // Create on first use:
+    gl.glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
+    gl.lck.emplace(&gl.glControl->scene_mtx);
+
+    gl.glControl->scene = mrpt::opengl::COpenGLScene::Create();
+
+    gl.glPc = mrpt::opengl::CPointCloudColoured::Create();
+    gl.glControl->scene->insert(gl.glPc);
+
+    gl.glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
+    gl.glCornerSensor = mrpt::opengl::stock_objects::CornerXYZ(0.5f);
+    gl.glControl->scene->insert(gl.glCornerRef);
+    gl.glControl->scene->insert(gl.glCornerSensor);
+
+    gl.glPc->setPointSize(point_size);
+    instance->markWindowForReLayout(parentWin);
+  }
+  else
+  {
+    // Reuse from past iterations:
+    gl.glControl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
+    gl.lck.emplace(&gl.glControl->scene_mtx);
+
+    gl.glPc = gl.glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
+
+    gl.glCornerRef    = gl.glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(0);
+    gl.glCornerSensor = gl.glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(1);
+  }
+  ASSERT_(gl.glControl != nullptr);
+  ASSERT_(gl.glPc);
+  ASSERT_(gl.glCornerRef);
+  ASSERT_(gl.glCornerSensor);
+
+  return gl;
+}
+
+// ---- Helper: populate glPc from CObservationPointCloud ----
+bool populate_from_observation_point_cloud(
+    const mrpt::obs::CObservationPointCloud&      objPc,
+    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+{
+  // const_cast-free: load() is non-const
+  auto& objPcMut = const_cast<mrpt::obs::CObservationPointCloud&>(objPc);
+  objPcMut.load();
+  if (!objPc.pointcloud)
+  {
+    return false;
+  }
+  glPc->loadFromPointsMap(objPc.pointcloud.get());
+  glPc->setPose(objPc.sensorPose);
+
+  std::vector<std::string> additionalMsgs = {
+      mrpt::format("Point count: %zu", objPc.pointcloud->size()),
+      mrpt::format("Type: %s", objPc.pointcloud->GetRuntimeClass()->className),
+  };
+
+  // Collect optional stats per field type:
+  for (const auto& field : objPc.pointcloud->getPointFieldNames_float())
+  {
+    if (const auto* buf = objPc.pointcloud->getPointsBufferRef_float_field(field);
+        buf != nullptr && !buf->empty())
+    {
+      additionalMsgs.push_back(mrpt::format(
+          "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+          minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
+    }
+  }
+  for (const auto& field : objPc.pointcloud->getPointFieldNames_uint16())
+  {
+#if MRPT_VERSION >= 0x020f04  // 2.15.4
+    if (const auto* buf = objPc.pointcloud->getPointsBufferRef_uint16_field(field);
+        buf != nullptr && !buf->empty())
+#else
+    if (const auto* buf = objPc.pointcloud->getPointsBufferRef_uint_field(field);
+        buf && !buf->empty())
+#endif
+    {
+      additionalMsgs.push_back(mrpt::format(
+          "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+          minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
+    }
+  }
+#if MRPT_VERSION >= 0x020f03  // 2.15.3
+  for (const auto& field : objPc.pointcloud->getPointFieldNames_double())
+  {
+    if (const auto* buf = objPc.pointcloud->getPointsBufferRef_double_field(field);
+        buf != nullptr && !buf->empty())
+    {
+      additionalMsgs.push_back(mrpt::format(
+          "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+          minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
+    }
+  }
+  for (const auto& field : objPc.pointcloud->getPointFieldNames_uint8())
+  {
+    if (const auto* buf = objPc.pointcloud->getPointsBufferRef_uint8_field(field);
+        buf != nullptr && !buf->empty())
+    {
+      additionalMsgs.push_back(mrpt::format(
+          "%.*s range: %s", static_cast<int>(field.size()), field.data(),
+          minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
+    }
+  }
+#endif
+
+  gui_handler_show_common_sensor_info(objPc, w, sensorDecimation, additionalMsgs);
+  return true;  // color_from_z still applies
+}
+
+// ---- Helper: populate glPc from CObservationRotatingScan ----
+void populate_from_rotating_scan(
+    const mrpt::obs::CObservationRotatingScan&    objRS,
+    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+{
+  auto& objRSMut = const_cast<mrpt::obs::CObservationRotatingScan&>(objRS);
+  objRSMut.load();
+  glPc->clear();
+  mrpt::math::TBoundingBoxf bbox = mrpt::math::TBoundingBoxf::PlusMinusInfinity();
+
+  for (size_t r = 0; r < objRS.rowCount; r++)
+  {
+    for (size_t c = 0; c < objRS.columnCount; c++)
+    {
+      const auto range = objRS.rangeImage(r, c);
+      if (range == 0)
+      {
+        continue;
+      }
+      const auto& pt = objRS.organizedPoints(r, c);
+      glPc->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+      bbox.updateWithPoint(pt);
+    }
+  }
+  glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
+
+  gui_handler_show_common_sensor_info(objRS, w, sensorDecimation);
+}
+
+// ---- Helper: populate glPc from CObservation3DRangeScan (point cloud mode) ----
+void populate_from_3d_range_scan(
+    const mrpt::obs::CObservation3DRangeScan&     obj3D,
+    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation,
+    bool& color_from_z)
+{
+  if (obj3D.hasPoints3D)
+  {
+    auto& obj3DMut = const_cast<mrpt::obs::CObservation3DRangeScan&>(obj3D);
+    if (obj3D.points3D_isExternallyStored())
+    {
+      obj3DMut.load();
+    }
+
+    for (size_t i = 0; i < obj3D.points3D_x.size(); i++)
+    {
+      glPc->insertPoint({obj3D.points3D_x[i], obj3D.points3D_y[i], obj3D.points3D_z[i], 0, 0, 0});
+    }
+  }
+  else
+  {
+    auto& obj3DMut = const_cast<mrpt::obs::CObservation3DRangeScan&>(obj3D);
+    obj3DMut.load();
+
+    mrpt::obs::T3DPointsProjectionParams pp;
+    pp.takeIntoAccountSensorPoseOnRobot = true;
+
+    if (obj3D.hasRangeImage && obj3D.hasIntensityImage)
+    {
+      auto pointMapCol                = mrpt::maps::CColouredPointsMap::Create();
+      pointMapCol->colorScheme.scheme = mrpt::maps::CColouredPointsMap::cmFromIntensityImage;
+
+      obj3DMut.unprojectInto(*pointMapCol, pp);
+      glPc->loadFromPointsMap(pointMapCol.get());
+      color_from_z = false;
+    }
+    else
+    {
+      obj3DMut.unprojectInto(*glPc, pp);
+    }
+  }
+  gui_handler_show_common_sensor_info(obj3D, w, sensorDecimation);
+}
+
+// ---- Helper: populate glPc from CObservation2DRangeScan ----
+void populate_from_2d_range_scan(
+    const mrpt::obs::CObservation2DRangeScan&     obj2D,
+    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+{
+  mrpt::maps::CSimplePointsMap auxMap;
+  auxMap.insertObservationPtr(std::make_shared<mrpt::obs::CObservation2DRangeScan>(obj2D));
+  glPc->loadFromPointsMap(&auxMap);
+
+  gui_handler_show_common_sensor_info(obj2D, w, sensorDecimation);
+}
+
+// ---- Helper: populate glPc from CObservationVelodyneScan ----
+bool populate_from_velodyne_scan(
+    const mrpt::obs::CObservationVelodyneScan&    objVel,
+    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+{
+  if (objVel.point_cloud.size() == 0)
+  {
+    return false;
+  }
+
+  const auto&  pc = objVel.point_cloud;
+  const size_t N  = pc.size();
+#if MRPT_VERSION >= 0x020f03
+  mrpt::maps::CGenericPointsMap pts;
+  pts.registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY);
+  pts.resize(N);
+  for (size_t i = 0; i < N; i++)
+  {
+    pts.setPoint(i, pc.x[i], pc.y[i], pc.z[i]);
+    pts.setPointField_float(
+        i, mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY,
+        static_cast<float>(pc.intensity[i]) / 255.0f);
+  }
+#else
+  mrpt::maps::CPointsMapXYZI pts;
+  pts.resize(N);
+  for (size_t i = 0; i < N; i++)
+  {
+    pts.setPoint(i, pc.x[i], pc.y[i], pc.z[i]);
+    pts.setPointIntensity(i, static_cast<float>(pc.intensity[i]) / 255.0f);
+  }
+#endif
+  glPc->loadFromPointsMap(&pts);
+
+  gui_handler_show_common_sensor_info(
+      objVel, w, sensorDecimation, {mrpt::format("Point count: %zu", N)});
+
+  return true;
+}
+
 // CObservationPointCloud
 // CObservation2DRangeScan
 // CObservation3DRangeScan
@@ -296,11 +548,6 @@ void gui_handler_point_cloud(
     MolaViz* instance, const mrpt::containers::yaml* extra_parameters)
 {
   using namespace mrpt::obs;
-
-  mrpt::gui::MRPT2NanoguiGLCanvas*            glControl;
-  mrpt::opengl::CPointCloudColoured::Ptr      glPc;
-  mrpt::opengl::CSetOfObjects::Ptr            glCornerRef, glCornerSensor;
-  std::optional<mrpt::LockHelper<std::mutex>> lck;
 
   const double sensorDecimation = [&]()
   {
@@ -313,241 +560,51 @@ void gui_handler_point_cloud(
 
   bool  color_from_z = true;
   float point_size   = 3.0f;
-  if (extra_parameters)
+  if (extra_parameters != nullptr)
   {
     point_size   = extra_parameters->getOrDefault("point_size", point_size);
     color_from_z = extra_parameters->getOrDefault("color_from_z", color_from_z);
   }
 
-  if (w->children().size() == 1)
-  {
-    // Create on first use:
-    glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
+  auto gl = setup_or_reuse_point_cloud_gl(w, point_size, parentWin, instance);
 
-    lck.emplace(&glControl->scene_mtx);
-
-    glControl->scene = mrpt::opengl::COpenGLScene::Create();
-
-    glPc = mrpt::opengl::CPointCloudColoured::Create();
-    glControl->scene->insert(glPc);
-
-    glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
-    glCornerSensor = mrpt::opengl::stock_objects::CornerXYZ(0.5f);
-    glControl->scene->insert(glCornerRef);
-    glControl->scene->insert(glCornerSensor);
-
-    glPc->setPointSize(point_size);
-    instance->markWindowForReLayout(parentWin);
-  }
-  else
-  {
-    // Reuse from past iterations:
-    glControl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
-    lck.emplace(&glControl->scene_mtx);
-
-    glPc = glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
-
-    glCornerRef    = glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(0);
-    glCornerSensor = glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(1);
-  }
-  ASSERT_(glControl != nullptr);
-  ASSERT_(glPc);
-  ASSERT_(glCornerRef);
-  ASSERT_(glCornerSensor);
-
-  glPc->setPose(mrpt::poses::CPose3D::Identity());
+  gl.glPc->setPose(mrpt::poses::CPose3D::Identity());
 
   if (auto obs = std::dynamic_pointer_cast<CObservation>(o); obs)
   {
     mrpt::poses::CPose3D p;
     obs->getSensorPose(p);
-    glCornerSensor->setPose(p);
+    gl.glCornerSensor->setPose(p);
   }
 
+  // Dispatch to the appropriate population helper:
   if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o); objPc)
   {
-    objPc->load();
-    if (!objPc->pointcloud)
+    if (!populate_from_observation_point_cloud(*objPc, gl.glPc, w, sensorDecimation))
     {
       return;
     }
-    glPc->loadFromPointsMap(objPc->pointcloud.get());
-    glPc->setPose(objPc->sensorPose);
-
-    std::vector<std::string> additionalMsgs = {
-        mrpt::format("Point count: %zu", objPc->pointcloud->size()),
-        mrpt::format("Type: %s", objPc->pointcloud->GetRuntimeClass()->className),
-    };
-
-    // Collect optional stats:
-#if MRPT_VERSION >= 0x020f00  // 2.15.0
-
-    for (const auto& field : objPc->pointcloud->getPointFieldNames_float())
-    {
-      if (const auto* buf = objPc->pointcloud->getPointsBufferRef_float_field(field);
-          buf != nullptr && !buf->empty())
-      {
-        additionalMsgs.push_back(mrpt::format(
-            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
-            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
-      }
-    }
-    for (const auto& field : objPc->pointcloud->getPointFieldNames_uint16())
-    {
-#if MRPT_VERSION >= 0x020f04  // 2.15.4
-      if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint16_field(field);
-          buf != nullptr && !buf->empty())
-#else
-      if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint_field(field);
-          buf && !buf->empty())
-#endif
-      {
-        additionalMsgs.push_back(mrpt::format(
-            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
-            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
-      }
-    }
-#if MRPT_VERSION >= 0x020f03  // 2.15.3
-    for (const auto& field : objPc->pointcloud->getPointFieldNames_double())
-    {
-      if (const auto* buf = objPc->pointcloud->getPointsBufferRef_double_field(field);
-          buf != nullptr && !buf->empty())
-      {
-        additionalMsgs.push_back(mrpt::format(
-            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
-            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
-      }
-    }
-    for (const auto& field : objPc->pointcloud->getPointFieldNames_uint8())
-    {
-      if (const auto* buf = objPc->pointcloud->getPointsBufferRef_uint8_field(field);
-          buf != nullptr && !buf->empty())
-      {
-        additionalMsgs.push_back(mrpt::format(
-            "%.*s range: %s", static_cast<int>(field.size()), field.data(),
-            minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
-      }
-    }
-#endif
-
-#else
-    if (const auto* Is = objPc->pointcloud->getPointsBufferRef_intensity(); Is && !Is->empty())
-    {
-      const auto [itMin, itMax] = std::minmax_element(Is->begin(), Is->end());
-      additionalMsgs.push_back(mrpt::format("Intensity range: [%.02f,%.02f]", *itMin, *itMax));
-    }
-#endif
-    gui_handler_show_common_sensor_info(*objPc, w, sensorDecimation, additionalMsgs);
   }
   else if (auto objRS = std::dynamic_pointer_cast<CObservationRotatingScan>(o); objRS)
   {
-    objRS->load();
-    glPc->clear();
-    mrpt::math::TBoundingBoxf bbox = mrpt::math::TBoundingBoxf::PlusMinusInfinity();
-
-    for (size_t r = 0; r < objRS->rowCount; r++)
-    {
-      for (size_t c = 0; c < objRS->columnCount; c++)
-      {
-        const auto range = objRS->rangeImage(r, c);
-        if (!range)
-        {
-          continue;  // invalid pt
-        }
-
-        const auto& pt = objRS->organizedPoints(r, c);
-
-        glPc->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
-        bbox.updateWithPoint(pt);
-      }
-    }
-    glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
-
-    gui_handler_show_common_sensor_info(*objRS, w, sensorDecimation);
+    populate_from_rotating_scan(*objRS, gl.glPc, w, sensorDecimation);
+    color_from_z = false;  // already recolorized inside
   }
   else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
            instance->show_rgbd_as_point_cloud_ && obj3D)
   {
-    if (obj3D->hasPoints3D)
-    {
-      if (obj3D->points3D_isExternallyStored())
-      {
-        obj3D->load();
-      }
-
-      for (size_t i = 0; i < obj3D->points3D_x.size(); i++)
-      {
-        glPc->insertPoint(
-            {obj3D->points3D_x[i], obj3D->points3D_y[i], obj3D->points3D_z[i], 0, 0, 0});
-      }
-    }
-    else
-    {
-      obj3D->load();
-
-      mrpt::obs::T3DPointsProjectionParams pp;
-      pp.takeIntoAccountSensorPoseOnRobot = true;
-
-      if (obj3D->hasRangeImage && obj3D->hasIntensityImage)
-      {
-        auto pointMapCol                = mrpt::maps::CColouredPointsMap::Create();
-        pointMapCol->colorScheme.scheme = mrpt::maps::CColouredPointsMap::cmFromIntensityImage;
-
-        obj3D->unprojectInto(*pointMapCol, pp);
-        glPc->loadFromPointsMap(pointMapCol.get());
-        color_from_z = false;
-      }
-      else
-      {
-        obj3D->unprojectInto(*glPc, pp);
-      }
-    }
-    gui_handler_show_common_sensor_info(*obj3D, w, sensorDecimation);
+    populate_from_3d_range_scan(*obj3D, gl.glPc, w, sensorDecimation, color_from_z);
   }
   else if (auto obj2D = std::dynamic_pointer_cast<CObservation2DRangeScan>(o); obj2D)
   {
-    mrpt::maps::CSimplePointsMap auxMap;
-    auxMap.insertObservationPtr(obj2D);
-    glPc->loadFromPointsMap(&auxMap);
-
-    gui_handler_show_common_sensor_info(*obj2D, w, sensorDecimation);
+    populate_from_2d_range_scan(*obj2D, gl.glPc, w, sensorDecimation);
   }
   else if (auto objVel = std::dynamic_pointer_cast<CObservationVelodyneScan>(o); objVel)
   {
-    if (objVel->point_cloud.size() == 0)
+    if (!populate_from_velodyne_scan(*objVel, gl.glPc, w, sensorDecimation))
     {
       return;
     }
-
-    const auto&  pc = objVel->point_cloud;
-    const size_t N  = pc.size();
-#if MRPT_VERSION >= 0x020f03
-    mrpt::maps::CGenericPointsMap pts;
-    pts.registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY);
-    pts.resize(N);
-    for (size_t i = 0; i < N; i++)
-    {
-      pts.setPoint(i, pc.x[i], pc.y[i], pc.z[i]);
-      pts.setPointField_float(
-          i, mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY,
-          static_cast<float>(pc.intensity[i]) / 255.0f);
-    }
-#else
-    mrpt::maps::CPointsMapXYZI pts;
-    pts.resize(N);
-    for (size_t i = 0; i < N; i++)
-    {
-      pts.setPoint(i, pc.x[i], pc.y[i], pc.z[i]);
-      pts.setPointIntensity(i, static_cast<float>(pc.intensity[i]) / 255.0f);
-    }
-#endif
-    glPc->loadFromPointsMap(&pts);
-
-    gui_handler_show_common_sensor_info(
-        *objVel, w, sensorDecimation,
-        {
-            mrpt::format("Point count: %zu", N),
-        });
   }
   else
   {
@@ -557,8 +614,8 @@ void gui_handler_point_cloud(
   // viz options:
   if (color_from_z)
   {
-    const auto bb = glPc->getBoundingBox();
-    glPc->recolorizeByCoordinate(static_cast<float>(bb.min.z), static_cast<float>(bb.max.z));
+    const auto bb = gl.glPc->getBoundingBox();
+    gl.glPc->recolorizeByCoordinate(static_cast<float>(bb.min.z), static_cast<float>(bb.max.z));
   }
 }
 
@@ -598,9 +655,9 @@ void gui_handler_gps(
       labels[i] = dynamic_cast<nanogui::Label*>(w->children().at(1 + i));
     }
   }
-  for (size_t i = 0; i < labels.size(); i++)
+  for (const auto& label : labels)
   {
-    ASSERT_(labels[i]);
+    ASSERT_(label);
   }
 
   if (auto* gga = obj->getMsgByClassPtr<mrpt::obs::gnss::Message_NMEA_GGA>(); gga)
@@ -645,7 +702,7 @@ void gui_handler_imu(
     return 1.0;
   }();
 
-  mrpt::gui::MRPT2NanoguiGLCanvas* glControl;
+  mrpt::gui::MRPT2NanoguiGLCanvas* glControl = nullptr;
   // mrpt::opengl::CSetOfObjects::Ptr            glCornerRef, glCornerSensor;
   std::optional<mrpt::LockHelper<std::mutex>> lck;
 
@@ -664,7 +721,8 @@ void gui_handler_imu(
     // glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
     // glControl->scene->insert(glCornerRef);
 
-    const int winW = 400, winH = 125;
+    const int winW = 400;
+    const int winH = 125;
     glControl->setSize({winW, winH});
     glControl->setFixedSize({winW, winH});
 
@@ -691,7 +749,7 @@ void gui_handler_imu(
   }
   else
   {
-    txts.push_back("omega=None");
+    txts.emplace_back("omega=None");
   }
 
   if (obj->has(mrpt::obs::IMU_X_ACC))
@@ -702,7 +760,7 @@ void gui_handler_imu(
   }
   else
   {
-    txts.push_back("acc=None");
+    txts.emplace_back("acc=None");
   }
 
   gui_handler_show_common_sensor_info(*obj, w, sensorDecimation, txts);
@@ -759,7 +817,7 @@ bool     MolaViz::IsRunning() { return Instance() != nullptr; }
 MolaViz* MolaViz::Instance()
 {
   instanceMtx_.lock_shared();
-  auto ret = instance_;
+  auto* ret = instance_;
   instanceMtx_.unlock_shared();
   return ret;
 }
@@ -775,6 +833,7 @@ void MolaViz::initialize(const Yaml& c)
   YAML_LOAD_MEMBER_OPT(max_console_lines, unsigned int);
   YAML_LOAD_MEMBER_OPT(console_text_font_size, double);
   YAML_LOAD_MEMBER_OPT(show_rgbd_as_point_cloud, bool);
+  YAML_LOAD_MEMBER_OPT(assumed_sensor_rate_hz, double);
 
   // Mark as initialized and up:
   instanceMtx_.lock();
@@ -1056,7 +1115,7 @@ std::future<bool> MolaViz::subwindow_update_visualization(
               topWin.count(subWindowTitle),
               mrpt::format("subWindow not found: '%s'", subWindowTitle.c_str()));
 
-          auto subWin = topWin.at(subWindowTitle);
+          auto* subWin = topWin.at(subWindowTitle);
           ASSERT_(subWin != nullptr);
 
           // Get object GUI handler:
@@ -1113,7 +1172,7 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
 
-        auto subwin = topWin->createManagedSubWindow(subWindowTitle);
+        auto* subwin = topWin->createManagedSubWindow(subWindowTitle);
         // add to list of subwindows too:
         subWindows_[parentWindow][subWindowTitle] = subwin;
 
@@ -1123,7 +1182,7 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
             ->setCallback(
                 [subwin, topWin]()
                 {
-                  if (auto glControl =
+                  if (auto* glControl =
                           dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
                       glControl)
                   {
@@ -1142,7 +1201,7 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
             ->setCallback(
                 [subwin, topWin]()
                 {
-                  if (auto glControl =
+                  if (auto* glControl =
                           dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
                       glControl)
                   {
@@ -1233,11 +1292,10 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
         }
 
         ASSERT_(windows_.count(parentWindow));
-        auto topWin = windows_.at(parentWindow).win;
+        auto& winData = windows_.at(parentWindow);
+        auto  topWin  = winData.win;
         ASSERT_(topWin);
 
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
 
         mrpt::opengl::CSetOfObjects::Ptr glContainer;
@@ -1257,13 +1315,23 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
         // Insert into the gl viz container:
         glContainer->insert(cloud);
 
-        // and in our own struct to make it fade out later on:
-        // (Assumption: all points have same alpha)
-        const auto initial_alpha = mrpt::u8tof(cloud->shaderPointsVertexColorBuffer().at(0).A);
+        // Compute max number of scans from decay time and assumed rate:
+        const size_t maxScans = std::max<size_t>(
+            1u, static_cast<size_t>(std::round(decay_time_seconds * assumed_sensor_rate_hz_)));
+        winData.max_decaying_clouds = maxScans;
 
-        windows_.at(parentWindow)
-            .decaying_clouds.emplace_back(
-                viewportName, mrpt::Clock::now(), cloud, decay_time_seconds, initial_alpha);
+        // Store initial alpha (assumption: all points have same alpha)
+        const float initial_alpha = mrpt::u8tof(cloud->shaderPointsVertexColorBuffer().at(0).A);
+
+        winData.decaying_clouds.emplace_back(viewportName, cloud, initial_alpha);
+
+        // Remove oldest clouds if we exceed the max:
+        while (winData.decaying_clouds.size() > maxScans)
+        {
+          auto& oldest = winData.decaying_clouds.front();
+          glContainer->removeObject(oldest.cloud);
+          winData.decaying_clouds.pop_front();
+        }
 
         return true;
       });
@@ -1591,59 +1659,43 @@ std::future<void> MolaViz::subwindow_move_resize(
 
 void MolaViz::internal_handle_decaying_clouds()
 {
-  // This will be always called from the OpenGL thread, so no need to worry about mutexes.
+  // Called from the OpenGL thread, no need for mutexes.
 
-  constexpr float DECAY_FADE_OUT_TIME = 1.0f;
-
-  const auto tNow = mrpt::Clock::now();
+  // Fraction of the queue at the tail where fade-out occurs:
+  constexpr float FADE_OUT_FRACTION = 0.1f;
 
   for (auto& [winName, winData] : windows_)
   {
-    for (auto it = winData.decaying_clouds.begin(); it != winData.decaying_clouds.end();)
+    const size_t queueSize = winData.decaying_clouds.size();
+    if (queueSize == 0)
     {
-      auto& decay_cloud = *it;
+      continue;
+    }
 
-      const auto delta_time =
-          static_cast<float>(mrpt::system::timeDifference(decay_cloud.insertion_stamp, tNow));
+    const size_t maxScans = winData.max_decaying_clouds;
 
-      const float threshold_time =
-          static_cast<float>(decay_cloud.decay_time_seconds) - DECAY_FADE_OUT_TIME;
+    // Number of oldest entries over which we apply the fade-out gradient:
+    const size_t fadeCount = std::max<size_t>(
+        1u, static_cast<size_t>(std::round(static_cast<float>(maxScans) * FADE_OUT_FRACTION)));
 
-      if (delta_time > threshold_time && decay_cloud.decay_time_seconds > 0)
+    // Iterate from oldest (index 0) to newest (index queueSize-1):
+    for (size_t i = 0; i < queueSize; i++)
+    {
+      auto& dc = winData.decaying_clouds[i];
+
+      // "age" in scan-units: oldest=queueSize-1, newest=0
+      const size_t age = queueSize - 1u - i;
+
+      float alpha = dc.initial_alpha;
+      if (age >= (maxScans - fadeCount))
       {
-        const auto  decay_time = static_cast<float>(decay_cloud.decay_time_seconds);
-        const float new_alpha  = mrpt::saturate_val(
-             decay_cloud.initial_alpha *
-                 (1.0f - (decay_time - threshold_time) / DECAY_FADE_OUT_TIME),
-             0.0f, 1.0f);
-        decay_cloud.cloud->setAllPointsAlpha(mrpt::f2u8(new_alpha));
+        // This cloud is in the fade-out zone:
+        const float t =
+            static_cast<float>(age - (maxScans - fadeCount)) / static_cast<float>(fadeCount);
+        alpha = dc.initial_alpha * mrpt::saturate_val(1.0f - t, 0.0f, 1.0f);
       }
 
-      // clouds to be deleted?
-      if (delta_time > static_cast<float>(decay_cloud.decay_time_seconds))
-      {
-        // Delete clouds from the actual GL container, otherwise they will keep consuming
-        // rendering resources forever!
-        mrpt::opengl::CSetOfObjects::Ptr glContainer;
-        if (auto o = winData.win->background_scene->getByName(
-                DECAY_CLOUDS_NAME, decay_cloud.opengl_viewport_name);
-            o)
-        {
-          glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
-        }
-        if (glContainer)
-        {
-          glContainer->removeObject(it->cloud);
-        }
-
-        // and delete from this list:
-        it = winData.decaying_clouds.erase(it);
-      }
-      else
-      {
-        ++it;
-      }
-    }  // end for each decaying cloud in this window
-
-  }  // end for each window
+      dc.cloud->setAllPointsAlpha(mrpt::f2u8(alpha));
+    }
+  }
 }
