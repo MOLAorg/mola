@@ -37,10 +37,12 @@ class SearchablePoseList
 
   bool empty() const
   {
-    if (from_last_only_)  //
+    if (from_last_only_)
+    {
       return last_kf_ == mrpt::poses::CPose3D::Identity();
-    else
-      return kf_poses_.empty();
+    }
+
+    return kf_poses_.empty();
   }
 
   size_t size() const { return from_last_only_ ? 1 : kf_poses_.size(); }
@@ -48,7 +50,7 @@ class SearchablePoseList
   void insert(const mrpt::poses::CPose3D& p)
   {
     if (from_last_only_)
-    {  //
+    {
       last_kf_ = p;
     }
     else
@@ -61,7 +63,7 @@ class SearchablePoseList
   [[nodiscard]] std::tuple<bool /*isFirst*/, mrpt::poses::CPose3D /*distanceToClosest*/> check(
       const mrpt::poses::CPose3D& p) const;
 
-  void removeAllFartherThan(const mrpt::poses::CPose3D& p, const double maxTranslation);
+  void removeAllFartherThan(const mrpt::poses::CPose3D& p, double maxTranslation);
 
  private:
   // if from_last_only_==true
