@@ -113,27 +113,24 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
       const mrpt::math::TPoint2Df& query, mrpt::math::TPoint2Df& result, float& out_dist_sqr,
       uint64_t& resultIndexOrID) const override;
   void nn_multiple_search(
-      const mrpt::math::TPoint3Df& query, const size_t N,
-      std::vector<mrpt::math::TPoint3Df>& results, std::vector<float>& out_dists_sqr,
-      std::vector<uint64_t>& resultIndicesOrIDs) const override;
+      const mrpt::math::TPoint3Df& query, size_t N, std::vector<mrpt::math::TPoint3Df>& results,
+      std::vector<float>& out_dists_sqr, std::vector<uint64_t>& resultIndicesOrIDs) const override;
   void nn_multiple_search(
-      const mrpt::math::TPoint2Df& query, const size_t N,
-      std::vector<mrpt::math::TPoint2Df>& results, std::vector<float>& out_dists_sqr,
-      std::vector<uint64_t>& resultIndicesOrIDs) const override;
+      const mrpt::math::TPoint2Df& query, size_t N, std::vector<mrpt::math::TPoint2Df>& results,
+      std::vector<float>& out_dists_sqr, std::vector<uint64_t>& resultIndicesOrIDs) const override;
   void nn_radius_search(
-      const mrpt::math::TPoint3Df& query, const float search_radius_sqr,
+      const mrpt::math::TPoint3Df& query, float search_radius_sqr,
       std::vector<mrpt::math::TPoint3Df>& results, std::vector<float>& out_dists_sqr,
       std::vector<uint64_t>& resultIndicesOrIDs, size_t maxPoints) const override;
   void nn_radius_search(
-      const mrpt::math::TPoint2Df& query, const float search_radius_sqr,
+      const mrpt::math::TPoint2Df& query, float search_radius_sqr,
       std::vector<mrpt::math::TPoint2Df>& results, std::vector<float>& out_dists_sqr,
       std::vector<uint64_t>& resultIndicesOrIDs, size_t maxPoints) const override;
 
   template <size_t MAX_KNN>
   void nn_multiple_search_impl(
-      const mrpt::math::TPoint3Df& query, const size_t N,
-      std::vector<mrpt::math::TPoint3Df>& results, std::vector<float>& out_dists_sqr,
-      std::vector<uint64_t>& resultIndicesOrIDs) const;
+      const mrpt::math::TPoint3Df& query, size_t N, std::vector<mrpt::math::TPoint3Df>& results,
+      std::vector<float>& out_dists_sqr, std::vector<uint64_t>& resultIndicesOrIDs) const;
 
   /** @} */
 
@@ -165,8 +162,7 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
    *  @{ */
   void nn_search_cov2cov(
       const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
-      const float                        max_search_distance,
-      mp2p_icp::MatchedPointWithCovList& outPairings) const override;
+      float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const override;
 
   [[nodiscard]] std::size_t point_count() const override;
 
@@ -281,7 +277,6 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   };
   TCreationOptions creationOptions;
 
- public:
   // Interface for use within a mrpt::maps::CMultiMetricMap:
   MAP_DEFINITION_START(KeyframePointCloudMap)
   mola::KeyframePointCloudMap::TCreationOptions   creationOptions;
@@ -464,22 +459,22 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
   double internal_computeObservationLikelihoodPointCloud3D(
       const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys, const float* zs,
-      const std::size_t num_pts) const;
+      std::size_t num_pts) const;
 
   // See docs in base class
   bool internal_canComputeObservationLikelihood(const mrpt::obs::CObservation& obs) const override;
 
   /// Convert a KF index and a local point index into a global index:
-  uint64_t toGlobalIndex(const KeyFrameID kf_idx, const size_t local_pt_idx) const
+  static uint64_t ToGlobalIndex(const KeyFrameID kf_idx, const size_t local_pt_idx)
   {
     // Build 64 bits from 32bit kf_idx and 32bit local_pt_idx:
     return (kf_idx << 32) | static_cast<uint64_t>(local_pt_idx);
   }
-  /// Inverse of toGlobalIndex(), returning kf_idx and local_pt_idx as a tuple:
-  std::tuple<size_t, size_t> fromGlobalIndex(const uint64_t global_idx) const
+  /// Inverse of ToGlobalIndex(), returning kf_idx and local_pt_idx as a tuple:
+  static std::tuple<size_t, size_t> FromGlobalIndex(const uint64_t global_idx)
   {
-    const size_t kf_idx       = static_cast<size_t>(global_idx >> 32);
-    const size_t local_pt_idx = static_cast<size_t>(global_idx & 0xFFFFFFFF);
+    const auto kf_idx       = static_cast<size_t>(global_idx >> 32);
+    const auto local_pt_idx = static_cast<size_t>(global_idx & 0xFFFFFFFF);
     return {kf_idx, local_pt_idx};
   }
 

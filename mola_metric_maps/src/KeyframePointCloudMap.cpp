@@ -19,6 +19,7 @@
 
 #include <mola_metric_maps/KeyframePointCloudMap.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
+#include <mrpt/core/get_env.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/customizable_obs_viz.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
@@ -43,7 +44,7 @@
 
 #include <type_traits>
 
-// #define DO_PROFILE_COVS 1
+// #define DO_PROFILE_COV 1
 // #define DO_VIZ_DEBUG 1
 
 #if DO_VIZ_DEBUG
@@ -169,10 +170,10 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
       renderOptions.readFromStream(in);
 
       // data:
-      uint32_t n_kfs = in.ReadAs<uint32_t>();
+      const auto n_kfs = in.ReadAs<uint32_t>();
       for (uint32_t i = 0; i < n_kfs; i++)
       {
-        uint64_t kf_id;
+        uint64_t kf_id = 0;
         in >> kf_id;
 
         auto [it, isNew] = keyframes_.emplace(kf_id, creationOptions.k_correspondences_for_cov);
@@ -183,7 +184,7 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
         in >> pose;
         kf.pose(pose);
         const auto has_pointcloud = in.ReadAs<uint8_t>();
-        if (has_pointcloud)
+        if (has_pointcloud > 0)
         {
           auto obj = in.ReadObject();
           auto pc  = std::dynamic_pointer_cast<mrpt::maps::CPointsMap>(obj);
@@ -294,7 +295,7 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(
   //  max_search_keyframes
   // First, build a list of candidate key-frames to search into:
   std::map<double, KeyFrameID> kfs_to_search;  // key: distance to KF center
-  for (auto& [kf_id, kf] : keyframes_)
+  for (const auto& [kf_id, kf] : keyframes_)
   {
     if (!kf.pointcloud())
     {
@@ -547,21 +548,29 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
   {
     auto obj = kf.getViz(renderOptions);
 
-#if 0
-    float pointSize = ro.point_size;
-    if (cached_.icp_search_kfs->count(kf_id))
+    const static auto ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES =
+        mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_VIZ_SHOW_ACTIVE_SUBMAP", false);
+
+    if (ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES)
     {
-      pointSize *= 3;
+      float pointSize = renderOptions.point_size;
+      if (cached_.icp_search_kfs->count(kf_id) != 0)
+      {
+        pointSize *= 4;
+      }
+      obj->setPointSize(pointSize);
     }
-    obj->setPointSize(pointSize);
-#endif
 
     outObj.insert(obj);
 
-    if (renderOptions.keyframes_axes_length > 0)
+    const static auto ENV_KEYFRAMES_AXES_LENGTH =
+        mrpt::get_env<float>("MOLA_KEYFRAME_MAP_VIZ_OVERRIDE_AXES_LENGTH", .0f);
+    const auto activeAxesLength =
+        std::max(renderOptions.keyframes_axes_length, ENV_KEYFRAMES_AXES_LENGTH);
+
+    if (activeAxesLength > 0)
     {
-      auto glAxes =
-          mrpt::opengl::stock_objects::CornerXYZSimple(renderOptions.keyframes_axes_length);
+      auto glAxes = mrpt::opengl::stock_objects::CornerXYZSimple(activeAxesLength);
       glAxes->setPose(kf.pose());
       outObj.insert(glAxes);
     }
@@ -634,17 +643,17 @@ const mrpt::maps::CSimplePointsMap* KeyframePointCloudMap::getAsSimplePointsMap(
       const float final_ratio = std::min(ratio_kf, ratio_overall);
       if (final_ratio < 1.0f)
       {
-        const std::size_t n_points_to_take =
+        const auto n_points_to_take =
             static_cast<std::size_t>(final_ratio * static_cast<float>(kf_pts.size()));
 
         // go by steps to subsample:
         const float step = static_cast<float>(kf_pts.size()) / static_cast<float>(n_points_to_take);
         for (size_t i = 0; i < n_points_to_take; i++)
         {
-          const size_t idx = static_cast<size_t>(static_cast<float>(i) * step);
-          float        x, y, z;
-          kf_pts.getPoint(idx, x, y, z);
-          cached_.cachedPoints->insertPointFast(x, y, z);
+          const auto            idx = static_cast<size_t>(static_cast<float>(i) * step);
+          mrpt::math::TPoint3Df pt;
+          kf_pts.getPoint(idx, pt.x, pt.y, pt.z);
+          cached_.cachedPoints->insertPointFast(pt.x, pt.y, pt.z);
         }
         continue;
       }
@@ -683,7 +692,7 @@ void KeyframePointCloudMap::TInsertionOptions::writeToStream(
 
 void KeyframePointCloudMap::TInsertionOptions::readFromStream(mrpt::serialization::CArchive& in)
 {
-  int8_t version;
+  int8_t version = 0;
   in >> version;
   switch (version)
   {
@@ -764,7 +773,7 @@ void KeyframePointCloudMap::TRenderOptions::writeToStream(mrpt::serialization::C
 
 void KeyframePointCloudMap::TRenderOptions::readFromStream(mrpt::serialization::CArchive& in)
 {
-  int8_t version;
+  int8_t version = 0;
   in >> version;
   switch (version)
   {
@@ -890,7 +899,7 @@ bool KeyframePointCloudMap::internal_insertObservation(
   }
 
   // Observation must be a point cloud:
-  if (auto obsPC = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs); obsPC)
+  if (auto* obsPC = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs); obsPC)
   {
     ASSERT_(obsPC->pointcloud);
 
@@ -994,7 +1003,7 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
     return;  // Already computed
   }
 
-#if DO_PROFILE_COVS
+#if DO_PROFILE_COV
   auto start = std::chrono::high_resolution_clock::now();
 #endif
 #if DO_VIZ_DEBUG
@@ -1147,7 +1156,7 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
       static_cast<float>(point_count));
 
   // done.
-#if DO_PROFILE_COVS
+#if DO_PROFILE_COV
   auto end_time = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start);
   std::cout << "Compute covs: N=" << point_count << " in "
