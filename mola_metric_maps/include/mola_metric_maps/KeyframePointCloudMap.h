@@ -198,8 +198,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     TInsertionOptions() = default;
 
     void loadFromConfigFile(
-        const mrpt::config::CConfigFileBase& source,
-        const std::string&                   section) override;  // See base docs
+        const mrpt::config::CConfigFileBase& c,
+        const std::string&                   s) override;  // See base docs
     void dumpToTextStream(std::ostream& out) const override;  // See base docs
 
     void writeToStream(mrpt::serialization::CArchive& out) const;
@@ -233,8 +233,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   struct TRenderOptions : public mrpt::config::CLoadableOptions
   {
     void loadFromConfigFile(
-        const mrpt::config::CConfigFileBase& source,
-        const std::string&                   section) override;  // See base docs
+        const mrpt::config::CConfigFileBase& c,
+        const std::string&                   s) override;  // See base docs
     void dumpToTextStream(std::ostream& out) const override;  // See base docs
 
     /** Binary dump to stream - used in derived classes' serialization */
@@ -265,8 +265,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   {
     TCreationOptions() = default;
     void loadFromConfigFile(
-        const mrpt::config::CConfigFileBase& source,
-        const std::string&                   section) override;  // See base docs
+        const mrpt::config::CConfigFileBase& c,
+        const std::string&                   s) override;  // See base docs
     void dumpToTextStream(std::ostream& out) const override;  // See base docs
 
     void writeToStream(mrpt::serialization::CArchive& out) const;
@@ -274,6 +274,16 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
     uint32_t max_search_keyframes      = 3;  //!< Maximum number of key-frames to search for NN
     uint32_t k_correspondences_for_cov = 20;
+
+    /** Weight converting angular distance [rad] to equivalent linear
+     *  distance [m] for keyframe proximity ranking. Higher values favor
+     *  angularly-close (similar orientation) frames. */
+    double rotation_distance_weight = 2.0;
+
+    /** Number of keyframe slots (out of max_search_keyframes) reserved
+     *  for angularly diverse and/or more distant keyframes.
+     *  Must be < max_search_keyframes. */
+    uint32_t num_diverse_keyframes = 1;
   };
   TCreationOptions creationOptions;
 

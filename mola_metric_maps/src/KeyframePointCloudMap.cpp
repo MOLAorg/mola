@@ -284,7 +284,7 @@ void KeyframePointCloudMap::nn_radius_search(
       query, search_radius_sqr, results, out_dists_sqr, resultIndicesOrIDs, maxPoints);
 }
 
-void KeyframePointCloudMap::icp_get_prepared_as_global(
+void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
     const mrpt::poses::CPose3D&                                      icp_ref_point,
     [[maybe_unused]] const std::optional<mrpt::math::TBoundingBoxf>& local_map_roi) const
 {
@@ -292,9 +292,21 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(
 
   std::set<KeyFrameID> kfs_to_search_limited;
 
-  //  max_search_keyframes
-  // First, build a list of candidate key-frames to search into:
-  std::map<double, KeyFrameID> kfs_to_search;  // key: distance to KF center
+  // ---------------------------------------------------------------
+  // 1) Score every keyframe with an additive proximity metric
+  // ---------------------------------------------------------------
+  struct KFCandidate
+  {
+    KeyFrameID kfId;
+    double     dist;  // Euclidean distance
+    double     angle;  // SO(3) log-norm (rad)
+    double     metric;  // combined score (lower is better)
+  };
+  std::vector<KFCandidate> candidates;
+  candidates.reserve(keyframes_.size());
+
+  const double rotW = creationOptions.rotation_distance_weight;
+
   for (const auto& [kf_id, kf] : keyframes_)
   {
     if (!kf.pointcloud())
@@ -302,44 +314,124 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(
       continue;
     }
 
-    // convert query to local coordinates of the keyframe:
     const auto query_local = icp_ref_point - kf.pose();
 
-    // Heuristic mix of Euclidean and angular distances, to favor nearby frames, but only if their
-    // orientation is similar:
-    const double sigma_rot = mrpt::DEG2RAD(90.0);
+    const double dist_to_kf  = query_local.norm();
+    const double angle_to_kf = mrpt::poses::Lie::SO<3>::log(query_local.getRotationMatrix()).norm();
 
-    const auto dist_to_kf  = query_local.norm();
-    const auto angle_to_kf = mrpt::poses::Lie::SO<3>::log(query_local.getRotationMatrix()).norm();
+    // Additive metric: prevents the zero-distance degeneracy of multiplicative forms,
+    // and gives a clean meters-equivalent score that is easy to reason about.
+    const double m = dist_to_kf + rotW * angle_to_kf;
 
-    const double metric = dist_to_kf * std::exp(angle_to_kf / sigma_rot);
-
-    kfs_to_search[metric] = kf_id;
+    candidates.push_back({kf_id, dist_to_kf, angle_to_kf, m});
   }
 
-  // TODO: Explore other criteria here so more distant frames are used too?
+  // Sort ascending by metric (best first):
+  std::sort(
+      candidates.begin(), candidates.end(),
+      [](const KFCandidate& a, const KFCandidate& b) { return a.metric < b.metric; });
 
-  for (const auto& [dist, kf_id] : kfs_to_search)
+  // ---------------------------------------------------------------
+  // 2) Fill primary slots (proximity-ranked)
+  // ---------------------------------------------------------------
+  const uint32_t totalSlots = creationOptions.max_search_keyframes;
+  const uint32_t diverseSlots =
+      std::min(creationOptions.num_diverse_keyframes, totalSlots > 1 ? totalSlots - 1 : 0u);
+  const uint32_t primarySlots = totalSlots - diverseSlots;
+
+  // Track which KFs are already selected and their orientations:
+  std::set<KeyFrameID> selectedIds;
+  std::vector<double>  selectedAngles;  // angle_to_kf for diversity calc
+
+  for (const auto& c : candidates)
   {
-    kfs_to_search_limited.insert(kf_id);
-    if (kfs_to_search_limited.size() >= creationOptions.max_search_keyframes)
+    if (selectedIds.size() >= primarySlots)
     {
       break;
     }
+    selectedIds.insert(c.kfId);
+    selectedAngles.push_back(c.angle);
   }
 
-  // For selected KFs, build the submap, if it's different from the previous one:
+  // ---------------------------------------------------------------
+  // 3) Fill diverse slots: pick remaining candidates that maximise
+  //    the minimum angular difference to any already-selected frame,
+  //    while keeping a reasonable distance (within 3× the best
+  //    candidate's distance, or the closest unselected).
+  // ---------------------------------------------------------------
+  if (diverseSlots > 0 && candidates.size() > primarySlots)
+  {
+    // Distance threshold for the diverse pool: at most 3× the
+    // farthest primary KF distance, but never smaller than the
+    // closest unselected candidate.
+    double maxPrimaryDist = 0.0;
+    for (const auto& c : candidates)
+    {
+      if (selectedIds.count(c.kfId) != 0)
+      {
+        maxPrimaryDist = std::max(maxPrimaryDist, c.dist);
+      }
+    }
+    const double diverseDistLimit = std::max(maxPrimaryDist * 3.0, 1.0);
 
+    for (uint32_t d = 0; d < diverseSlots; ++d)
+    {
+      double             bestDiversityScore = -1.0;
+      const KFCandidate* bestCandidate      = nullptr;
+
+      for (const auto& c : candidates)
+      {
+        if (selectedIds.count(c.kfId) != 0)
+        {
+          continue;
+        }
+        if (c.dist > diverseDistLimit)
+        {
+          continue;
+        }
+
+        // Diversity score: minimum angular difference to any
+        // already-selected frame's angle_to_kf.  We actually
+        // want the frame whose *orientation* (kf.pose()) differs
+        // most from the selected set, so compute pairwise SO(3)
+        // differences would be ideal but expensive; as a cheaper
+        // proxy, use the absolute angle_to_kf difference, which
+        // works well because frames at similar positions but
+        // different orientations will have very different
+        // angle_to_kf values.
+        double minAngDiff = std::numeric_limits<double>::max();
+        for (const double selAngle : selectedAngles)
+        {
+          minAngDiff = std::min(minAngDiff, std::abs(c.angle - selAngle));
+        }
+
+        if (minAngDiff > bestDiversityScore)
+        {
+          bestDiversityScore = minAngDiff;
+          bestCandidate      = &c;
+        }
+      }
+
+      if (bestCandidate != nullptr)
+      {
+        selectedIds.insert(bestCandidate->kfId);
+        selectedAngles.push_back(bestCandidate->angle);
+      }
+    }
+  }
+
+  kfs_to_search_limited = selectedIds;
+
+  // ---------------------------------------------------------------
+  // 4) Rebuild merged submap if the selection changed
+  // ---------------------------------------------------------------
   if (cached_.icp_search_kfs && *cached_.icp_search_kfs == kfs_to_search_limited)
   {
-    // We are already up to date.
-    return;
+    return;  // Already up to date.
   }
 
   cached_.icp_search_kfs = kfs_to_search_limited;
   lck.unlock();
-
-  // Rebuild "cached merged KF":
 
   cached_.icp_search_submap.reset();
   cached_.icp_search_submap.emplace(creationOptions.k_correspondences_for_cov);
@@ -350,7 +442,7 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(
 
     if (!kf.pointcloud())
     {
-      continue;  // Should never happen!
+      continue;
     }
 
     if (!cached_.icp_search_submap->pointcloud())
@@ -358,12 +450,10 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(
       cached_.icp_search_submap->pointcloud(mrpt::maps::CSimplePointsMap::Create());
     }
 
-    // Use cached global pointcloud inside KF:
     cached_.icp_search_submap->pointcloud()->insertAnotherMap(
         kf.pointcloud_global().get(), mrpt::poses::CPose3D::Identity());
   }
 
-  // This builds the KD-tree and covariances
   cached_.icp_search_submap->buildCache();
 }
 
@@ -718,13 +808,14 @@ void KeyframePointCloudMap::TLikelihoodOptions::dumpToTextStream(
   out << "\n------ [KeyframePointCloudMap::TLikelihoodOptions] ------- \n\n";
 }
 
-void KeyframePointCloudMap::TLikelihoodOptions::writeToStream(
+void KeyframePointCloudMap::TLikelihoodOptions::writeToStream(  // NOLINT
     mrpt::serialization::CArchive& out) const
 {
   out.WriteAs<uint8_t>(0);
 }
 
-void KeyframePointCloudMap::TLikelihoodOptions::readFromStream(mrpt::serialization::CArchive& in)
+void KeyframePointCloudMap::TLikelihoodOptions::readFromStream(  // NOLINT
+    mrpt::serialization::CArchive& in)
 {
   const auto version = in.ReadAs<uint8_t>();
   (void)version;
@@ -826,6 +917,8 @@ void KeyframePointCloudMap::TCreationOptions::loadFromConfigFile(
 {
   MRPT_LOAD_CONFIG_VAR_REQUIRED_CS(max_search_keyframes, uint64_t);
   MRPT_LOAD_CONFIG_VAR_REQUIRED_CS(k_correspondences_for_cov, uint64_t);
+  MRPT_LOAD_CONFIG_VAR_CS(rotation_distance_weight, double);
+  MRPT_LOAD_CONFIG_VAR_CS(num_diverse_keyframes, uint64_t);
 }
 
 void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out) const
@@ -833,13 +926,16 @@ void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out
   out << "\n------ [KeyframePointCloudMap::TCreationOptions] ------- \n\n";
   LOADABLEOPTS_DUMP_VAR(max_search_keyframes, int);
   LOADABLEOPTS_DUMP_VAR(k_correspondences_for_cov, int);
+  LOADABLEOPTS_DUMP_VAR(rotation_distance_weight, double);
+  LOADABLEOPTS_DUMP_VAR(num_diverse_keyframes, int);
 }
 
 void KeyframePointCloudMap::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  out.WriteAs<uint8_t>(0);  // version
+  out.WriteAs<uint8_t>(1);  // version
   out << max_search_keyframes << k_correspondences_for_cov;
+  out << rotation_distance_weight << num_diverse_keyframes;  // v1
 }
 
 void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -848,8 +944,13 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
   switch (version)
   {
     case 0:
+    case 1:
     {
       in >> max_search_keyframes >> k_correspondences_for_cov;
+      if (version >= 1)
+      {
+        in >> rotation_distance_weight >> num_diverse_keyframes;
+      }
     }
     break;
     default:
@@ -899,7 +1000,7 @@ bool KeyframePointCloudMap::internal_insertObservation(
   }
 
   // Observation must be a point cloud:
-  if (auto* obsPC = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs); obsPC)
+  if (const auto* obsPC = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs); obsPC)
   {
     ASSERT_(obsPC->pointcloud);
 
@@ -929,7 +1030,7 @@ double KeyframePointCloudMap::internal_computeObservationLikelihood(
   return .0;
 }
 
-double KeyframePointCloudMap::internal_computeObservationLikelihoodPointCloud3D(
+double KeyframePointCloudMap::internal_computeObservationLikelihoodPointCloud3D(  // NOLINT
     [[maybe_unused]] const mrpt::poses::CPose3D&   pc_in_map,
     [[maybe_unused]] [[maybe_unused]] const float* xs, [[maybe_unused]] const float* ys,
     [[maybe_unused]] const float* zs, [[maybe_unused]] const std::size_t num_pts) const
