@@ -33,11 +33,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     test1();
 
-    std::cout << "Test successful." << std::endl;
+    std::cout << "Test successful."
+              << "\n";
   }
   catch (std::exception& e)
   {
-    std::cerr << e.what() << std::endl;
+    std::cerr << e.what() << "\n";
     return 1;
   }
 }

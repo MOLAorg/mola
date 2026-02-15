@@ -21,7 +21,8 @@ int main(int argc, char** argv)
   {
     if (argc != 3)
     {
-      std::cerr << "Usage: " << argv[0] << " INPUT.ypr  OUTPUT.tum" << std::endl;
+      std::cerr << "Usage: " << argv[0] << " INPUT.ypr  OUTPUT.tum"
+                << "\n";
       return 1;
     }
 
@@ -36,7 +37,7 @@ int main(int argc, char** argv)
   }
   catch (const std::exception& e)
   {
-    std::cerr << "Exception: " << e.what() << std::endl;
+    std::cerr << "Exception: " << e.what() << "\n";
     return 1;
   }
 }

@@ -158,7 +158,7 @@ int main(int argc, char** argv)
   }
   catch (std::exception& e)
   {
-    std::cerr << "Exit due to exception:\n" << mrpt::exception_to_str(e) << std::endl;
+    std::cerr << "Exit due to exception:\n" << mrpt::exception_to_str(e) << "\n";
     return 1;
   }
 }
@@ -235,7 +235,7 @@ std::vector<Matrix> loadPoses_tum_format(
     fKittiOut->open(fil);
     ASSERT_(*fKittiOut);
 
-    std::cout << "= Exporting path in kitti format to: " << fil << std::endl;
+    std::cout << "= Exporting path in kitti format to: " << fil << "\n";
   }
 
   mrpt::poses::CPose3D pose0;

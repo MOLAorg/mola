@@ -74,14 +74,14 @@ static void test1()
 
   const auto out = mola::RelocalizationLikelihood_SE2::run(in);
 
-  std::cout << "time_cost: " << out.time_cost << std::endl;
-  std::cout << "max_log_likelihood: " << out.max_log_likelihood << std::endl;
-  std::cout << "min_log_likelihood: " << out.min_log_likelihood << std::endl;
+  std::cout << "time_cost: " << out.time_cost << "\n";
+  std::cout << "max_log_likelihood: " << out.max_log_likelihood << "\n";
+  std::cout << "min_log_likelihood: " << out.min_log_likelihood << "\n";
 
 #if 0
     const auto [cov, mean] = out.likelihood_grid.getCovarianceAndMean();
-    std::cout << "mean: " << mean << std::endl;
-    std::cout << "cov:\n" << cov << std::endl;
+    std::cout << "mean: " << mean << "\n";
+    std::cout << "cov:\n" << cov << "\n";
     for (size_t iPhi = 0; iPhi < out.likelihood_grid.getSizePhi(); iPhi++)
     {
         const double phi = out.likelihood_grid.idx2phi(iPhi);
@@ -118,7 +118,7 @@ static void test1()
   ASSERT_NEAR_(best.y, 0.0, 0.2);
   ASSERT_NEAR_(best.phi, 0.0, 0.1);
 
-  std::cout << "best pose: " << best << std::endl;
+  std::cout << "best pose: " << best << "\n";
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -127,11 +127,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     test1();
 
-    std::cout << "Test successful." << std::endl;
+    std::cout << "Test successful."
+              << "\n";
   }
   catch (std::exception& e)
   {
-    std::cerr << e.what() << std::endl;
+    std::cerr << e.what() << "\n";
     return 1;
   }
 }

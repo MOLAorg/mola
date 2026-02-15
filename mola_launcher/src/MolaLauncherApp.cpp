@@ -204,7 +204,7 @@ void MolaLauncherApp::setup(
   MRPT_LOG_DEBUG_STREAM(
       "Using the following configuration:\n"
       "==================================================\n"
-      << cfg << std::endl
+      << cfg << "\n"
       << "==================================================\n");
 
   // clang-format off

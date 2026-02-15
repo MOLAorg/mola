@@ -95,7 +95,8 @@ mola::MolaLauncherApp* theApp = nullptr;
 
 void mola_signal_handler(int s)
 {
-  std::cerr << "Caught signal " << s << ". Shutting down..." << std::endl;
+  std::cerr << "Caught signal " << s << ". Shutting down..."
+            << "\n";
   if (theApp) theApp->shutdown();
   // exit(0);
 }

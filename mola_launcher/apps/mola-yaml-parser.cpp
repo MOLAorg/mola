@@ -56,7 +56,7 @@ int main(int argc, char** argv)
 
     // Dump output:
     d.printAsYAML(std::cout);
-    std::cout << std::endl;
+    std::cout << "\n";
 
     return 0;
   }

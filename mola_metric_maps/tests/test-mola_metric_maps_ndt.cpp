@@ -93,7 +93,7 @@ void test_voxelmap_insert_2d_scan()
                           << " nn: " << results.at(k) << " ("
                           << std::sqrt(dists_sqr.at(k)) << ") "
                           << " gt: " << gt_results.at(k) << " ("
-                          << std::sqrt(gt_dists_sqr.at(k)) << ")" << std::endl;
+                          << std::sqrt(gt_dists_sqr.at(k)) << ")" << "\n";
             }
 #endif
             for (size_t k = 0; k < results.size(); k++)
