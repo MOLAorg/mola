@@ -109,6 +109,7 @@ mrpt::maps::CMetricMap::Ptr KeyframePointCloudMap::internal_CreateFromMapDefinit
   ASSERT_(def);
   auto obj = KeyframePointCloudMap::Create();
 
+  obj->creationOptions   = def->creationOptions;
   obj->insertionOptions  = def->insertionOpts;
   obj->likelihoodOptions = def->likelihoodOpts;
   obj->renderOptions     = def->renderOpts;
