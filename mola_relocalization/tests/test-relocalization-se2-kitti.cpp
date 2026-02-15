@@ -1,22 +1,14 @@
-/* -------------------------------------------------------------------------
- *   A Modular Optimization framework for Localization and mApping  (MOLA)
- *
- * Copyright (C) 2018-2025 Jose Luis Blanco, University of Almeria
- * Licensed under the GNU GPL v3 for non-commercial applications.
- *
- * This file is part of MOLA.
- * MOLA is free software: you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- *
- * MOLA is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * MOLA. If not, see <https://www.gnu.org/licenses/>.
- * ------------------------------------------------------------------------- */
+/*               _
+ _ __ ___   ___ | | __ _
+| '_ ` _ \ / _ \| |/ _` | Modular Optimization framework for
+| | | | | | (_) | | (_| | Localization and mApping (MOLA)
+|_| |_| |_|\___/|_|\__,_| https://github.com/MOLAorg/mola
+
+ Copyright (C) 2018-2026 Jose Luis Blanco, University of Almeria,
+                         and individual contributors.
+ SPDX-License-Identifier: GPL-3.0
+ See LICENSE for full license information.
+*/
 
 /**
  * @file   test-relocalization-se2-kitti.cpp
@@ -82,14 +74,14 @@ static void test1()
 
   const auto out = mola::RelocalizationLikelihood_SE2::run(in);
 
-  std::cout << "time_cost: " << out.time_cost << std::endl;
-  std::cout << "max_log_likelihood: " << out.max_log_likelihood << std::endl;
-  std::cout << "min_log_likelihood: " << out.min_log_likelihood << std::endl;
+  std::cout << "time_cost: " << out.time_cost << "\n";
+  std::cout << "max_log_likelihood: " << out.max_log_likelihood << "\n";
+  std::cout << "min_log_likelihood: " << out.min_log_likelihood << "\n";
 
 #if 0
     const auto [cov, mean] = out.likelihood_grid.getCovarianceAndMean();
-    std::cout << "mean: " << mean << std::endl;
-    std::cout << "cov:\n" << cov << std::endl;
+    std::cout << "mean: " << mean << "\n";
+    std::cout << "cov:\n" << cov << "\n";
     for (size_t iPhi = 0; iPhi < out.likelihood_grid.getSizePhi(); iPhi++)
     {
         const double phi = out.likelihood_grid.idx2phi(iPhi);
@@ -126,7 +118,7 @@ static void test1()
   ASSERT_NEAR_(best.y, 0.0, 0.2);
   ASSERT_NEAR_(best.phi, 0.0, 0.1);
 
-  std::cout << "best pose: " << best << std::endl;
+  std::cout << "best pose: " << best << "\n";
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -135,11 +127,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     test1();
 
-    std::cout << "Test successful." << std::endl;
+    std::cout << "Test successful."
+              << "\n";
   }
   catch (std::exception& e)
   {
-    std::cerr << e.what() << std::endl;
+    std::cerr << e.what() << "\n";
     return 1;
   }
 }

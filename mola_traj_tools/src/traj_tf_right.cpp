@@ -4,7 +4,7 @@
 | | | | | | (_) | | (_| | Localization and mApping (MOLA)
 |_| |_| |_|\___/|_|\__,_| https://github.com/MOLAorg/mola
 
- Copyright (C) 2018-2025 Jose Luis Blanco, University of Almeria,
+ Copyright (C) 2018-2026 Jose Luis Blanco, University of Almeria,
                          and individual contributors.
  SPDX-License-Identifier: GPL-3.0
  See LICENSE for full license information.
@@ -25,7 +25,7 @@ int main(int argc, char** argv)
       std::cerr << "Usage: " << argv[0]
                 << " INPUT.tum OUTPUT.tum \"[x y z yaw_deg pitch_deg "
                    "roll_deg]\""
-                << std::endl;
+                << "\n";
       return 1;
     }
 
@@ -53,7 +53,7 @@ int main(int argc, char** argv)
   }
   catch (const std::exception& e)
   {
-    std::cerr << "Exception: " << e.what() << std::endl;
+    std::cerr << "Exception: " << e.what() << "\n";
     return 1;
   }
 }

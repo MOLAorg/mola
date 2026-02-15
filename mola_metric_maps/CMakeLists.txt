@@ -2,7 +2,7 @@
 #        A Modular Optimization framework for Localization and mApping
 #                               (MOLA)
 #
-# Copyright (C) 2018-2025, Jose Luis Blanco-Claraco.
+# Copyright (C) 2018-2026, Jose Luis Blanco-Claraco.
 # All rights reserved.
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------

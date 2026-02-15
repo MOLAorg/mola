@@ -4,7 +4,7 @@
 | | | | | | (_) | | (_| | Localization and mApping (MOLA)
 |_| |_| |_|\___/|_|\__,_| https://github.com/MOLAorg/mola
 
- Copyright (C) 2018-2025 Jose Luis Blanco, University of Almeria,
+ Copyright (C) 2018-2026 Jose Luis Blanco, University of Almeria,
                          and individual contributors.
  SPDX-License-Identifier: GPL-3.0
  See LICENSE for full license information.
@@ -158,7 +158,7 @@ int main(int argc, char** argv)
   }
   catch (std::exception& e)
   {
-    std::cerr << "Exit due to exception:\n" << mrpt::exception_to_str(e) << std::endl;
+    std::cerr << "Exit due to exception:\n" << mrpt::exception_to_str(e) << "\n";
     return 1;
   }
 }
@@ -235,7 +235,7 @@ std::vector<Matrix> loadPoses_tum_format(
     fKittiOut->open(fil);
     ASSERT_(*fKittiOut);
 
-    std::cout << "= Exporting path in kitti format to: " << fil << std::endl;
+    std::cout << "= Exporting path in kitti format to: " << fil << "\n";
   }
 
   mrpt::poses::CPose3D pose0;

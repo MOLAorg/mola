@@ -4,7 +4,7 @@
 | | | | | | (_) | | (_| | Localization and mApping (MOLA)
 |_| |_| |_|\___/|_|\__,_| https://github.com/MOLAorg/mola
 
- Copyright (C) 2018-2025 Jose Luis Blanco, University of Almeria,
+ Copyright (C) 2018-2026 Jose Luis Blanco, University of Almeria,
                          and individual contributors.
  SPDX-License-Identifier: GPL-3.0
  See LICENSE for full license information.
@@ -42,6 +42,12 @@ class VizInterface
 {
  public:
   VizInterface() = default;
+  virtual ~VizInterface();
+
+  VizInterface(const VizInterface&)            = default;
+  VizInterface& operator=(const VizInterface&) = default;
+  VizInterface(VizInterface&&)                 = default;
+  VizInterface& operator=(VizInterface&&)      = default;
 
   using Ptr = std::shared_ptr<VizInterface>;
 
@@ -53,7 +59,7 @@ class VizInterface
       const std::string& title, const std::string& parentWindow = "main") = 0;
 
   virtual std::future<void> subwindow_grid_layout(
-      const std::string& subWindowTitle, const bool orientationVertical, int resolution,
+      const std::string& subWindowTitle, bool orientationVertical, int resolution,
       const std::string& parentWindow = "main") = 0;
 
   virtual std::future<void> subwindow_move_resize(
@@ -106,9 +112,8 @@ class VizInterface
    * \return               A future<bool>, will return `true` when the task is run in its thread.
    */
   virtual std::future<bool> insert_point_cloud_with_decay(
-      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud,
-      const double decay_time_seconds, const std::string& viewportName = "main",
-      const std::string& parentWindow = "main") = 0;
+      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
+      const std::string& viewportName = "main", const std::string& parentWindow = "main") = 0;
 
   /**
    * @brief Removes from the visualization all clouds inserted with insert_point_cloud_with_decay()
@@ -125,11 +130,11 @@ class VizInterface
       const std::string& parentWindow = "main") = 0;
 
   virtual std::future<bool> update_viewport_camera_azimuth(
-      const double azimuth, bool absolute_falseForRelative = true,
+      double azimuth, bool absolute_falseForRelative = true,
       const std::string& viewportName = "main", const std::string& parentWindow = "main") = 0;
 
   virtual std::future<bool> update_viewport_camera_orthographic(
-      const bool orthographic, const std::string& viewportName = "main",
+      bool orthographic, const std::string& viewportName = "main",
       const std::string& parentWindow = "main") = 0;
 
   /**

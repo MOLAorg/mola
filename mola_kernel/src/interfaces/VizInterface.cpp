@@ -11,23 +11,17 @@
 */
 
 /**
- * @file   test-occgrid.cpp
- * @brief  Test the OccGrid class
- * @author Jose Luis Blanco Claraco
- * @date   Feb 21, 2021
+ * `@file`   VizInterface.cpp
+ * `@brief`  Virtual visualization interface (see MolaViz)
+ * `@author` Jose Luis Blanco Claraco
+ * `@date`   Feb 15, 2026
  */
 
-#include <mola_metric_maps/OccGrid.h>
+#include <mola_kernel/interfaces/VizInterface.h>
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
+namespace mola
 {
-  try
-  {
-    // xx();
-  }
-  catch (std::exception& e)
-  {
-    std::cerr << e.what() << "\n";
-    return 1;
-  }
+
+VizInterface::~VizInterface() = default;
+
 }

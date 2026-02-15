@@ -1,22 +1,14 @@
-/* -------------------------------------------------------------------------
- *   A Modular Optimization framework for Localization and mApping  (MOLA)
- *
- * Copyright (C) 2018-2025 Jose Luis Blanco, University of Almeria
- * Licensed under the GNU GPL v3 for non-commercial applications.
- *
- * This file is part of MOLA.
- * MOLA is free software: you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- *
- * MOLA is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * MOLA. If not, see <https://www.gnu.org/licenses/>.
- * ------------------------------------------------------------------------- */
+/*               _
+ _ __ ___   ___ | | __ _
+| '_ ` _ \ / _ \| |/ _` | Modular Optimization framework for
+| | | | | | (_) | | (_| | Localization and mApping (MOLA)
+|_| |_| |_|\___/|_|\__,_| https://github.com/MOLAorg/mola
+
+ Copyright (C) 2018-2026 Jose Luis Blanco, University of Almeria,
+                         and individual contributors.
+ SPDX-License-Identifier: GPL-3.0
+ See LICENSE for full license information.
+*/
 /**
  * @file   MolaViz.h
  * @brief  Main C++ class for MOLA GUI
@@ -75,7 +67,7 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<void> subwindow_grid_layout(
-      const std::string& subWindowTitle, const bool orientationVertical, int resolution,
+      const std::string& subWindowTitle, bool orientationVertical, int resolution,
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<void> subwindow_move_resize(
@@ -95,9 +87,8 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> insert_point_cloud_with_decay(
-      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud,
-      const double decay_time_seconds, const std::string& viewportName = "main",
-      const std::string& parentWindow = "main") override;
+      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
+      const std::string& viewportName = "main", const std::string& parentWindow = "main") override;
 
   std::future<bool> clear_all_point_clouds_with_decay(
       const std::string& viewportName = "main", const std::string& parentWindow = "main") override;
@@ -107,11 +98,11 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> update_viewport_camera_azimuth(
-      const double azimuth, bool absolute_falseForRelative = true,
+      double azimuth, bool absolute_falseForRelative = true,
       const std::string& viewportName = "main", const std::string& parentWindow = "main") override;
 
   std::future<bool> update_viewport_camera_orthographic(
-      const bool orthographic, const std::string& viewportName = "main",
+      bool orthographic, const std::string& viewportName = "main",
       const std::string& parentWindow = "main") override;
 
   std::future<bool> execute_custom_code_on_background_scene(
@@ -146,6 +137,10 @@ class MolaViz : public ExecutableBase, public VizInterface
   unsigned int max_console_lines_        = 5;
   bool         show_rgbd_as_point_cloud_ = false;  // too CPU demanding!
 
+  /// Assumed sensor rate [Hz] for computing the max number of decaying
+  /// clouds from the decay_time_seconds API parameter.
+  double assumed_sensor_rate_hz_ = 10.0;
+
   /** @} */
 
   void markWindowForReLayout(const window_name_t& name)
@@ -163,22 +158,17 @@ class MolaViz : public ExecutableBase, public VizInterface
   {
     DecayingCloud() = default;
     DecayingCloud(
-        const std::string& opengl_viewport_name_, const mrpt::Clock::time_point& insertion_stamp_,
-        const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud_,
-        double decay_time_seconds_, float initial_alpha_)  // NOLINT
-        : opengl_viewport_name(opengl_viewport_name_),
-          insertion_stamp(insertion_stamp_),
+        std::string                                               opengl_viewport_name_,
+        const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud_, float initial_alpha_)
+        : opengl_viewport_name(std::move(opengl_viewport_name_)),
           cloud(cloud_),
-          decay_time_seconds(decay_time_seconds_),
           initial_alpha(initial_alpha_)
     {
     }
 
     std::string                                        opengl_viewport_name;
-    mrpt::Clock::time_point                            insertion_stamp;
     std::shared_ptr<mrpt::opengl::CPointCloudColoured> cloud;
-    double                                             decay_time_seconds = 0;
-    float                                              initial_alpha      = 1.0f;
+    float                                              initial_alpha = 1.0f;
   };
 
   struct PerWindowData
@@ -186,6 +176,7 @@ class MolaViz : public ExecutableBase, public VizInterface
     mrpt::gui::CDisplayWindowGUI::Ptr win;
     std::vector<std::string>          console_messages;
     std::deque<DecayingCloud>         decaying_clouds;
+    size_t                            max_decaying_clouds = 100;
   };
 
   std::map<window_name_t, PerWindowData>                                windows_;

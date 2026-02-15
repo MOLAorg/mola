@@ -2,7 +2,7 @@
 #        A Modular Optimization framework for Localization and mApping
 #                               (MOLA)
 #
-# Copyright (C) 2018-2025, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
+# Copyright (C) 2018-2026, Jose Luis Blanco-Claraco, contributors (AUTHORS.md)
 # All rights reserved.
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
@@ -27,6 +27,7 @@ set(LIB_SRCS
   src/interfaces/FrontEndBase.cpp
   src/interfaces/NavStateFilter.cpp
   src/interfaces/RawDataSourceBase.cpp
+  src/interfaces/VizInterface.cpp
   src/utils/Synchronizer.cpp
   src/MinimalModuleContainer.cpp
   src/pretty_print_exception.cpp
