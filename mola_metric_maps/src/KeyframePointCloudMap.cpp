@@ -644,7 +644,7 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
     if (ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES)
     {
       float pointSize = renderOptions.point_size;
-      if (cached_.icp_search_kfs->count(kf_id) != 0)
+      if (cached_.icp_search_kfs && cached_.icp_search_kfs->count(kf_id) != 0)
       {
         pointSize *= 4;
       }
