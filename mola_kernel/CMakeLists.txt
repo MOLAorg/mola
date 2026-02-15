@@ -27,6 +27,7 @@ set(LIB_SRCS
   src/interfaces/FrontEndBase.cpp
   src/interfaces/NavStateFilter.cpp
   src/interfaces/RawDataSourceBase.cpp
+  src/interfaces/VizInterface.cpp
   src/utils/Synchronizer.cpp
   src/MinimalModuleContainer.cpp
   src/pretty_print_exception.cpp
