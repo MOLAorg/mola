@@ -11,10 +11,10 @@
 */
 
 /**
- * @file   FilterBase.cpp
- * @brief  Virtual base class for sensor pipeline filters
- * @author Jose Luis Blanco Claraco
- * @date   Dec 11, 2018
+ * `@file`   VizInterface.cpp
+ * `@brief`  Virtual visualization interface (see MolaViz)
+ * `@author` Jose Luis Blanco Claraco
+ * `@date`   Feb 15, 2026
  */
 
 #include <mola_kernel/interfaces/VizInterface.h>
