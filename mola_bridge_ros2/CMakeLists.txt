@@ -26,21 +26,23 @@ endif()
 # MOLA core dependencies:
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola_common REQUIRED)
-find_mola_package(mola_kernel REQUIRED)
+find_mola_package(mola_kernel)
 
 # Find ROS 2 pkgs:
-mola_find_package_or_return(ament_cmake REQUIRED)
-mola_find_package_or_return(geometry_msgs REQUIRED)
-mola_find_package_or_return(nav_msgs REQUIRED)
-mola_find_package_or_return(rclcpp REQUIRED)
-mola_find_package_or_return(sensor_msgs REQUIRED)
-mola_find_package_or_return(geographic_msgs REQUIRED)
-mola_find_package_or_return(tf2 REQUIRED)
-mola_find_package_or_return(tf2_geometry_msgs REQUIRED)
+mola_find_package_or_return(ament_cmake)
+mola_find_package_or_return(geometry_msgs)
+mola_find_package_or_return(nav_msgs)
+mola_find_package_or_return(rclcpp)
+mola_find_package_or_return(sensor_msgs)
+mola_find_package_or_return(geographic_msgs)
+mola_find_package_or_return(tf2)
+mola_find_package_or_return(tf2_geometry_msgs)
+
+find_package(gps_msgs QUIET) # optional
 
 # MOLA ROS2 services:
-mola_find_package_or_return(mola_msgs REQUIRED)
-mola_find_package_or_return(mrpt_nav_interfaces REQUIRED)
+mola_find_package_or_return(mola_msgs)
+mola_find_package_or_return(mrpt_nav_interfaces)
 
 # -----------------------
 # define lib:
@@ -65,6 +67,7 @@ mola_add_library(
     ${tf2_geometry_msgs_TARGETS}
     ${mrpt_nav_interfaces_TARGETS}
     ${mola_msgs_TARGETS}
+    ${gps_msgs_TARGETS}
   CMAKE_DEPENDENCIES
     mola_kernel
     mrpt-maps
@@ -74,6 +77,11 @@ mola_add_library(
 mola_version_to_hexadecimal(mrpt_libros_bridge_VERSION_HEX ${mrpt_libros_bridge_VERSION})
 target_compile_definitions(${PROJECT_NAME} PRIVATE MRPT_ROS2_BRIDGE_VERSION=${mrpt_libros_bridge_VERSION_HEX})
 message(STATUS "Found: mrpt_libros_bridge_VERSION: ${mrpt_libros_bridge_VERSION} (${mrpt_libros_bridge_VERSION_HEX})")
+
+if (gps_msgs_FOUND)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GPS_MSGS)
+endif()
+
 
 ament_export_dependencies()
 # Export modern CMake targets

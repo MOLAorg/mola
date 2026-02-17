@@ -97,7 +97,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       {"sensor_msgs/msg/Image", "CObservationImage"},
       {"sensor_msgs/msg/PointCloud2", "CObservationPointCloud"},
       {"sensor_msgs/msg/LaserScan", "CObservation2DRangeScan"},
-      {"sensor_msgs/msg/NavSatFix", "CObservationGPS"},
+      {"sensor_msgs/msg/NavSatFix", "CObservationGPS_NavSatFix"},
+      {"gps_msgs/msg/GPSFix", "CObservationGPS_GpsFix"},
   };
 
   MRPT_START
@@ -139,11 +140,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       else
       {
         THROW_EXCEPTION_FMT(
-            "Argument 'rosbag_storage_id' was not provided and could "
-            "not "
-            "determine the rosbag2 format from unknown extension of "
-            "file "
-            "'%s'",
+            "Argument 'rosbag_storage_id' was not provided and could not determine the rosbag2 "
+            "format from unknown extension of file '%s'",
             rosbag_filename_.c_str());
       }
     }
@@ -268,22 +266,39 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     }
     else
     {
-      ASSERTMSG_(
-          topic2type.count(topic), mrpt::format(
-                                       "'sensors' contains topic '%s' which is not found in the "
-                                       "rosbag!",
-                                       topic.c_str()));
-
-      auto itType = mapTopic2Class.find(topic2type.at(topic));
-      if (itType == mapTopic2Class.end())
+      bool topic_is_optional = false;
+      if (sensor.count("is_optional") != 0 && sensor.at("is_optional").as<bool>())
       {
-        THROW_EXCEPTION_FMT(
-            "'sensors' contains topic '%s' without a 'type' entry, but "
-            "could not automatically determine its mapping to "
-            "mrpt::obs classes.",
-            topic.c_str());
+        topic_is_optional = true;
       }
-      sensorType = itType->second;
+
+      if (topic2type.count(topic) == 0)
+      {
+        if (!topic_is_optional)
+        {
+          THROW_EXCEPTION_FMT(
+              "'sensors' contains topic '%s' which is not found in the rosbag and is not marked as "
+              "'is_optional'!",
+              topic.c_str());
+        }
+      }
+      else
+      {
+        auto itType = mapTopic2Class.find(topic2type.at(topic));
+        if (itType == mapTopic2Class.end())
+        {
+          THROW_EXCEPTION_FMT(
+              "'sensors' contains topic '%s' without a 'type' entry, but "
+              "could not automatically determine its mapping to "
+              "mrpt::obs classes.",
+              topic.c_str());
+        }
+        sensorType = itType->second;
+
+        MRPT_LOG_INFO_FMT(
+            "Topic '%s' listed in 'sensors' with automatic mapping, determined to be '%s'",
+            topic.c_str(), sensorType.c_str());
+      }
     }
 
     // Optional: fixed sensorPose (then ignores/don't need "tf" data):
@@ -324,8 +339,36 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
         {"CObservation2DRangeScan", &mrpt::ros2bridge::rosbag2ToLidar2D},
         {"CObservationRotatingScan", &mrpt::ros2bridge::rosbag2ToRotatingScan},
         {"CObservationIMU", &mrpt::ros2bridge::rosbag2ToIMU},
-        {"CObservationGPS", &mrpt::ros2bridge::rosbag2ToGPS},
+        {
+            "CObservationGPS_NavSatFix",
+            static_cast<ConvFunc>(
+                [](std::string_view                             sensor_label,
+                   const rosbag2_storage::SerializedBagMessage& rosmsg, tf2::BufferCore& tfBuffer,
+                   const std::string&                         base_link_frame,
+                   const std::optional<mrpt::poses::CPose3D>& fixed_sensor_pose)
+                {
+                  return mrpt::ros2bridge::rosbag2ToGPS(
+                      sensor_label, rosmsg, tfBuffer, base_link_frame, fixed_sensor_pose);
+                }),
+        },
+        {
+            "CObservationGPS_GpsFix",
+            static_cast<ConvFunc>(
+                [](std::string_view                             sensor_label,
+                   const rosbag2_storage::SerializedBagMessage& rosmsg, tf2::BufferCore& tfBuffer,
+                   const std::string&                         base_link_frame,
+                   const std::optional<mrpt::poses::CPose3D>& fixed_sensor_pose) -> Obs
+                {
+#if MRPT_ROS2_BRIDGE_VERSION >= 0x030500
+                  return mrpt::ros2bridge::rosbag2ToGPS(
+                      sensor_label, rosmsg, tfBuffer, base_link_frame, fixed_sensor_pose, true);
+#else
+                  THROW_EXCEPTION("mrpt_ros_bridge >=3.5.0 required for GpsFix messages");
+#endif
+                }),
+        },
     };
+
     if (auto it = converters.find(sensorType); it != converters.end())
     {
       auto convFn   = it->second;
@@ -336,6 +379,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
             [this, sensorLabel, fixedSensorPose, convFn, m]() -> Obs
             { return convFn(sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose); });
       };
+      MRPT_LOG_INFO_STREAM("Installing callback for topic '" << topic << "'");
       lookup_[topic].emplace_back(callback);
     }
 
@@ -348,6 +392,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
             [sensorLabel, fixedSensorPose, m]() -> Obs
             { return mrpt::ros2bridge::rosbag2ToOdometry(sensorLabel, m); });
       };
+      MRPT_LOG_INFO_STREAM("Installing callback for topic '" << topic << "'");
       lookup_[topic].emplace_back(callback);
     }
 #else
@@ -384,7 +429,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       { return catchExceptions([=]() { return toIMU(sensorLabel, m, fixedSensorPose); }); };
       lookup_[topic].emplace_back(callback);
     }
-    else if (sensorType == "CObservationGPS")
+    else if (sensorType == "CObservationGPS_NavSatFix")
     {
       auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
       { return catchExceptions([=]() { return toGPS(sensorLabel, m, fixedSensorPose); }); };

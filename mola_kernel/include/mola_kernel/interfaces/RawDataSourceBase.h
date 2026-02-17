@@ -24,9 +24,14 @@
 #include <mrpt/core/WorkerThreadsPool.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/pimpl.h>
-#include <mrpt/io/CFileGZOutputStream.h>
 #include <mrpt/obs/CObservation.h>
 #include <mrpt/version.h>
+
+#if MRPT_VERSION >= 0x020f07
+#include <mrpt/io/CCompressedOutputStream.h>
+#else
+#include <mrpt/io/CFileGZOutputStream.h>
+#endif
 
 namespace mola
 {
@@ -90,8 +95,12 @@ class RawDataSourceBase : public mola::ExecutableBase
   std::vector<RawDataConsumer*> rdc_;
 
   /** used to optionally export captured observations to an MRPT rawlog */
+#if MRPT_VERSION >= 0x020f07
+  mrpt::io::CCompressedOutputStream export_to_rawlog_out_;
+#else
   mrpt::io::CFileGZOutputStream export_to_rawlog_out_;
-  mrpt::WorkerThreadsPool       worker_pool_export_rawlog_{
+#endif
+  mrpt::WorkerThreadsPool worker_pool_export_rawlog_{
       1, mrpt::WorkerThreadsPool::POLICY_FIFO, "worker_pool_export_rawlog"};
 
   mrpt::WorkerThreadsPool gui_updater_threadpool_{

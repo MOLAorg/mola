@@ -26,6 +26,7 @@ find_package(rosbag2_cpp REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(gps_msgs QUIET) # optional
 
 find_mola_package(mola_kernel)
 
@@ -47,6 +48,7 @@ mola_add_library(
     tf2_msgs::tf2_msgs__rosidl_typesupport_cpp
     sensor_msgs::sensor_msgs_library
     cv_bridge::cv_bridge
+    ${gps_msgs_TARGETS}
   CMAKE_DEPENDENCIES
     mola_kernel
     mrpt-obs
@@ -63,3 +65,7 @@ message(STATUS "Found: cv_bridge_VERSION: ${cv_bridge_VERSION} (${cv_bridge_VERS
 mola_version_to_hexadecimal(mrpt_libros_bridge_VERSION_HEX ${mrpt_libros_bridge_VERSION})
 target_compile_definitions(${PROJECT_NAME} PRIVATE MRPT_ROS2_BRIDGE_VERSION=${mrpt_libros_bridge_VERSION_HEX})
 message(STATUS "Found: mrpt_libros_bridge_VERSION: ${mrpt_libros_bridge_VERSION} (${mrpt_libros_bridge_VERSION_HEX})")
+
+if (gps_msgs_FOUND)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GPS_MSGS)
+endif()

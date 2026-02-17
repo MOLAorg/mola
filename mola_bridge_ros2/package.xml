@@ -33,6 +33,7 @@
   <depend>mrpt_nav_interfaces</depend>
   <depend>nav_msgs</depend>
   <depend>geographic_msgs</depend>
+  <depend>gps_msgs</depend>  <!-- optional -->
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2</depend>

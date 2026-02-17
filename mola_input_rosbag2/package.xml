@@ -14,6 +14,7 @@
   <url type="website">https://github.com/MOLAorg/mola/tree/develop/mola_input_rosbag2</url>
 
   <depend>cv_bridge</depend>
+  <depend>gps_msgs</depend>  <!-- optional -->
   <depend>mola_kernel</depend>
   <depend>mrpt_libobs</depend>
   <depend>mrpt_libros_bridge</depend>
