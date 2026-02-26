@@ -35,8 +35,9 @@ set(LIB_SRCS
 )
 
 set(LIB_PUBLIC_HDRS
-  include/mola_kernel/Georeferencing.h
   include/mola_kernel/FastAllocator.h
+  include/mola_kernel/Georeferencing.h
+  include/mola_kernel/GuiWidgetDescription.h
   include/mola_kernel/id.h
   include/mola_kernel/interfaces/Dataset_UI.h
   include/mola_kernel/interfaces/ExecutableBase.h
@@ -51,10 +52,10 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/interfaces/RawDataSourceBase.h
   include/mola_kernel/interfaces/Relocalization.h
   include/mola_kernel/interfaces/VizInterface.h
-  include/mola_kernel/utils/Synchronizer.h
-  include/mola_kernel/utils/RegexCache.h
   include/mola_kernel/MinimalModuleContainer.h
   include/mola_kernel/pretty_print_exception.h
+  include/mola_kernel/utils/RegexCache.h
+  include/mola_kernel/utils/Synchronizer.h
   include/mola_kernel/variant_helper.h
   include/mola_kernel/Yaml.h
 )
