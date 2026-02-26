@@ -26,6 +26,7 @@
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/maps/CColouredPointsMap.h>
+#include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
@@ -41,12 +42,6 @@
 #include <mrpt/system/thread_name.h>
 #include <mrpt/version.h>
 
-#if MRPT_VERSION >= 0x020f03
-#include <mrpt/maps/CGenericPointsMap.h>
-#else
-#include <mrpt/maps/CPointsMapXYZI.h>
-#endif
-
 #include <array>
 
 #include "mola_icon_64x64.h"
@@ -54,6 +49,10 @@
 using namespace mola;
 
 IMPLEMENTS_MRPT_OBJECT(MolaViz, ExecutableBase, mola)
+
+// ---------------------------------------------------------------------------
+// Handler registry
+// ---------------------------------------------------------------------------
 
 struct HandlersContainer
 {
@@ -70,6 +69,10 @@ struct HandlersContainer
   HandlersContainer() = default;
 };
 
+// ---------------------------------------------------------------------------
+// Anonymous-namespace helpers (sensor handlers)
+// ---------------------------------------------------------------------------
+
 namespace
 {
 
@@ -79,17 +82,14 @@ constexpr const char* DECAY_CLOUDS_NAME = "__viz_decaying_clouds";
 template <typename Iter>
 std::pair<Iter, Iter> minmax_ignore_nan(Iter begin, Iter end)
 {
-  // Find first non-{NaN,Inf} element
   Iter first = std::find_if(begin, end, [](auto x) { return !std::isnan(x) && !std::isinf(x); });
-
   if (first == end)
   {
-    return {end, end};  // no valid elements
+    return {end, end};
   }
 
   Iter itMin = first;
   Iter itMax = first;
-
   for (Iter it = std::next(first); it != end; ++it)
   {
     if (!std::isnan(*it) && !std::isinf(*it))
@@ -104,7 +104,6 @@ std::pair<Iter, Iter> minmax_ignore_nan(Iter begin, Iter end)
       }
     }
   }
-
   return {itMin, itMax};
 }
 
@@ -150,7 +149,6 @@ void gui_handler_show_common_sensor_info(
   fp.shadow_color = {0.0f, 0.0f, 0.0f};
   fp.vfont_scale  = 9;
 
-  // Computes the "y" coordinate of a text line by index
   const auto line_y = [&fp](const int line)
   { return 2 + static_cast<float>(line) * (2 + fp.vfont_scale); };
 
@@ -166,24 +164,17 @@ void gui_handler_show_common_sensor_info(
       2, line_y(TXT_ID_SENSOR_POSE), mrpt::format("Sensor pose: %s", sensorPose.asString().c_str()),
       TXT_ID_SENSOR_POSE, fp);
 
-  // Estimate the sensor rate: one mean rate value stored per subwindow
-  // (1 subwindow = 1 sensor stream)
   thread_local std::map<nanogui::Window*, double> estimatedHzs;
   thread_local std::map<nanogui::Window*, double> lastTimestamp;
 
   const double curTim = mrpt::Clock::toDouble(obs.timestamp);
-  if (lastTimestamp.count(w) == 0)
-  {
-    // first time: do nothing
-  }
-  else
+  if (lastTimestamp.count(w) != 0)
   {
     const double At    = curTim - lastTimestamp[w];
     const double curHz = (At > 0 ? (1.0 / At) : 1.0) * sensor_rate_decimation;
     const double alpha = 0.9;
 
     double showHz = 0;
-
     if (estimatedHzs.count(w) == 0)
     {
       estimatedHzs[w] = curHz;
@@ -191,11 +182,9 @@ void gui_handler_show_common_sensor_info(
     }
     else
     {
-      // low-pass filtering:
       double& estimatedHz = estimatedHzs[w];
-
-      estimatedHz = alpha * estimatedHz + (1.0 - alpha) * curHz;
-      showHz      = estimatedHz;
+      estimatedHz         = alpha * estimatedHz + (1.0 - alpha) * curHz;
+      showHz              = estimatedHz;
     }
 
     glView->addTextMessage(
@@ -203,7 +192,6 @@ void gui_handler_show_common_sensor_info(
         mrpt::format("Rate: %7.03f Hz Class: %s", showHz, obs.GetRuntimeClass()->className),
         TXT_ID_RATE, fp);
   }
-  // store for the next iter:
   lastTimestamp[w] = curTim;
 
   for (size_t i = 0; i < additionalMsgs.size(); i++)
@@ -232,18 +220,14 @@ void gui_handler_images(
   }
   else
   {
-    // dont know how to handle this class?
     return;
   }
 
   mrpt::gui::MRPT2NanoguiGLCanvas* glControl = nullptr;
   if (w->children().size() == 1)
   {
-    // Guess window size:
     auto winW = static_cast<int>(imgToShow.getWidth());
     auto winH = static_cast<int>(imgToShow.getHeight());
-
-    // Guess if we need to decimate subwindow size:
     while (winW > 512 || winH > 512)
     {
       winW /= 2;
@@ -254,8 +238,7 @@ void gui_handler_images(
     glControl->setSize({winW, winH});
     glControl->setFixedSize({winW, winH});
 
-    auto lck = mrpt::lockHelper(glControl->scene_mtx);
-
+    auto lck         = mrpt::lockHelper(glControl->scene_mtx);
     glControl->scene = mrpt::opengl::COpenGLScene::Create();
     instance->markWindowForReLayout(parentWin);
   }
@@ -304,31 +287,23 @@ PointCloudGLObjects setup_or_reuse_point_cloud_gl(
 
   if (w->children().size() == 1)
   {
-    // Create on first use:
     gl.glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
     gl.lck.emplace(&gl.glControl->scene_mtx);
-
     gl.glControl->scene = mrpt::opengl::COpenGLScene::Create();
-
-    gl.glPc = mrpt::opengl::CPointCloudColoured::Create();
+    gl.glPc             = mrpt::opengl::CPointCloudColoured::Create();
     gl.glControl->scene->insert(gl.glPc);
-
     gl.glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
     gl.glCornerSensor = mrpt::opengl::stock_objects::CornerXYZ(0.5f);
     gl.glControl->scene->insert(gl.glCornerRef);
     gl.glControl->scene->insert(gl.glCornerSensor);
-
     gl.glPc->setPointSize(point_size);
     instance->markWindowForReLayout(parentWin);
   }
   else
   {
-    // Reuse from past iterations:
     gl.glControl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
     gl.lck.emplace(&gl.glControl->scene_mtx);
-
-    gl.glPc = gl.glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
-
+    gl.glPc           = gl.glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
     gl.glCornerRef    = gl.glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(0);
     gl.glCornerSensor = gl.glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(1);
   }
@@ -340,12 +315,10 @@ PointCloudGLObjects setup_or_reuse_point_cloud_gl(
   return gl;
 }
 
-// ---- Helper: populate glPc from CObservationPointCloud ----
 bool populate_from_observation_point_cloud(
     const mrpt::obs::CObservationPointCloud&      objPc,
     const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
 {
-  // const_cast-free: load() is non-const
   auto& objPcMut = const_cast<mrpt::obs::CObservationPointCloud&>(objPc);
   objPcMut.load();
   if (!objPc.pointcloud)
@@ -360,7 +333,6 @@ bool populate_from_observation_point_cloud(
       mrpt::format("Type: %s", objPc.pointcloud->GetRuntimeClass()->className),
   };
 
-  // Collect optional stats per field type:
   for (const auto& field : objPc.pointcloud->getPointFieldNames_float())
   {
     if (const auto* buf = objPc.pointcloud->getPointsBufferRef_float_field(field);
@@ -373,20 +345,14 @@ bool populate_from_observation_point_cloud(
   }
   for (const auto& field : objPc.pointcloud->getPointFieldNames_uint16())
   {
-#if MRPT_VERSION >= 0x020f04  // 2.15.4
     if (const auto* buf = objPc.pointcloud->getPointsBufferRef_uint16_field(field);
         buf != nullptr && !buf->empty())
-#else
-    if (const auto* buf = objPc.pointcloud->getPointsBufferRef_uint_field(field);
-        buf && !buf->empty())
-#endif
     {
       additionalMsgs.push_back(mrpt::format(
           "%.*s range: %s", static_cast<int>(field.size()), field.data(),
           minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
     }
   }
-#if MRPT_VERSION >= 0x020f03  // 2.15.3
   for (const auto& field : objPc.pointcloud->getPointFieldNames_double())
   {
     if (const auto* buf = objPc.pointcloud->getPointsBufferRef_double_field(field);
@@ -407,13 +373,11 @@ bool populate_from_observation_point_cloud(
           minmax_ignore_nan_str(buf->begin(), buf->end()).c_str()));
     }
   }
-#endif
 
   gui_handler_show_common_sensor_info(objPc, w, sensorDecimation, additionalMsgs);
-  return true;  // color_from_z still applies
+  return true;
 }
 
-// ---- Helper: populate glPc from CObservationRotatingScan ----
 void populate_from_rotating_scan(
     const mrpt::obs::CObservationRotatingScan&    objRS,
     const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
@@ -438,11 +402,9 @@ void populate_from_rotating_scan(
     }
   }
   glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
-
   gui_handler_show_common_sensor_info(objRS, w, sensorDecimation);
 }
 
-// ---- Helper: populate glPc from CObservation3DRangeScan (point cloud mode) ----
 void populate_from_3d_range_scan(
     const mrpt::obs::CObservation3DRangeScan&     obj3D,
     const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation,
@@ -455,7 +417,6 @@ void populate_from_3d_range_scan(
     {
       obj3DMut.load();
     }
-
     for (size_t i = 0; i < obj3D.points3D_x.size(); i++)
     {
       glPc->insertPoint({obj3D.points3D_x[i], obj3D.points3D_y[i], obj3D.points3D_z[i], 0, 0, 0});
@@ -465,15 +426,12 @@ void populate_from_3d_range_scan(
   {
     auto& obj3DMut = const_cast<mrpt::obs::CObservation3DRangeScan&>(obj3D);
     obj3DMut.load();
-
     mrpt::obs::T3DPointsProjectionParams pp;
     pp.takeIntoAccountSensorPoseOnRobot = true;
-
     if (obj3D.hasRangeImage && obj3D.hasIntensityImage)
     {
       auto pointMapCol                = mrpt::maps::CColouredPointsMap::Create();
       pointMapCol->colorScheme.scheme = mrpt::maps::CColouredPointsMap::cmFromIntensityImage;
-
       obj3DMut.unprojectInto(*pointMapCol, pp);
       glPc->loadFromPointsMap(pointMapCol.get());
       color_from_z = false;
@@ -486,7 +444,6 @@ void populate_from_3d_range_scan(
   gui_handler_show_common_sensor_info(obj3D, w, sensorDecimation);
 }
 
-// ---- Helper: populate glPc from CObservation2DRangeScan ----
 void populate_from_2d_range_scan(
     const mrpt::obs::CObservation2DRangeScan&     obj2D,
     const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
@@ -494,11 +451,9 @@ void populate_from_2d_range_scan(
   mrpt::maps::CSimplePointsMap auxMap;
   auxMap.insertObservationPtr(std::make_shared<mrpt::obs::CObservation2DRangeScan>(obj2D));
   glPc->loadFromPointsMap(&auxMap);
-
   gui_handler_show_common_sensor_info(obj2D, w, sensorDecimation);
 }
 
-// ---- Helper: populate glPc from CObservationVelodyneScan ----
 bool populate_from_velodyne_scan(
     const mrpt::obs::CObservationVelodyneScan&    objVel,
     const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
@@ -508,9 +463,8 @@ bool populate_from_velodyne_scan(
     return false;
   }
 
-  const auto&  pc = objVel.point_cloud;
-  const size_t N  = pc.size();
-#if MRPT_VERSION >= 0x020f03
+  const auto&                   pc = objVel.point_cloud;
+  const size_t                  N  = pc.size();
   mrpt::maps::CGenericPointsMap pts;
   pts.registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY);
   pts.resize(N);
@@ -521,28 +475,13 @@ bool populate_from_velodyne_scan(
         i, mrpt::maps::CPointsMap::POINT_FIELD_INTENSITY,
         static_cast<float>(pc.intensity[i]) / 255.0f);
   }
-#else
-  mrpt::maps::CPointsMapXYZI pts;
-  pts.resize(N);
-  for (size_t i = 0; i < N; i++)
-  {
-    pts.setPoint(i, pc.x[i], pc.y[i], pc.z[i]);
-    pts.setPointIntensity(i, static_cast<float>(pc.intensity[i]) / 255.0f);
-  }
-#endif
-  glPc->loadFromPointsMap(&pts);
 
+  glPc->loadFromPointsMap(&pts);
   gui_handler_show_common_sensor_info(
       objVel, w, sensorDecimation, {mrpt::format("Point count: %zu", N)});
-
   return true;
 }
 
-// CObservationPointCloud
-// CObservation2DRangeScan
-// CObservation3DRangeScan
-// CObservationRotatingScan
-// CObservationVelodyneScan
 void gui_handler_point_cloud(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w, const MolaViz::window_name_t& parentWin,
     MolaViz* instance, const mrpt::containers::yaml* extra_parameters)
@@ -567,7 +506,6 @@ void gui_handler_point_cloud(
   }
 
   auto gl = setup_or_reuse_point_cloud_gl(w, point_size, parentWin, instance);
-
   gl.glPc->setPose(mrpt::poses::CPose3D::Identity());
 
   if (auto obs = std::dynamic_pointer_cast<CObservation>(o); obs)
@@ -577,7 +515,6 @@ void gui_handler_point_cloud(
     gl.glCornerSensor->setPose(p);
   }
 
-  // Dispatch to the appropriate population helper:
   if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o); objPc)
   {
     if (!populate_from_observation_point_cloud(*objPc, gl.glPc, w, sensorDecimation))
@@ -588,7 +525,7 @@ void gui_handler_point_cloud(
   else if (auto objRS = std::dynamic_pointer_cast<CObservationRotatingScan>(o); objRS)
   {
     populate_from_rotating_scan(*objRS, gl.glPc, w, sensorDecimation);
-    color_from_z = false;  // already recolorized inside
+    color_from_z = false;
   }
   else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o);
            instance->show_rgbd_as_point_cloud_ && obj3D)
@@ -611,7 +548,6 @@ void gui_handler_point_cloud(
     return;
   }
 
-  // viz options:
   if (color_from_z)
   {
     const auto bb = gl.glPc->getBoundingBox();
@@ -619,7 +555,6 @@ void gui_handler_point_cloud(
   }
 }
 
-// CObservationGPS
 void gui_handler_gps(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w, const MolaViz::window_name_t& parentWin,
     MolaViz* instance, [[maybe_unused]] const mrpt::containers::yaml* extra_parameters)
@@ -636,16 +571,13 @@ void gui_handler_gps(
   {
     w->setLayout(new nanogui::GridLayout(
         nanogui::Orientation::Horizontal, 1, nanogui::Alignment::Fill, 2, 2));
-
     for (size_t i = 0; i < labels.size(); i++)
     {
       labels[i] = w->add<nanogui::Label>(" ");
     }
-
     const int winW = 250;
     w->setSize({winW, 0});
     w->setFixedSize({winW, 0});
-
     instance->markWindowForReLayout(parentWin);
   }
   else
@@ -676,13 +608,11 @@ void gui_handler_gps(
     const double std_x = std::sqrt(cov(0, 0));
     const double std_y = std::sqrt(cov(1, 1));
     const double std_z = std::sqrt(cov(2, 2));
-
     labels[5]->setCaption(
         mrpt::format("sigmas [m]: x=%.02f  y=%.02f  z=%.02f", std_x, std_y, std_z));
   }
 }
 
-// CObservationIMU
 void gui_handler_imu(
     const mrpt::rtti::CObject::Ptr& o, nanogui::Window* w, const MolaViz::window_name_t& parentWin,
     MolaViz* instance, [[maybe_unused]] const mrpt::containers::yaml* extra_parameters)
@@ -702,45 +632,30 @@ void gui_handler_imu(
     return 1.0;
   }();
 
-  mrpt::gui::MRPT2NanoguiGLCanvas* glControl = nullptr;
-  // mrpt::opengl::CSetOfObjects::Ptr            glCornerRef, glCornerSensor;
+  mrpt::gui::MRPT2NanoguiGLCanvas*            glControl = nullptr;
   std::optional<mrpt::LockHelper<std::mutex>> lck;
 
   if (w->children().size() == 1)
   {
-    // Create on first use:
     w->setLayout(new nanogui::GridLayout(
         nanogui::Orientation::Horizontal, 1, nanogui::Alignment::Fill, 2, 2));
-
     glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
-
     lck.emplace(&glControl->scene_mtx);
-
     glControl->scene = mrpt::opengl::COpenGLScene::Create();
-
-    // glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
-    // glControl->scene->insert(glCornerRef);
-
-    const int winW = 400;
-    const int winH = 125;
+    const int winW   = 400;
+    const int winH   = 125;
     glControl->setSize({winW, winH});
     glControl->setFixedSize({winW, winH});
-
     instance->markWindowForReLayout(parentWin);
   }
   else
   {
-    // Reuse from past iterations:
     glControl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
     lck.emplace(&glControl->scene_mtx);
-
-    // glCornerRef
-    // =glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(0);
   }
   ASSERT_(glControl != nullptr);
 
   std::vector<std::string> txts;
-
   if (obj->has(mrpt::obs::IMU_WX))
   {
     txts.push_back(mrpt::format(
@@ -766,30 +681,267 @@ void gui_handler_imu(
   gui_handler_show_common_sensor_info(*obj, w, sensorDecimation, txts);
 }
 
+// ---------------------------------------------------------------------------
+// Widget description builder helpers - called from the GUI thread
+// ---------------------------------------------------------------------------
+
+/** Recursively builds nanogui widgets from a LeafWidget variant into `parent`.
+ *  Must be called from the GUI thread. */
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+void build_leaf_widget(nanogui::Widget* parent, const mola::gui::LeafWidget& w)
+{
+  std::visit(
+      // NOLINTNEXTLINE(readability-function-cognitive-complexity)
+      [&](auto&& widget)
+      {
+        using T = std::decay_t<decltype(widget)>;
+
+        if constexpr (std::is_same_v<T, mola::gui::Label>)
+        {
+          auto* lb = parent->add<nanogui::Label>(" ");
+          if (widget.font_size > 0)
+          {
+            lb->setFontSize(widget.font_size);
+          }
+          // Store the LiveString pointer in the label's user data so spinOnce
+          // can poll it.  We use the tag field that nanogui::Widget provides.
+          lb->setId(mrpt::format("_live_%p", static_cast<void*>(widget.text.get())));
+          // Perform an initial poll so the label is not blank on first draw:
+          std::string tmp;
+          if (widget.text->poll(tmp))
+          {
+            lb->setCaption(tmp);
+          }
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::Separator>)
+        {
+          // A zero-height widget acts as a visual spacer in nanogui.
+          auto* sep = parent->add<nanogui::Widget>();
+          sep->setHeight(4);
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::CheckBox>)
+        {
+          auto* cb = parent->add<nanogui::CheckBox>(widget.label);
+          cb->setChecked(widget.initial_value);
+          if (widget.on_change)
+          {
+            cb->setCallback(widget.on_change);
+          }
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::Button>)
+        {
+          auto* btn = parent->add<nanogui::Button>(widget.label, widget.icon_entypo);
+          if (widget.font_size > 0)
+          {
+            btn->setFontSize(widget.font_size);
+          }
+          if (widget.on_click)
+          {
+            btn->setCallback(widget.on_click);
+          }
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::TextBox>)
+        {
+          // Optional heading label above the field:
+          if (!widget.label.empty())
+          {
+            parent->add<nanogui::Label>(widget.label);
+          }
+
+          auto* tb = parent->add<nanogui::TextBox>();
+          if (widget.font_size > 0)
+          {
+            tb->setFontSize(widget.font_size);
+          }
+          tb->setEditable(true);
+          tb->setAlignment(nanogui::TextBox::Alignment::Left);
+          tb->setValue(widget.initial_value);
+          if (widget.on_change)
+          {
+            tb->setCallback(widget.on_change);
+          }
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::TextPanel>)
+        {
+          if (!widget.label.empty())
+          {
+            parent->add<nanogui::Label>(widget.label);
+          }
+
+          auto* tb = parent->add<nanogui::TextBox>();
+          if (widget.size_pixels[0] > 0 || widget.size_pixels[1] > 0)
+          {
+            tb->setFixedSize({widget.size_pixels[0], widget.size_pixels[1]});
+          }
+          tb->setEditable(widget.editable);
+          tb->setAlignment(nanogui::TextBox::Alignment::Left);
+          std::string tmp;
+          if (widget.live_text->poll(tmp))
+          {
+            tb->setValue(tmp);
+          }
+          // Tag for polling in spinOnce:
+          tb->setId(mrpt::format("_live_%p", static_cast<void*>(widget.live_text.get())));
+          if (widget.editable && widget.on_change)
+          {
+            tb->setCallback(
+                [cb = widget.on_change](const std::string& s)
+                {
+                  cb(s);
+                  return true;
+                });
+          }
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::SliderFloat>)
+        {
+          if (!widget.label.empty())
+          {
+            parent->add<nanogui::Label>(widget.label);
+          }
+
+          auto* row = parent->add<nanogui::Widget>();
+          row->setLayout(new nanogui::BoxLayout(
+              nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 4));
+
+          auto* sl     = row->add<nanogui::Slider>();
+          auto* valLbl = row->add<nanogui::Label>(
+              mrpt::format(widget.format_string.c_str(), widget.initial_value));
+          valLbl->setFixedWidth(60);
+
+          // Normalise to [0,1]:
+          const float range = widget.max_value - widget.min_value;
+          sl->setValue(range > 0.0f ? (widget.initial_value - widget.min_value) / range : 0.0f);
+
+          sl->setCallback(
+              [min = widget.min_value, max = widget.max_value, fmt = widget.format_string, valLbl,
+               cb = widget.on_change](float v)
+              {
+                const float real = min + v * (max - min);
+                valLbl->setCaption(mrpt::format(fmt.c_str(), real));
+                if (cb)
+                {
+                  cb(real);
+                }
+              });
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::SliderInt>)
+        {
+          if (!widget.label.empty())
+          {
+            parent->add<nanogui::Label>(widget.label);
+          }
+
+          auto* row = parent->add<nanogui::Widget>();
+          row->setLayout(new nanogui::BoxLayout(
+              nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 4));
+
+          auto* sl     = row->add<nanogui::Slider>();
+          auto* valLbl = row->add<nanogui::Label>(std::to_string(widget.initial_value));
+          valLbl->setFixedWidth(50);
+
+          const float range = static_cast<float>(widget.max_value - widget.min_value);
+          sl->setValue(
+              range > 0.0f ? static_cast<float>(widget.initial_value - widget.min_value) / range
+                           : 0.0f);
+
+          sl->setCallback(
+              [min = widget.min_value, max = widget.max_value, valLbl,
+               cb = widget.on_change](float v)
+              {
+                const int real =
+                    min + static_cast<int>(std::round(v * static_cast<float>(max - min)));
+                valLbl->setCaption(std::to_string(real));
+                if (cb)
+                {
+                  cb(real);
+                }
+              });
+        }
+        else if constexpr (std::is_same_v<T, mola::gui::ComboBox>)
+        {
+          if (!widget.label.empty())
+          {
+            parent->add<nanogui::Label>(widget.label);
+          }
+
+          auto* cb = parent->add<nanogui::ComboBox>();
+          cb->setItems(widget.items);
+          cb->setSelectedIndex(widget.initial_index);
+          if (widget.on_change)
+          {
+            cb->setCallback(widget.on_change);
+          }
+        }
+      },
+      w);
+}
+
+/** Builds all widgets for one Tab into `tabPage`.  Must run on GUI thread. */
+void build_tab_widgets(nanogui::Widget* tabPage, const mola::gui::Tab& tab)
+{
+  for (const auto& anyW : tab.widgets)
+  {
+    std::visit(
+        [&](auto&& widget)
+        {
+          using T = std::decay_t<decltype(widget)>;
+
+          if constexpr (std::is_same_v<T, mola::gui::Row>)
+          {
+            // Horizontal row: create a child panel with horizontal layout.
+            auto*     row     = tabPage->add<nanogui::Widget>();
+            const int spacing = widget.item_spacing > 0 ? widget.item_spacing : 1;
+            row->setLayout(new nanogui::BoxLayout(
+                nanogui::Orientation::Horizontal, nanogui::Alignment::Maximum, spacing, spacing));
+            for (const auto& leaf : widget.widgets)
+            {
+              build_leaf_widget(row, leaf);
+            }
+          }
+          else
+          {
+            // All leaf types are also valid AnyWidget alternatives:
+            build_leaf_widget(tabPage, widget);
+          }
+        },
+        anyW);
+  }
+}
+
 }  // namespace
+
+// ---------------------------------------------------------------------------
+// MRPT initializer: register module + default GUI handlers
+// ---------------------------------------------------------------------------
 
 MRPT_INITIALIZER(do_register_MolaViz)  // NOLINT(misc-use-anonymous-namespace)
 {
-  // Register MOLA module:
   MOLA_REGISTER_MODULE(MolaViz);
 
-  // Register GUI handlers for common sensor types:
   // clang-format off
-    MolaViz::register_gui_handler("mrpt::obs::CObservationImage", &gui_handler_images);
-    MolaViz::register_gui_handler("mrpt::obs::CObservationGPS", &gui_handler_gps);
-    MolaViz::register_gui_handler("mrpt::obs::CObservationIMU", &gui_handler_imu);
-    MolaViz::register_gui_handler("mrpt::obs::CObservationPointCloud",   &gui_handler_point_cloud);
-    MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_point_cloud);
-    MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_images);
-    MolaViz::register_gui_handler("mrpt::obs::CObservation2DRangeScan",  &gui_handler_point_cloud);
-    MolaViz::register_gui_handler("mrpt::obs::CObservationRotatingScan", &gui_handler_point_cloud);
-    MolaViz::register_gui_handler("mrpt::obs::CObservationVelodyneScan", &gui_handler_point_cloud);
+  MolaViz::register_gui_handler("mrpt::obs::CObservationImage",        &gui_handler_images);
+  MolaViz::register_gui_handler("mrpt::obs::CObservationGPS",          &gui_handler_gps);
+  MolaViz::register_gui_handler("mrpt::obs::CObservationIMU",          &gui_handler_imu);
+  MolaViz::register_gui_handler("mrpt::obs::CObservationPointCloud",   &gui_handler_point_cloud);
+  MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_point_cloud);
+  MolaViz::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &gui_handler_images);
+  MolaViz::register_gui_handler("mrpt::obs::CObservation2DRangeScan",  &gui_handler_point_cloud);
+  MolaViz::register_gui_handler("mrpt::obs::CObservationRotatingScan", &gui_handler_point_cloud);
+  MolaViz::register_gui_handler("mrpt::obs::CObservationVelodyneScan", &gui_handler_point_cloud);
   // clang-format on
 }
+
+// ---------------------------------------------------------------------------
+// Static members
+// ---------------------------------------------------------------------------
 
 MolaViz*                     MolaViz::instance_ = nullptr;
 std::shared_mutex            MolaViz::instanceMtx_;
 const MolaViz::window_name_t MolaViz::DEFAULT_WINDOW_NAME = "main";
+
+// ---------------------------------------------------------------------------
+// Handler registry
+// ---------------------------------------------------------------------------
 
 void MolaViz::register_gui_handler(const class_name_t& name, const update_handler_t& handler)
 {
@@ -798,7 +950,11 @@ void MolaViz::register_gui_handler(const class_name_t& name, const update_handle
   hc.guiHandlers_.emplace(name, handler);
 }
 
-MolaViz::MolaViz() {}
+// ---------------------------------------------------------------------------
+// Constructor / destructor
+// ---------------------------------------------------------------------------
+
+MolaViz::MolaViz() = default;
 
 MolaViz::~MolaViz()
 {
@@ -813,6 +969,10 @@ MolaViz::~MolaViz()
   }
 }
 
+// ---------------------------------------------------------------------------
+// Instance management
+// ---------------------------------------------------------------------------
+
 bool     MolaViz::IsRunning() { return Instance() != nullptr; }
 MolaViz* MolaViz::Instance()
 {
@@ -822,11 +982,20 @@ MolaViz* MolaViz::Instance()
   return ret;
 }
 
+// ---------------------------------------------------------------------------
+// Backend identity
+// ---------------------------------------------------------------------------
+
+const std::string& MolaViz::gui_backend() const noexcept { return VizInterface::BACKEND_NANOGUI; }
+
+// ---------------------------------------------------------------------------
+// initialize / spinOnce
+// ---------------------------------------------------------------------------
+
 void MolaViz::initialize(const Yaml& c)
 {
   MRPT_START
 
-  // Load:
   auto cfg = c["params"];
   MRPT_LOG_DEBUG_STREAM("Loading these params:\n" << cfg);
 
@@ -835,7 +1004,6 @@ void MolaViz::initialize(const Yaml& c)
   YAML_LOAD_MEMBER_OPT(show_rgbd_as_point_cloud, bool);
   YAML_LOAD_MEMBER_OPT(assumed_sensor_rate_hz, double);
 
-  // Mark as initialized and up:
   instanceMtx_.lock();
   instance_ = this;
   instanceMtx_.unlock();
@@ -847,8 +1015,6 @@ void MolaViz::initialize(const Yaml& c)
 
 void MolaViz::spinOnce()
 {
-  // once every X seconds, check for modules with automatically generated
-  // UI by this MolaViz:
   const double PERIOD_CHECK_NEW_MODS    = 2.0;
   const double PERIOD_UPDATE_DATASET_UI = 0.25;
 
@@ -865,6 +1031,10 @@ void MolaViz::spinOnce()
   }
 }
 
+// ---------------------------------------------------------------------------
+// Dataset UI - ported to create_subwindow_from_description
+// ---------------------------------------------------------------------------
+
 void MolaViz::dataset_ui_check_new_modules()
 {
   auto datasetUIs = findService<Dataset_UI>();
@@ -877,74 +1047,89 @@ void MolaViz::dataset_ui_check_new_modules()
     auto& e = datasetUIs_[module->getModuleInstanceName()];
     if (!e.first_time_seen)
     {
-      continue;  // an already known one
+      continue;
     }
 
     e.first_time_seen = false;
+    e.module          = modUI;
 
-    e.module = modUI;
+    // Allocate LiveStrings that will be updated by dataset_ui_update():
+    e.lbPlaybackPosition = std::make_shared<mola::gui::LiveString>("Progress: ");
 
-    // Create UI:
-    auto fut = this->create_subwindow(module->getModuleInstanceName());
-    e.ui     = fut.get();
-    e.ui->requestFocus();
-    e.ui->setVisible(true);
-    e.ui->setPosition({300, 5});
-
-    e.ui->setLayout(
-        new nanogui::BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 5, 2));
-    e.ui->setFixedWidth(650);
-    e.ui->setFixedHeight(60);
-
-    e.cbPaused = e.ui->add<nanogui::CheckBox>("Paused");
-    e.cbPaused->setChecked(modUI->datasetUI_paused());
-    e.cbPaused->setCallback(
-        [e](bool checked)
-        {
-          auto mod = e.module.lock();
-          if (mod)
-          {
-            mod->datasetUI_paused(checked);
-          }
-        });
-
-    e.lbPlaybackPosition = e.ui->add<nanogui::Label>("Progress: ");
-    e.lbPlaybackPosition->setFixedWidth(100);
-    e.slider = e.ui->add<nanogui::Slider>();
-    e.slider->setFixedWidth(300);
-    e.slider->setCallback(
-        [e](float pos)
-        {
-          auto mod = e.module.lock();
-          if (mod)
-          {
-            mod->datasetUI_teleport(static_cast<size_t>(pos));
-          }
-        });
-
-    e.ui->add<nanogui::Label>("Playback rate:");
-    e.cmRate                       = e.ui->add<nanogui::ComboBox>();
-    const std::vector<float> rates = {0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 5.0};
-    e.cmRate->setItems(
-        {"x0.1", "x0.25", "x0.5", "x0.75", "x1.0", "x1.25", "x1.5", "x2.0", "x3.0", "x5.0"});
-    int          selIdx      = 4;
-    const double initialRate = modUI->datasetUI_playback_speed();
+    // Build rates combobox items and find initial selection index:
+    const std::vector<float>       rates  = {0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 5.0};
+    const std::vector<std::string> labels = {"x0.1",  "x0.25", "x0.5", "x0.75", "x1.0",
+                                             "x1.25", "x1.5",  "x2.0", "x3.0",  "x5.0"};
+    int                            selIdx = 4;
+    const double                   initialRate = modUI->datasetUI_playback_speed();
     for (size_t i = 0; i < rates.size(); i++)
     {
-      if (rates[i] == initialRate)
+      if (rates[i] == static_cast<float>(initialRate))
       {
         selIdx = static_cast<int>(i);
         break;
       }
     }
-    e.cmRate->setSelectedIndex(selIdx);
-    e.cmRate->setCallback(
-        [rates, e](int idx)
+
+    // Capture weak_ptr copies for callbacks (avoids storing dangling refs):
+    std::weak_ptr<Dataset_UI> weakMod = modUI;
+
+    // ---- Window description ----
+    mola::gui::WindowDescription desc;
+    desc.title         = module->getModuleInstanceName();
+    desc.position      = {300, 5};
+    desc.size          = {650, 60};
+    desc.starts_hidden = false;
+
+    mola::gui::Tab tab{"Controls", {}};
+
+    // Single horizontal row: [Paused CB] [Progress label] [Slider] [Rate label] [ComboBox]
+    mola::gui::Row row;
+
+    row.widgets.emplace_back(mola::gui::CheckBox{
+        "Paused", modUI->datasetUI_paused(),
+        [weakMod](bool checked)
         {
-          const double rate = rates.at(idx);
-          auto         mod  = e.module.lock();
-          mod->datasetUI_playback_speed(rate);
-        });
+          if (auto mod = weakMod.lock())
+          {
+            mod->datasetUI_paused(checked);
+          }
+        }});
+
+    row.widgets.emplace_back(mola::gui::Label{e.lbPlaybackPosition});
+
+    // Slider - uses a dedicated SliderFloat spanning dataset range.
+    // Initial max will be overwritten by dataset_ui_update() on the first tick.
+    row.widgets.emplace_back(mola::gui::SliderFloat{
+        "", static_cast<float>(modUI->datasetUI_lastQueriedTimestep()), 0.0f,
+        static_cast<float>(std::max<size_t>(1u, modUI->datasetUI_size())), "%.0f",
+        [weakMod](float pos)
+        {
+          if (auto mod = weakMod.lock())
+          {
+            mod->datasetUI_teleport(static_cast<size_t>(pos));
+          }
+        }});
+
+    row.widgets.emplace_back(
+        mola::gui::Label{std::make_shared<mola::gui::LiveString>("Playback rate:")});
+
+    row.widgets.emplace_back(mola::gui::ComboBox{
+        "", labels, selIdx,
+        [weakMod, rates](int idx)
+        {
+          if (auto mod = weakMod.lock())
+          {
+            mod->datasetUI_playback_speed(static_cast<double>(rates.at(idx)));
+          }
+        }});
+
+    tab.widgets.emplace_back(std::move(row));
+    desc.tabs.emplace_back(std::move(tab));
+
+    // Fire and forget - we don't need to .get() since dataset_ui_update()
+    // only uses LiveStrings (no retained widget pointers needed).
+    create_subwindow_from_description(desc);
 
     markWindowForReLayout(DEFAULT_WINDOW_NAME);
   }
@@ -954,32 +1139,32 @@ void MolaViz::dataset_ui_update()
 {
   for (auto& kv : datasetUIs_)
   {
-    this->enqueue_custom_nanogui_code(
-        [&kv]()
-        {
-          auto& e = kv.second;  // lambda capture structured bind is >C++20
-          if (e.module.expired())
-          {
-            return;
-          }
+    auto& e = kv.second;
+    if (e.module.expired())
+    {
+      continue;
+    }
 
-          auto mod = e.module.lock();
-          if (!mod)
-          {
-            return;
-          }
+    auto mod = e.module.lock();
+    if (!mod)
+    {
+      continue;
+    }
 
-          const size_t pos = mod->datasetUI_lastQueriedTimestep();
-          const size_t N   = mod->datasetUI_size();
+    const size_t pos = mod->datasetUI_lastQueriedTimestep();
+    const size_t N   = mod->datasetUI_size();
 
-          e.lbPlaybackPosition->setCaption(mrpt::format("%zu / %zu", pos, N));
-          e.slider->setRange(std::make_pair<float>(0, N));
-          e.slider->setValue(static_cast<float>(pos));
-          e.slider->setHighlightedRange(
-              std::make_pair<float>(0.f, static_cast<float>(pos) / static_cast<float>(N)));
-        });
+    // Update the label via LiveString - thread-safe, picked up next frame:
+    if (e.lbPlaybackPosition)
+    {
+      e.lbPlaybackPosition->set(mrpt::format("%zu / %zu", pos, N));
+    }
   }
 }
+
+// ---------------------------------------------------------------------------
+// GUI thread
+// ---------------------------------------------------------------------------
 
 mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(const window_name_t& name)
 {
@@ -991,19 +1176,13 @@ mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(const window_na
   cp.maximized   = true;
   windows_[name] = {
       mrpt::gui::CDisplayWindowGUI::Create("MOLAViz - "s + name, 1000, 800, cp), {}, {}};
-
-  // create empty list of subwindows too:
   subWindows_[name];
 
   auto& win = windows_[name].win;
 
-  // Apply custom MOLA icon:
-  win->setIconFromData(
-      mola_icon_data, mola_icon_width, mola_icon_height, 0xff /*transparent color*/);
+  win->setIconFromData(mola_icon_data, mola_icon_width, mola_icon_height, 0xff);
 
-  // Add a background scene:
   auto scene = mrpt::opengl::COpenGLScene::Create();
-
   {
     std::lock_guard<std::mutex> lck(win->background_scene_mtx);
     win->background_scene = std::move(scene);
@@ -1015,7 +1194,6 @@ mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(const window_na
   cam.setAzimuthDegrees(110.0f);
   cam.setElevationDegrees(15.0f);
   cam.setZoomDistance(20.0f);
-
   win->drawAll();
   win->setVisible(true);
 
@@ -1025,68 +1203,381 @@ mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(const window_na
 void MolaViz::gui_thread()
 {
   MRPT_LOG_DEBUG("gui_thread() started.");
-
   mrpt::system::thread_name("MolaViz::gui_thread");
 
   nanogui::init();
 
-  // Open first GUI window:
   auto w = create_and_add_window(DEFAULT_WINDOW_NAME);
 
-  // Tasks pending to be run before each refresh:
   w->setLoopCallback(
       [this]()
       {
         ProfilerEntry pe(profiler_, "loopCallback lambda");
 
-        // Get a copy of the tasks:
+        // Drain the task queue:
         task_queue_t tasks;
-        auto         lck       = mrpt::lockHelper(guiThreadPendingTasksMtx_);
-        tasks                  = std::move(guiThreadPendingTasks_);
-        guiThreadPendingTasks_ = task_queue_t();
-        auto winsToReLayout    = guiThreadMustReLayoutTheseWindows_;
-        guiThreadMustReLayoutTheseWindows_.clear();
-        lck.unlock();
-
-        // Run them:
-        auto& hc          = HandlersContainer::Instance();
-        auto  lckHandlers = mrpt::lockHelper(hc.guiHandlersMtx_);
-        for (auto& t : tasks)
         {
-          try
+          auto lck               = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+          tasks                  = std::move(guiThreadPendingTasks_);
+          guiThreadPendingTasks_ = task_queue_t();
+          auto winsToReLayout    = guiThreadMustReLayoutTheseWindows_;
+          guiThreadMustReLayoutTheseWindows_.clear();
+
+          // Unlock before running tasks to avoid re-entrant deadlock:
+          lck.unlock();
+
+          auto& hc          = HandlersContainer::Instance();
+          auto  lckHandlers = mrpt::lockHelper(hc.guiHandlersMtx_);
+          for (auto& t : tasks)
           {
-            t();
+            try
+            {
+              t();
+            }
+            catch (const std::exception& e)
+            {
+              MRPT_LOG_ERROR_STREAM("Exception in task sent to GUI thread:\n" << e.what());
+            }
           }
-          catch (const std::exception& e)
+          lckHandlers.unlock();
+
+          for (const auto& winName : winsToReLayout)
           {
-            MRPT_LOG_ERROR_STREAM("Exception in task sent to GUI thread:\n" << e.what());
+            windows_.at(winName).win->performLayout();
           }
         }
-        lckHandlers.unlock();
 
-        // Pending GUI re-layouts
-        for (const auto& winName : winsToReLayout)
-        {
-          windows_.at(winName).win->performLayout();
-        }
+        // Poll all LiveStrings registered with managed subwindows:
+        poll_live_strings_in_subwindows_();
 
-        // Handle decaying point clouds
+        // Handle decaying point clouds:
         internal_handle_decaying_clouds();
       });
 
-  // A call to "nanogui::leave()" is required to end the infinite loop
-  // in mainloop:
-  nanogui::mainloop(25 /*refresh milliseconds*/);
-
-  // Tidy up:
+  nanogui::mainloop(25 /*ms*/);
   nanogui::shutdown();
 
-  // Delete all OpenGL memory from this same thread:
   windows_.clear();
   subWindows_.clear();
 
   MRPT_LOG_DEBUG("gui_thread() quitted.");
 }
+
+// ---------------------------------------------------------------------------
+// poll_live_strings_in_subwindows_ - called every GUI frame
+// ---------------------------------------------------------------------------
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+void MolaViz::poll_live_strings_in_subwindows_()
+{
+  // Walk every widget in every managed subwindow.  Widgets that were created
+  // from a Label or TextPanel description carry an id tag of the form
+  // "_live_<ptr>" encoding the address of their LiveString.  We decode that,
+  // call poll(), and update the caption / value if dirty.
+  //
+  // This is O(total widgets), but only the dirty ones do any real work.
+
+  for (auto& [parentName, subMap] : subWindows_)
+  {
+    for (auto& [subName, subWin] : subMap)
+    {
+      if (subWin == nullptr)
+      {
+        continue;
+      }
+
+      // Walk all children recursively via a small lambda:
+      std::function<void(nanogui::Widget*)> visit = [&](nanogui::Widget* widget)
+      {
+        const auto& id = widget->id();
+        if (id.substr(0, 6) == "_live_")
+        {
+          // Decode the LiveString pointer:
+          mola::gui::LiveString* ls = nullptr;
+          std::sscanf(id.c_str() + 6, "%p", reinterpret_cast<void**>(&ls));  // NOLINT
+          if (ls)
+          {
+            std::string tmp;
+            if (ls->poll(tmp))
+            {
+              if (auto* lb = dynamic_cast<nanogui::Label*>(widget))
+              {
+                lb->setCaption(tmp);
+              }
+              if (auto* tb = dynamic_cast<nanogui::TextBox*>(widget))
+              {
+                tb->setValue(tmp);
+              }
+            }
+          }
+        }
+        for (auto* child : widget->children())
+        {
+          visit(child);
+        }
+      };
+      visit(subWin);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// VizInterface - new backend-agnostic API
+// ---------------------------------------------------------------------------
+
+/** Core implementation: enqueue a callable to run on the GUI thread. */
+std::future<void> MolaViz::enqueue_custom_gui_code(const std::function<void()>& userCode)
+{
+  auto task = std::make_shared<std::packaged_task<void()>>([=]() { userCode(); });
+  auto lck  = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+  return task->get_future();
+}
+
+void* MolaViz::get_subwindow_handle(
+    const std::string& subWindowTitle, const std::string& parentWindow)
+{
+  // This is called from arbitrary threads.  The map is only written from the
+  // GUI thread, so we take a shared lock for the read here.
+  auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);  // reuse existing mutex; maps are small
+  auto itParent = subWindows_.find(parentWindow);
+  if (itParent == subWindows_.end())
+  {
+    return nullptr;
+  }
+  auto itSub = itParent->second.find(subWindowTitle);
+  if (itSub == itParent->second.end())
+  {
+    return nullptr;
+  }
+  return static_cast<void*>(itSub->second);
+}
+
+std::future<void> MolaViz::create_subwindow_from_description(
+    const mola::gui::WindowDescription& desc, const std::string& parentWindow)
+{
+  // Copy the description by value so the lambda owns it safely:
+  return enqueue_custom_gui_code(
+      [this, desc, parentWindow]()
+      {
+        MRPT_LOG_DEBUG_STREAM("create_subwindow_from_description() title='" << desc.title << "'");
+
+        ASSERT_(windows_.count(parentWindow));
+        auto topWin = windows_.at(parentWindow).win;
+        ASSERT_(topWin);
+
+        auto* subwin                          = topWin->createManagedSubWindow(desc.title);
+        subWindows_[parentWindow][desc.title] = subwin;
+
+        subwin->setVisible(!desc.starts_hidden);
+        subwin->setPosition({desc.position[0], desc.position[1]});
+        if (desc.size[0] > 0)
+        {
+          subwin->setFixedWidth(desc.size[0]);
+        }
+        if (desc.size[1] > 0)
+        {
+          subwin->setFixedHeight(desc.size[1]);
+        }
+
+        subwin->setLayout(
+            new nanogui::BoxLayout(nanogui::Orientation::Vertical, nanogui::Alignment::Fill, 5, 2));
+
+        // Resize/enlarge buttons in the title-bar button panel:
+        subwin->buttonPanel()
+            ->add<nanogui::Button>("", ENTYPO_ICON_RESIZE_100_PERCENT)
+            ->setCallback(
+                [subwin, topWin]()
+                {
+                  if (auto* gl =
+                          dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
+                      gl)
+                  {
+                    auto s = gl->size();
+                    s.x()  = mrpt::round(s.x() * 0.75);
+                    s.y()  = mrpt::round(s.y() * 0.75);
+                    gl->setSize(s);
+                    gl->setFixedSize(s);
+                  }
+                  topWin->performLayout();
+                });
+        subwin->buttonPanel()
+            ->add<nanogui::Button>("", ENTYPO_ICON_RESIZE_FULL_SCREEN)
+            ->setCallback(
+                [subwin, topWin]()
+                {
+                  if (auto* gl =
+                          dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
+                      gl)
+                  {
+                    auto s = gl->size();
+                    s.x()  = mrpt::round(s.x() * 1.25);
+                    s.y()  = mrpt::round(s.y() * 1.25);
+                    gl->setSize(s);
+                    gl->setFixedSize(s);
+                  }
+                  topWin->performLayout();
+                });
+
+        if (desc.tabs.size() == 1)
+        {
+          // Single-tab optimisation: skip the TabWidget, render content directly.
+          // This saves vertical space for simple tool panels.
+          subwin->setLayout(new nanogui::GroupLayout());
+          build_tab_widgets(subwin, desc.tabs.front());
+        }
+        else if (!desc.tabs.empty())
+        {
+          auto* tabWidget = subwin->add<nanogui::TabWidget>();
+          for (const auto& tab : desc.tabs)
+          {
+            auto* page = tabWidget->createTab(tab.title);
+            page->setLayout(new nanogui::GroupLayout());
+            build_tab_widgets(page, tab);
+          }
+          tabWidget->setActiveTab(0);
+        }
+
+        markWindowForReLayout(parentWindow);
+      });
+}
+
+std::future<std::optional<std::string>> MolaViz::open_file_dialog(
+    const std::string& title, bool save,
+    const std::vector<std::pair<std::string, std::string>>& filters,
+    const std::string& default_path, const std::string& /* parentWindow */)
+{
+  // nanogui::file_dialog() blocks the GUI thread while the OS dialog is open.
+  // We wrap it in a packaged_task that resolves when the user dismisses it.
+  // Callers must NOT call .get() from the GUI thread to avoid deadlock.
+
+  using return_type = std::optional<std::string>;
+
+  auto task = std::make_shared<std::packaged_task<return_type()>>(
+      [save, filters, default_path, title]() -> return_type
+      {
+        // nanogui::file_dialog takes vector<pair<string,string>>
+        // where each pair is {extension, description}.
+        // Our API uses {description, extensions} so we swap:
+        std::vector<std::pair<std::string, std::string>> ngFilters;
+        ngFilters.reserve(filters.size());
+        for (const auto& [desc, exts] : filters)
+        {
+          // nanogui expects a single extension per entry; split on comma
+          // and add one entry per extension:
+          std::vector<std::string> extList;
+          mrpt::system::tokenize(exts, ",", extList);
+          for (const auto& ext : extList)
+          {
+            ngFilters.emplace_back(ext, desc);
+          }
+        }
+
+        // Fall back to "all files" if no filters given:
+        if (ngFilters.empty())
+        {
+          ngFilters.emplace_back("*", "All files");
+        }
+
+        auto result = nanogui::file_dialog(ngFilters, save);
+        if (result.empty())
+        {
+          return std::nullopt;
+        }
+        return result;
+      });
+
+  auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+  return task->get_future();
+}
+
+// ---------------------------------------------------------------------------
+// VizInterface - deprecated shims (delegate to new API, one line each)
+// ---------------------------------------------------------------------------
+
+std::future<nanogui::Window*> MolaViz::create_subwindow(
+    const std::string& subWindowTitle, const std::string& parentWindow)
+{
+  // Build a minimal description that matches the legacy behaviour:
+  // bare window, no tabs, no widgets - caller populates it via
+  // enqueue_custom_nanogui_code() as before.
+  mola::gui::WindowDescription desc;
+  desc.title         = subWindowTitle;
+  desc.starts_hidden = false;
+
+  // Schedule creation and then return the raw pointer via a chained task.
+  // We use a shared promise so the inner lambda can set its value after
+  // create_subwindow_from_description has run.
+  auto promise = std::make_shared<std::promise<nanogui::Window*>>();
+  auto future  = promise->get_future();
+
+  auto descFut = create_subwindow_from_description(desc, parentWindow);
+
+  // Chain: once the description task completes, extract the raw pointer.
+  enqueue_custom_gui_code(
+      [this, subWindowTitle, parentWindow, p = std::move(promise)]() mutable
+      {
+        auto itParent = subWindows_.find(parentWindow);
+        if (itParent != subWindows_.end())
+        {
+          auto itSub = itParent->second.find(subWindowTitle);
+          if (itSub != itParent->second.end())
+          {
+            p->set_value(itSub->second);
+            return;
+          }
+        }
+        p->set_value(nullptr);
+      });
+
+  (void)descFut;
+  return future;
+}
+
+std::future<void> MolaViz::enqueue_custom_nanogui_code(const std::function<void()>& userCode)
+{
+  return enqueue_custom_gui_code(userCode);
+}
+
+std::future<void> MolaViz::subwindow_grid_layout(
+    const std::string& subWindowTitle, const bool orientationVertical, int resolution,
+    const std::string& parentWindow)
+{
+  return enqueue_custom_gui_code(
+      [this, subWindowTitle, orientationVertical, resolution, parentWindow]()
+      {
+        auto itWin = subWindows_.find(parentWindow);
+        ASSERTMSG_(itWin != subWindows_.end(), "Unknown GUI top-level window");
+        auto itSubWin = itWin->second.find(subWindowTitle);
+        ASSERTMSG_(itSubWin != itWin->second.end(), "Unknown subwindow");
+
+        itSubWin->second->setLayout(new nanogui::GridLayout(
+            orientationVertical ? nanogui::Orientation::Vertical : nanogui::Orientation::Horizontal,
+            resolution, nanogui::Alignment::Fill, 2, 2));
+      });
+}
+
+std::future<void> MolaViz::subwindow_move_resize(
+    const std::string& subWindowTitle, const mrpt::math::TPoint2D_<int>& location,
+    const mrpt::math::TPoint2D_<int>& size, const std::string& parentWindow)
+{
+  return enqueue_custom_gui_code(
+      [this, subWindowTitle, location, size, parentWindow]()
+      {
+        auto itWin = subWindows_.find(parentWindow);
+        ASSERTMSG_(itWin != subWindows_.end(), "Unknown GUI top-level window");
+        auto itSubWin = itWin->second.find(subWindowTitle);
+        ASSERTMSG_(itSubWin != itWin->second.end(), "Unknown subwindow");
+
+        itSubWin->second->setPosition({location.x, location.y});
+        itSubWin->second->setSize({size.x, size.y});
+      });
+}
+
+// ---------------------------------------------------------------------------
+// Observation / RTTI handler dispatch
+// ---------------------------------------------------------------------------
 
 std::future<bool> MolaViz::subwindow_update_visualization(
     const mrpt::rtti::CObject::Ptr& obj, const std::string& subWindowTitle,
@@ -1100,12 +1591,10 @@ std::future<bool> MolaViz::subwindow_update_visualization(
         try
         {
           const char* objClassName = obj->GetRuntimeClass()->className;
-
           MRPT_LOG_DEBUG_STREAM(
-              "subwindow_update_visualization() title='" << subWindowTitle << "' obj of class: '"
+              "subwindow_update_visualization() title='" << subWindowTitle << "' class: '"
                                                          << objClassName << "'");
 
-          // Get subwindow:
           ASSERTMSG_(
               subWindows_.count(parentWindow),
               mrpt::format("parentWindow not found: '%s'", parentWindow.c_str()));
@@ -1118,31 +1607,20 @@ std::future<bool> MolaViz::subwindow_update_visualization(
           auto* subWin = topWin.at(subWindowTitle);
           ASSERT_(subWin != nullptr);
 
-          // Get object GUI handler:
-          // (Note: guiHandlersMtx_ is already locked by main render thread calling me)
-          auto& hc = HandlersContainer::Instance();
-
-          bool any = false;
+          auto& hc  = HandlersContainer::Instance();
+          bool  any = false;
           for (auto [it, rangeEnd] = hc.guiHandlers_.equal_range(objClassName); it != rangeEnd;
                ++it)
           {
-            // Update GUI with object:
             it->second(obj, subWin, parentWindow, this, extra_parameters);
             any = true;
           }
-          if (any)
-          {  // done
-            return true;
+          if (!any)
+          {
+            MRPT_LOG_DEBUG_STREAM(
+                "subwindow_update_visualization(): no handler for '" << objClassName << "'");
           }
-
-          // No handler for this class:
-          MRPT_LOG_DEBUG_STREAM(
-              "subwindow_update_visualization() No known handler for "
-              "obj of "
-              "class: '"
-              << objClassName << "'");
-
-          return false;
+          return any;
         }
         catch (const std::exception& e)
         {
@@ -1156,73 +1634,9 @@ std::future<bool> MolaViz::subwindow_update_visualization(
   return task->get_future();
 }
 
-std::future<nanogui::Window*> MolaViz::create_subwindow(
-    const std::string& subWindowTitle, const std::string& parentWindow)
-{
-  using return_type = nanogui::Window*;
-
-  auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [this, subWindowTitle, parentWindow]()
-      {
-        MRPT_LOG_DEBUG_STREAM(
-            "create_subwindow() title='" << subWindowTitle << "' inside toplevel '" << parentWindow
-                                         << "'");
-
-        ASSERT_(windows_.count(parentWindow));
-        auto topWin = windows_.at(parentWindow).win;
-        ASSERT_(topWin);
-
-        auto* subwin = topWin->createManagedSubWindow(subWindowTitle);
-        // add to list of subwindows too:
-        subWindows_[parentWindow][subWindowTitle] = subwin;
-
-        // Reduce size button:
-        subwin->buttonPanel()
-            ->add<nanogui::Button>("", ENTYPO_ICON_RESIZE_100_PERCENT)
-            ->setCallback(
-                [subwin, topWin]()
-                {
-                  if (auto* glControl =
-                          dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
-                      glControl)
-                  {
-                    auto s = glControl->size();
-                    s.x()  = mrpt::round(s.x() * 0.75);
-                    s.y()  = mrpt::round(s.y() * 0.75);
-                    glControl->setSize(s);
-                    glControl->setFixedSize(s);
-                  }
-                  topWin->performLayout();
-                });
-
-        // Enlarge button:
-        subwin->buttonPanel()
-            ->add<nanogui::Button>("", ENTYPO_ICON_RESIZE_FULL_SCREEN)
-            ->setCallback(
-                [subwin, topWin]()
-                {
-                  if (auto* glControl =
-                          dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
-                      glControl)
-                  {
-                    auto s = glControl->size();
-                    s.x()  = mrpt::round(s.x() * 1.25);
-                    s.y()  = mrpt::round(s.y() * 1.25);
-                    glControl->setSize(s);
-                    glControl->setFixedSize(s);
-                  }
-
-                  topWin->performLayout();
-                });
-
-        return subwin;
-      });
-
-  auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
-  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
-  guiThreadMustReLayoutTheseWindows_.insert(parentWindow);
-  return task->get_future();
-}
+// ---------------------------------------------------------------------------
+// 3D scene API
+// ---------------------------------------------------------------------------
 
 std::future<bool> MolaViz::update_3d_object(
     const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
@@ -1238,13 +1652,9 @@ std::future<bool> MolaViz::update_3d_object(
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
-
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
 
         mrpt::opengl::CSetOfObjects::Ptr glContainer;
-
         if (auto o = topWin->background_scene->getByName(objName, viewportName); o)
         {
           glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
@@ -1256,13 +1666,8 @@ std::future<bool> MolaViz::update_3d_object(
           topWin->background_scene->insert(glContainer, viewportName);
         }
 
-        // Move user contents and container properties (pose, scale,
-        // etc.) via the "operator=":
         *glContainer = *obj;
-
-        // (except the name! which we need to re-use in the next call)
         glContainer->setName(objName);
-
         return true;
       });
 
@@ -1282,10 +1687,6 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
   auto task = std::make_shared<std::packaged_task<return_type()>>(
       [this, cloud, decay_time_seconds, viewportName, parentWindow]()
       {
-        MRPT_LOG_DEBUG_STREAM(
-            "insert_point_cloud_with_decay() called with decay_time_seconds='" << decay_time_seconds
-                                                                               << "'");
-
         if (!cloud || cloud->empty())
         {
           return true;
@@ -1295,11 +1696,9 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
         auto& winData = windows_.at(parentWindow);
         auto  topWin  = winData.win;
         ASSERT_(topWin);
-
         ASSERT_(topWin->background_scene);
 
         mrpt::opengl::CSetOfObjects::Ptr glContainer;
-
         if (auto o = topWin->background_scene->getByName(DECAY_CLOUDS_NAME, viewportName); o)
         {
           glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
@@ -1312,27 +1711,21 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
           glContainer->setName(DECAY_CLOUDS_NAME);
         }
 
-        // Insert into the gl viz container:
         glContainer->insert(cloud);
 
-        // Compute max number of scans from decay time and assumed rate:
         const size_t maxScans = std::max<size_t>(
             1u, static_cast<size_t>(std::round(decay_time_seconds * assumed_sensor_rate_hz_)));
         winData.max_decaying_clouds = maxScans;
 
-        // Store initial alpha (assumption: all points have same alpha)
         const float initial_alpha = mrpt::u8tof(cloud->shaderPointsVertexColorBuffer().at(0).A);
-
         winData.decaying_clouds.emplace_back(viewportName, cloud, initial_alpha);
 
-        // Remove oldest clouds if we exceed the max:
         while (winData.decaying_clouds.size() > maxScans)
         {
           auto& oldest = winData.decaying_clouds.front();
           glContainer->removeObject(oldest.cloud);
           winData.decaying_clouds.pop_front();
         }
-
         return true;
       });
 
@@ -1350,18 +1743,12 @@ std::future<bool> MolaViz::clear_all_point_clouds_with_decay(
   auto task = std::make_shared<std::packaged_task<return_type()>>(
       [this, viewportName, parentWindow]()
       {
-        MRPT_LOG_DEBUG("clear_all_point_clouds_with_decay() called");
-
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
-
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
 
         mrpt::opengl::CSetOfObjects::Ptr glContainer;
-
         if (auto o = topWin->background_scene->getByName(DECAY_CLOUDS_NAME, viewportName); o)
         {
           glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
@@ -1374,12 +1761,8 @@ std::future<bool> MolaViz::clear_all_point_clouds_with_decay(
           glContainer->setName(DECAY_CLOUDS_NAME);
         }
 
-        // Clear the container:
         glContainer->clear();
-
-        // and our own struct:
         windows_.at(parentWindow).decaying_clouds.clear();
-
         return true;
       });
 
@@ -1389,26 +1772,25 @@ std::future<bool> MolaViz::clear_all_point_clouds_with_decay(
   return task->get_future();
 }
 
+// ---------------------------------------------------------------------------
+// Viewport / camera API
+// ---------------------------------------------------------------------------
+
 std::future<bool> MolaViz::update_viewport_look_at(
-    const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName,
+    const mrpt::math::TPoint3Df& lookAt, [[maybe_unused]] const std::string& viewportName,
     const std::string& parentWindow)
 {
   using return_type = bool;
 
   auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [this, lookAt, viewportName, parentWindow]()
+      [this, lookAt, parentWindow]()
       {
         MRPT_LOG_DEBUG_STREAM("update_viewport_look_at() lookAt=" << lookAt.asString());
-
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
-
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
         topWin->camera().setCameraPointing(lookAt.x, lookAt.y, lookAt.z);
-
         return true;
       });
 
@@ -1419,26 +1801,20 @@ std::future<bool> MolaViz::update_viewport_look_at(
 }
 
 std::future<bool> MolaViz::update_viewport_camera_azimuth(
-    const double azimuth, bool absolute_falseForRelative, const std::string& viewportName,
-    const std::string& parentWindow)
+    const double azimuth, bool absolute_falseForRelative,
+    [[maybe_unused]] const std::string& viewportName,
+    [[maybe_unused]] const std::string& parentWindow)
 {
   using return_type = bool;
 
   auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [this, azimuth, absolute_falseForRelative, viewportName, parentWindow]()
+      [this, azimuth, absolute_falseForRelative, parentWindow]()
       {
-        MRPT_LOG_DEBUG_STREAM(
-            "update_viewport_camera_azimuth() azimuth=" << azimuth << " absolute_falseForRelative:"
-                                                        << absolute_falseForRelative);
-
+        MRPT_LOG_DEBUG_STREAM("update_viewport_camera_azimuth() azimuth=" << azimuth);
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
-
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
-
         if (absolute_falseForRelative)
         {
           topWin->camera().setAzimuthDegrees(static_cast<float>(mrpt::RAD2DEG(azimuth)));
@@ -1458,24 +1834,20 @@ std::future<bool> MolaViz::update_viewport_camera_azimuth(
 }
 
 std::future<bool> MolaViz::update_viewport_camera_orthographic(
-    const bool orthographic, const std::string& viewportName, const std::string& parentWindow)
+    const bool orthographic, [[maybe_unused]] const std::string& viewportName,
+    const std::string& parentWindow)
 {
   using return_type = bool;
 
   auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [this, orthographic, viewportName, parentWindow]()
+      [this, orthographic, parentWindow]()
       {
         MRPT_LOG_DEBUG_STREAM(
             "update_viewport_camera_orthographic() orthographic=" << orthographic);
-
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
-
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
-
         topWin->camera().setCameraProjective(!orthographic);
         return true;
       });
@@ -1491,22 +1863,14 @@ std::future<bool> MolaViz::execute_custom_code_on_background_scene(
 {
   using return_type = bool;
 
-  // Make a copy of the const ref object:
   const auto userCodeCopy = userCode;
-
-  auto task = std::make_shared<std::packaged_task<return_type()>>(
+  auto       task         = std::make_shared<std::packaged_task<return_type()>>(
       [this, userCodeCopy, parentWindow]()
       {
-        MRPT_LOG_DEBUG_STREAM("execute_custom_code_on_background_scene()");
-
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
-
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
-
         try
         {
           userCodeCopy(*topWin->background_scene);
@@ -1515,8 +1879,8 @@ std::future<bool> MolaViz::execute_custom_code_on_background_scene(
         catch (const std::exception& e)
         {
           MRPT_LOG_ERROR_STREAM(
-              "Exception in execute_custom_code_on_background_scene():\n"
-              << e.what());
+                            "Exception in execute_custom_code_on_background_scene():\n"
+                            << e.what());
           return false;
         }
       });
@@ -1526,6 +1890,10 @@ std::future<bool> MolaViz::execute_custom_code_on_background_scene(
   return task->get_future();
 }
 
+// ---------------------------------------------------------------------------
+// Console output
+// ---------------------------------------------------------------------------
+
 std::future<bool> MolaViz::output_console_message(
     const std::string& message, const std::string& parentWindow)
 {
@@ -1534,19 +1902,14 @@ std::future<bool> MolaViz::output_console_message(
   auto task = std::make_shared<std::packaged_task<return_type()>>(
       [this, message, parentWindow]()
       {
-        MRPT_LOG_DEBUG_STREAM("output_console_message() msg=" << message);
-
         ASSERT_(windows_.count(parentWindow));
         auto& winData = windows_.at(parentWindow);
 
-        // Split multiline messages:
         std::vector<std::string> lines;
         mrpt::system::tokenize(message, "\r\n", lines);
         for (const auto& msg : lines)
         {
-          // Append msg:
           winData.console_messages.push_back(msg);
-          // remove older ones:
           while (winData.console_messages.size() > max_console_lines_)
           {
             winData.console_messages.erase(winData.console_messages.begin());
@@ -1555,9 +1918,6 @@ std::future<bool> MolaViz::output_console_message(
 
         mrpt::gui::CDisplayWindowGUI::Ptr topWin = winData.win;
         ASSERT_(topWin);
-
-        // No need to acquire the mutex, since this task will be run
-        // in the proper moment in the proper thread:
         ASSERT_(topWin->background_scene);
 
         const double              LINE_HEIGHT  = console_text_font_size_;
@@ -1568,20 +1928,17 @@ std::future<bool> MolaViz::output_console_message(
         for (size_t i = 0; i < winData.console_messages.size(); i++)
         {
           const size_t invIdx = (winData.console_messages.size() - 1 - i);
-
-          fp.color.A = 1.0f;
+          fp.color.A          = 1.0f;
           if (invIdx > 1 && invIdx + 3 >= max_console_lines_)
           {
             fp.color.A = 1.0f - (static_cast<float>(invIdx) -
                                  (static_cast<float>(max_console_lines_) - 3.5f)) /
                                     3.5f;
           }
-
           topWin->background_scene->getViewport()->addTextMessage(
               3.0, LINE_SPACING + (LINE_SPACING + LINE_HEIGHT) * static_cast<float>(invIdx),
               winData.console_messages.at(i), i, fp);
         }
-
         return true;
       });
 
@@ -1591,77 +1948,12 @@ std::future<bool> MolaViz::output_console_message(
   return task->get_future();
 }
 
-std::future<void> MolaViz::enqueue_custom_nanogui_code(const std::function<void(void)>& userCode)
-{
-  using return_type = void;
-
-  auto task = std::make_shared<std::packaged_task<return_type()>>([=]() { userCode(); });
-
-  auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
-  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
-  return task->get_future();
-}
-
-#if 0
-// Visualize GT:
-if (1)
-{
-    auto vizMods = this->findService<mola::VizInterface>();
-    ASSERTMSG_(!vizMods.empty(), "Could not find a running MolaViz module");
-
-    auto viz = std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
-
-    auto glObjs   = mrpt::opengl::CSetOfObjects::Create();
-    auto glCorner = mrpt::opengl::stock_objects::CornerXYZSimple(2.0);
-    glCorner->enableShowName();
-    glCorner->setName("GT");
-    glCorner->setPose(it->second);
-    glObjs->insert(glCorner);
-
-    viz->update_3d_object("ground_truth", glObjs);
-}
-#endif
-
-std::future<void> MolaViz::subwindow_grid_layout(
-    const std::string& subWindowTitle, const bool orientationVertical, int resolution,
-    const std::string& parentWindow)
-{
-  return enqueue_custom_nanogui_code(
-      [this, subWindowTitle, orientationVertical, resolution, parentWindow]()
-      {
-        auto itWin = subWindows_.find(parentWindow);
-        ASSERTMSG_(itWin != subWindows_.end(), "Unknown GUI top-level window");
-        auto itSubWin = itWin->second.find(subWindowTitle);
-        ASSERTMSG_(itSubWin != itWin->second.end(), "Unknown subwindow");
-
-        itSubWin->second->setLayout(new nanogui::GridLayout(
-            orientationVertical ? nanogui::Orientation::Vertical : nanogui::Orientation::Horizontal,
-            resolution, nanogui::Alignment::Fill, 2, 2));
-      });
-}
-
-std::future<void> MolaViz::subwindow_move_resize(
-    const std::string& subWindowTitle, const mrpt::math::TPoint2D_<int>& location,
-    const mrpt::math::TPoint2D_<int>& size, const std::string& parentWindow)
-{
-  return enqueue_custom_nanogui_code(
-      [this, subWindowTitle, location, size, parentWindow]()
-      {
-        auto itWin = subWindows_.find(parentWindow);
-        ASSERTMSG_(itWin != subWindows_.end(), "Unknown GUI top-level window");
-        auto itSubWin = itWin->second.find(subWindowTitle);
-        ASSERTMSG_(itSubWin != itWin->second.end(), "Unknown subwindow");
-
-        itSubWin->second->setPosition({location.x, location.y});
-        itSubWin->second->setSize({size.x, size.y});
-      });
-}
+// ---------------------------------------------------------------------------
+// Decaying clouds
+// ---------------------------------------------------------------------------
 
 void MolaViz::internal_handle_decaying_clouds()
 {
-  // Called from the OpenGL thread, no need for mutexes.
-
-  // Fraction of the queue at the tail where fade-out occurs:
   constexpr float FADE_OUT_FRACTION = 0.1f;
 
   for (auto& [winName, winData] : windows_)
@@ -1672,29 +1964,22 @@ void MolaViz::internal_handle_decaying_clouds()
       continue;
     }
 
-    const size_t maxScans = winData.max_decaying_clouds;
-
-    // Number of oldest entries over which we apply the fade-out gradient:
+    const size_t maxScans  = winData.max_decaying_clouds;
     const size_t fadeCount = std::max<size_t>(
         1u, static_cast<size_t>(std::round(static_cast<float>(maxScans) * FADE_OUT_FRACTION)));
 
-    // Iterate from oldest (index 0) to newest (index queueSize-1):
     for (size_t i = 0; i < queueSize; i++)
     {
-      auto& dc = winData.decaying_clouds[i];
-
-      // "age" in scan-units: oldest=queueSize-1, newest=0
+      auto&        dc  = winData.decaying_clouds[i];
       const size_t age = queueSize - 1u - i;
 
       float alpha = dc.initial_alpha;
       if (age >= (maxScans - fadeCount))
       {
-        // This cloud is in the fade-out zone:
         const float t =
             static_cast<float>(age - (maxScans - fadeCount)) / static_cast<float>(fadeCount);
         alpha = dc.initial_alpha * mrpt::saturate_val(1.0f - t, 0.0f, 1.0f);
       }
-
       dc.cloud->setAllPointsAlpha(mrpt::f2u8(alpha));
     }
   }
