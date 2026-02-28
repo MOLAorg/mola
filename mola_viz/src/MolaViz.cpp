@@ -1443,9 +1443,9 @@ std::future<void> MolaViz::create_subwindow_from_description(
 }
 
 std::future<std::optional<std::string>> MolaViz::open_file_dialog(
-    const std::string& title, bool save,
+    [[maybe_unused]] const std::string& title, bool save,
     const std::vector<std::pair<std::string, std::string>>& filters,
-    const std::string& default_path, const std::string& /* parentWindow */)
+    const std::string& default_path, [[maybe_unused]] const std::string& parentWindow)
 {
   // nanogui::file_dialog() blocks the GUI thread while the OS dialog is open.
   // We wrap it in a packaged_task that resolves when the user dismisses it.
@@ -1454,7 +1454,7 @@ std::future<std::optional<std::string>> MolaViz::open_file_dialog(
   using return_type = std::optional<std::string>;
 
   auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [save, filters, default_path, title]() -> return_type
+      [save, filters, default_path]() -> return_type
       {
         // nanogui::file_dialog takes vector<pair<string,string>>
         // where each pair is {extension, description}.
@@ -1879,8 +1879,8 @@ std::future<bool> MolaViz::execute_custom_code_on_background_scene(
         catch (const std::exception& e)
         {
           MRPT_LOG_ERROR_STREAM(
-              "Exception in execute_custom_code_on_background_scene():\n"
-              << e.what());
+                            "Exception in execute_custom_code_on_background_scene():\n"
+                            << e.what());
           return false;
         }
       });
