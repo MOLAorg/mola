@@ -688,7 +688,9 @@ void gui_handler_imu(
 /** Recursively builds nanogui widgets from a LeafWidget variant into `parent`.
  *  Must be called from the GUI thread. */
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-void build_leaf_widget(nanogui::Widget* parent, const mola::gui::LeafWidget& w)
+void build_leaf_widget(
+    nanogui::Widget* parent, const mola::gui::LeafWidget& w,
+    std::map<std::string, mola::gui::LiveString::Ptr>& liveStringRegistry)
 {
   std::visit(
       // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -705,7 +707,9 @@ void build_leaf_widget(nanogui::Widget* parent, const mola::gui::LeafWidget& w)
           }
           // Store the LiveString pointer in the label's user data so spinOnce
           // can poll it.  We use the tag field that nanogui::Widget provides.
-          lb->setId(mrpt::format("_live_%p", static_cast<void*>(widget.text.get())));
+          std::string id         = mrpt::format("_live_%zu", liveStringRegistry.size());
+          liveStringRegistry[id] = widget.text;
+          lb->setId(id);
           // Perform an initial poll so the label is not blank on first draw:
           std::string tmp;
           if (widget.text->poll(tmp))
@@ -877,7 +881,9 @@ void build_leaf_widget(nanogui::Widget* parent, const mola::gui::LeafWidget& w)
 }
 
 /** Builds all widgets for one Tab into `tabPage`.  Must run on GUI thread. */
-void build_tab_widgets(nanogui::Widget* tabPage, const mola::gui::Tab& tab)
+void build_tab_widgets(
+    nanogui::Widget* tabPage, const mola::gui::Tab& tab,
+    std::map<std::string, mola::gui::LiveString::Ptr>& liveStringRegistry)
 {
   for (const auto& anyW : tab.widgets)
   {
@@ -895,13 +901,13 @@ void build_tab_widgets(nanogui::Widget* tabPage, const mola::gui::Tab& tab)
                 nanogui::Orientation::Horizontal, nanogui::Alignment::Maximum, spacing, spacing));
             for (const auto& leaf : widget.widgets)
             {
-              build_leaf_widget(row, leaf);
+              build_leaf_widget(row, leaf, liveStringRegistry);
             }
           }
           else
           {
             // All leaf types are also valid AnyWidget alternatives:
-            build_leaf_widget(tabPage, widget);
+            build_leaf_widget(tabPage, widget, liveStringRegistry);
           }
         },
         anyW);
@@ -1293,12 +1299,11 @@ void MolaViz::poll_live_strings_in_subwindows_()
         if (id.substr(0, 6) == "_live_")
         {
           // Decode the LiveString pointer:
-          mola::gui::LiveString* ls = nullptr;
-          std::sscanf(id.c_str() + 6, "%p", reinterpret_cast<void**>(&ls));  // NOLINT
-          if (ls)
+          auto it = liveStringRegistry_.find(id);
+          if (it != liveStringRegistry_.end())
           {
             std::string tmp;
-            if (ls->poll(tmp))
+            if (it->second->poll(tmp))
             {
               if (auto* lb = dynamic_cast<nanogui::Label*>(widget))
               {
@@ -1424,7 +1429,7 @@ std::future<void> MolaViz::create_subwindow_from_description(
           // Single-tab optimisation: skip the TabWidget, render content directly.
           // This saves vertical space for simple tool panels.
           subwin->setLayout(new nanogui::GroupLayout());
-          build_tab_widgets(subwin, desc.tabs.front());
+          build_tab_widgets(subwin, desc.tabs.front(), liveStringRegistry_);
         }
         else if (!desc.tabs.empty())
         {
@@ -1433,7 +1438,7 @@ std::future<void> MolaViz::create_subwindow_from_description(
           {
             auto* page = tabWidget->createTab(tab.title);
             page->setLayout(new nanogui::GroupLayout());
-            build_tab_widgets(page, tab);
+            build_tab_widgets(page, tab, liveStringRegistry_);
           }
           tabWidget->setActiveTab(0);
         }
@@ -1988,6 +1993,10 @@ void MolaViz::internal_handle_decaying_clouds()
 std::future<void> MolaViz::set_menu_bar(
     const mola::gui::MenuBar& /*bar*/, const std::string& /*parentWindow*/)
 {
+  // Note: nanogui backend does not support custom menu bars.
+  MRPT_LOG_DEBUG_STREAM(
+      "Ignoring request to add a menu bar since nanogui backend does not support menus.");
+
   std::promise<void> p;
   p.set_value();
   return p.get_future();
