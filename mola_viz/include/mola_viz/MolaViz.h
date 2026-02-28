@@ -98,6 +98,11 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string&                                      default_path = "",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
+  /** Does nothing in nanogui backend. */
+  std::future<void> set_menu_bar(
+      const mola::gui::MenuBar& bar,
+      const std::string&        parentWindow = DEFAULT_WINDOW_NAME) override;
+
   /** @} */
 
   // =========================================================================

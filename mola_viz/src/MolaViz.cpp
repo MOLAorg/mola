@@ -1879,8 +1879,8 @@ std::future<bool> MolaViz::execute_custom_code_on_background_scene(
         catch (const std::exception& e)
         {
           MRPT_LOG_ERROR_STREAM(
-                            "Exception in execute_custom_code_on_background_scene():\n"
-                            << e.what());
+              "Exception in execute_custom_code_on_background_scene():\n"
+              << e.what());
           return false;
         }
       });
@@ -1983,4 +1983,12 @@ void MolaViz::internal_handle_decaying_clouds()
       dc.cloud->setAllPointsAlpha(mrpt::f2u8(alpha));
     }
   }
+}
+
+std::future<void> MolaViz::set_menu_bar(
+    const mola::gui::MenuBar& /*bar*/, const std::string& /*parentWindow*/)
+{
+  std::promise<void> p;
+  p.set_value();
+  return p.get_future();
 }

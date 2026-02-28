@@ -150,6 +150,27 @@ class VizInterface
   static const std::string BACKEND_IMGUI;  // defined in VizInterface.cpp as "imgui"
 
   /**
+   * \brief Installs or replaces the menu bar of a parent window.
+   *
+   * Menu bars are a first-class feature of the Dear ImGui docking branch
+   * (ImGui::BeginMainMenuBar / BeginMenuBar).  The nanogui backend has no
+   * native equivalent and provides a no-op stub that resolves the future
+   * immediately without rendering anything.  Callers should guard with
+   * gui_backend() if the menus are essential to their workflow:
+   *
+   * \code
+   *   if (visualizer_->gui_backend() == VizInterface::BACKEND_IMGUI)
+   *       visualizer_->set_menu_bar(bar);
+   * \endcode
+   *
+   * \param bar          Full menu bar description.
+   * \param parentWindow Host window whose menu bar is replaced.
+   * \return             future<void> resolving when the menu bar is live.
+   */
+  virtual std::future<void> set_menu_bar(
+      const mola::gui::MenuBar& bar, const std::string& parentWindow = "main") = 0;
+
+  /**
    * \brief Returns an opaque handle to a previously created sub-window.
    *
    * The handle type depends on the backend:

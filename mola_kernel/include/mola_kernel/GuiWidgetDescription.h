@@ -407,6 +407,28 @@ struct Tab
   std::vector<AnyWidget> widgets;
 };
 
+/// A single menu item. Separator if label is empty.
+struct MenuItem
+{
+  std::string           label;  ///< Empty string → separator line
+  std::string           shortcut;  ///< Display-only hint, e.g. "Ctrl+S"
+  bool                  enabled = true;
+  std::function<void()> on_click;
+};
+
+/// A top-level menu, e.g. "File", "View", "Help"
+struct Menu
+{
+  std::string           label;  ///< e.g. "File"
+  std::vector<MenuItem> items;
+};
+
+/// The full menu bar for a parent window.
+struct MenuBar
+{
+  std::vector<Menu> menus;
+};
+
 /**
  * Full description of a floating sub-window with tabbed content.
  *
