@@ -176,7 +176,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
   const auto it_sen_gui = sensor_preview_gui_.find(obs->sensorLabel);
   if (it_sen_gui != sensor_preview_gui_.end())
   {
-    // Create and enque the GUI update function, as a lambda:
+    // Create and enqueue the GUI update function, as a lambda:
     RawDataSourceBase::SensorViewerImpl* sv = &(*it_sen_gui->second);
 
     auto func = [this, sv, obs]()

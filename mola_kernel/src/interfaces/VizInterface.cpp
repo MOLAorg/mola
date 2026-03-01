@@ -24,4 +24,7 @@ namespace mola
 
 VizInterface::~VizInterface() = default;
 
-}
+const std::string VizInterface::BACKEND_NANOGUI = "nanogui";
+const std::string VizInterface::BACKEND_IMGUI   = "imgui";
+
+}  // namespace mola
