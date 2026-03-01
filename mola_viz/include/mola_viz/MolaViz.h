@@ -290,7 +290,7 @@ class MolaViz : public ExecutableBase, public VizInterface
    *  if dirty.  Called from the GUI thread only. */
   void poll_live_strings_in_subwindows_();
 
-  std::map<std::string, mola::gui::LiveString::Ptr> liveStringRegistry_;
+  std::map<uint64_t, mola::gui::LiveString::Ptr> liveStringRegistry_;
 
   // ---------------------------------------------------------------------------
   // Dataset_UI auto-generated panels

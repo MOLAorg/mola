@@ -60,6 +60,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -92,9 +93,15 @@ namespace mola::gui
  */
 struct LiveString
 {
-  LiveString() = default;
-  explicit LiveString(std::string initial) : display(std::move(initial)) {}
+  LiveString() : id_(nextId_.fetch_add(1, std::memory_order_relaxed)) {}
+  explicit LiveString(std::string initial)
+      : display(std::move(initial)), id_(nextId_.fetch_add(1, std::memory_order_relaxed))
+  {
+  }
   ~LiveString() = default;
+
+  /** Globally unique ID for this instance (stable for its lifetime). */
+  uint64_t id() const { return id_; }
 
   // Non-copyable (owns a mutex)
   LiveString(const LiveString&)            = delete;
@@ -160,6 +167,9 @@ struct LiveString
   std::string       pending_;
   std::mutex        mtx_;
   std::atomic<bool> dirty_{false};
+  uint64_t          id_;
+
+  static inline std::atomic<uint64_t> nextId_{0};
 };
 
 // ---------------------------------------------------------------------------
@@ -207,7 +217,8 @@ using AnyWidget = std::variant<
 struct Label
 {
   LiveString::Ptr text;  ///< Shared with the module; never null.
-  int             font_size = 0;
+  int             font_size   = 0;
+  int             fixed_width = 0;  ///< 0 = auto (nanogui: setFixedWidth)
 };
 
 /**
@@ -340,6 +351,7 @@ struct SliderFloat
   float                      max_value     = 1.0f;
   std::string                format_string = "%.2f";
   std::function<void(float)> on_change;
+  int                        fixed_width = 0;  ///< 0 = auto (nanogui: setFixedWidth on slider)
 };
 
 /**
@@ -355,6 +367,7 @@ struct SliderInt
   int                      min_value     = 0;
   int                      max_value     = 100;
   std::function<void(int)> on_change;
+  int                      fixed_width = 0;  ///< 0 = auto (nanogui: setFixedWidth on slider)
 };
 
 /**

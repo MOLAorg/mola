@@ -43,6 +43,7 @@
 #include <mrpt/version.h>
 
 #include <array>
+#include <cinttypes>
 
 #include "mola_icon_64x64.h"
 
@@ -690,7 +691,7 @@ void gui_handler_imu(
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void build_leaf_widget(
     nanogui::Widget* parent, const mola::gui::LeafWidget& w,
-    std::map<std::string, mola::gui::LiveString::Ptr>& liveStringRegistry)
+    std::map<uint64_t, mola::gui::LiveString::Ptr>& liveStringRegistry)
 {
   std::visit(
       // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -705,17 +706,18 @@ void build_leaf_widget(
           {
             lb->setFontSize(widget.font_size);
           }
-          // Store the LiveString pointer in the label's user data so spinOnce
-          // can poll it.  We use the tag field that nanogui::Widget provides.
-          std::string id         = mrpt::format("_live_%zu", liveStringRegistry.size());
-          liveStringRegistry[id] = widget.text;
-          lb->setId(id);
-          // Perform an initial poll so the label is not blank on first draw:
-          std::string tmp;
-          if (widget.text->poll(tmp))
+          if (widget.fixed_width > 0)
           {
-            lb->setCaption(tmp);
+            lb->setFixedWidth(widget.fixed_width);
           }
+          // Use the LiveString's intrinsic unique ID as registry key.
+          const uint64_t lsId      = widget.text->id();
+          liveStringRegistry[lsId] = widget.text;
+          lb->setId(mrpt::format("_live_%" PRIu64, lsId));
+          // Set initial caption from the display member (which the constructor
+          // populates).  poll() would return false here because dirty_ starts
+          // as false — the initial value only lives in `display`.
+          lb->setCaption(widget.text->display);
         }
         else if constexpr (std::is_same_v<T, mola::gui::Separator>)
         {
@@ -779,13 +781,16 @@ void build_leaf_widget(
           }
           tb->setEditable(widget.editable);
           tb->setAlignment(nanogui::TextBox::Alignment::Left);
+          // Use the LiveString's intrinsic unique ID as registry key.
+          const uint64_t lsId      = widget.live_text->id();
+          liveStringRegistry[lsId] = widget.live_text;
+          tb->setId(mrpt::format("_live_%" PRIu64, lsId));
+          // Set initial value from the display member.
           std::string tmp;
           if (widget.live_text->poll(tmp))
           {
             tb->setValue(tmp);
           }
-          // Tag for polling in spinOnce:
-          tb->setId(mrpt::format("_live_%p", static_cast<void*>(widget.live_text.get())));
           if (widget.editable && widget.on_change)
           {
             tb->setCallback(
@@ -798,30 +803,29 @@ void build_leaf_widget(
         }
         else if constexpr (std::is_same_v<T, mola::gui::SliderFloat>)
         {
-          if (!widget.label.empty())
-          {
-            parent->add<nanogui::Label>(widget.label);
-          }
-
           auto* row = parent->add<nanogui::Widget>();
           row->setLayout(new nanogui::BoxLayout(
               nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 4));
 
-          auto* sl     = row->add<nanogui::Slider>();
-          auto* valLbl = row->add<nanogui::Label>(
-              mrpt::format(widget.format_string.c_str(), widget.initial_value));
-          valLbl->setFixedWidth(60);
+          if (!widget.label.empty())
+          {
+            row->add<nanogui::Label>(widget.label);
+          }
 
+          auto* sl = row->add<nanogui::Slider>();
+          if (widget.fixed_width > 0)
+          {
+            sl->setFixedWidth(widget.fixed_width);
+          }
           // Normalise to [0,1]:
           const float range = widget.max_value - widget.min_value;
           sl->setValue(range > 0.0f ? (widget.initial_value - widget.min_value) / range : 0.0f);
 
           sl->setCallback(
-              [min = widget.min_value, max = widget.max_value, fmt = widget.format_string, valLbl,
+              [min = widget.min_value, max = widget.max_value, fmt = widget.format_string,
                cb = widget.on_change](float v)
               {
                 const float real = min + v * (max - min);
-                valLbl->setCaption(mrpt::format(fmt.c_str(), real));
                 if (cb)
                 {
                   cb(real);
@@ -839,7 +843,11 @@ void build_leaf_widget(
           row->setLayout(new nanogui::BoxLayout(
               nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 4));
 
-          auto* sl     = row->add<nanogui::Slider>();
+          auto* sl = row->add<nanogui::Slider>();
+          if (widget.fixed_width > 0)
+          {
+            sl->setFixedWidth(widget.fixed_width);
+          }
           auto* valLbl = row->add<nanogui::Label>(std::to_string(widget.initial_value));
           valLbl->setFixedWidth(50);
 
@@ -883,7 +891,7 @@ void build_leaf_widget(
 /** Builds all widgets for one Tab into `tabPage`.  Must run on GUI thread. */
 void build_tab_widgets(
     nanogui::Widget* tabPage, const mola::gui::Tab& tab,
-    std::map<std::string, mola::gui::LiveString::Ptr>& liveStringRegistry)
+    std::map<uint64_t, mola::gui::LiveString::Ptr>& liveStringRegistry)
 {
   for (const auto& anyW : tab.widgets)
   {
@@ -898,7 +906,7 @@ void build_tab_widgets(
             auto*     row     = tabPage->add<nanogui::Widget>();
             const int spacing = widget.item_spacing > 0 ? widget.item_spacing : 1;
             row->setLayout(new nanogui::BoxLayout(
-                nanogui::Orientation::Horizontal, nanogui::Alignment::Maximum, spacing, spacing));
+                nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, spacing, spacing));
             for (const auto& leaf : widget.widgets)
             {
               build_leaf_widget(row, leaf, liveStringRegistry);
@@ -1084,7 +1092,7 @@ void MolaViz::dataset_ui_check_new_modules()
     mola::gui::WindowDescription desc;
     desc.title         = module->getModuleInstanceName();
     desc.position      = {300, 5};
-    desc.size          = {650, 60};
+    desc.size          = {650, 75};
     desc.starts_hidden = false;
 
     mola::gui::Tab tab{"Controls", {}};
@@ -1102,7 +1110,7 @@ void MolaViz::dataset_ui_check_new_modules()
           }
         }});
 
-    row.widgets.emplace_back(mola::gui::Label{e.lbPlaybackPosition});
+    row.widgets.emplace_back(mola::gui::Label{e.lbPlaybackPosition, 0, 100});
 
     // Slider - uses a dedicated SliderFloat spanning dataset range.
     // Initial max will be overwritten by dataset_ui_update() on the first tick.
@@ -1115,7 +1123,8 @@ void MolaViz::dataset_ui_check_new_modules()
           {
             mod->datasetUI_teleport(static_cast<size_t>(pos));
           }
-        }});
+        },
+        270});
 
     row.widgets.emplace_back(
         mola::gui::Label{std::make_shared<mola::gui::LiveString>("Playback rate:")});
@@ -1278,8 +1287,8 @@ void MolaViz::poll_live_strings_in_subwindows_()
 {
   // Walk every widget in every managed subwindow.  Widgets that were created
   // from a Label or TextPanel description carry an id tag of the form
-  // "_live_<ptr>" encoding the address of their LiveString.  We decode that,
-  // call poll(), and update the caption / value if dirty.
+  // "_live_<uint64_id>" encoding the registry key of their LiveString.
+  // We decode that, call poll(), and update the caption / value if dirty.
   //
   // This is O(total widgets), but only the dirty ones do any real work.
 
@@ -1298,8 +1307,9 @@ void MolaViz::poll_live_strings_in_subwindows_()
         const auto& id = widget->id();
         if (id.substr(0, 6) == "_live_")
         {
-          // Decode the LiveString pointer:
-          auto it = liveStringRegistry_.find(id);
+          // Decode the LiveString unique ID from the widget tag:
+          const uint64_t lsId = std::stoull(id.substr(6));
+          auto           it   = liveStringRegistry_.find(lsId);
           if (it != liveStringRegistry_.end())
           {
             std::string tmp;
@@ -1376,17 +1386,6 @@ std::future<void> MolaViz::create_subwindow_from_description(
 
         subwin->setVisible(!desc.starts_hidden);
         subwin->setPosition({desc.position[0], desc.position[1]});
-        if (desc.size[0] > 0)
-        {
-          subwin->setFixedWidth(desc.size[0]);
-        }
-        if (desc.size[1] > 0)
-        {
-          subwin->setFixedHeight(desc.size[1]);
-        }
-
-        subwin->setLayout(
-            new nanogui::BoxLayout(nanogui::Orientation::Vertical, nanogui::Alignment::Fill, 5, 2));
 
         // Resize/enlarge buttons in the title-bar button panel:
         subwin->buttonPanel()
@@ -1424,23 +1423,43 @@ std::future<void> MolaViz::create_subwindow_from_description(
                   topWin->performLayout();
                 });
 
-        if (desc.tabs.size() == 1)
+        if (desc.tabs.empty())
         {
-          // Single-tab optimisation: skip the TabWidget, render content directly.
-          // This saves vertical space for simple tool panels.
-          subwin->setLayout(new nanogui::GroupLayout());
-          build_tab_widgets(subwin, desc.tabs.front(), liveStringRegistry_);
+          // Legacy bare subwindow: no layout or size constraints set.
+          // Callers populate the window and manage layout themselves.
         }
-        else if (!desc.tabs.empty())
+        else
         {
-          auto* tabWidget = subwin->add<nanogui::TabWidget>();
-          for (const auto& tab : desc.tabs)
+          // Apply size constraints only for description-based windows:
+          if (desc.size[0] > 0)
           {
-            auto* page = tabWidget->createTab(tab.title);
-            page->setLayout(new nanogui::GroupLayout());
-            build_tab_widgets(page, tab, liveStringRegistry_);
+            subwin->setFixedWidth(desc.size[0]);
           }
-          tabWidget->setActiveTab(0);
+          if (desc.size[1] > 0)
+          {
+            subwin->setFixedHeight(desc.size[1]);
+          }
+
+          if (desc.tabs.size() == 1)
+          {
+            // Single-tab optimisation: skip the TabWidget, render content
+            // directly.  This saves vertical space for simple tool panels.
+            subwin->setLayout(new nanogui::GroupLayout());
+            build_tab_widgets(subwin, desc.tabs.front(), liveStringRegistry_);
+          }
+          else
+          {
+            subwin->setLayout(new nanogui::BoxLayout(
+                nanogui::Orientation::Vertical, nanogui::Alignment::Fill, 5, 2));
+            auto* tabWidget = subwin->add<nanogui::TabWidget>();
+            for (const auto& tab : desc.tabs)
+            {
+              auto* page = tabWidget->createTab(tab.title);
+              page->setLayout(new nanogui::GroupLayout());
+              build_tab_widgets(page, tab, liveStringRegistry_);
+            }
+            tabWidget->setActiveTab(0);
+          }
         }
 
         markWindowForReLayout(parentWindow);
@@ -1884,8 +1903,8 @@ std::future<bool> MolaViz::execute_custom_code_on_background_scene(
         catch (const std::exception& e)
         {
           MRPT_LOG_ERROR_STREAM(
-                            "Exception in execute_custom_code_on_background_scene():\n"
-                            << e.what());
+              "Exception in execute_custom_code_on_background_scene():\n"
+              << e.what());
           return false;
         }
       });
