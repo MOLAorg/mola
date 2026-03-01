@@ -59,6 +59,7 @@
  */
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -128,15 +129,12 @@ struct LiveString
    */
   bool poll(std::string& out)
   {
-    if (!dirty_.load(std::memory_order_acquire))
+    if (!dirty_.exchange(false, std::memory_order_acq_rel))
     {
       return false;
     }
-    {
-      std::lock_guard<std::mutex> lk(mtx_);
-      out = pending_;
-    }
-    dirty_.store(false, std::memory_order_relaxed);
+    std::lock_guard<std::mutex> lk(mtx_);
+    out = pending_;
     return true;
   }
 
@@ -146,15 +144,12 @@ struct LiveString
    */
   void pollIntoDisplay()
   {
-    if (!dirty_.load(std::memory_order_acquire))
+    if (!dirty_.exchange(false, std::memory_order_acq_rel))
     {
       return;
     }
-    {
-      std::lock_guard<std::mutex> lk(mtx_);
-      display = pending_;
-    }
-    dirty_.store(false, std::memory_order_relaxed);
+    std::lock_guard<std::mutex> lk(mtx_);
+    display = pending_;
   }
 
   /**

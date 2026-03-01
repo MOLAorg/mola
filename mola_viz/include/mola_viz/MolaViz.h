@@ -225,6 +225,7 @@ class MolaViz : public ExecutableBase, public VizInterface
    *  Called from GUI-thread helpers that add or resize widgets. */
   void markWindowForReLayout(const window_name_t& name)
   {
+    auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
     guiThreadMustReLayoutTheseWindows_.insert(name);
   }
 
@@ -268,6 +269,8 @@ class MolaViz : public ExecutableBase, public VizInterface
   std::map<window_name_t, std::map<subwindow_name_t, nanogui::Window*>> subWindows_;
 
   mrpt::gui::CDisplayWindowGUI::Ptr create_and_add_window(const window_name_t& name);
+
+  mutable std::shared_mutex subWindowsMtx_;
 
   // ---------------------------------------------------------------------------
   // GUI thread and task queue

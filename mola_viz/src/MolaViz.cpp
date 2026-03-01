@@ -1191,7 +1191,11 @@ mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(const window_na
   cp.maximized   = true;
   windows_[name] = {
       mrpt::gui::CDisplayWindowGUI::Create("MOLAViz - "s + name, 1000, 800, cp), {}, {}};
-  subWindows_[name];
+
+  {
+    std::unique_lock<std::shared_mutex> lck(subWindowsMtx_);
+    subWindows_[name];
+  }
 
   auto& win = windows_[name].win;
 
@@ -1354,7 +1358,8 @@ void* MolaViz::get_subwindow_handle(
 {
   // This is called from arbitrary threads.  The map is only written from the
   // GUI thread, so we take a shared lock for the read here.
-  auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);  // reuse existing mutex; maps are small
+  std::shared_lock<std::shared_mutex> lck(subWindowsMtx_);
+
   auto itParent = subWindows_.find(parentWindow);
   if (itParent == subWindows_.end())
   {
@@ -1368,6 +1373,7 @@ void* MolaViz::get_subwindow_handle(
   return static_cast<void*>(itSub->second);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 std::future<void> MolaViz::create_subwindow_from_description(
     const mola::gui::WindowDescription& desc, const std::string& parentWindow)
 {
@@ -1381,8 +1387,12 @@ std::future<void> MolaViz::create_subwindow_from_description(
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
 
-        auto* subwin                          = topWin->createManagedSubWindow(desc.title);
-        subWindows_[parentWindow][desc.title] = subwin;
+        auto* subwin = topWin->createManagedSubWindow(desc.title);
+
+        {
+          std::unique_lock<std::shared_mutex> lck(subWindowsMtx_);
+          subWindows_[parentWindow][desc.title] = subwin;
+        }
 
         subwin->setVisible(!desc.starts_hidden);
         subwin->setPosition({desc.position[0], desc.position[1]});
@@ -1393,15 +1403,18 @@ std::future<void> MolaViz::create_subwindow_from_description(
             ->setCallback(
                 [subwin, topWin]()
                 {
-                  if (auto* gl =
-                          dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
-                      gl)
+                  if (subwin->children().size() > 1)
                   {
-                    auto s = gl->size();
-                    s.x()  = mrpt::round(s.x() * 0.75);
-                    s.y()  = mrpt::round(s.y() * 0.75);
-                    gl->setSize(s);
-                    gl->setFixedSize(s);
+                    if (auto* gl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(
+                            subwin->children().at(1));
+                        gl)
+                    {
+                      auto s = gl->size();
+                      s.x()  = mrpt::round(s.x() * 0.75);
+                      s.y()  = mrpt::round(s.y() * 0.75);
+                      gl->setSize(s);
+                      gl->setFixedSize(s);
+                    }
                   }
                   topWin->performLayout();
                 });
@@ -1410,15 +1423,18 @@ std::future<void> MolaViz::create_subwindow_from_description(
             ->setCallback(
                 [subwin, topWin]()
                 {
-                  if (auto* gl =
-                          dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(subwin->children().at(1));
-                      gl)
+                  if (subwin->children().size() > 1)
                   {
-                    auto s = gl->size();
-                    s.x()  = mrpt::round(s.x() * 1.25);
-                    s.y()  = mrpt::round(s.y() * 1.25);
-                    gl->setSize(s);
-                    gl->setFixedSize(s);
+                    if (auto* gl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(
+                            subwin->children().at(1));
+                        gl)
+                    {
+                      auto s = gl->size();
+                      s.x()  = mrpt::round(s.x() * 1.25);
+                      s.y()  = mrpt::round(s.y() * 1.25);
+                      gl->setSize(s);
+                      gl->setFixedSize(s);
+                    }
                   }
                   topWin->performLayout();
                 });
@@ -1542,6 +1558,8 @@ std::future<nanogui::Window*> MolaViz::create_subwindow(
   enqueue_custom_gui_code(
       [this, subWindowTitle, parentWindow, p = std::move(promise)]() mutable
       {
+        std::shared_lock<std::shared_mutex> lck(subWindowsMtx_);
+
         auto itParent = subWindows_.find(parentWindow);
         if (itParent != subWindows_.end())
         {
@@ -1571,6 +1589,8 @@ std::future<void> MolaViz::subwindow_grid_layout(
   return enqueue_custom_gui_code(
       [this, subWindowTitle, orientationVertical, resolution, parentWindow]()
       {
+        std::shared_lock<std::shared_mutex> lck(subWindowsMtx_);
+
         auto itWin = subWindows_.find(parentWindow);
         ASSERTMSG_(itWin != subWindows_.end(), "Unknown GUI top-level window");
         auto itSubWin = itWin->second.find(subWindowTitle);
@@ -1589,6 +1609,8 @@ std::future<void> MolaViz::subwindow_move_resize(
   return enqueue_custom_gui_code(
       [this, subWindowTitle, location, size, parentWindow]()
       {
+        std::shared_lock<std::shared_mutex> lck(subWindowsMtx_);
+
         auto itWin = subWindows_.find(parentWindow);
         ASSERTMSG_(itWin != subWindows_.end(), "Unknown GUI top-level window");
         auto itSubWin = itWin->second.find(subWindowTitle);
@@ -1618,6 +1640,8 @@ std::future<bool> MolaViz::subwindow_update_visualization(
           MRPT_LOG_DEBUG_STREAM(
               "subwindow_update_visualization() title='" << subWindowTitle << "' class: '"
                                                          << objClassName << "'");
+
+          std::shared_lock<std::shared_mutex> lck(subWindowsMtx_);
 
           ASSERTMSG_(
               subWindows_.count(parentWindow),
@@ -1903,8 +1927,8 @@ std::future<bool> MolaViz::execute_custom_code_on_background_scene(
         catch (const std::exception& e)
         {
           MRPT_LOG_ERROR_STREAM(
-              "Exception in execute_custom_code_on_background_scene():\n"
-              << e.what());
+                            "Exception in execute_custom_code_on_background_scene():\n"
+                            << e.what());
           return false;
         }
       });
