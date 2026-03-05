@@ -1046,7 +1046,7 @@ void MolaViz::spinOnce()
 }
 
 // ---------------------------------------------------------------------------
-// Dataset UI - ported to create_subwindow_from_description
+// Dataset UI
 // ---------------------------------------------------------------------------
 
 void MolaViz::dataset_ui_check_new_modules()

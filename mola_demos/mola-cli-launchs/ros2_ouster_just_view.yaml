@@ -9,11 +9,11 @@ modules:
   # MolaViz
   # =====================
   - name: viz
-    type: mola::MolaViz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
     #verbosity_level: DEBUG
     params: ~ # none
 
-# Offline or online sensory data sources =====================
+  # Offline or online sensory data sources =====================
   - type: mola::BridgeROS2
     name: dataset_input
     # In BridgeROS2, this execution rate (Hz) determines the
@@ -38,7 +38,7 @@ modules:
           msg_type: PointCloud2
           output_sensor_label: ${MOLA_LIDAR_NAME|lidar}
           # If present, this will override whatever /tf tells about the sensor pose:
-          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg''
+          fixed_sensor_pose: "0 0 0 0 0 0" # 'x y z yaw_deg pitch_deg roll_deg''
           use_fixed_sensor_pose: ${MOLA_USE_FIXED_LIDAR_POSE|false}
 
         - topic: /odom

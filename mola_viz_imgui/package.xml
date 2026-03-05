@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mola_viz_imgui</name>
+  <version>2.5.0</version>
+  <description>Dear ImGui (docking branch) GUI backend for MOLA</description>
+
+  <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>
+  <license file="LICENSE">GPLv3</license>
+
+  <url type="website">https://github.com/MOLAorg/mola/tree/develop/mola_viz_imgui</url>
+
+  <!-- Runtime deps -->
+  <depend>mola_kernel</depend>
+  <depend>mrpt_libmaps</depend>
+  <depend>mrpt_libopengl</depend>
+  <depend>mrpt_libobs</depend>
+  <depend>mrpt_libgui</depend>
+
+  <depend>libglfw3-dev</depend>
+
+  <!-- Dear ImGui is a git submodule built internally; no system package needed -->
+
+  <doc_depend>doxygen</doc_depend>
+
+  <buildtool_depend>cmake</buildtool_depend>
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+
+</package>
