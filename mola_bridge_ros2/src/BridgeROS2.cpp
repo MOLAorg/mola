@@ -27,7 +27,6 @@
 
 // MOLA/MRPT:
 #include <mola_kernel/pretty_print_exception.h>
-#include <mola_kernel/version.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
@@ -1997,7 +1996,6 @@ std::string module_name_to_valid_topic(const std::string& s)
 
 void BridgeROS2::publishDiagnostics()
 {
-#if MOLA_VERSION_CHECK(1, 6, 2)
   using namespace std::string_literals;
 
   const auto qos = rclcpp::SystemDefaultsQoS();
@@ -2065,7 +2063,6 @@ void BridgeROS2::publishDiagnostics()
 
     }  // fof each diagnostics message
   }  // end for each module
-#endif
 }
 
 void BridgeROS2::internalPublishGridMap(
