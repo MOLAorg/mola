@@ -716,7 +716,7 @@ void build_leaf_widget(
           lb->setId(mrpt::format("_live_%" PRIu64, lsId));
           // Set initial caption from the display member (which the constructor
           // populates).  poll() would return false here because dirty_ starts
-          // as false — the initial value only lives in `display`.
+          // as false - the initial value only lives in `display`.
           lb->setCaption(widget.text->display);
         }
         else if constexpr (std::is_same_v<T, mola::gui::Separator>)

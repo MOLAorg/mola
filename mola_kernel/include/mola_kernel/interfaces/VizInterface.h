@@ -124,7 +124,7 @@ class VizInterface
   /**
    * \brief Returns a short identifier string for the active GUI backend.
    *
-   * Clients may use this to conditionally tune their GUIs — for example to
+   * Clients may use this to conditionally tune their GUIs - for example to
    * choose between an Entypo icon (nanogui) and a FontAwesome codepoint
    * (ImGui), or to skip features not yet supported on a given backend.
    *
