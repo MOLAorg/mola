@@ -21,9 +21,16 @@
 #include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
-#include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/obs/CRawlog.h>
 #include <mrpt/serialization/CArchive.h>
+
+//
+#include <mrpt/version.h>
+#if MRPT_VERSION >= 0x020f07
+#include <mrpt/io/CCompressedInputStream.h>
+#else
+#include <mrpt/io/CFileGZInputStream.h>
+#endif
 
 namespace mola
 {
@@ -91,10 +98,14 @@ class RawlogDataset : public RawDataSourceBase, public OfflineDatasetSource, pub
   void initialize_rds(const Yaml& cfg) override;
 
  private:
-  std::string                  rawlog_filename_;
+  std::string        rawlog_filename_;
+  mrpt::obs::CRawlog rawlog_entire_;  //!< if read_all_first_=true
+  size_t             rawlog_next_idx_ = 0;
+#if MRPT_VERSION >= 0x020f07
+  mrpt::io::CCompressedInputStream rawlog_in_;
+#else
   mrpt::io::CFileGZInputStream rawlog_in_;
-  mrpt::obs::CRawlog           rawlog_entire_;  //!< if read_all_first_=true
-  size_t                       rawlog_next_idx_ = 0;
+#endif
 
   mrpt::Clock::time_point rawlog_begin_time_{INVALID_TIMESTAMP};
   bool                    read_all_first_ = true;

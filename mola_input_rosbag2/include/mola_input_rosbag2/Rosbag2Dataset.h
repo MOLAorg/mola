@@ -21,7 +21,6 @@
 #include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
-#include <mrpt/io/CFileGZInputStream.h>
 #include <mrpt/obs/CSensoryFrame.h>
 #include <mrpt/serialization/CArchive.h>
 
