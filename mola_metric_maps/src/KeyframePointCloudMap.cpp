@@ -641,20 +641,18 @@ void KeyframePointCloudMap::nn_search_cov2cov(
   }
 
   // Both clouds must expose all three channels for the filter to activate.
-  const bool do_view_filter = try_view_filter && (local_view_x != nullptr) &&
-                              (local_view_y != nullptr) && (local_view_z != nullptr) &&
-                              (global_view_x != nullptr) && (global_view_y != nullptr) &&
-                              (global_view_z != nullptr);
+  const bool have_view_fields = (local_view_x != nullptr) && (local_view_y != nullptr) &&
+                                (local_view_z != nullptr) && (global_view_x != nullptr) &&
+                                (global_view_y != nullptr) && (global_view_z != nullptr);
+
+  const double max_view_angle_deg = std::clamp(creationOptions.max_view_angle_deg, 0.0, 180.0);
+  const bool   do_view_filter = try_view_filter && have_view_fields && max_view_angle_deg < 180.0;
 
   // Pre-compute the cosine threshold once (cos is monotonically decreasing
   // on [0°, 180°], so angle > threshold  <=>  dot < cos(threshold)).
-  ASSERT_GT_(creationOptions.max_view_angle_deg, 0.0f);
-  ASSERT_LE_(creationOptions.max_view_angle_deg, 180.0f);
-
   const float view_cos_threshold =
-      do_view_filter
-          ? static_cast<float>(std::cos(mrpt::DEG2RAD(creationOptions.max_view_angle_deg)))
-          : -2.0f;  // sentinel: never reached when filter is disabled
+      do_view_filter ? static_cast<float>(std::cos(mrpt::DEG2RAD(max_view_angle_deg)))
+                     : -2.0f;  // sentinel: never reached when filter is disabled
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
   tbb::enumerable_thread_specific<mp2p_icp::MatchedPointWithCovList> tls;
@@ -1091,6 +1089,8 @@ void KeyframePointCloudMap::TCreationOptions::writeToStream(
 
 void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
 {
+  *this = {};
+
   const auto version = in.ReadAs<uint8_t>();
   switch (version)
   {
