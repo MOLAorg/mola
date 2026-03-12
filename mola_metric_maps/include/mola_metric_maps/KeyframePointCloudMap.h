@@ -284,6 +284,30 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  for angularly diverse and/or more distant keyframes.
      *  Must be < max_search_keyframes. */
     uint32_t num_diverse_keyframes = 1;
+
+    /** If true (default), and if both the reference and query point clouds contain
+     *  per-point view-direction fields ("view_x", "view_y", "view_z" - unit vectors
+     *  pointing FROM the point TOWARD the sensor at acquisition time), then a
+     *  cov-to-cov pairing is accepted only when the angle between the two view
+     *  directions is at most `max_view_angle_deg`.
+     *
+     *  The rationale is that two points on opposite sides of a thin surface (e.g.
+     *  a wall seen from the front vs. the back, or a thin pole) will have nearly
+     *  anti-parallel view vectors.  Pairing them would produce a badly conditioned
+     *  or outright wrong ICP residual.  120° is a reasonable default: it rejects
+     *  pairs whose view directions differ by more than 120° (cos < -0.5) while
+     *  keeping pairs seen from "similar enough" directions.
+     *
+     *  Setting this to `false`, or to a threshold ≥ 180°, effectively disables
+     *  the filter even when view fields are present.
+     */
+    bool use_view_direction_filter = true;
+
+    /** Maximum allowed angle [degrees] between the view-direction vectors of a
+     *  candidate cov-to-cov pair.  Only used when `use_view_direction_filter`
+     *  is `true` and the view fields are present.  Default: 120°.
+     */
+    double max_view_angle_deg = 120.0;
   };
   TCreationOptions creationOptions;
 
