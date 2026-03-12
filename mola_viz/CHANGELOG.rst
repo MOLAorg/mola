@@ -2,6 +2,26 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#113 <https://github.com/MOLAorg/mola/issues/113>`_ from MOLAorg/feat/kf-map-view-vectors
+  Feat:kf map view vectors filter for NN search
+* comments formatting
+* Merge pull request `#109 <https://github.com/MOLAorg/mola/issues/109>`_ from MOLAorg/feat/support-imgui
+  Feature: GUI backend agnostic API in mola_kernel (Step towards supporting imgui)
+* safer multithread
+* Several visual and safety fixes in the new GUI interface
+* Use safer livestring registry
+* minor fixes
+* Add support for menu bars
+* MolaViz implements the new backend agnostic API
+* Merge pull request `#107 <https://github.com/MOLAorg/mola/issues/107>`_ from MOLAorg/fix/viz-decay-clouds
+  Fix/viz-decay-clouds
+* Refactor decay-clouds so they are invariant to wallclock incoming speed
+* Update coyright notes
+* fix clang-tidy warnings
+* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+
 2.5.0 (2026-02-14)
 ------------------
 * Fix: mola_viz lidar preview didn't filter Inf ranges in stats

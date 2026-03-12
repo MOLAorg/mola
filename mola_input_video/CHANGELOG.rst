@@ -2,6 +2,13 @@
 Changelog for package mola_input_video
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#107 <https://github.com/MOLAorg/mola/issues/107>`_ from MOLAorg/fix/viz-decay-clouds
+  Fix/viz-decay-clouds
+* Update coyright notes
+* Contributors: Jose Luis Blanco-Claraco
+
 2.5.0 (2026-02-14)
 ------------------
 

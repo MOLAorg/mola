@@ -3,6 +3,14 @@ Changelog for package mola_input_mulran_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#107 <https://github.com/MOLAorg/mola/issues/107>`_ from MOLAorg/fix/viz-decay-clouds
+  Fix/viz-decay-clouds
+* Update coyright notes
+* FIX: Exception in mulran dataset source with current mrpt version
+* Contributors: Jose Luis Blanco-Claraco
+
 2.5.0 (2026-02-14)
 ------------------
 * Merge pull request `#100 <https://github.com/MOLAorg/mola/issues/100>`_ from MOLAorg/fix/remove-mrpt-deprecated-maps

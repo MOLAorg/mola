@@ -2,6 +2,29 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#113 <https://github.com/MOLAorg/mola/issues/113>`_ from MOLAorg/feat/kf-map-view-vectors
+  Feat:kf map view vectors filter for NN search
+* comments formatting
+* Merge pull request `#109 <https://github.com/MOLAorg/mola/issues/109>`_ from MOLAorg/feat/support-imgui
+  Feature: GUI backend agnostic API in mola_kernel (Step towards supporting imgui)
+* safer multithread
+* Several visual and safety fixes in the new GUI interface
+* minor fixes
+* Add support for menu bars
+* VizInterface made backend agnostic (ImGUI and Nanogui)
+* Merge pull request `#108 <https://github.com/MOLAorg/mola/issues/108>`_ from MOLAorg/feat/use-gps-msgs
+  Support gps_msgs data types too for ROS2
+* Support gps_msgs as alternative to NavSatFix
+* Merge pull request `#107 <https://github.com/MOLAorg/mola/issues/107>`_ from MOLAorg/fix/viz-decay-clouds
+  Fix/viz-decay-clouds
+* fix typo in comments
+* add missing new cpp
+* Update coyright notes
+* fix clang-tidy warnings
+* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+
 2.5.0 (2026-02-14)
 ------------------
 * Merge pull request `#104 <https://github.com/MOLAorg/mola/issues/104>`_ from MOLAorg/feat/better-regex

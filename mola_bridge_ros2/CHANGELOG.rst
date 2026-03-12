@@ -3,6 +3,17 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Remove now obsolete version check macro
+* Merge pull request `#108 <https://github.com/MOLAorg/mola/issues/108>`_ from MOLAorg/feat/use-gps-msgs
+  Support gps_msgs data types too for ROS2
+* Support gps_msgs as alternative to NavSatFix
+* Merge pull request `#107 <https://github.com/MOLAorg/mola/issues/107>`_ from MOLAorg/fix/viz-decay-clouds
+  Fix/viz-decay-clouds
+* Update coyright notes
+* Contributors: Jose Luis Blanco-Claraco
+
 2.5.0 (2026-02-14)
 ------------------
 * Merge pull request `#105 <https://github.com/MOLAorg/mola/issues/105>`_ from MOLAorg/feat/refactor-ros2-bridges
