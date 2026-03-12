@@ -21,6 +21,7 @@
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/core/get_env.h>
 #include <mrpt/maps/CGenericPointsMap.h>
+#include <mrpt/math/TOrientedBox.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/customizable_obs_viz.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
@@ -30,10 +31,6 @@
 #include <mrpt/serialization/CArchive.h>  // serialization
 #include <mrpt/system/string_utils.h>  // unitsFormat()
 #include <mrpt/version.h>
-
-#if MRPT_VERSION >= 0x020e0d
-#include <mrpt/math/TOrientedBox.h>
-#endif
 
 #include <numeric>  // std::accumulate
 
@@ -475,7 +472,7 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
       }
     }
 
-#if MRPT_VERSION >= 0x030000
+#if MRPT_VERSION >= 0x020f0b  // 2.15.11
     cached_.icp_search_submap->pointcloud()->insertAnotherMap(
         kf_global.get(), mrpt::poses::CPose3D::Identity(), false /*filterOutPointsAtZero*/,
         false /*autoRegisterAllSourceFields*/);
@@ -1510,13 +1507,11 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
     obj->setAllPointsAlpha(alpha_u8);
   }
 
-#if MRPT_VERSION >= 0x020f03
   mrpt::obs::PointCloudRecoloringParameters pcdCol;
   pcdCol.colorMap        = ro.colormap;
   pcdCol.colorizeByField = ro.recolorByPointField;
 
   mrpt::obs::recolorize3Dpc(obj, pointcloud().get(), pcdCol);
-#endif
 
   cached_viz_ = obj;
   return cached_viz_;
