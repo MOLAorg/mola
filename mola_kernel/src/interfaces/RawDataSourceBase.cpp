@@ -17,6 +17,7 @@
  * @date   Nov 21, 2018
  */
 
+#include <mola_kernel/GuiWidgetDescription.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mola_kernel/interfaces/VizInterface.h>
 #include <mola_yaml/yaml_helpers.h>
@@ -39,7 +40,7 @@ struct RawDataSourceBase::SensorViewerImpl
   std::string            win_pos;  //!< "[x,y,width,height]"
   mrpt::containers::yaml extra_parameters;
 
-  nanogui::Window* win = nullptr;
+  bool gui_created = false;
 };
 
 RawDataSourceBase::RawDataSourceBase() = default;
@@ -200,28 +201,27 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
         auto viz = std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
 
         // Create GUI upon first call:
-        if (!sv->win)
+        if (!sv->gui_created)
         {
-          // get std::future and wait for it:
-          auto fut = viz->create_subwindow(sv->sensor_label);
-          sv->win  = fut.get();
+          mola::gui::WindowDescription desc;
+          desc.title = sv->sensor_label;
 
-          auto futLayout =
-              viz->subwindow_grid_layout(sv->sensor_label, true /*vertical?*/, 1 /*col count*/);
-          futLayout.get();
-
-          // Replace and resize, if user provided "win_pos":
-          if (sv->win && !sv->win_pos.empty())
+          // Apply user-provided position/size if available:
+          if (!sv->win_pos.empty())
           {
             int                x = 0, y = 0, w = 400, h = 300;
             std::istringstream ss(sv->win_pos);
-            // parse: "x y w h"
             if ((ss >> x) && (ss >> y) && (ss >> w) && (ss >> h))
             {
-              auto futMove = viz->subwindow_move_resize(sv->sensor_label, {x, y}, {w, h});
-              (void)futMove;
+              desc.position = {x, y};
+              desc.size     = {w, h};
             }
           }
+
+          auto fut = viz->create_subwindow_from_description(desc);
+          fut.get();
+
+          sv->gui_created = true;
         }
 
         // Update the GUI:
