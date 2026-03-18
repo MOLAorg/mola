@@ -17,6 +17,7 @@
  * @date   Nov 21, 2018
  */
 
+#include <mola_kernel/GuiWidgetDescription.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mola_kernel/interfaces/VizInterface.h>
 #include <mola_yaml/yaml_helpers.h>
@@ -26,6 +27,7 @@
 #include <mrpt/serialization/CArchive.h>
 
 #include <iostream>
+#include <sstream>
 
 using namespace mola;
 
@@ -39,21 +41,21 @@ struct RawDataSourceBase::SensorViewerImpl
   std::string            win_pos;  //!< "[x,y,width,height]"
   mrpt::containers::yaml extra_parameters;
 
-  nanogui::Window* win = nullptr;
+  bool gui_created = false;
 };
 
 RawDataSourceBase::RawDataSourceBase() = default;
 
 RawDataSourceBase::~RawDataSourceBase()
 {
-  if (gui_updater_threadpool_.pendingTasks())
+  if (gui_updater_threadpool_.pendingTasks() > 0)
   {
     MRPT_LOG_INFO_STREAM(
         "Dtor called while gui_updater_threadpool_ still has "
         << gui_updater_threadpool_.pendingTasks() << " tasks. Aborting them.");
     gui_updater_threadpool_.clear();
   }
-  while (worker_pool_export_rawlog_.pendingTasks())
+  while (worker_pool_export_rawlog_.pendingTasks() > 0)
   {
     MRPT_LOG_THROTTLE_INFO_STREAM(
         1.0, "Dtor called while worker_pool_export_rawlog_ still has "
@@ -158,6 +160,7 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
   if (export_to_rawlog_out_.is_open())
   {
     auto fut = worker_pool_export_rawlog_.enqueue(
+        // NOLINTNEXTLINE(performance-unnecessary-value-param) on purpose
         [this](mrpt::obs::CObservation::Ptr o)
         {
           if (!o)
@@ -200,28 +203,42 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
         auto viz = std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
 
         // Create GUI upon first call:
-        if (!sv->win)
+        if (!sv->gui_created)
         {
-          // get std::future and wait for it:
-          auto fut = viz->create_subwindow(sv->sensor_label);
-          sv->win  = fut.get();
+          mola::gui::WindowDescription desc;
+          desc.title = sv->sensor_label;
 
-          auto futLayout =
-              viz->subwindow_grid_layout(sv->sensor_label, true /*vertical?*/, 1 /*col count*/);
-          futLayout.get();
-
-          // Replace and resize, if user provided "win_pos":
-          if (sv->win && !sv->win_pos.empty())
+          // Apply user-provided position/size if available.
+          // Documented format: "[x,y,width,height]" (brackets and commas).
+          if (!sv->win_pos.empty())
           {
-            int                x = 0, y = 0, w = 400, h = 300;
-            std::istringstream ss(sv->win_pos);
-            // parse: "x y w h"
-            if ((ss >> x) && (ss >> y) && (ss >> w) && (ss >> h))
+            // Normalize: remove brackets, replace commas with spaces.
+            std::string cleaned = sv->win_pos;
+            for (char& c : cleaned)
             {
-              auto futMove = viz->subwindow_move_resize(sv->sensor_label, {x, y}, {w, h});
-              (void)futMove;
+              if (c == '[' || c == ']' || c == ',')
+              {
+                c = ' ';
+              }
+            }
+
+            int x = 0;
+            int y = 0;
+            int w = 0;
+            int h = 0;
+
+            std::istringstream ss(cleaned);
+            if ((ss >> x) && (ss >> y) && (ss >> w) && (ss >> h) && w > 0 && h > 0)
+            {
+              desc.position = {x, y};
+              desc.size     = {w, h};
             }
           }
+
+          auto fut = viz->create_subwindow_from_description(desc);
+          fut.get();
+
+          sv->gui_created = true;
         }
 
         // Update the GUI:
@@ -263,7 +280,7 @@ void RawDataSourceBase::prepareObservationBeforeFrontEnds(const CObservation::Pt
   // Sensor-specific:
   if (auto o_velo = mrpt::ptr_cast<CObservationVelodyneScan>::from(obs); o_velo)
   {
-    if (!o_velo->point_cloud.size())
+    if (o_velo->point_cloud.size() == 0)
     {
       // Generate point timestamps & RING ID:
       mrpt::obs::CObservationVelodyneScan::TGeneratePointCloudParameters p;

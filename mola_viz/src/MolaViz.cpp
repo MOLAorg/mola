@@ -1441,8 +1441,13 @@ std::future<void> MolaViz::create_subwindow_from_description(
 
         if (desc.tabs.empty())
         {
-          // Legacy bare subwindow: no layout or size constraints set.
-          // Callers populate the window and manage layout themselves.
+          // Bare subwindow (no widget description).  Set a default vertical
+          // single-column GridLayout so that children added directly to the
+          // window (e.g. MRPT2NanoguiGLCanvas added by gui handlers) are
+          // positioned inside the subwindow frame rather than floating.
+          // This matches the old subwindow_grid_layout(title, true, 1) call.
+          subwin->setLayout(new nanogui::GridLayout(
+              nanogui::Orientation::Vertical, 1, nanogui::Alignment::Fill, 2, 2));
         }
         else
         {
