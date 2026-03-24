@@ -139,6 +139,7 @@ MOLA was initially presented in 2019 in ([PDF](http://www.roboticsproceedings.or
 MOLA is released under the GNU GPL v3 license, except noted otherwise in each individual module. Other options available upon request.
 Some modules are released under BSD-3. See the [official documentation](https://docs.mola-slam.org/latest/).
 
+Contributions require acceptance of the Contributor License Agreement (CLA).
 
 ## Star History
 
