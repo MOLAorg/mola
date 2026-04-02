@@ -99,7 +99,12 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   }
   [[nodiscard]] size_t nn_index_count() const override
   {
-    if (cached_.icp_search_submap)
+    // icp_search_submap is rebuilt (potentially from another thread) inside
+    // icp_get_prepared_as_global() while holding state_mtx_.  We must acquire
+    // the same lock before reading it to avoid a data race on the
+    // partially-constructed optional<KeyFrame>.
+    auto lck = mrpt::lockHelper(*state_mtx_);
+    if (cached_.icp_search_submap && cached_.icp_search_submap->pointcloud())
     {
       return cached_.icp_search_submap->pointcloud()->size();
     }
