@@ -2,8 +2,8 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.6.1 (2026-04-02)
+------------------
 * Merge pull request `#116 <https://github.com/MOLAorg/mola/issues/116>`_ from MOLAorg/update-rds-gui
   Update RDS gui creation to new backend agnostic API
 * Add missing nanogui layout

@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.6.1 (2026-04-02)
+------------------
 * Merge pull request `#119 <https://github.com/MOLAorg/mola/issues/119>`_ from MOLAorg/fix/thread-safety
   Fix/thread safety
 * mola_metric_maps: FIX potential race conditions

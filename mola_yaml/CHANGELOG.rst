@@ -2,8 +2,8 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.6.1 (2026-04-02)
+------------------
 * Merge pull request `#114 <https://github.com/MOLAorg/mola/issues/114>`_ from MOLAorg/feat/refactor-yaml-parser
   Refactor mola_yaml parser (faster, less memory usage, non recursive)
 * Refactor mola_yaml parser (faster, less memory usage, non recursive)
