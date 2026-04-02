@@ -428,7 +428,11 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
   }
 
   cached_.icp_search_kfs = kfs_to_search_limited;
-  lck.unlock();
+
+  // NOTE: Do NOT unlock 'lck' here. The mutex must be held for the entire submap
+  // rebuild below, because cached_.icp_search_submap and keyframes_ are both
+  // shared mutable state that can be read concurrently by nn_* methods and
+  // icp_get_prepared_as_global() itself.
 
   cached_.icp_search_submap.reset();
   cached_.icp_search_submap.emplace(creationOptions.k_correspondences_for_cov);
