@@ -2,6 +2,9 @@
 Changelog for package mola_input_rawlog
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 2.6.0 (2026-03-12)
 ------------------
 * Support Zstd-compressed rawlog files too

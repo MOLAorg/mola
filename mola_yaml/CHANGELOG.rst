@@ -2,6 +2,13 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#114 <https://github.com/MOLAorg/mola/issues/114>`_ from MOLAorg/feat/refactor-yaml-parser
+  Refactor mola_yaml parser (faster, less memory usage, non recursive)
+* Refactor mola_yaml parser (faster, less memory usage, non recursive)
+* Contributors: Jose Luis Blanco-Claraco
+
 2.6.0 (2026-03-12)
 ------------------
 * Merge pull request `#107 <https://github.com/MOLAorg/mola/issues/107>`_ from MOLAorg/fix/viz-decay-clouds

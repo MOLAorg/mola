@@ -2,6 +2,18 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#119 <https://github.com/MOLAorg/mola/issues/119>`_ from MOLAorg/fix/thread-safety
+  Fix/thread safety
+* mola_metric_maps: FIX potential race conditions
+  They didn't happen in practice but to be safe
+  code clean up
+  wip
+* Fix potential race in KeyframePointCloudMap::icp_get_prepared_as_global()
+* Fix MRPT version required for updated insertAnotherMap() API
+* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+
 2.6.0 (2026-03-12)
 ------------------
 * Merge pull request `#113 <https://github.com/MOLAorg/mola/issues/113>`_ from MOLAorg/feat/kf-map-view-vectors

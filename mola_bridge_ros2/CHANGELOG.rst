@@ -3,6 +3,9 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+
 2.6.0 (2026-03-12)
 ------------------
 * Remove now obsolete version check macro
