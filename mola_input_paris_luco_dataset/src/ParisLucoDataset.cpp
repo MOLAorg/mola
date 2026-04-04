@@ -27,19 +27,13 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/round.h>
+#include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
-#include <mrpt/version.h>
-
-#if MRPT_VERSION >= 0x020f04  // 2.15.4
-#include <mrpt/maps/CGenericPointsMap.h>
-#else
-#include <mrpt/maps/CPointsMapXYZIRT.h>
-#endif
 
 #include <Eigen/Dense>
 
@@ -271,13 +265,9 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
   // Load velodyne pointcloud:
   const auto f = mrpt::system::pathJoin({seq_dir_, "frames", lstLidarFiles_[step]});
 
-#if MRPT_VERSION >= 0x020f04  // 2.15.4
   auto pts = mrpt::maps::CGenericPointsMap::Create();
   pts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
   pts->registerField_uint16(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
-#else
-  auto  pts = mrpt::maps::CPointsMapXYZIRT::Create();
-#endif
 
   bool ok = pts->loadFromPlyFile(f);
   if (!ok)
@@ -290,17 +280,9 @@ void ParisLucoDataset::load_lidar(timestep_t step) const
   obs->sensorLabel = "lidar";
   obs->pointcloud  = pts;
 
-#if MRPT_VERSION >= 0x020f04  // 2.15.4
   auto* Ts = pts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
   auto* Rs = pts->getPointsBufferRef_uint16_field(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
-#elif MRPT_VERSION >= 0x020f00  // 2.15.0
-  auto* Ts =
-      pts->getPointsBufferRef_float_field(mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_TIMESTAMP);
-  auto* Rs = pts->getPointsBufferRef_uint_field(mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_RING_ID);
-#else
-  auto* Ts = pts->getPointsBufferRef_timestamp();
-  auto* Rs = pts->getPointsBufferRef_ring();
-#endif
+
   ASSERT_(Ts);
   const float earliestTime = *std::min_element(Ts->cbegin(), Ts->cend());
   const float shiftTime    = -earliestTime - 0.5f * static_cast<float>(lidarPeriod_);

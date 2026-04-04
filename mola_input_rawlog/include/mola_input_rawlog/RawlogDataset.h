@@ -25,7 +25,7 @@
 #include <mrpt/serialization/CArchive.h>
 
 //
-#include <mrpt/version.h>
+#include <mrpt/version.h>  // MRPT_VERSION
 #if MRPT_VERSION >= 0x020f07
 #include <mrpt/io/CCompressedInputStream.h>
 #else

@@ -25,7 +25,7 @@
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/pimpl.h>
 #include <mrpt/obs/CObservation.h>
-#include <mrpt/version.h>
+#include <mrpt/version.h>  // MRPT_VERSION
 
 #if MRPT_VERSION >= 0x020f07
 #include <mrpt/io/CCompressedOutputStream.h>
@@ -100,6 +100,7 @@ class RawDataSourceBase : public mola::ExecutableBase
 #else
   mrpt::io::CFileGZOutputStream export_to_rawlog_out_;
 #endif
+
   mrpt::WorkerThreadsPool worker_pool_export_rawlog_{
       1, mrpt::WorkerThreadsPool::POLICY_FIFO, "worker_pool_export_rawlog"};
 

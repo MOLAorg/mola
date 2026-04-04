@@ -27,6 +27,7 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
@@ -34,14 +35,6 @@
 #include <mrpt/obs/gnss_messages_ascii_nmea.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
-#include <mrpt/version.h>
-
-#if MRPT_VERSION >= 0x020f04
-#include <mrpt/maps/CGenericPointsMap.h>
-#else
-#include <mrpt/maps/CPointsMapXYZI.h>
-#include <mrpt/maps/CPointsMapXYZIRT.h>
-#endif
 
 #include <Eigen/Dense>
 
@@ -506,30 +499,18 @@ void MulranDataset::load_lidar(timestep_t step) const
   auto obs         = mrpt::obs::CObservationPointCloud::Create();
   obs->sensorLabel = "lidar";
 
-#if MRPT_VERSION >= 0x020f04
-  auto pts = mrpt::maps::CGenericPointsMap::Create();
-#else
-  auto pts = mrpt::maps::CPointsMapXYZIRT::Create();
-#endif
+  auto pts        = mrpt::maps::CGenericPointsMap::Create();
   obs->pointcloud = pts;
 
   // Load XYZI from kitti-like file:
   {
-#if MRPT_VERSION >= 0x020f04
     mrpt::maps::CGenericPointsMap kittiData;
-#else
-    mrpt::maps::CPointsMapXYZI kittiData;
-#endif
 
     bool loadOk = kittiData.loadFromKittiVelodyneFile(f);
     ASSERTMSG_(loadOk, mrpt::format("Error loading kitti scan file: '%s'", f.c_str()));
 
     // Normalize intensity data so it's maximum 1.0
-#if MRPT_VERSION >= 0x020f00  // 2.15.0
     auto* Is = kittiData.getPointsBufferRef_float_field("intensity");
-#else
-    auto*                      Is = kittiData.getPointsBufferRef_intensity();
-#endif
     ASSERT_(Is && !Is->empty());
     const float max_intensity_inv = 1.0f / normalize_intensity_channel_maximum_;
     for (float& intensity : *Is)
@@ -545,7 +526,6 @@ void MulranDataset::load_lidar(timestep_t step) const
   const size_t nPts = pts->size();
   ASSERT_EQUAL_(nPts, static_cast<size_t>(1024U) * 64U);
 
-#if MRPT_VERSION >= 0x020f04
   // Intensity already exists.
   pts->registerField_float(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
   pts->registerField_uint16(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
@@ -556,9 +536,6 @@ void MulranDataset::load_lidar(timestep_t step) const
   auto* Rs = pts->getPointsBufferRef_uint16_field(mrpt::maps::CPointsMap::POINT_FIELD_RING_ID);
   ASSERT_(Ts);
   ASSERT_(Rs);
-#else
-  pts->resize_XYZIRT(nPts, true /*i*/, true /*R*/, true /*t*/);
-#endif
 
   // Fixed to 10 Hz rotation in this dataset:
   const float sweepDuration = 0.1f;  //  [s]
@@ -568,13 +545,8 @@ void MulranDataset::load_lidar(timestep_t step) const
   {
     const int row = static_cast<int>(i) % 64;
     const int col = static_cast<int>(i) / 64;
-#if MRPT_VERSION >= 0x020f04
-    (*Ts)[i] = At + sweepDuration * static_cast<float>(col) / 1024.0f;
-    (*Rs)[i] = row;
-#else
-    pts->setPointTime(i, At + sweepDuration * static_cast<float>(col) / 1024.0f);
-    pts->setPointRing(i, row);
-#endif
+    (*Ts)[i]      = At + sweepDuration * static_cast<float>(col) / 1024.0f;
+    (*Rs)[i]      = row;
   }
 
   // Pose:
