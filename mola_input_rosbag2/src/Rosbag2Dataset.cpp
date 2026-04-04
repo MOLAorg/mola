@@ -801,15 +801,8 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
 
     // Fix timestamps for Livox driver:
     // It uses doubles for timestamps, but they are actually nanoseconds!
-#if MRPT_VERSION >= 0x020f03  // 2.15.3
     auto* ts =
         mrptPts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
-#elif MRPT_VERSION >= 0x020f00  // 2.15.0
-    auto ts = mrptPts->getPointsBufferRef_float_field(
-        mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_TIMESTAMP);
-#else
-    auto ts = mrptPts->getPointsBufferRef_timestamp();
-#endif
     if (ts && !ts->empty())
     {
       const auto [minIt, maxIt] = std::minmax_element(ts->begin(), ts->end());

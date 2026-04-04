@@ -50,7 +50,7 @@
 #include <mrpt/ros2bridge/time.h>
 #include <mrpt/system/filesystem.h>
 #include <mrpt/topography/conversions.h>
-#include <mrpt/version.h>
+#include <mrpt/version.h>  // For MRPT_VERSION
 
 #if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
 #include <mrpt/ros2bridge/ros_to_mrpt_obs.h>

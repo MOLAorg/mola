@@ -30,7 +30,7 @@
 #include <mrpt/poses/Lie/SO.h>
 #include <mrpt/serialization/CArchive.h>  // serialization
 #include <mrpt/system/string_utils.h>  // unitsFormat()
-#include <mrpt/version.h>
+#include <mrpt/version.h>  // For MRPT_VERSION
 
 #include <numeric>  // std::accumulate
 

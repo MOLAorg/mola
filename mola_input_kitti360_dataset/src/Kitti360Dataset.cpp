@@ -37,7 +37,6 @@
 #include <mrpt/obs/CObservationRotatingScan.h>
 #include <mrpt/system/CDirectoryExplorer.h>
 #include <mrpt/system/filesystem.h>  //ASSERT_DIRECTORY_EXISTS_()
-#include <mrpt/version.h>
 
 #include <Eigen/Dense>
 #include <regex>
@@ -686,11 +685,7 @@ void Kitti360Dataset::load_lidar(timestep_t step) const
 
     for (size_t i = 0; i < xs.size(); i++)
     {
-#if MRPT_VERSION >= 0x020f03  // 2.15.3
       newPts->insertPointFrom(i, ctx);
-#else
-      newPts->insertPointFrom(*obs->pointcloud, i, ctx);
-#endif
 
       const auto  azimuth = std::atan2(ys[i], xs[i]);
       const float ptTime  = -0.05f * (azimuth + M_PIf) / (2.0f * M_PIf);
