@@ -1925,8 +1925,8 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     // controlled via env vars, e.g. ${ODOM1_TOPIC|}):
     if (topic_name.empty())
     {
-      MRPT_LOG_DEBUG_STREAM("Skipping subscribe entry with empty topic name (label='"
-                            << output_sensor_label << "')");
+      MRPT_LOG_DEBUG_STREAM(
+          "Skipping subscribe entry with empty topic name (label='" << output_sensor_label << "')");
       continue;
     }
 
