@@ -478,15 +478,11 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
     threads_must_end_ = true;
   }
 
-  // make sure dtor is called now:
-  if (rds.impl)
-  {
-    MRPT_LOG_DEBUG_STREAM(
-        "About to destruct module '" << rds.name << "', shared_ptr with " << rds.impl.use_count()
-                                     << " references.");
-    rds.impl.reset();
-    MRPT_LOG_DEBUG_STREAM("Done with dtor of module '" << rds.name << "'");
-  }
+  // Note: Do NOT destroy rds.impl here. Module destruction must be
+  // deferred to shutdown(), which runs after ALL threads have been
+  // joined. Destroying modules here races with other threads that
+  // may still hold raw pointers (e.g. RawDataSourceBase::rdc_) to
+  // the module being destroyed.
 }
 
 ExecutableBase::Ptr MolaLauncherApp::nameServerImpl(const std::string& name)

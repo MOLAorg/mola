@@ -210,6 +210,13 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     std::string georef_map_reference_frame = "map";
     std::string georef_map_utm_frame       = "utm";
     std::string georef_map_enu_frame       = "enu";
+
+    /// If true (default), subscribed nav_msgs/Odometry messages are converted to
+    /// mrpt::obs::CObservationRobotPose (full SE(3) pose + 6x6 covariance), suitable for
+    /// multi-source fusion in the state estimation smoother.
+    /// If false, they are converted to mrpt::obs::CObservationOdometry (2D pose, no covariance),
+    /// which is more appropriate for 2D SLAM/mapping pipelines.
+    bool odometry_as_robot_pose_observation = true;
   };
 
   Params params_;

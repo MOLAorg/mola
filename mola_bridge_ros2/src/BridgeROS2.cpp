@@ -276,6 +276,7 @@ void BridgeROS2::initialize_rds(const Yaml& c)
   YAML_LOAD_OPT(params_, base_footprint_frame, std::string);
 
   YAML_LOAD_OPT(params_, forward_ros_tf_as_mola_odometry_observations, bool);
+  YAML_LOAD_OPT(params_, odometry_as_robot_pose_observation, bool);
   YAML_LOAD_OPT(params_, wait_for_tf_timeout_milliseconds, int);
 
   YAML_LOAD_OPT(params_, georef_map_reference_frame, std::string);
@@ -509,18 +510,44 @@ void BridgeROS2::callbackOnOdometry(
   MRPT_START
   const ProfilerEntry tle(profiler_, "callbackOnOdometry");
 
-  auto obs         = mrpt::obs::CObservationOdometry::Create();
-  obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
-  obs->sensorLabel = outSensorLabel;
-  obs->odometry    = mrpt::poses::CPose2D(mrpt::ros2bridge::fromROS(o.pose.pose));
+  if (params_.odometry_as_robot_pose_observation)
+  {
+    // 3D mode: CObservationRobotPose with full SE(3) pose + 6x6 covariance.
+    // This is suitable for multi-source fusion in the state estimation smoother.
+    auto obs         = mrpt::obs::CObservationRobotPose::Create();
+    obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
+    obs->sensorLabel = outSensorLabel;
+    obs->sensorPose  = mrpt::poses::CPose3D::Identity();
 
-  obs->hasVelocities       = true;
-  obs->velocityLocal.vx    = o.twist.twist.linear.x;
-  obs->velocityLocal.vy    = o.twist.twist.linear.y;
-  obs->velocityLocal.omega = o.twist.twist.angular.z;
+    // Uses mrpt::ros2bridge::fromROS(PoseWithCovariance) which handles the
+    // ROS [x,y,z,rotX,rotY,rotZ] <-> MRPT [x,y,z,yaw,pitch,roll] reordering:
+    obs->pose = mrpt::ros2bridge::fromROS(o.pose);
 
-  // send it out:
-  this->sendObservationsToFrontEnds(obs);
+    // If covariance is all-zero (source doesn't provide it), use a sensible default:
+    if (obs->pose.cov == mrpt::math::CMatrixDouble66::Zero())
+    {
+      obs->pose.cov.setZero();
+      for (int k = 0; k < 3; k++) obs->pose.cov(k, k) = 0.10 * 0.10;  // 10 cm sigma
+      for (int k = 3; k < 6; k++) obs->pose.cov(k, k) = 0.035 * 0.035;  // ~2 deg sigma
+    }
+
+    this->sendObservationsToFrontEnds(obs);
+  }
+  else
+  {
+    // 2D mode: CObservationOdometry (legacy, for 2D SLAM/mapping pipelines).
+    auto obs         = mrpt::obs::CObservationOdometry::Create();
+    obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
+    obs->sensorLabel = outSensorLabel;
+    obs->odometry    = mrpt::poses::CPose2D(mrpt::ros2bridge::fromROS(o.pose.pose));
+
+    obs->hasVelocities       = true;
+    obs->velocityLocal.vx    = o.twist.twist.linear.x;
+    obs->velocityLocal.vy    = o.twist.twist.linear.y;
+    obs->velocityLocal.omega = o.twist.twist.angular.z;
+
+    this->sendObservationsToFrontEnds(obs);
+  }
 
   MRPT_END
 }
@@ -1893,6 +1920,15 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     const auto topic_name          = topic["topic"].as<std::string>();
     const auto type                = topic["msg_type"].as<std::string>();
     const auto output_sensor_label = topic["output_sensor_label"].as<std::string>();
+
+    // Skip entries with empty topic name (allows optional subscribe slots
+    // controlled via env vars, e.g. ${ODOM1_TOPIC|}):
+    if (topic_name.empty())
+    {
+      MRPT_LOG_DEBUG_STREAM(
+          "Skipping subscribe entry with empty topic name (label='" << output_sensor_label << "')");
+      continue;
+    }
 
     MRPT_LOG_DEBUG_STREAM(
         "Creating ros2 subscriber for topic='" << topic_name << "' (" << type << ")");

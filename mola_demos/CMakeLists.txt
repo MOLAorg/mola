@@ -29,6 +29,7 @@ install(DIRECTORY
   ros2-launchs
   ros2-params
   rviz2
+  demos
   DESTINATION
     share/${PROJECT_NAME}
 )
