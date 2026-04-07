@@ -387,7 +387,7 @@ void test_view_filter_rejects_opposite_view_pairs()
   auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts));
   auto local_m  = makeMapFromCloud(makeCloudWithViews(local_pts));
 
-  // Prepare reference submap once — it will carry view fields after the fix
+  // Prepare reference submap once - it will carry view fields after the fix
   global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
 
   // ---- filter ON (default 120°) ----
@@ -506,7 +506,7 @@ void test_view_filter_graceful_when_no_view_fields()
   auto global_m = makeMapFromCloud(make_simple(0.f));
   auto local_m  = makeMapFromCloud(make_simple(kDz));
 
-  // Turn filter ON — but because there are no view fields, it cannot activate
+  // Turn filter ON - but because there are no view fields, it cannot activate
   global_m.creationOptions.use_view_direction_filter = true;
   global_m.creationOptions.max_view_angle_deg        = 120.0;
   global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());

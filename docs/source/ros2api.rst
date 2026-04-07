@@ -265,7 +265,7 @@ the following fields:
      - Label assigned to the MOLA observation forwarded to front-ends.
    * - ``fixed_sensor_pose``
      - No
-     - ``"x y z yaw pitch roll"`` — if present together with
+     - ``"x y z yaw pitch roll"`` - if present together with
        ``use_fixed_sensor_pose: true``, the sensor-on-vehicle pose is taken from
        this value instead of querying ``/tf``.
    * - ``use_fixed_sensor_pose``
@@ -283,7 +283,7 @@ Example:
         msg_type: Imu
         output_sensor_label: "imu"
 
-      # Optional slot — disabled when ODOM2_TOPIC is unset:
+      # Optional slot - disabled when ODOM2_TOPIC is unset:
       - topic: ${ODOM2_TOPIC|}
         msg_type: Odometry
         output_sensor_label: "${ODOM2_LABEL|odom2}"

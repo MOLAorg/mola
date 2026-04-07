@@ -24,6 +24,13 @@
   Configurable pipelines for LiDAR Odometry, LIO, and more.
 </p>
 
+<p align="center">
+  <a href="https://docs.mola-slam.org/latest/why-mola.html"><b>Why MOLA</b></a> &nbsp;|&nbsp;
+  <a href="https://docs.mola-slam.org/latest/solutions.html"><b>Solutions</b></a> &nbsp;|&nbsp;
+  <a href="https://docs.mola-slam.org/latest/pricing.html"><b>Plans &amp; Pricing</b></a> &nbsp;|&nbsp;
+  <a href="https://docs.mola-slam.org/latest/"><b>Documentation</b></a>
+</p>
+
 ---
 
 
@@ -52,7 +59,10 @@ Refer to the [official documentation](https://docs.mola-slam.org/latest/) for bu
 
 ## 🗺️ Features
 - 📍 LiDAR Odometry (LO), LiDAR-Inertial Odometry (LIO), geo-referenced maps, sensor fusion
-- 🧩 Plug-and-play modules to build configurable ICP and SLAM pipelines 
+- 🧩 Fully configurable YAML pipelines - no recompilation needed to change sensors, filters, or map layers
+- 🎯 Flexible accuracy: fast real-time navigation or survey-grade (<1 cm) mapping
+- 🌍 Map-less RTK-quality outdoor georeferencing with low-cost GNSS + LiDAR + IMU
+- 🛠️ Rich `.mm` metric map ecosystem: viewer, LAS/PLY/TXT export, filtering, georeferencing tools
 - 🤖 ROS 2 ready (Humble, Jazzy, Kilted, Rolling) but also usable from standalone pure C++
 
 ## 🚀 Demo videos
@@ -136,8 +146,11 @@ MOLA was initially presented in 2019 in ([PDF](http://www.roboticsproceedings.or
 ```
 
 ## License
-MOLA is released under the GNU GPL v3 license, except noted otherwise in each individual module. Other options available upon request.
-Some modules are released under BSD-3. See the [official documentation](https://docs.mola-slam.org/latest/).
+MOLA follows an **Open Core** model. Core modules are released under the GNU GPL v3 license, while foundational libraries (MRPT, mp2p_icp) are BSD-3.
+
+**Commercial use:** Companies needing to deploy MOLA in closed-source products can obtain a commercial license ([MOLA Pro](https://docs.mola-slam.org/latest/pricing.html)).
+
+See the [Plans & Pricing](https://docs.mola-slam.org/latest/pricing.html) page for details on Community vs Pro editions.
 
 Contributions require acceptance of the Contributor License Agreement (CLA).
 

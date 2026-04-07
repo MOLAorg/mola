@@ -113,13 +113,13 @@ standard build flags, dependency configuration, and compiler options via
 
 **Arguments**
 
-* ``TARGET`` — Name of the library target to create.  
-* ``SOURCES`` — List of source files for the library.  
-* ``PUBLIC_LINK_LIBRARIES`` — List of public dependencies that should be visible
+* ``TARGET`` - Name of the library target to create.  
+* ``SOURCES`` - List of source files for the library.  
+* ``PUBLIC_LINK_LIBRARIES`` - List of public dependencies that should be visible
   to consumers of the library.  
-* ``PRIVATE_LINK_LIBRARIES`` — List of internal dependencies used only for
+* ``PRIVATE_LINK_LIBRARIES`` - List of internal dependencies used only for
   this target’s own build.  
-* ``CMAKE_DEPENDENCIES`` — List of CMake packages this library depends on
+* ``CMAKE_DEPENDENCIES`` - List of CMake packages this library depends on
   (used internally by `mola_configure_library()`).
 
 **Example**
@@ -156,11 +156,11 @@ compiler options and dependency handling via
 
 **Arguments**
 
-* ``TARGET`` — Name of the executable target.  
-* ``SOURCES`` — List of source files for the executable.  
-* ``PUBLIC_LINK_LIBRARIES`` — Libraries linked publicly to the target.  
-* ``PRIVATE_LINK_LIBRARIES`` — Libraries linked privately (internal use only).  
-* ``CMAKE_DEPENDENCIES`` — CMake packages required to configure this executable.
+* ``TARGET`` - Name of the executable target.  
+* ``SOURCES`` - List of source files for the executable.  
+* ``PUBLIC_LINK_LIBRARIES`` - Libraries linked publicly to the target.  
+* ``PRIVATE_LINK_LIBRARIES`` - Libraries linked privately (internal use only).  
+* ``CMAKE_DEPENDENCIES`` - CMake packages required to configure this executable.
 
 **Example**
 
@@ -193,9 +193,9 @@ configure testing conventions, build options, and linking for unit and integrati
 
 **Arguments**
 
-* ``TARGET`` — Name of the test target.  
-* ``SOURCES`` — List of test source files.  
-* ``LINK_LIBRARIES`` — Libraries to link against for the test executable.
+* ``TARGET`` - Name of the test target.  
+* ``SOURCES`` - List of test source files.  
+* ``LINK_LIBRARIES`` - Libraries to link against for the test executable.
 
 After creation, the function calls `add_test(NAME <target> COMMAND <target>)`
 to register the test automatically.
@@ -246,8 +246,8 @@ in the specified output variable.
 
 **Arguments**
 
-* ``OUT_VAR`` — Name of the variable that will receive the hexadecimal result.  
-* ``IN_VERSION`` — Input version string, e.g. `"1.2.3"`.
+* ``OUT_VAR`` - Name of the variable that will receive the hexadecimal result.  
+* ``IN_VERSION`` - Input version string, e.g. `"1.2.3"`.
 
 **Behavior**
 

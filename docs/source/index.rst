@@ -3,20 +3,26 @@
 
 .. _index:
 
-MOLA
-============
-
 .. toctree::
   :maxdepth: 2
   :hidden:
-  :caption: Quickstart
+  :caption: Get started
 
   Home <index.html#http://>
+  why-mola
   building-maps
   localization
   geo-referencing
   ros2api
+  map-tools
+
+.. toctree::
+  :maxdepth: 2
+  :hidden:
+  :caption: Solutions & pricing
+
   solutions
+  pricing
 
 .. toctree::
   :maxdepth: 2
@@ -47,6 +53,7 @@ MOLA
   mp2p_icp_applications
   sm2mm_pipelines
 
+
 .. toctree::
   :maxdepth: 2
   :hidden:
@@ -62,15 +69,20 @@ MOLA
   bibliography
 
 
-:octicon:`mark-github` `MOLA`_ is a Modular system for Localization and Mapping, 
+.. raw:: html
+
+   <div style="text-align: center; margin: 1.5em 0 1em 0;">
+     <p style="font-size: 1.3em; color: #333; margin-bottom: 0.5em;">
+       <strong>Production-grade LiDAR SLAM for robotics and surveying</strong>
+     </p>
+     <p style="font-size: 1.05em; color: #555;">
+       Open Core - free for research, commercially licensable for products
+     </p>
+   </div>
+
+:octicon:`mark-github` `MOLA`_ is a Modular system for Localization and Mapping,
 providing LiDAR Odometry (LO), LiDAR-inertial Odometry (LIO), SLAM, localization-only modes,
 and geo-referencing.
-
-Get started:
- - Follow the tutorials: (1) :ref:`Hands-on video tutorial for LIO mapping <tutorial-ouster-lio>`; (2) :ref:`Building your first map <building-maps>`; (3) :ref:`Mapping and localization <tutorial-mola-lo-map-and-localize>`.
- - Read :octicon:`rocket` :ref:`mola_lidar_odometry` documentation and the provided LO/LIO :ref:`pipelines <mola_lo_pipelines>`.
- - See :ref:`installing` and :ref:`how to cite it <citing_mola>`.
- - See :ref:`use-cases` for examples of use or `videos`_ on YouTube.
 
 .. raw:: html
 
@@ -81,6 +93,42 @@ Get started:
    </div>
 
 .. image:: https://mrpt.github.io/imgs/mola-slam-kitti-demo.gif
+
+|
+
+.. grid:: 3
+
+    .. grid-item-card:: Get started
+        :link: building-maps
+        :link-type: ref
+        :class-card: sd-border-1
+
+        Build your first map in minutes with the step-by-step tutorial.
+
+    .. grid-item-card:: Why MOLA?
+        :link: why-mola
+        :link-type: ref
+        :class-card: sd-border-1
+
+        See what makes MOLA different from other SLAM frameworks.
+
+    .. grid-item-card:: Plans & Pricing
+        :link: pricing
+        :link-type: ref
+        :class-card: sd-border-1
+
+        Compare Community (free) vs. Pro (commercial license).
+
+|
+
+Quick links
+=============
+- :ref:`Video tutorial: Ouster LIO mapping <tutorial-ouster-lio>`
+- :ref:`Building your first map <building-maps>`
+- :ref:`Mapping and localization <tutorial-mola-lo-map-and-localize>`
+- :ref:`LiDAR odometry documentation <mola_lidar_odometry>` and :ref:`pipelines <mola_lo_pipelines>`
+- :ref:`Solutions and use cases <solutions>`
+- :ref:`How to cite MOLA <citing_mola>`
 
 
 .. _MOLA: https://github.com/MOLAorg/mola
@@ -185,7 +233,7 @@ How to install all MOLA modules:
 
     **Recommended**: This is the easiest way to install MOLA.
 
-    In Debian/Ubuntu systems, activate your ROS environment (``setup.bash``) if not done automatically 
+    In Debian/Ubuntu systems, activate your ROS environment (``setup.bash``) if not done automatically
     in your ``~./bashrc`` file, then just run:
 
     .. code-block:: bash
@@ -205,7 +253,7 @@ How to install all MOLA modules:
 
     .. code-block:: bash
 
-        # For example, let's launch the mm map viewer. 
+        # For example, let's launch the mm map viewer.
         # If a GUI app is opened, it means installation was successful.
         mm-viewer
 
@@ -231,7 +279,7 @@ How to install all MOLA modules:
     +----------------------+--------------------+----------------+----------------+
 
     EOL ROS distribution:
-   
+
      - ROS 2 Iron (u22.04): MOLA |badgeIrel|, mola_lidar_odometry |badgeIrel_LO|, mp2p_icp |badgeIrel_MP|
 
 
@@ -252,7 +300,7 @@ How to install all MOLA modules:
 
     .. code-block:: bash
 
-        mkdir -p ~/ros2_mola_ws/src/ 
+        mkdir -p ~/ros2_mola_ws/src/
         cd ~/ros2_mola_ws/src/
 
         # Main MOLA modules:
@@ -321,69 +369,3 @@ The basics of the MOLA framework were introduced in :cite:`blanco2019modular`.
   *Robotics: Science and Systems (RSS)*, 2019.
 
 .. _A Modular Optimization Framework for Localization and Mapping: https://ingmec.ual.es/~jlblanco/papers/blanco2019mola_rss2019.pdf
-
-
-.. _use-cases:
-
-Use cases
-=============
-Next follow some examples of applications of MOLA SLAM solutions with :ref:`3D LiDAR Odometry <mola_lidar_odometry>`.
-
-|
-
-Automotive SLAM
------------------
-An example of urban SLAM from the KITTI dataset:
-
-.. image:: https://mrpt.github.io/imgs/mola-slam-kitti-demo.gif
-
-See how to :ref:`launch this demo yourself <mola-lo-gui-kitti>`.
-
-|
-
-Forest inventory (3D mapping)
---------------------------------
-See paper :cite:t:`aguilar2024lidar`.
-
-.. raw:: html
-
-    <div style="margin-top:10px;">
-      <iframe width="560" height="315" src="https://www.youtube.com/embed/sbakEOnsL6Y?si=xV8-RGNiEFKR-dAI" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-    </div>
-
-|
-
-Backpack 3D mapping indoors
---------------------------------
-
-.. raw:: html
-
-    <div style="margin-top:10px;">
-      <iframe width="560" height="315" src="https://www.youtube.com/embed/XNvf8OMXZoY?si=QqiMlni2lmcojph_" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-    </div>
-
-|
-
-Mapping from a drone
-----------------------
-Using the HILTI 2021 dataset:
-
-.. raw:: html
-
-    <div style="margin-top:10px;">
-      <iframe width="560" height="315" src="https://www.youtube.com/embed/1h2aayHvhVU?si=xWMJZ7bDfaWKlOfY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-    </div>
-
-|
-
-Greenhouse mapping
---------------------------------
-See paper :cite:t:`greenbot2024canadas`.
-
-.. raw:: html
-
-    <div style="margin-top:10px;">
-      <iframe width="560" height="315" src="https://www.youtube.com/embed/tdXzYeG51Bc?si=IgjYINt1t7qoLb7R" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-    </div>
-
-|

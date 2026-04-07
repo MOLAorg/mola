@@ -47,9 +47,9 @@ is run through a lightweight pre-processor that expands special ``$``\ -prefixed
 expressions.  The three expansion passes are always applied in the following
 fixed order:
 
-1. :ref:`yaml_include` — ``$include{path}``
-2. :ref:`yaml_cmd` — ``$(command)``
-3. :ref:`yaml_vars` — ``${VAR}`` / ``${VAR|default}``
+1. :ref:`yaml_include` - ``$include{path}``
+2. :ref:`yaml_cmd` - ``$(command)``
+3. :ref:`yaml_vars` - ``${VAR}`` / ``${VAR|default}``
 
 This ordering means that:
 
@@ -57,8 +57,8 @@ This ordering means that:
   ``$()`` or ``${}`` tokens.
 - ``$()`` command output can reference environment variables already present in
   the environment at parse time.
-- ``${}`` variable expansion sees the fully assembled text — including the
-  content of all included files — and can therefore reference variables that
+- ``${}`` variable expansion sees the fully assembled text - including the
+  content of all included files - and can therefore reference variables that
   are defined in those files.
 
 **Comments are never expanded.**  Any ``$include{}``, ``$()``, or ``${}``
@@ -160,17 +160,17 @@ Variables and environment: ``${VAR}`` / ``${VAR|default}``
 The pattern ``${NAME}`` is replaced by a value looked up in the following
 order (first match wins):
 
-1. **Environment variable** — the current value of ``getenv("NAME")``.
-2. **Built-in token** ``CURRENT_YAML_FILE_PATH`` — expands to the directory
+1. **Environment variable** - the current value of ``getenv("NAME")``.
+2. **Built-in token** ``CURRENT_YAML_FILE_PATH`` - expands to the directory
    of the file currently being parsed (or the value of
    ``YAMLParseOptions::includesBasePath`` when called programmatically).
-3. **Caller-supplied variables** — entries in the
+3. **Caller-supplied variables** - entries in the
    ``YAMLParseOptions::variables`` map, which allows C++ code to inject
    arbitrary name/value pairs at load time.
-4. **Inline default** — if the token has the form ``${NAME|default_value}``,
+4. **Inline default** - if the token has the form ``${NAME|default_value}``,
    the literal text after ``|`` is used as a fallback.  The default may be
    empty (``${NAME|}`` resolves to an empty string).
-5. **Error** — if none of the above matched, a fatal error is raised.
+5. **Error** - if none of the above matched, a fatal error is raised.
 
 .. code-block:: yaml
 
@@ -180,7 +180,7 @@ order (first match wins):
     # Use a default value when the variable is not set:
     log_dir: ${LOG_DIR|/tmp/mola_logs}
 
-    # Empty-string default — never raises an error:
+    # Empty-string default - never raises an error:
     optional_suffix: ${SUFFIX|}
 
     # Refer to the directory of this file (useful for sibling-relative paths):
