@@ -34,9 +34,13 @@ class FakeVisualOdomPublisher(Node):
         # Parameters
         self.declare_parameter('topic', '/visual_odom')
         self.declare_parameter('rate_hz', 30.0)
-        self.declare_parameter('noise_xyz', 0.005)      # m per step (more precise)
+        # m per step (more precise)
+        self.declare_parameter('noise_xyz', 0.005)
         self.declare_parameter('noise_ang', 0.001)       # rad per step
-        self.declare_parameter('drift_y_per_step', 0.003)  # constant lateral drift
+        self.declare_parameter('initial_pose_noise_xyz', 1.0)    # m
+        self.declare_parameter('initial_pose_noise_yaw', 1.0)   # rad
+        # constant lateral drift
+        self.declare_parameter('drift_y_per_step', 0.003)
         self.declare_parameter('vx', 1.0)                # m/s ground truth
         self.declare_parameter('wz', 0.2)                # rad/s ground truth
         self.declare_parameter('frame_id', 'odom_visual')
@@ -46,6 +50,10 @@ class FakeVisualOdomPublisher(Node):
         rate = self.get_parameter('rate_hz').value
         self.noise_xyz = self.get_parameter('noise_xyz').value
         self.noise_ang = self.get_parameter('noise_ang').value
+        self.initial_pose_noise_xyz = self.get_parameter(
+            'initial_pose_noise_xyz').value
+        self.initial_pose_noise_yaw = self.get_parameter(
+            'initial_pose_noise_yaw').value
         self.drift_y = self.get_parameter('drift_y_per_step').value
         self.vx = self.get_parameter('vx').value
         self.wz = self.get_parameter('wz').value
@@ -55,10 +63,10 @@ class FakeVisualOdomPublisher(Node):
         self.pub = self.create_publisher(Odometry, topic, 10)
 
         self.dt = 1.0 / rate
-        self.x = 0.0
-        self.y = 0.0
-        self.z = 0.0
-        self.yaw = 0.0
+        self.x = np.random.normal(0, self.initial_pose_noise_xyz)
+        self.y = np.random.normal(0, self.initial_pose_noise_xyz)
+        self.z = np.random.normal(0, self.initial_pose_noise_xyz)
+        self.yaw = np.random.normal(0, self.initial_pose_noise_yaw)
         self.step = 0
 
         self.timer = self.create_timer(self.dt, self.timer_callback)
@@ -99,7 +107,9 @@ class FakeVisualOdomPublisher(Node):
         cov[0] = self.noise_xyz ** 2
         cov[7] = self.noise_xyz ** 2
         cov[14] = self.noise_xyz ** 2
-        cov[35] = self.noise_ang ** 2
+        cov[21] = self.noise_ang ** 2  # rotX
+        cov[28] = self.noise_ang ** 2  # rotY
+        cov[35] = self.noise_ang ** 2  # rotZ
         msg.pose.covariance = cov
 
         msg.twist.twist.linear.x = self.vx

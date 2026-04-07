@@ -36,6 +36,8 @@ class FakeWheelOdomPublisher(Node):
         self.declare_parameter('rate_hz', 50.0)
         self.declare_parameter('noise_xy', 0.02)       # m per step
         self.declare_parameter('noise_yaw', 0.005)     # rad per step
+        self.declare_parameter('initial_pose_noise_xy', 1.0)    # m
+        self.declare_parameter('initial_pose_noise_yaw', 1.0)   # rad
         self.declare_parameter('drift_scale_x', 1.02)  # 2% systematic drift
         self.declare_parameter('vx', 1.0)              # m/s ground truth
         self.declare_parameter('wz', 0.2)              # rad/s ground truth
@@ -47,6 +49,10 @@ class FakeWheelOdomPublisher(Node):
         rate = self.get_parameter('rate_hz').value
         self.noise_xy = self.get_parameter('noise_xy').value
         self.noise_yaw = self.get_parameter('noise_yaw').value
+        self.initial_pose_noise_xy = self.get_parameter(
+            'initial_pose_noise_xy').value
+        self.initial_pose_noise_yaw = self.get_parameter(
+            'initial_pose_noise_yaw').value
         self.drift_scale_x = self.get_parameter('drift_scale_x').value
         self.vx = self.get_parameter('vx').value
         self.wz = self.get_parameter('wz').value
@@ -59,9 +65,9 @@ class FakeWheelOdomPublisher(Node):
             self.tf_broadcaster = TransformBroadcaster(self)
 
         self.dt = 1.0 / rate
-        self.x = 0.0
-        self.y = 0.0
-        self.yaw = 0.0
+        self.x = np.random.normal(0, self.initial_pose_noise_xy)
+        self.y = np.random.normal(0, self.initial_pose_noise_xy)
+        self.yaw = np.random.normal(0, self.initial_pose_noise_yaw)
         self.step = 0
 
         self.timer = self.create_timer(self.dt, self.timer_callback)
@@ -76,7 +82,8 @@ class FakeWheelOdomPublisher(Node):
             dyaw_gt = self.wz * self.dt
 
             # Apply systematic drift + noise
-            dx = dx_gt * self.drift_scale_x + np.random.normal(0, self.noise_xy)
+            dx = dx_gt * self.drift_scale_x + \
+                np.random.normal(0, self.noise_xy)
             dy = np.random.normal(0, self.noise_xy)
             dyaw = dyaw_gt + np.random.normal(0, self.noise_yaw)
 
@@ -99,6 +106,9 @@ class FakeWheelOdomPublisher(Node):
         cov = [0.0] * 36
         cov[0] = self.noise_xy ** 2   # xx
         cov[7] = self.noise_xy ** 2   # yy
+        cov[14] = self.noise_xy ** 2  # zz
+        cov[21] = self.noise_yaw ** 2  # rotX
+        cov[28] = self.noise_yaw ** 2  # rotY
         cov[35] = self.noise_yaw ** 2  # yaw-yaw
         msg.pose.covariance = cov
 
