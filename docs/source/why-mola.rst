@@ -78,7 +78,7 @@ MOLA is backed by peer-reviewed publications in top venues:
 - **IJRR 2025**: `A flexible framework for accurate LiDAR odometry, map manipulation, and localization <https://doi.org/10.1177/02783649251316881>`_
 - **RSS 2019**: `A Modular Optimization Framework for Localization and Mapping <https://ingmec.ual.es/~jlblanco/papers/blanco2019mola_rss2019.pdf>`_
 
-Benchmarked on KITTI (0.4-2.0% translation error), MulRan, HILTI, Kaist, and custom
+Benchmarked on KITTI (0.6% translation error), MulRan, HILTI, Kaist, and custom
 datasets. This is not a paper prototype - it is actively deployed in real-world robots.
 
 Pre-built for amd64 and arm64
