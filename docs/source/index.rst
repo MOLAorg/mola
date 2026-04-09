@@ -96,28 +96,104 @@ and geo-referencing.
 
 |
 
-.. grid:: 3
+.. raw:: html
 
-    .. grid-item-card:: Get started
-        :link: building-maps
-        :link-type: ref
-        :class-card: sd-border-1
+   <style>
+   .mola-cards {
+     display: grid;
+     grid-template-columns: repeat(3, 1fr);
+     gap: 14px;
+     margin: 1.5rem 0 2rem;
+   }
+   @media (max-width: 600px) {
+     .mola-cards { grid-template-columns: 1fr; }
+   }
+   .mola-card {
+     display: block;
+     border: 1px solid #d0d7de;
+     border-radius: 8px;
+     padding: 20px 22px 18px;
+     background: #fff;
+     text-decoration: none !important;
+     color: inherit !important;
+     transition: border-color 0.15s, box-shadow 0.15s;
+   }
+   .mola-card:hover {
+     border-color: #0550ae;
+     box-shadow: 0 0 0 3px #e6f1fb;
+     text-decoration: none !important;
+   }
+   .mola-card-icon {
+     width: 34px; height: 34px;
+     border-radius: 7px;
+     background: #eef5fc;
+     display: flex; align-items: center; justify-content: center;
+     margin-bottom: 13px;
+   }
+   .mola-card-icon svg {
+     width: 18px; height: 18px;
+     stroke: #185FA5; fill: none;
+     stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+   }
+   .mola-card-title {
+     font-size: 15px; font-weight: 600;
+     color: #1f2328; margin: 0 0 6px;
+   }
+   .mola-card-body {
+     font-size: 13px; color: #57606a;
+     line-height: 1.55; margin: 0 0 14px;
+   }
+   .mola-card-cta {
+     font-size: 12px; font-weight: 600;
+     color: #0550ae;
+     display: flex; align-items: center; gap: 4px;
+   }
+   .mola-card-cta svg {
+     width: 12px; height: 12px;
+     stroke: #0550ae; fill: none;
+     stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+   }
+   </style>
 
-        Build your first map in minutes with the step-by-step tutorial.
+   <div class="mola-cards">
 
-    .. grid-item-card:: Why MOLA?
-        :link: why-mola
-        :link-type: ref
-        :class-card: sd-border-1
+     <a class="mola-card" href="building-maps.html">
+       <div class="mola-card-icon">
+         <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+       </div>
+       <p class="mola-card-title">Get started</p>
+       <p class="mola-card-body">Build your first map in minutes with the step-by-step tutorial.</p>
+       <span class="mola-card-cta">
+         Start tutorial
+         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+       </span>
+     </a>
 
-        See what makes MOLA different from other SLAM frameworks.
+     <a class="mola-card" href="why-mola.html">
+       <div class="mola-card-icon">
+         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+       </div>
+       <p class="mola-card-title">Why MOLA?</p>
+       <p class="mola-card-body">See what makes MOLA different from other SLAM frameworks.</p>
+       <span class="mola-card-cta">
+         Learn more
+         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+       </span>
+     </a>
 
-    .. grid-item-card:: Plans & Pricing
-        :link: pricing
-        :link-type: ref
-        :class-card: sd-border-1
+     <a class="mola-card" href="pricing.html">
+       <div class="mola-card-icon">
+         <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+       </div>
+       <p class="mola-card-title">Plans &amp; pricing</p>
+       <p class="mola-card-body">Compare Community (free) vs. Pro (commercial license).</p>
+       <span class="mola-card-cta">
+         See plans
+         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+       </span>
+     </a>
 
-        Compare Community (free) vs. Pro (commercial license).
+   </div>
 
 |
 

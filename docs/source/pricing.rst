@@ -459,10 +459,6 @@ Frequently asked questions
 **How many developers / machines does Pro cover?**
   Unlimited, within one organization. No per-seat or per-machine fees.
 
-**Can I get a trial of Pro?**
-  Contact us for a time-limited evaluation license.
-
-
 |
 
 .. _mola_contact:
@@ -479,7 +475,7 @@ Beyond the Pro license, we offer:
 - **Map post-processing service** - send us your raw sensor data and receive
   optimized, georeferenced metric maps
 
-For consulting inquiries, demo requests, or Enterprise pricing, use the form below:
+For consulting inquiries or demo requests, use the form below:
 
 .. raw:: html
 
