@@ -9,8 +9,9 @@ Tutorials
   :maxdepth: 2
   :caption: SLAM, mapping, localization
 
-  building-maps
   tutorial-ouster-lio
+  tutorial-ouster-mapping-lc
+  building-maps
   tutorial-mola-lo-map-and-localize
 
 
