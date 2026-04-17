@@ -117,6 +117,13 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
   std::string rosbag_serialization_ = "cdr";
   std::string base_link_frame_id_   = "base_link";
 
+  /// Topic name in the bag containing `tf2_msgs/TFMessage`. Default: `/tf`.
+  /// Change this if your bag uses namespaced tf topics (e.g. `/robot1/tf`).
+  std::string tf_topic_ = "/tf";
+
+  /// Topic name in the bag containing static `tf2_msgs/TFMessage`. Default: `/tf_static`.
+  std::string tf_static_topic_ = "/tf_static";
+
   std::optional<mrpt::Clock::time_point> rosbag_begin_time_;
   size_t                                 read_ahead_length_ = 15;
 
