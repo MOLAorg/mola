@@ -128,6 +128,12 @@ A MOLA ROS 2 deployment is defined by five independent choices:
    * - GNSS topic (NavSatFix)
      - ``/gps``
      - ``gnss_topic_name:=`` / ``MOLA_GNSS_TOPIC``
+   * - External odom (``/tf``)
+     - — (off)
+     - ``forward_ros_tf_odom_to_mola:=True`` / ``MOLA_FORWARD_ROS_TF_ODOM_TO_MOLA``
+   * - External odom (topic)
+     - ``/wheel_odom``
+     - ``odom_topic_name:=`` / ``MOLA_ODOM_TOPIC`` (+ ``odom_sensor_label:=`` / ``MOLA_ODOM_SENSOR_LABEL``)
    * - ``/tf`` topic in bag
      - ``/tf``
      - ``MOLA_TF_TOPIC`` (rosbag2 YAML ``tf_topic``)
@@ -159,7 +165,7 @@ source). MOLA-LO only corrects long-term drift by publishing ``map → odom``.
 
    flowchart LR
      subgraph ROS2[ROS 2 topics / tf]
-       lidar[/__LIDAR_TOPIC__/]
+       lidar[/"__LIDAR_TOPIC__"/]
        odomtf[/'tf: odom → base_link'/]
        mapodom[/'tf: map → odom'/]
      end
@@ -217,7 +223,7 @@ publishes ``map → base_link`` directly.
 .. mermaid::
 
    flowchart LR
-     lidar[/__LIDAR_TOPIC__/] --> bridge[BridgeROS2]
+     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
      bridge --> lo[mola::LidarOdometry]
      lo --> se[StateEstimationSimple]
      se --> bridge
@@ -268,7 +274,7 @@ file pushes the whole MOLA system into that namespace and remaps ``/tf`` /
 
    flowchart LR
      subgraph NS["namespace: __NS__"]
-       lidar[/__LIDAR_TOPIC__/]
+       lidar[/"__LIDAR_TOPIC__"/]
        tfns[/'tf (namespaced)'/]
        bridge[BridgeROS2]
        lo[mola::LidarOdometry]
@@ -309,8 +315,8 @@ with raw IMU preintegration and gravity priors. It always publishes
 .. mermaid::
 
    flowchart LR
-     lidar[/__LIDAR_TOPIC__/] --> bridge[BridgeROS2]
-     imu[/__IMU_TOPIC__/] --> bridge
+     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
+     imu[/"__IMU_TOPIC__"/] --> bridge
      bridge --> lo[mola::LidarOdometry]
      bridge --> smoother[StateEstimationSmoother]
      lo --> smoother
@@ -332,39 +338,129 @@ with raw IMU preintegration and gravity priors. It always publishes
 
 .. _mola_ros2_cookbook_4_5:
 
-4.5. Smoother SE + wheel odometry fusion
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.5. Smoother SE + external (wheel / VIO) odometry fusion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Adds an external ``nav_msgs/Odometry`` source to the smoother. The
-smoother estimates a distinct ``T_map_to_odom`` per source and fuses
-their deltas with LO and IMU.
+Adds an external odometry source to the smoother. The smoother estimates
+a distinct ``T_map_to_odom`` per source and fuses their deltas with LO
+(and IMU, if enabled).
 
-.. mermaid::
+BridgeROS2 offers **two complementary pathways** for consuming external
+odometry; pick one according to what the upstream driver publishes.
 
-   flowchart LR
-     lidar[/__LIDAR_TOPIC__/] --> bridge[BridgeROS2]
-     imu[/__IMU_TOPIC__/] --> bridge
-     wheel[/wheel odom topic/] --> bridge
-     bridge --> lo[mola::LidarOdometry]
-     bridge --> smoother[StateEstimationSmoother]
-     lo --> smoother
-     smoother --> bridge
-     bridge -->|map → base_link| tfout[/'tf'/]
+.. warning::
+
+   The two pathways below are **mutually exclusive**. Enabling both
+   (``forward_ros_tf_odom_to_mola:=True`` *and* a non-empty
+   ``odom_topic_name:=``) feeds duplicate observations to the state
+   estimator under different labels and degrades the fusion.
+
+.. list-table:: Pathway comparison
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * -
+     - Variant A — via ``/tf``
+     - Variant B — via ``/odom`` topic
+   * - Launch arg
+     - ``forward_ros_tf_odom_to_mola:=True``
+     - ``odom_topic_name:=/your_odom``
+   * - Upstream must publish
+     - ``odom → base_link`` TF
+     - ``nav_msgs/Odometry`` message
+   * - Observation type fed to MOLA
+     - ``CObservationOdometry`` (2D, no covariance)
+     - ``CObservationRobotPose`` (3D, 6×6 covariance)
+   * - Sensor label
+     - Hardcoded ``odom``
+     - ``odom_sensor_label:=...`` (per source)
+   * - Multiple sources
+     - No (single TF chain)
+     - Yes (multiple subscribe entries / labels)
+   * - Rate
+     - BridgeROS2 ``execution_rate`` (20 Hz)
+     - Publisher rate
+   * - Recommended for
+     - Simple SE, or 2D robots where only TF is available
+     - **Smoother SE fusion** (3D pose + covariance)
+
+.. tab-set::
+
+   .. tab-item:: Variant A — TF-driven
+      :sync: odom_via_tf
+
+      The upstream wheel driver (or ``robot_state_publisher``) publishes
+      ``odom → base_link`` to ``/tf``. BridgeROS2 queries that TF at
+      its own ``execution_rate`` and injects a 2D
+      ``CObservationOdometry``.
+
+      .. mermaid::
+
+         flowchart LR
+           lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
+           imu[/"__IMU_TOPIC__"/] --> bridge
+           wheel[Wheel driver] -->|'/tf: odom → base_link'| bridge
+           bridge --> lo[mola::LidarOdometry]
+           bridge --> smoother[StateEstimationSmoother]
+           lo --> smoother
+           smoother --> bridge
+           bridge -->|map → base_link| tfout[/'tf'/]
+
+      .. container:: mola-tpl
+
+         .. code-block:: bash
+
+            ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
+              lidar_topic_name:=__LIDAR_TOPIC__ \
+              imu_topic_name:=__IMU_TOPIC__ \
+              mola_tf_base_link:=__BASE_LINK__ \
+              use_state_estimator:=True \
+              use_imu_for_lio:=True \
+              forward_ros_tf_odom_to_mola:=True
+
+      If your ``odom`` frame has a non-default name, also set
+      ``mola_bridge_odometry_frame:=<name>``.
+
+   .. tab-item:: Variant B — /odom topic (recommended for Smoother)
+      :sync: odom_via_topic
+
+      The upstream driver publishes a ``nav_msgs/Odometry`` message on
+      a topic. BridgeROS2 subscribes directly, converts each message to
+      a 3D ``CObservationRobotPose`` (6×6 covariance) and forwards it
+      under ``odom_sensor_label``. This preserves Z / pitch / roll and
+      allows fusing **multiple** labeled sources.
+
+      .. mermaid::
+
+         flowchart LR
+           lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
+           imu[/"__IMU_TOPIC__"/] --> bridge
+           wheel[/wheel odom topic/] --> bridge
+           bridge --> lo[mola::LidarOdometry]
+           bridge --> smoother[StateEstimationSmoother]
+           lo --> smoother
+           smoother --> bridge
+           bridge -->|map → base_link| tfout[/'tf'/]
+
+      .. container:: mola-tpl
+
+         .. code-block:: bash
+
+            ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
+              lidar_topic_name:=__LIDAR_TOPIC__ \
+              imu_topic_name:=__IMU_TOPIC__ \
+              mola_tf_base_link:=__BASE_LINK__ \
+              use_state_estimator:=True \
+              use_imu_for_lio:=True \
+              odom_topic_name:=__ODOM_TOPIC__ \
+              odom_sensor_label:=odom_wheels
+
+      For multiple external sources (e.g. wheels + VIO), add extra
+      ``subscribe`` entries to ``lidar_odometry_ros2.yaml`` with
+      distinct ``output_sensor_label`` values.
 
 See the :ref:`"Fusing two Odometry sources" tutorial <mola_sta_est_index>`
-for a full example with fake publishers. The base launch looks like:
-
-.. container:: mola-tpl
-
-   .. code-block:: bash
-
-      ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
-        lidar_topic_name:=__LIDAR_TOPIC__ \
-        imu_topic_name:=__IMU_TOPIC__ \
-        mola_tf_base_link:=__BASE_LINK__ \
-        use_state_estimator:=True \
-        use_imu_for_lio:=True \
-        forward_ros_tf_odom_to_mola:=True
+for a full worked example with fake publishers.
 
 |
 
@@ -380,9 +476,9 @@ reached.
 .. mermaid::
 
    flowchart LR
-     lidar[/__LIDAR_TOPIC__/] --> bridge[BridgeROS2]
-     imu[/__IMU_TOPIC__/] --> bridge
-     gnss[/__GNSS_TOPIC__/] --> bridge
+     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
+     imu[/"__IMU_TOPIC__"/] --> bridge
+     gnss[/"__GNSS_TOPIC__"/] --> bridge
      bridge --> lo[mola::LidarOdometry]
      bridge --> smoother[StateEstimationSmoother]
      lo --> smoother
@@ -417,9 +513,9 @@ switches to localization-only mapping.
 
    flowchart LR
      mm[(__MM_PATH__ .mm map)] --> lo
-     lidar[/__LIDAR_TOPIC__/] --> bridge[BridgeROS2]
-     imu[/__IMU_TOPIC__/] --> bridge
-     gnss[/__GNSS_TOPIC__/] --> bridge
+     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
+     imu[/"__IMU_TOPIC__"/] --> bridge
+     gnss[/"__GNSS_TOPIC__"/] --> bridge
      bridge --> lo[mola::LidarOdometry]
      bridge --> smoother[StateEstimationSmoother]
      lo --> smoother

@@ -87,13 +87,16 @@ and geo-referencing.
 
 .. raw:: html
 
-   <div style="width: 100%; overflow: hidden;">
-     <video controls autoplay loop muted style="width: 512px;">
-       <source src="https://mrpt.github.io/videos/mola-lo-mulran-dcc02-demo-decaying-clouds.mp4" type="video/mp4">
-     </video>
+   <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+     <div style="flex: 1; min-width: 280px;">
+       <video controls autoplay loop muted style="width: 100%;">
+         <source src="https://mrpt.github.io/videos/mola-lo-mulran-dcc02-demo-decaying-clouds.mp4" type="video/mp4">
+       </video>
+     </div>
+     <div style="flex: 1; min-width: 280px;">
+       <img src="https://mrpt.github.io/imgs/MOLA_LIO_Oxford_Spires_stairs.gif" style="width: 100%;" alt="MOLA LIO Oxford Spires stairs demo">
+     </div>
    </div>
-
-.. image:: https://mrpt.github.io/imgs/mola-slam-kitti-demo.gif
 
 |
 

@@ -247,8 +247,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   // under a ROS namespace (e.g. /robot1/tf) can be read too.
   lookup_[tf_topic_].emplace_back([this](const rosbag2_storage::SerializedBagMessage& rosmsg)
                                   { return toTf<false>(rosmsg); });
-  lookup_[tf_static_topic_].emplace_back(
-      [this](const rosbag2_storage::SerializedBagMessage& rosmsg) { return toTf<true>(rosmsg); });
+  lookup_[tf_static_topic_].emplace_back([this](const rosbag2_storage::SerializedBagMessage& rosmsg)
+                                         { return toTf<true>(rosmsg); });
 
   for (auto& sensorNode : sensorsYaml.asSequence())
   {

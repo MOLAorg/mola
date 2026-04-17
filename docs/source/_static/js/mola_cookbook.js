@@ -13,6 +13,7 @@
     { key: 'LIDAR_TOPIC', label: 'LiDAR topic',       def: '/ouster/points' },
     { key: 'IMU_TOPIC',   label: 'IMU topic',         def: '/imu' },
     { key: 'GNSS_TOPIC',  label: 'GNSS topic',        def: '/gps' },
+    { key: 'ODOM_TOPIC',  label: 'External odom topic', def: '/wheel_odom' },
     { key: 'BASE_LINK',   label: 'base_link frame',   def: 'base_link' },
     { key: 'NS',          label: 'ROS 2 namespace',   def: 'robot1' },
     { key: 'BAG_PATH',    label: 'rosbag path',       def: '/path/to/your.mcap' },
