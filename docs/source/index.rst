@@ -14,6 +14,7 @@
   localization
   geo-referencing
   ros2api
+  mola_ros2_configurations
   map-tools
 
 .. toctree::

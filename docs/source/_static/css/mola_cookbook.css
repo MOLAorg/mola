@@ -1,0 +1,63 @@
+/* MOLA cookbook parameter editor */
+
+.mola-cookbook-form {
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  background: #f6f8fa;
+  padding: 14px 16px;
+  margin: 1em 0 1.5em;
+}
+
+.mola-cookbook-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #57606a;
+}
+
+.mola-cookbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px 16px;
+}
+
+.mola-cookbook-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.mola-cookbook-label {
+  color: #1f2328;
+  font-weight: 600;
+}
+
+.mola-cookbook-row input {
+  padding: 6px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  font-family: SFMono-Regular, Consolas, Menlo, monospace;
+  font-size: 12.5px;
+  background: #fff;
+}
+
+.mola-cookbook-row input:focus {
+  outline: 2px solid #0550ae;
+  outline-offset: -1px;
+  border-color: #0550ae;
+}
+
+.mola-cookbook-reset {
+  margin-top: 10px;
+  padding: 5px 10px;
+  font-size: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.mola-cookbook-reset:hover {
+  border-color: #0550ae;
+  color: #0550ae;
+}

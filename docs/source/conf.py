@@ -51,7 +51,12 @@ extensions = [
     'sphinx_copybutton',
     #    'sphinx.ext.autosectionlabel',
     'sphinxcontrib.bibtex',
+    'sphinxcontrib.mermaid',
 ]
+
+# sphinxcontrib-mermaid options
+mermaid_version = '11.4.0'
+mermaid_output_format = 'raw'  # render via JS in the browser; keeps diagrams vector and diffable.
 
 extensions += ['doxyrest', 'cpplexer']
 
@@ -116,7 +121,15 @@ html_theme_options = {}
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = [
-    #    '_static'
+    '_static',
+]
+
+# Custom JS/CSS for the MOLA ROS 2 cookbook parameter editor.
+html_js_files = [
+    'js/mola_cookbook.js',
+]
+html_css_files = [
+    'css/mola_cookbook.css',
 ]
 
 # Custom sidebar templates, must be a dictionary that maps document names
