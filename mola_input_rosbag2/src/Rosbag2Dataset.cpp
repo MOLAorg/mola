@@ -116,6 +116,11 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   YAML_LOAD_MEMBER_OPT(base_link_frame_id, std::string);
   YAML_LOAD_MEMBER_OPT(tf_topic, std::string);
   YAML_LOAD_MEMBER_OPT(tf_static_topic, std::string);
+
+  ASSERTMSG_(!tf_topic_.empty(), "'tf_topic' must not be empty");
+  ASSERTMSG_(!tf_static_topic_.empty(), "'tf_static_topic' must not be empty");
+  ASSERTMSG_(tf_topic_ != tf_static_topic_, "'tf_topic' and 'tf_static_topic' must differ");
+
   YAML_LOAD_MEMBER_OPT(read_ahead_length, size_t);
   paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
