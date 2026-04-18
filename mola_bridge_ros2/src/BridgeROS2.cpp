@@ -26,6 +26,7 @@
 #include <mola_bridge_ros2/BridgeROS2.h>
 
 // MOLA/MRPT:
+#include <mola_kernel/interfaces/DiagnosticsProvider.h>
 #include <mola_kernel/pretty_print_exception.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
@@ -65,6 +66,7 @@
 #include <mrpt_nav_interfaces/msg/georeferencing_metadata.hpp>
 
 // ROS 2:
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <geographic_msgs/msg/geo_pose_stamped.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -2099,6 +2101,57 @@ void BridgeROS2::publishDiagnostics()
 
     }  // fof each diagnostics message
   }  // end for each module
+
+  // Additionally, collect REP-107 structured diagnostics from modules
+  // implementing the DiagnosticsProvider interface and publish them on
+  // the standard /diagnostics topic.
+  auto diagProviders = this->findService<mola::DiagnosticsProvider>();
+  if (!diagProviders.empty())
+  {
+    diagnostic_msgs::msg::DiagnosticArray arrMsg;
+    arrMsg.header.stamp = rosNode()->now();
+
+    for (auto& mod : diagProviders)
+    {
+      auto prov = std::dynamic_pointer_cast<mola::DiagnosticsProvider>(mod);
+      if (!prov) continue;
+
+      std::vector<mola::DiagnosticStatusMsg> items;
+      try
+      {
+        prov->getDiagnostics(items);
+      }
+      catch (const std::exception& e)
+      {
+        MRPT_LOG_THROTTLE_WARN_STREAM(
+            5.0, "Exception in DiagnosticsProvider::getDiagnostics(): " << e.what());
+        continue;
+      }
+
+      const std::string defaultHwId = mod->getModuleInstanceName();
+
+      for (const auto& it : items)
+      {
+        diagnostic_msgs::msg::DiagnosticStatus st;
+        st.level       = static_cast<unsigned char>(it.level);
+        st.name        = it.name;
+        st.message     = it.message;
+        st.hardware_id = it.hardware_id.empty() ? defaultHwId : it.hardware_id;
+        st.values.reserve(it.values.size());
+        for (const auto& kv : it.values)
+        {
+          diagnostic_msgs::msg::KeyValue rkv;
+          rkv.key   = kv.key;
+          rkv.value = kv.value;
+          st.values.push_back(rkv);
+        }
+        arrMsg.status.push_back(std::move(st));
+      }
+    }
+
+    auto pubAgg = get_publisher<diagnostic_msgs::msg::DiagnosticArray>("/diagnostics", qos);
+    pubAgg->publish(arrMsg);
+  }
 }
 
 void BridgeROS2::internalPublishGridMap(

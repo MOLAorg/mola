@@ -30,6 +30,7 @@ find_mola_package(mola_kernel)
 
 # Find ROS 2 pkgs:
 mola_find_package_or_return(ament_cmake)
+mola_find_package_or_return(diagnostic_msgs)
 mola_find_package_or_return(geometry_msgs)
 mola_find_package_or_return(nav_msgs)
 mola_find_package_or_return(rclcpp)
@@ -60,6 +61,7 @@ mola_add_library(
   PUBLIC_LINK_LIBRARIES
     rclcpp::rclcpp
     tf2::tf2
+    ${diagnostic_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${geographic_msgs_TARGETS}
     ${nav_msgs_TARGETS}

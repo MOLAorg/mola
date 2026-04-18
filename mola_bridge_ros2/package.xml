@@ -24,6 +24,7 @@
   <buildtool_depend>ament_cmake_gmock</buildtool_depend>
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>diagnostic_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>mola_common</depend>
   <depend>mola_kernel</depend>

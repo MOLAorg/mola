@@ -40,6 +40,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/GuiWidgetDescription.h
   include/mola_kernel/id.h
   include/mola_kernel/interfaces/Dataset_UI.h
+  include/mola_kernel/interfaces/DiagnosticsProvider.h
   include/mola_kernel/interfaces/ExecutableBase.h
   include/mola_kernel/interfaces/FilterBase.h
   include/mola_kernel/interfaces/FrontEndBase.h
@@ -95,3 +96,8 @@ set(MOLA_PATCH_VERSION ${CMAKE_MATCH_3})
 target_compile_definitions(${PROJECT_NAME} PUBLIC MOLA_MAJOR_VERSION=${MOLA_MAJOR_VERSION})
 target_compile_definitions(${PROJECT_NAME} PUBLIC MOLA_MINOR_VERSION=${MOLA_MINOR_VERSION})
 target_compile_definitions(${PROJECT_NAME} PUBLIC MOLA_PATCH_VERSION=${MOLA_PATCH_VERSION})
+
+# Tests
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()
