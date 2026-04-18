@@ -179,6 +179,14 @@ for the different situations listed above:
       - ``enu → {map, utm}``: Published by ``mrpt_map_server`` (`github <https://github.com/mrpt-ros-pkg/mrpt_navigation/tree/ros2/mrpt_map_server/>`_)
         or ``mola_lidar_odometry`` :ref:`map loading service <map_loading_saving>` if fed with a geo-referenced metric map (``.mm``) file.
 
+      .. note::
+
+         Internally, the MOLA localization module (``mola_lidar_odometry`` or a
+         state estimator) always emits ``map → base_link`` updates.
+         :ref:`BridgeROS2 <doxid-classmola_1_1_bridge_r_o_s2>` is what splits
+         that into the REP-105 ``map → odom`` /tf broadcast by querying the
+         current ``odom → base_link`` from /tf and composing it out.
+
    .. tab-item:: (B) LO, no REP105
 
       When using just a LiDAR as single sensor.
