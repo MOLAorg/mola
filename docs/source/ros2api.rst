@@ -217,6 +217,15 @@ for the different situations listed above:
       - ``enu → {map, utm}``: Published by ``mrpt_map_server`` (`github <https://github.com/mrpt-ros-pkg/mrpt_navigation/tree/ros2/mrpt_map_server/>`_)
         or ``mola_lidar_odometry`` :ref:`map loading service <map_loading_saving>` if fed with a geo-referenced metric map (``.mm``) file.
 
+      .. note::
+
+         External odometry sources must enter MOLA as ``nav_msgs/Odometry``
+         topics (consumed as observations), **not** via /tf. If a wheel
+         driver also broadcasts ``odom → base_link`` to /tf while the
+         state estimator publishes ``map → base_link``, ``base_link``
+         ends up with two parents and tf2 rejects the tree. See the
+         :ref:`cookbook §4.4 <mola_ros2_cookbook_4_4>`.
+
 .. note::
 
    For non geo-referenced maps, all frames remain the same but ``utm`` and ``enu`` will not exist.

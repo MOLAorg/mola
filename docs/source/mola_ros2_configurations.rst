@@ -364,23 +364,79 @@ Adds an external odometry source to the smoother. The smoother estimates
 a distinct ``T_map_to_odom`` per source and fuses their deltas with LO
 (and IMU, if enabled).
 
-BridgeROS2 offers **two complementary pathways** for consuming external
-odometry; pick one according to what the upstream driver publishes.
+.. important::
 
-.. warning::
+   With the Smoother, external odometry **must** be consumed via a
+   ``nav_msgs/Odometry`` topic (``odom_topic_name:=...``).
+   ``forward_ros_tf_odom_to_mola:=True`` (the /tf pathway) is only valid
+   with the Simple estimator + REP-105 (§4.1), where the bridge splits
+   its output into ``map → odom``. The Smoother instead publishes
+   ``map → base_link`` directly, so an external ``odom → base_link`` on
+   /tf would give ``base_link`` two parents and break the tf2 tree.
+   The launch file enforces this and fails fast if both
+   ``forward_ros_tf_odom_to_mola:=True`` and ``use_state_estimator:=True``
+   are set.
 
-   The two pathways below are **mutually exclusive**. Enabling both
-   (``forward_ros_tf_odom_to_mola:=True`` *and* a non-empty
-   ``odom_topic_name:=``) feeds duplicate observations to the state
-   estimator under different labels and degrades the fusion.
+The upstream driver publishes a ``nav_msgs/Odometry`` message on a topic.
+BridgeROS2 subscribes directly, converts each message to a 3D
+``CObservationRobotPose`` (6×6 covariance) and forwards it under
+``odom_sensor_label``. This preserves Z / pitch / roll and allows fusing
+**multiple** labeled sources.
 
-.. list-table:: Pathway comparison
+.. mermaid::
+
+   flowchart LR
+     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
+     imu[/"__IMU_TOPIC__"/] --> bridge
+     wheel[/wheel odom topic/] --> bridge
+     bridge --> lo[mola::LidarOdometry]
+     bridge --> smoother[StateEstimationSmoother]
+     lo --> smoother
+     smoother --> bridge
+     bridge -->|map → base_link| tfout[/'tf'/]
+
+.. container:: mola-tpl
+
+   .. code-block:: bash
+
+      ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
+        lidar_topic_name:=__LIDAR_TOPIC__ \
+        imu_topic_name:=__IMU_TOPIC__ \
+        mola_tf_base_link:=__BASE_LINK__ \
+        use_state_estimator:=True \
+        use_imu_for_lio:=True \
+        odom_topic_name:=__ODOM_TOPIC__ \
+        odom_sensor_label:=odom_wheels
+
+For multiple external sources (e.g. wheels + VIO), add extra
+``subscribe`` entries to ``lidar_odometry_ros2.yaml`` with distinct
+``output_sensor_label`` values.
+
+.. dropdown:: Why not the /tf pathway here?
+   :icon: question
+
+   ``forward_ros_tf_odom_to_mola:=True`` makes BridgeROS2 query
+   ``odom → base_link`` from /tf at its execution rate and inject a 2D
+   ``CObservationOdometry``. That pathway **relies on an external
+   publisher** (wheel driver, ``robot_state_publisher``) putting
+   ``odom → base_link`` on /tf. With the Simple estimator in REP-105
+   mode, the bridge publishes ``map → odom`` and the tree is well
+   formed: ``map → odom → base_link``.
+
+   With the Smoother, the bridge publishes ``map → base_link`` directly.
+   Adding an external ``odom → base_link`` on top means two edges
+   pointing at ``base_link`` (from ``map`` and from ``odom``), which
+   violates the tf2 tree invariant. For Smoother fusion the only
+   viable pathway is the ``/odom`` topic, whose observations do not
+   participate in /tf.
+
+.. list-table:: Odometry ingress — when to use which
    :header-rows: 1
    :widths: 28 36 36
 
    * -
-     - Variant A: via ``/tf``
-     - Variant B: via ``/odom`` topic
+     - Via ``/tf``
+     - Via ``/odom`` topic
    * - Launch arg
      - ``forward_ros_tf_odom_to_mola:=True``
      - ``odom_topic_name:=/your_odom``
@@ -399,84 +455,10 @@ odometry; pick one according to what the upstream driver publishes.
    * - Rate
      - BridgeROS2 ``execution_rate`` (20 Hz)
      - Publisher rate
-   * - Recommended for
-     - Simple SE, or 2D robots where only TF is available
-     - **Smoother SE fusion** (3D pose + covariance)
-
-.. tab-set::
-
-   .. tab-item:: Variant A: TF-driven
-      :sync: odom_via_tf
-
-      The upstream wheel driver (or ``robot_state_publisher``) publishes
-      ``odom → base_link`` to ``/tf``. BridgeROS2 queries that TF at
-      its own ``execution_rate`` and injects a 2D
-      ``CObservationOdometry``.
-
-      .. mermaid::
-
-         flowchart LR
-           lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
-           imu[/"__IMU_TOPIC__"/] --> bridge
-           wheel[Wheel driver] -->|'/tf: odom → base_link'| bridge
-           bridge --> lo[mola::LidarOdometry]
-           bridge --> smoother[StateEstimationSmoother]
-           lo --> smoother
-           smoother --> bridge
-           bridge -->|map → base_link| tfout[/'tf'/]
-
-      .. container:: mola-tpl
-
-         .. code-block:: bash
-
-            ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
-              lidar_topic_name:=__LIDAR_TOPIC__ \
-              imu_topic_name:=__IMU_TOPIC__ \
-              mola_tf_base_link:=__BASE_LINK__ \
-              use_state_estimator:=True \
-              use_imu_for_lio:=True \
-              forward_ros_tf_odom_to_mola:=True
-
-      If your ``odom`` frame has a non-default name, also set
-      ``mola_bridge_odometry_frame:=<name>``.
-
-   .. tab-item:: Variant B: /odom topic (recommended for Smoother)
-      :sync: odom_via_topic
-
-      The upstream driver publishes a ``nav_msgs/Odometry`` message on
-      a topic. BridgeROS2 subscribes directly, converts each message to
-      a 3D ``CObservationRobotPose`` (6×6 covariance) and forwards it
-      under ``odom_sensor_label``. This preserves Z / pitch / roll and
-      allows fusing **multiple** labeled sources.
-
-      .. mermaid::
-
-         flowchart LR
-           lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
-           imu[/"__IMU_TOPIC__"/] --> bridge
-           wheel[/wheel odom topic/] --> bridge
-           bridge --> lo[mola::LidarOdometry]
-           bridge --> smoother[StateEstimationSmoother]
-           lo --> smoother
-           smoother --> bridge
-           bridge -->|map → base_link| tfout[/'tf'/]
-
-      .. container:: mola-tpl
-
-         .. code-block:: bash
-
-            ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
-              lidar_topic_name:=__LIDAR_TOPIC__ \
-              imu_topic_name:=__IMU_TOPIC__ \
-              mola_tf_base_link:=__BASE_LINK__ \
-              use_state_estimator:=True \
-              use_imu_for_lio:=True \
-              odom_topic_name:=__ODOM_TOPIC__ \
-              odom_sensor_label:=odom_wheels
-
-      For multiple external sources (e.g. wheels + VIO), add extra
-      ``subscribe`` entries to ``lidar_odometry_ros2.yaml`` with
-      distinct ``output_sensor_label`` values.
+   * - Compatible with
+     - **Simple SE + REP-105 only** (§4.1). Incompatible with Smoother —
+       rejected by the launch file.
+     - Simple SE (no REP-105) and **Smoother SE** (recommended).
 
 See the :ref:`"Fusing two Odometry sources" tutorial <mola_sta_est_index>`
 for a full worked example with fake publishers.
