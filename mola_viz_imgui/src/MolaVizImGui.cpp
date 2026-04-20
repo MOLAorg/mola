@@ -34,6 +34,8 @@
 // ImGui stdlib helper for std::string InputText:
 #include <imgui_stdlib.h>
 
+#include <cstdlib>
+#include <filesystem>
 #include <stdexcept>
 
 using namespace mola;
@@ -185,6 +187,7 @@ void MolaVizImGui::initialize(const Yaml& c)
   YAML_LOAD_MEMBER_OPT(show_rgbd_as_point_cloud, bool);
   YAML_LOAD_MEMBER_OPT(assumed_sensor_rate_hz, double);
   YAML_LOAD_MEMBER_OPT(target_fps, int);
+  YAML_LOAD_MEMBER_OPT(imgui_app_name, std::string);
 
   {
     std::lock_guard lk(instanceMtx_);
@@ -230,6 +233,46 @@ std::future<void> MolaVizImGui::enqueue_custom_gui_code(const std::function<void
 // GUI thread
 // ---------------------------------------------------------------------------
 
+std::string MolaVizImGui::resolve_imgui_ini_path(const window_name_t& windowName) const
+{
+  if (imgui_app_name_.empty()) return {};  // persistence disabled
+
+  namespace fs = std::filesystem;
+
+  // Base directory: $XDG_CONFIG_HOME/mola/ or $HOME/.config/mola/
+  fs::path baseDir;
+  if (const char* xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
+  {
+    baseDir = fs::path(xdg) / "mola";
+  }
+  else if (const char* home = std::getenv("HOME"); home && *home)
+  {
+    baseDir = fs::path(home) / ".config" / "mola";
+  }
+  else
+  {
+    baseDir = fs::temp_directory_path() / "mola";
+  }
+
+  std::error_code ec;
+  fs::create_directories(baseDir, ec);
+  if (ec)
+  {
+    MRPT_LOG_WARN_STREAM(
+        "resolve_imgui_ini_path(): could not create '" << baseDir.string()
+                                                       << "': " << ec.message());
+    return {};
+  }
+
+  // One file per (app, host-window) pair.  The default window is just
+  // "<app>.ini"; additional windows get a suffix so they don't collide.
+  std::string fname = "imgui_" + imgui_app_name_;
+  if (windowName != DEFAULT_WINDOW_NAME) fname += "_" + windowName;
+  fname += ".ini";
+
+  return (baseDir / fname).string();
+}
+
 MolaVizImGui::PerWindowData& MolaVizImGui::create_and_add_window(const window_name_t& name)
 {
   // Must be called from the GUI thread.
@@ -261,7 +304,22 @@ MolaVizImGui::PerWindowData& MolaVizImGui::create_and_add_window(const window_na
   ImGuiIO& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // docking branch
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.IniFilename = nullptr;  // TODO: set per-window ini path from name
+
+  // Persist window / docking layout to a per-app .ini file.  The buffer
+  // pointed to by io.IniFilename must outlive the ImGui context, so we
+  // store it in imgui_ini_paths_ (a member map).  Empty path disables
+  // persistence — ImGui then skips all load/save of .ini state.
+  const std::string resolvedIni = resolve_imgui_ini_path(name);
+  if (!resolvedIni.empty())
+  {
+    auto [it, inserted] = imgui_ini_paths_.emplace(name, resolvedIni);
+    io.IniFilename      = it->second.c_str();
+    MRPT_LOG_INFO_STREAM("ImGui layout .ini file: " << it->second);
+  }
+  else
+  {
+    io.IniFilename = nullptr;
+  }
 
   ImGui::StyleColorsDark();
 

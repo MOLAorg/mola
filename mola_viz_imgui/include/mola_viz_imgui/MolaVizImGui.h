@@ -252,6 +252,14 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   double       assumed_sensor_rate_hz_   = 10.0;
   int          target_fps_               = 60;
 
+  /** Identifier used to persist ImGui window layout / docking state across
+   *  runs: each distinct value maps to its own `imgui_<app_name>.ini` file
+   *  under `$XDG_CONFIG_HOME/mola/` (or `$HOME/.config/mola/`).  Set a
+   *  different name per launch config (e.g. "kitti_replay", "live_lio")
+   *  to keep layouts separate.  Empty string disables persistence.
+   */
+  std::string imgui_app_name_ = "default";
+
   /** @} */
 
  private:
@@ -351,6 +359,17 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   };
 
   std::map<window_name_t, PerWindowData> windows_;
+
+  /// Resolved ImGui .ini path(s), one per GLFW host window.  Stored as a
+  /// member because ImGui's `io.IniFilename` keeps the pointer (not a copy)
+  /// for the lifetime of the context.
+  std::map<window_name_t, std::string> imgui_ini_paths_;
+
+  /// Resolve the .ini path for a given host window, based on
+  /// `imgui_app_name_`.  Creates parent directories if needed.  Returns
+  /// empty string if persistence is disabled (empty imgui_app_name_) or the
+  /// directory couldn't be created.
+  std::string resolve_imgui_ini_path(const window_name_t& windowName) const;
 
   // ---------------------------------------------------------------------------
   // GUI thread + task queue
