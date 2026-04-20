@@ -35,6 +35,8 @@
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/stock_objects.h>
 
+#include <mutex>
+
 using namespace mola;
 
 // ---------------------------------------------------------------------------
@@ -138,9 +140,14 @@ void handler_images(
 
   const std::string winId = window_id_for(subWindowTitle, "image");
 
-  // Per-window persistent state:
+  // Per-window persistent state.  Cleared from the GUI thread on shutdown
+  // (while the GL context is still current) via register_gui_cleanup, to
+  // avoid ~CImGuiSceneView calling glDelete* on a dead context.
   static std::map<std::string, ImageViewState> stateMap;
-  auto&                                        st = stateMap[winId];
+  static std::once_flag                        cleanupReg;
+  std::call_once(
+      cleanupReg, []() { MolaVizImGui::register_gui_cleanup([]() { stateMap.clear(); }); });
+  auto& st = stateMap[winId];
 
   if (!st.initialized)
   {
@@ -194,9 +201,14 @@ void handler_point_cloud(
 
   const std::string winId = window_id_for(subWindowTitle, "pointcloud");
 
-  // Per-window persistent state:
+  // Per-window persistent state.  Cleared on GUI-thread shutdown via
+  // register_gui_cleanup so CImGuiSceneView's GL resources don't outlive
+  // the context.
   static std::map<std::string, PointCloudViewState> stateMap;
-  auto&                                             st = stateMap[winId];
+  static std::once_flag                             cleanupReg;
+  std::call_once(
+      cleanupReg, []() { MolaVizImGui::register_gui_cleanup([]() { stateMap.clear(); }); });
+  auto& st = stateMap[winId];
 
   if (!st.initialized)
   {

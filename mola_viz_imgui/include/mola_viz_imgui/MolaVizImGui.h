@@ -233,6 +233,13 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
 
   static void register_gui_handler(const class_name_t& name, const update_handler_t& handler);
 
+  /// Register a callback that will be invoked on the GUI thread during
+  /// shutdown, **with the GL context still current**, before any GLFW
+  /// window is destroyed. Handlers use this to release GL resources held
+  /// in function-local static state (FBOs, textures, VAOs in
+  /// CImGuiSceneView, …) without risking calls on a dead context.
+  static void register_gui_cleanup(const std::function<void()>& cleanup);
+
   /** @} */
 
   // =========================================================================
@@ -302,7 +309,10 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
     std::mutex                                  background_scene_mtx;
 
     /// Camera / FBO renderer for the background scene.
-    mrpt::imgui::CImGuiSceneView background_scene_view;
+    /// Held by unique_ptr so we can release its GL resources (FBO/texture)
+    /// explicitly while the GL context is still current, before
+    /// glfwDestroyWindow(). CImGuiSceneView is non-copyable and non-movable.
+    std::unique_ptr<mrpt::imgui::CImGuiSceneView> background_scene_view;
 
     /// Legacy camera state (used to initialize background_scene_view).
     float cam_azimuth_deg   = 110.0f;

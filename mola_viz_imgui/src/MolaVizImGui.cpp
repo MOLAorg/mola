@@ -72,6 +72,54 @@ void MolaVizImGui::register_gui_handler(const class_name_t& name, const update_h
 }
 
 // ---------------------------------------------------------------------------
+// GUI shutdown cleanup registry — see header doc
+// ---------------------------------------------------------------------------
+
+namespace
+{
+struct ImGuiCleanupContainer
+{
+  static ImGuiCleanupContainer& Instance()
+  {
+    static ImGuiCleanupContainer o;
+    return o;
+  }
+  std::vector<std::function<void()>> cleanups;
+  std::mutex                         mtx;
+};
+}  // namespace
+
+void MolaVizImGui::register_gui_cleanup(const std::function<void()>& cleanup)
+{
+  auto&           c = ImGuiCleanupContainer::Instance();
+  std::lock_guard lk(c.mtx);
+  c.cleanups.push_back(cleanup);
+}
+
+namespace
+{
+void run_gui_cleanups()
+{
+  auto&                              c = ImGuiCleanupContainer::Instance();
+  std::vector<std::function<void()>> local;
+  {
+    std::lock_guard lk(c.mtx);
+    local = c.cleanups;  // copy so callbacks can't mutate under lock
+  }
+  for (auto& fn : local)
+  {
+    try
+    {
+      fn();
+    }
+    catch (...)
+    {
+    }
+  }
+}
+}  // namespace
+
+// ---------------------------------------------------------------------------
 // Singleton
 // ---------------------------------------------------------------------------
 
@@ -200,9 +248,10 @@ MolaVizImGui::PerWindowData& MolaVizImGui::create_and_add_window(const window_na
   glfwMakeContextCurrent(win);
   glfwSwapInterval(0);  // vsync off; we cap via target_fps_
 
-  auto& wd            = windows_[name];
-  wd.glfw_window      = win;
-  wd.background_scene = mrpt::opengl::COpenGLScene::Create();
+  auto& wd                 = windows_[name];
+  wd.glfw_window           = win;
+  wd.background_scene      = mrpt::opengl::COpenGLScene::Create();
+  wd.background_scene_view = std::make_unique<mrpt::imgui::CImGuiSceneView>();
 
   // Create and configure a per-window ImGui context so multiple GLFW windows
   // can coexist (each has its own imgui.ini section).
@@ -262,14 +311,35 @@ void MolaVizImGui::gui_thread()
   }
 
   // Cleanup:
+  // Critical: anything that owns GL resources (FBOs, textures, buffers)
+  // must be released BEFORE the GL context is destroyed.  That means
+  // clearing PerWindowData members that wrap GL state first, while the
+  // context is still current, and only then shutting down the ImGui
+  // backend and the GLFW window.
   for (auto& [name, wd] : windows_)
   {
     if (!wd.glfw_window) continue;
+    glfwMakeContextCurrent(wd.glfw_window);
     ImGui::SetCurrentContext(wd.imgui_ctx);
+
+    // 1) Handler-owned state (function-local statics in handler files).
+    //    These hold CImGuiSceneView instances whose destructors call
+    //    glDeleteFramebuffers/Textures/etc.  Run with context current.
+    run_gui_cleanups();
+
+    // 2) This window's own GL-resource-holding members:
+    wd.sensor_windows.clear();  // drops any per-slot GL state
+    wd.decaying_clouds.clear();  // dropping CPointCloudColoured refs
+    wd.background_scene.reset();  // drops scene (textures, VBOs)
+    wd.background_scene_view.reset();  // drops FBO/RBO/texture in the view
+
+    // 3) ImGui + GLFW teardown, still with context current:
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext(wd.imgui_ctx);
+    wd.imgui_ctx = nullptr;
     glfwDestroyWindow(wd.glfw_window);
+    wd.glfw_window = nullptr;
   }
   windows_.clear();
   glfwTerminate();
@@ -407,14 +477,14 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
 {
   std::lock_guard lk(wd.background_scene_mtx);
 
-  if (!wd.background_scene) return;
+  if (!wd.background_scene || !wd.background_scene_view) return;
 
   // Sync scene pointer into the view (idempotent if already set):
-  if (wd.background_scene_view.scene() != wd.background_scene)
+  if (wd.background_scene_view->scene() != wd.background_scene)
   {
-    wd.background_scene_view.setScene(wd.background_scene);
-    wd.background_scene_view.setBackgroundColor(0.15f, 0.15f, 0.18f);
-    auto& cam = wd.background_scene_view.camera();
+    wd.background_scene_view->setScene(wd.background_scene);
+    wd.background_scene_view->setBackgroundColor(0.15f, 0.15f, 0.18f);
+    auto& cam = wd.background_scene_view->camera();
     cam.setAzimuthDegrees(wd.cam_azimuth_deg);
     cam.setElevationDegrees(wd.cam_elevation_deg);
     cam.setZoomDistance(wd.cam_zoom);
@@ -433,7 +503,7 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
     while (glGetError() != GL_NO_ERROR)
     {
     }
-    wd.background_scene_view.render();
+    wd.background_scene_view->render();
   }
   ImGui::End();
 }
