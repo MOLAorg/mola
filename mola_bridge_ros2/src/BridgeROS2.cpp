@@ -1545,53 +1545,59 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
   // Send TF with localization result
   // 1) Direct mode:    reference_frame ("map") -> base_link ("base_link")
   // 2) Indirect mode:  map -> odom  (such as "map -> odom -> base_link" = "map -> base_link")
-  if (params_.publish_tf_from_slam && (params_.publish_tf_from_slam_source.empty() ||
-                                       params_.publish_tf_from_slam_source == l.method))
+  if (!params_.publish_tf_from_slam ||
+      (!params_.publish_tf_from_slam_source.empty() &&
+       params_.publish_tf_from_slam_source != l.method))
   {
-    tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(l.pose);
+    return;
+  }
 
-    geometry_msgs::msg::TransformStamped tf;
-    tf.header.stamp = myNow(l.timestamp);
+  const tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(l.pose);
 
-    // Follow REP105 only if we are publishing "map" -> "base_link" poses.
-    if (params_.publish_localization_following_rep105 && l.child_frame == params_.base_link_frame &&
-        l.reference_frame == params_.reference_frame)
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = myNow(l.timestamp);
+
+  // Follow REP105 only if we are publishing "map" -> "base_link" poses.
+  const bool useRep105 = params_.publish_localization_following_rep105 &&
+                         l.child_frame == params_.base_link_frame &&
+                         l.reference_frame == params_.reference_frame;
+
+  if (useRep105)
+  {
+    // Compose map -> odom = (map -> base_link) * (base_link -> odom):
+    mrpt::poses::CPose3D T_base_to_odom;
+    const bool           base_to_odom_ok =
+        this->waitForTransform(T_base_to_odom, params_.odom_frame, l.child_frame, true);
+    // Note: this wait above typ takes ~50 us
+
+    if (!base_to_odom_ok)
     {
-      // Recompute:
-      mrpt::poses::CPose3D T_base_to_odom;
-      bool                 base_to_odom_ok =
-          this->waitForTransform(T_base_to_odom, params_.odom_frame, l.child_frame, true);
-      // Note: this wait above typ takes ~50 us
-
-      if (!base_to_odom_ok)
-      {
-        MRPT_LOG_ERROR_STREAM(
-            "publish_localization_following_rep105=true but could not resolve tf odom -> "
-            "base_link");
-      }
-      else
-      {
-        const tf2::Transform& baseOnMap_tf = transform;
-
-        const tf2::Transform odomOnBase_tf = mrpt::ros2bridge::toROS_tfTransform(T_base_to_odom);
-
-        tf.transform       = tf2::toMsg(baseOnMap_tf * odomOnBase_tf);
-        tf.child_frame_id  = params_.odom_frame;
-        tf.header.frame_id = l.reference_frame;
-      }
-    }
-    else
-    {
-      tf.transform       = tf2::toMsg(transform);
-      tf.child_frame_id  = l.child_frame;
-      tf.header.frame_id = l.reference_frame;
+      // Skip publishing entirely: broadcasting a default-constructed
+      // TransformStamped here would inject empty frame_ids into every
+      // subscriber's tf2 buffer (TF_NO_FRAME_ID / TF_SELF_TRANSFORM spam).
+      MRPT_LOG_ERROR_STREAM(
+          "publish_localization_following_rep105=true but could not resolve tf '"
+          << params_.odom_frame << "' -> '" << l.child_frame << "'; skipping TF publish.");
+      return;
     }
 
-    auto lckTfBc = mrpt::lockHelper(ros_tf_bc_mtx_);
-    if (tf_bc_)
-    {
-      tf_bc_->sendTransform(tf);
-    }
+    const tf2::Transform odomOnBase_tf = mrpt::ros2bridge::toROS_tfTransform(T_base_to_odom);
+
+    tf.transform       = tf2::toMsg(transform * odomOnBase_tf);
+    tf.child_frame_id  = params_.odom_frame;
+    tf.header.frame_id = l.reference_frame;
+  }
+  else
+  {
+    tf.transform       = tf2::toMsg(transform);
+    tf.child_frame_id  = l.child_frame;
+    tf.header.frame_id = l.reference_frame;
+  }
+
+  auto lckTfBc = mrpt::lockHelper(ros_tf_bc_mtx_);
+  if (tf_bc_)
+  {
+    tf_bc_->sendTransform(tf);
   }
 }
 
