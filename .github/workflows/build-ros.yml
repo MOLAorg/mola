@@ -3,9 +3,9 @@ name: CI Build colcon
 
 on:
   push:
-    branches: ['**']
+    branches: [ "**" ]
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
 
 # Minimal GITHUB_TOKEN permissions (principle of least privilege)
 permissions:
@@ -17,7 +17,8 @@ jobs:
   # including PRs from forks.
   # -----------------------------------------------------------------------
   build_github_hosted:
-    name: "x86_64 / ${{ matrix.ros_distribution }} (testing=${{ matrix.use_ros_testing }})"
+    name: "x86_64 / ${{ matrix.ros_distribution }} (testing=${{
+      matrix.use_ros_testing }})"
     runs-on: ubuntu-latest
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -87,13 +88,17 @@ jobs:
   # untrusted code.
   # -----------------------------------------------------------------------
   build_self_hosted:
-    name: "arm64 / ${{ matrix.ros_distribution }} (testing=${{ matrix.use_ros_testing }})"
+    name: "arm64 / ${{ matrix.ros_distribution }} (testing=${{
+      matrix.use_ros_testing }})"
     if: >
       github.event_name == 'push' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, arm64]
+    runs-on: [ self-hosted, linux, arm64 ]
     env:
       DEBIAN_FRONTEND: noninteractive
+      http_proxy: http://host.docker.internal:3142 # apt-cacher-ng
+      https_proxy: http://host.docker.internal:3142 # apt-cacher-ng handles HTTPS too via CONNECT
+
     strategy:
       fail-fast: false
       matrix:
@@ -127,6 +132,7 @@ jobs:
 
     container:
       image: ${{ matrix.docker_image }}
+      options: --add-host=host.docker.internal:host-gateway # for apt-cacher-ng
 
     steps:
       - name: Install Git
@@ -136,6 +142,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          persist-credentials: false # safer
 
       - name: setup ROS environment
         uses: ros-tooling/setup-ros@v0.7
