@@ -558,16 +558,35 @@ GUI replay of a bag. All configuration is via environment variables.
      bag[(__BAG_PATH__)] --> ds[Rosbag2Dataset]
      ds --> lo[mola::LidarOdometry]
      lo --> se[StateEstimationSimple]
-     se --> gui[MolaViz GUI]
+     ds --> se
+     se --> lo
+     lo --> gui[MolaViz GUI]
 
-.. container:: mola-tpl
+.. tab-set::
 
-   .. code-block:: bash
+    .. tab-item:: Lidar only (LO)
 
-      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
-      MOLA_IMU_TOPIC=__IMU_TOPIC__ \
-      MOLA_TF_BASE_LINK=__BASE_LINK__ \
-        mola-lo-gui-rosbag2 __BAG_PATH__
+        .. container:: mola-tpl
+
+          .. code-block:: bash
+
+              MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+              MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                mola-lo-gui-rosbag2 __BAG_PATH__
+
+    .. tab-item:: Lidar-Inertial (LIO)
+      :selected:
+
+        .. container:: mola-tpl
+
+          .. code-block:: bash
+
+              MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
+              MOLA_LO_INITIAL_LOCALIZATION_METHOD=InitLocalization::PitchAndRollFromIMU \
+              MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+              MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+              MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                mola-lo-gui-rosbag2 __BAG_PATH__
 
 .. dropdown:: Variant: bag recorded with a ROS 2 namespace
    :icon: alert
