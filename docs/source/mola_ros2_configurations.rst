@@ -1,8 +1,8 @@
 .. _mola_ros2_cookbook:
 
-==================================================
-MOLA in ROS 2: configuration cookbook
-==================================================
+========================
+ROS 2 configurations
+========================
 
 This page walks through every supported way of launching MOLA-LO / MOLA-SLAM
 in a ROS 2 workflow. Each configuration shows a block diagram, the exact
