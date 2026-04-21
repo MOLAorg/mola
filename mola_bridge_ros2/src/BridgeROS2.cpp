@@ -979,22 +979,23 @@ void BridgeROS2::internalOn(
       mrpt::ros2bridge::toROS(*xyzgen, msg_header, msg_pts);
     }
 #if MRPT_VERSION < 0x030000  // older than v3.0.0, support deprecated classes
-    else if (const auto* xyzIRT =
-                 dynamic_cast<const mrpt::maps::CPointsMapXYZIRT*>(obs.pointcloud.get());
-             xyzIRT)
+    else if (
+        const auto* xyzIRT =
+            dynamic_cast<const mrpt::maps::CPointsMapXYZIRT*>(obs.pointcloud.get());
+        xyzIRT)
     {
       mrpt::ros2bridge::toROS(*xyzIRT, msg_header, msg_pts);
     }
-    else if (const auto* xyzi =
-                 dynamic_cast<const mrpt::maps::CPointsMapXYZI*>(obs.pointcloud.get());
-             xyzi)
+    else if (
+        const auto* xyzi = dynamic_cast<const mrpt::maps::CPointsMapXYZI*>(obs.pointcloud.get());
+        xyzi)
     {
       mrpt::ros2bridge::toROS(*xyzi, msg_header, msg_pts);
     }
 #endif
-    else if (const auto* sPts =
-                 dynamic_cast<const mrpt::maps::CSimplePointsMap*>(obs.pointcloud.get());
-             sPts)
+    else if (
+        const auto* sPts = dynamic_cast<const mrpt::maps::CSimplePointsMap*>(obs.pointcloud.get());
+        sPts)
     {
       mrpt::ros2bridge::toROS(*sPts, msg_header, msg_pts);
     }
@@ -1545,9 +1546,8 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
   // Send TF with localization result
   // 1) Direct mode:    reference_frame ("map") -> base_link ("base_link")
   // 2) Indirect mode:  map -> odom  (such as "map -> odom -> base_link" = "map -> base_link")
-  if (!params_.publish_tf_from_slam ||
-      (!params_.publish_tf_from_slam_source.empty() &&
-       params_.publish_tf_from_slam_source != l.method))
+  if (!params_.publish_tf_from_slam || (!params_.publish_tf_from_slam_source.empty() &&
+                                        params_.publish_tf_from_slam_source != l.method))
   {
     return;
   }
@@ -1566,18 +1566,21 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
   {
     // Compose map -> odom = (map -> base_link) * (base_link -> odom):
     mrpt::poses::CPose3D T_base_to_odom;
-    const bool           base_to_odom_ok =
-        this->waitForTransform(T_base_to_odom, params_.odom_frame, l.child_frame, true);
-    // Note: this wait above typ takes ~50 us
+    const bool           base_to_odom_ok = this->waitForTransform(
+        T_base_to_odom,
+        params_.odom_frame,  // Look for this frame
+        l.child_frame,  // as seen from this frame
+        true);
+    // Note: this wait above typ takes ~50 μs
 
     if (!base_to_odom_ok)
     {
       // Skip publishing entirely: broadcasting a default-constructed
       // TransformStamped here would inject empty frame_ids into every
       // subscriber's tf2 buffer (TF_NO_FRAME_ID / TF_SELF_TRANSFORM spam).
-      MRPT_LOG_ERROR_STREAM(
-          "publish_localization_following_rep105=true but could not resolve tf '"
-          << params_.odom_frame << "' -> '" << l.child_frame << "'; skipping TF publish.");
+      MRPT_LOG_THROTTLE_ERROR_STREAM(
+          5.0, "publish_localization_following_rep105=true but could not resolve tf '"
+                   << params_.odom_frame << "' -> '" << l.child_frame << "'; skipping TF publish.");
       return;
     }
 
@@ -1752,8 +1755,8 @@ void BridgeROS2::timerPubMapLayer(const std::string& layerName, const MapSourceB
     internalOn(obs, false /*no tf*/, mu.reference_frame);
   }
   // Is it a grid map?
-  else if (auto grid = std::dynamic_pointer_cast<const mrpt::maps::COccupancyGridMap2D>(mu.map);
-           grid)
+  else if (
+      auto grid = std::dynamic_pointer_cast<const mrpt::maps::COccupancyGridMap2D>(mu.map); grid)
   {
     internalPublishGridMap(*grid, mapTopic, mu.reference_frame, mu.timestamp);
   }
@@ -1988,8 +1991,7 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     else if (type == "Odometry")
     {
       subsOdometry_.emplace_back(rosNode_->create_subscription<nav_msgs::msg::Odometry>(
-          topic_name, qos,
-          [this, output_sensor_label](const nav_msgs::msg::Odometry& o)
+          topic_name, qos, [this, output_sensor_label](const nav_msgs::msg::Odometry& o)
           { this->callbackOnOdometry(o, output_sensor_label); }));
     }
     else
