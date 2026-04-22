@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+2.7.0 (2026-04-22)
+------------------
 * Merge pull request `#131 <https://github.com/MOLAorg/mola/issues/131>`_ from MOLAorg/feat/actions-custom-runner
   CI actions: build for arm64 too
 * Merge branch 'Zeal-Robotics-fix/bridge-ros2-skip-empty-tf-on-rep105-failure' into develop

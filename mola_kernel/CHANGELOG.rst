@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.7.0 (2026-04-22)
+------------------
 * Merge pull request `#129 <https://github.com/MOLAorg/mola/issues/129>`_ from MOLAorg/feat/ros2-diagnostics
   Feature: ROS2 diagnostics
 * feat(kernel): add DiagnosticsProvider interface for REP-107 diagnostics

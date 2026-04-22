@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+2.7.0 (2026-04-22)
+------------------
 * Merge pull request `#128 <https://github.com/MOLAorg/mola/issues/128>`_ from MOLAorg/feat/docs-cookbook
   Feat/docs cookbook
 * sanity checks; expand docs
