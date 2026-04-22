@@ -3,6 +3,45 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#131 <https://github.com/MOLAorg/mola/issues/131>`_ from MOLAorg/feat/actions-custom-runner
+  CI actions: build for arm64 too
+* Merge branch 'Zeal-Robotics-fix/bridge-ros2-skip-empty-tf-on-rep105-failure' into develop
+* Fix formatting and clarify function arguments
+* fix(bridge_ros2): skip TF publish when REP-105 odom lookup fails
+  In `publishLocalizationTf`, when `publish_localization_following_rep105`
+  is enabled, the bridge needs to look up `odom_frame -> base_link_frame`
+  to compose `map -> odom`. If that lookup fails (e.g. wheel odometry
+  hasn't started publishing yet during system startup), the previous code
+  logged the error but still fell through to `tf_bc\_->sendTransform(tf)`
+  with a default-constructed `TransformStamped` (empty `frame_id` and
+  `child_frame_id`).
+  This poisoned every subscriber's tf2 buffer at the localization rate,
+  producing a continuous stream of `TF_NO_FRAME_ID`,
+  `TF_NO_CHILD_FRAME_ID`, and `TF_SELF_TRANSFORM` errors across every
+  node in the system until the odom TF became available.
+  Fix: return early on lookup failure so no broadcast happens. While
+  here, restructure the function with an early-return guard for
+  `publish_tf_from_slam` to flatten the nesting, and include the actual
+  frame names in the error message.
+  Behavior unchanged in the success path.
+* Merge pull request `#129 <https://github.com/MOLAorg/mola/issues/129>`_ from MOLAorg/feat/ros2-diagnostics
+  Feature: ROS2 diagnostics
+* feat(bridge_ros2): publish REP-107 /diagnostics DiagnosticArray
+  Collect structured diagnostics from modules implementing the new
+  mola::DiagnosticsProvider interface and publish them on the standard
+  ROS 2 /diagnostics topic alongside the existing ad-hoc mola_diagnostics/
+  topics. Adds the diagnostic_msgs dependency.
+  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+* Merge pull request `#122 <https://github.com/MOLAorg/mola/issues/122>`_ from MOLAorg/feat/ros2-bridge-multiple-odometries
+  Add param 'odometry_as_robot_pose_observation' to switch OdometryMsg …
+* Skip entries with empty topic name
+* Add param 'odometry_as_robot_pose_observation' to switch OdometryMsg mapping to MRPT types
+* Merge pull request `#121 <https://github.com/MOLAorg/mola/issues/121>`_ from MOLAorg/fix/clean-up-old-mrpt-version-checks
+  Clean up: remove old mrpt version fallback code sections
+* Contributors: Jose Luis Blanco-Claraco, Robin Van Cauwenbergh
+
 2.6.1 (2026-04-02)
 ------------------
 

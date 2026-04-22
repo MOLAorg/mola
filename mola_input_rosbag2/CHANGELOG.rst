@@ -3,6 +3,17 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#128 <https://github.com/MOLAorg/mola/issues/128>`_ from MOLAorg/feat/docs-cookbook
+  Feat/docs cookbook
+* sanity checks; expand docs
+* Docs: explain more odometry source cases
+* rosbag2: Enable custom /tf names (e.g. for namespaces)
+* Merge pull request `#121 <https://github.com/MOLAorg/mola/issues/121>`_ from MOLAorg/fix/clean-up-old-mrpt-version-checks
+  Clean up: remove old mrpt version fallback code sections
+* Contributors: Jose Luis Blanco-Claraco
+
 2.6.1 (2026-04-02)
 ------------------
 

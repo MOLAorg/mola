@@ -2,6 +2,14 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#122 <https://github.com/MOLAorg/mola/issues/122>`_ from MOLAorg/feat/ros2-bridge-multiple-odometries
+  Add param 'odometry_as_robot_pose_observation' to switch OdometryMsg …
+* demo publishers: each odom starts at a random pose
+* Add publisher scripts for state estimation demos
+* Contributors: Jose Luis Blanco-Claraco
+
 2.6.1 (2026-04-02)
 ------------------
 

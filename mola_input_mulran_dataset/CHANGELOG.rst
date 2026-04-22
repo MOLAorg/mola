@@ -3,6 +3,12 @@ Changelog for package mola_input_mulran_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#121 <https://github.com/MOLAorg/mola/issues/121>`_ from MOLAorg/fix/clean-up-old-mrpt-version-checks
+  Clean up: remove old mrpt version fallback code sections
+* Contributors: Jose Luis Blanco-Claraco
+
 2.6.1 (2026-04-02)
 ------------------
 

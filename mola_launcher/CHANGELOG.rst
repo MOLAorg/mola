@@ -2,6 +2,13 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#122 <https://github.com/MOLAorg/mola/issues/122>`_ from MOLAorg/feat/ros2-bridge-multiple-odometries
+  Add param 'odometry_as_robot_pose_observation' to switch OdometryMsg …
+* FIX: mola-cli should not destroy modules too early to avoid race conditions
+* Contributors: Jose Luis Blanco-Claraco
+
 2.6.1 (2026-04-02)
 ------------------
 

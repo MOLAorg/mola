@@ -2,13 +2,28 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#129 <https://github.com/MOLAorg/mola/issues/129>`_ from MOLAorg/feat/ros2-diagnostics
+  Feature: ROS2 diagnostics
+* feat(kernel): add DiagnosticsProvider interface for REP-107 diagnostics
+  Introduce an opt-in mix-in interface for modules to publish structured,
+  severity-tagged diagnostics, to be bridged to ROS 2 /diagnostics by
+  mola_bridge_ros2 in a follow-up.
+  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+* Merge pull request `#121 <https://github.com/MOLAorg/mola/issues/121>`_ from MOLAorg/fix/clean-up-old-mrpt-version-checks
+  Clean up: remove old mrpt version fallback code sections
+* Bump minimum required MRPT version to 2.15.0
+* Clean up: remove old mrpt version fallback code sections
+* Contributors: Jose Luis Blanco-Claraco
+
 2.6.1 (2026-04-02)
 ------------------
 * Merge pull request `#116 <https://github.com/MOLAorg/mola/issues/116>`_ from MOLAorg/update-rds-gui
   Update RDS gui creation to new backend agnostic API
 * RDS: Fix parsing initial window pos and width
 * Update RDS gui creation to new backend agnostic API
-* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+* Contributors: Jose Luis Blanco-Claraco
 
 2.6.0 (2026-03-12)
 ------------------
@@ -19,7 +34,6 @@ Changelog for package mola_kernel
   Feature: GUI backend agnostic API in mola_kernel (Step towards supporting imgui)
 * safer multithread
 * Several visual and safety fixes in the new GUI interface
-* minor fixes
 * Add support for menu bars
 * VizInterface made backend agnostic (ImGUI and Nanogui)
 * Merge pull request `#108 <https://github.com/MOLAorg/mola/issues/108>`_ from MOLAorg/feat/use-gps-msgs
@@ -28,10 +42,9 @@ Changelog for package mola_kernel
 * Merge pull request `#107 <https://github.com/MOLAorg/mola/issues/107>`_ from MOLAorg/fix/viz-decay-clouds
   Fix/viz-decay-clouds
 * fix typo in comments
-* add missing new cpp
 * Update coyright notes
 * fix clang-tidy warnings
-* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+* Contributors: Jose Luis Blanco-Claraco
 
 2.5.0 (2026-02-14)
 ------------------
