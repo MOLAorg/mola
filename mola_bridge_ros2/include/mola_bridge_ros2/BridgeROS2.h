@@ -199,6 +199,30 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     /// Otherwise, the wallclock time will be used.
     bool publish_in_sim_time = false;
 
+    /// Future-dating offset [s] applied to the broadcast stamp of the
+    /// REP-105 localization /tf (``map -> odom``). The stamp is set to
+    /// ``rosNode->now() + transform_tolerance``, allowing downstream
+    /// consumers to ``lookupTransform(map, base_link, now())`` without
+    /// tf2 ``ExtrapolationException``s. Ignored in direct-publish mode
+    /// (``map -> base_link``), where the TF is stamped at the scan
+    /// acquisition time so consumers can correlate the pose with the
+    /// sensor data that produced it (and ``publish_in_sim_time`` is
+    /// honored).
+    double transform_tolerance = 0.1;  // [s]
+
+    /// Period [s] at which the latest computed REP-105 localization /tf
+    /// (``map -> odom``) is re-broadcast on a wall timer, independent of
+    /// localization update rate. This keeps the TF buffer always populated
+    /// for downstream consumers even when the localizer runs slower than
+    /// the consumer query rate. Set to ``0`` to disable the rebroadcast
+    /// loop (the TF is then only published when a new localization update
+    /// arrives). Only effective in REP-105 mode: in direct-publish mode
+    /// (``map -> base_link``) the rebroadcast is skipped to avoid
+    /// re-stamping a stale pose as "current" when the localizer stalls --
+    /// in that mode there is no ``odom -> base_link`` edge carrying real
+    /// motion, so the robot would silently appear frozen-but-fresh.
+    double transform_publish_period = 0.05;  // [s]
+
     double period_publish_new_map     = 5.0;  // [s]
     double period_publish_static_tfs  = 1.0;  // [s]
     double period_publish_diagnostics = 1.0;  // [s]
@@ -388,6 +412,33 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   void publishLocalizationOdom(const LocalizationSourceBase::LocalizationUpdate& l);
   void publishLocalizationQuality(const LocalizationSourceBase::LocalizationUpdate& l);
   void publishLocalizationGeoRef(const LocalizationSourceBase::LocalizationUpdate& l);
+
+  /// Latest computed localization /tf (frame_ids + transform) plus the
+  /// metadata needed to re-stamp it correctly on each broadcast.
+  /// ``useRep105`` selects the stamping policy: REP-105 mode uses
+  /// ``rosNode->now() + transform_tolerance`` (Nav2-style, future-dated,
+  /// safe to rebroadcast because ``odom -> base_link`` carries real
+  /// motion); direct mode uses ``myNow(scan_timestamp)`` (stamped at scan
+  /// time, honoring ``publish_in_sim_time``). Empty until the first
+  /// localization update arrives.
+  struct CachedLocalizationTf
+  {
+    geometry_msgs::msg::TransformStamped tf;
+    bool                                 useRep105 = false;
+    mrpt::Clock::time_point              scan_timestamp;
+  };
+  std::mutex                          cachedLocalizationTfMtx_;
+  std::optional<CachedLocalizationTf> cachedLocalizationTf_;
+
+  /// Re-broadcasts the cached localization /tf with a freshly-computed
+  /// stamp (see ``CachedLocalizationTf`` for the stamping policy). Called
+  /// immediately on each new localization update, and from the rebroadcast
+  /// wall timer when the cached entry is in REP-105 mode. No-op until the
+  /// cache is populated. When ``onlyIfRep105`` is true (used from the
+  /// periodic timer), non-REP-105 cached entries are skipped to avoid
+  /// re-stamping a stale ``map -> base_link`` as "current" while the
+  /// localizer is stalled.
+  void broadcastCachedLocalizationTf(bool onlyIfRep105 = false);
 
   // Different publish map parts:
   void timerPubMap();
