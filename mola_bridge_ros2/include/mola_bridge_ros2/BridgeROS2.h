@@ -199,6 +199,22 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
     /// Otherwise, the wallclock time will be used.
     bool publish_in_sim_time = false;
 
+    /// Future-dating offset [s] applied to the broadcast stamp of the
+    /// localization /tf (``map -> odom`` in REP-105 mode, or
+    /// ``map -> base_link`` in direct mode). The stamp is set to
+    /// ``rosNode->now() + transform_tolerance``, allowing downstream
+    /// consumers to ``lookupTransform(map, base_link, now())`` without
+    /// tf2 ``ExtrapolationException``s.
+    double transform_tolerance = 0.1;  // [s]
+
+    /// Period [s] at which the latest computed localization /tf is
+    /// re-broadcast on a wall timer, independent of localization update
+    /// rate. This keeps the TF buffer always populated for downstream
+    /// consumers even when the localizer runs slower than the consumer
+    /// query rate. Set to ``0`` to disable the rebroadcast loop (the TF
+    /// is then only published when a new localization update arrives).
+    double transform_publish_period = 0.05;  // [s]
+
     double period_publish_new_map     = 5.0;  // [s]
     double period_publish_static_tfs  = 1.0;  // [s]
     double period_publish_diagnostics = 1.0;  // [s]
@@ -389,6 +405,18 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   void publishLocalizationOdom(const LocalizationSourceBase::LocalizationUpdate& l);
   void publishLocalizationQuality(const LocalizationSourceBase::LocalizationUpdate& l);
   void publishLocalizationGeoRef(const LocalizationSourceBase::LocalizationUpdate& l);
+
+  /// Latest computed localization /tf (frame_ids + transform). The stamp
+  /// field is overwritten on every broadcast with ``now() + tolerance``.
+  /// Empty until the first localization update arrives.
+  std::mutex                                          cachedLocalizationTfMtx_;
+  std::optional<geometry_msgs::msg::TransformStamped> cachedLocalizationTf_;
+
+  /// Re-broadcasts the cached localization /tf with stamp
+  /// ``rosNode->now() + transform_tolerance``. Called both immediately on
+  /// each new localization update and from the rebroadcast wall timer.
+  /// No-op until the cache is populated.
+  void broadcastCachedLocalizationTf();
 
   // Different publish map parts:
   void timerPubMap();

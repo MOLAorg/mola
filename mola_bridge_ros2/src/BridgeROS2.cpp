@@ -231,6 +231,28 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
           }
         });
 
+    // Re-broadcast the cached localization /tf at a fixed rate so the buffer
+    // stays populated for downstream consumers regardless of localization
+    // update rate. Set to 0 to disable.
+    rclcpp::TimerBase::SharedPtr timerRebroadcastLocTf;
+    if (params_.transform_publish_period > 0.0)
+    {
+      timerRebroadcastLocTf = rosNode_->create_wall_timer(
+          std::chrono::microseconds(
+              static_cast<unsigned int>(1e6 * params_.transform_publish_period)),
+          [this]()
+          {
+            try
+            {
+              broadcastCachedLocalizationTf();
+            }
+            catch (const std::exception& e)
+            {
+              MRPT_LOG_ERROR(e.what());
+            }
+          });
+    }
+
     //
     if (!params_.relocalize_from_topic.empty())
     {
@@ -316,6 +338,8 @@ void BridgeROS2::initialize_rds(const Yaml& c)
   YAML_LOAD_OPT(params_, publish_geo_referenced_poses_from_slam, bool);
 
   YAML_LOAD_OPT(params_, publish_in_sim_time, bool);
+  YAML_LOAD_OPT(params_, transform_tolerance, double);
+  YAML_LOAD_OPT(params_, transform_publish_period, double);
   YAML_LOAD_OPT(params_, period_publish_new_map, double);
   YAML_LOAD_OPT(params_, period_publish_static_tfs, double);
   YAML_LOAD_OPT(params_, period_publish_diagnostics, double);
@@ -1554,7 +1578,6 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
   const tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(l.pose);
 
   geometry_msgs::msg::TransformStamped tf;
-  tf.header.stamp = myNow(l.timestamp);
 
   // Follow REP105 only if we are publishing "map" -> "base_link" poses.
   const bool useRep105 = params_.publish_localization_following_rep105 &&
@@ -1563,27 +1586,32 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
 
   if (useRep105)
   {
-    // Compose map -> odom = (map -> base_link) * (base_link -> odom):
-    mrpt::poses::CPose3D T_base_to_odom;
-    const bool           base_to_odom_ok = this->waitForTransform(
-                  T_base_to_odom,
-                  params_.odom_frame,  // Look for this frame
-                  l.child_frame,  // as seen from this frame
-                  true);
-    // Note: this wait above typ takes ~50 μs
-
-    if (!base_to_odom_ok)
+    // Compose map -> odom = (map -> base_link)(t_scan) * (base_link -> odom)(t_scan).
+    // Both factors must be sampled at the same instant for the result to be a
+    // mathematically exact REP-105 correction, so look up base_link -> odom at
+    // l.timestamp (the data acquisition time the localizer just processed),
+    // not at "latest" -- otherwise the published correction is biased by the
+    // odom-frame motion accumulated during the localizer's processing latency.
+    tf2::Transform odomOnBase_tf;
+    try
+    {
+      const rclcpp::Time   scan_stamp = mrpt::ros2bridge::toROS(l.timestamp);
+      const tf2::TimePoint scan_tp{std::chrono::nanoseconds(scan_stamp.nanoseconds())};
+      const auto           ref_to_trgFrame =
+          tf_buffer_->lookupTransform(l.child_frame, params_.odom_frame, scan_tp);
+      tf2::fromMsg(ref_to_trgFrame.transform, odomOnBase_tf);
+    }
+    catch (const tf2::TransformException& ex)
     {
       // Skip publishing entirely: broadcasting a default-constructed
       // TransformStamped here would inject empty frame_ids into every
       // subscriber's tf2 buffer (TF_NO_FRAME_ID / TF_SELF_TRANSFORM spam).
       MRPT_LOG_THROTTLE_ERROR_STREAM(
           5.0, "publish_localization_following_rep105=true but could not resolve tf '"
-                   << params_.odom_frame << "' -> '" << l.child_frame << "'; skipping TF publish.");
+                   << params_.odom_frame << "' -> '" << l.child_frame << "' at scan stamp ("
+                   << ex.what() << "); skipping TF publish.");
       return;
     }
-
-    const tf2::Transform odomOnBase_tf = mrpt::ros2bridge::toROS_tfTransform(T_base_to_odom);
 
     tf.transform       = tf2::toMsg(transform * odomOnBase_tf);
     tf.child_frame_id  = params_.odom_frame;
@@ -1595,6 +1623,35 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
     tf.child_frame_id  = l.child_frame;
     tf.header.frame_id = l.reference_frame;
   }
+
+  // Cache the latest computed TF so the rebroadcast timer (and any future
+  // calls) can re-emit it with a fresh stamp; the stamp itself is set at
+  // broadcast time inside broadcastCachedLocalizationTf().
+  {
+    auto lck              = mrpt::lockHelper(cachedLocalizationTfMtx_);
+    cachedLocalizationTf_ = tf;
+  }
+
+  // Immediate broadcast so consumers see the new pose without waiting for the
+  // next rebroadcast tick (matters when transform_publish_period is large).
+  broadcastCachedLocalizationTf();
+}
+
+void BridgeROS2::broadcastCachedLocalizationTf()
+{
+  geometry_msgs::msg::TransformStamped tf;
+  {
+    auto lck = mrpt::lockHelper(cachedLocalizationTfMtx_);
+    if (!cachedLocalizationTf_) return;
+    tf = *cachedLocalizationTf_;
+  }
+
+  // Stamp at "now + tolerance" so consumers can lookupTransform(map, base, now())
+  // without ExtrapolationException; Use the ROS clock so use_sim_time is honored automatically.
+  auto node = rosNode();
+  if (!node) return;
+  tf.header.stamp =
+      node->now() + rclcpp::Duration::from_seconds(params_.transform_tolerance);
 
   auto lckTfBc = mrpt::lockHelper(ros_tf_bc_mtx_);
   if (tf_bc_)
