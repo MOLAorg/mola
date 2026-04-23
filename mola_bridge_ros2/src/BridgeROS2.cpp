@@ -369,8 +369,8 @@ void BridgeROS2::callbackOnPointCloud2(
     if (!mrpt::ros2bridge::lookupSensorPose(
             obs_pc->sensorPose, *tf_buffer_, o.header.frame_id, params_.base_link_frame))
     {
-      MRPT_LOG_ERROR_FMT(
-          "Could not get /tf '%s'->'%s'", params_.base_link_frame.c_str(),
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0, "Could not get /tf '%s'->'%s'", params_.base_link_frame.c_str(),
           o.header.frame_id.c_str());
       return;
     }
@@ -456,12 +456,12 @@ void BridgeROS2::callbackOnPointCloud2(
   else
   {
     // Get pose from tf:
-    bool ok = waitForTransform(
-        obs_pc->sensorPose, o.header.frame_id, params_.base_link_frame, true /*print errors*/);
+    bool ok = waitForTransform(obs_pc->sensorPose, o.header.frame_id, params_.base_link_frame);
 
     if (!ok)
     {
-      MRPT_LOG_ERROR_FMT(
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0,
           "Could not forward ROS2 observation to MOLA due to timeout "
           "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
           params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
@@ -478,8 +478,7 @@ void BridgeROS2::callbackOnPointCloud2(
 #endif
 
 bool BridgeROS2::waitForTransform(
-    mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
-    bool printErrors)
+    mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame)
 {
   try
   {
@@ -498,10 +497,8 @@ bool BridgeROS2::waitForTransform(
   }
   catch (const tf2::TransformException& ex)
   {
-    if (printErrors)
-    {
-      MRPT_LOG_ERROR(ex.what());
-    }
+    // Callers log a contextual, throttled error; keep the raw tf2 reason at DEBUG.
+    MRPT_LOG_DEBUG(ex.what());
     return false;
   }
 }
@@ -573,8 +570,7 @@ void BridgeROS2::importRosOdometryToMOLA()
   // Get pose from tf:
   mrpt::poses::CPose3D odomPose;
 
-  bool odom_tf_ok = waitForTransform(
-      odomPose, params_.base_link_frame, params_.odom_frame, false /*dont print errors*/);
+  bool odom_tf_ok = waitForTransform(odomPose, params_.base_link_frame, params_.odom_frame);
   if (!odom_tf_ok)
   {
     MRPT_LOG_THROTTLE_WARN_FMT(
@@ -617,12 +613,12 @@ void BridgeROS2::callbackOnLaserScan(
   else
   {
     // Get pose from tf:
-    bool ok = waitForTransform(
-        sensorPose, o.header.frame_id, params_.base_link_frame, true /*print errors*/);
+    bool ok = waitForTransform(sensorPose, o.header.frame_id, params_.base_link_frame);
 
     if (!ok)
     {
-      MRPT_LOG_ERROR_FMT(
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0,
           "Could not forward ROS2 observation to MOLA due to timeout "
           "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
           params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
@@ -663,11 +659,11 @@ void BridgeROS2::callbackOnImu(
   else
   {
     // Get pose from tf:
-    bool ok = waitForTransform(
-        sensorPose, o.header.frame_id, params_.base_link_frame, true /*print errors*/);
+    bool ok = waitForTransform(sensorPose, o.header.frame_id, params_.base_link_frame);
     if (!ok)
     {
-      MRPT_LOG_ERROR_FMT(
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0,
           "Could not forward ROS2 observation to MOLA due to timeout "
           "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
           params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
@@ -709,11 +705,11 @@ void BridgeROS2::callbackOnNavSatFix(
   else
   {
     // Get pose from tf:
-    bool ok = waitForTransform(
-        sensorPose, o.header.frame_id, params_.base_link_frame, true /*print errors*/);
+    bool ok = waitForTransform(sensorPose, o.header.frame_id, params_.base_link_frame);
     if (!ok)
     {
-      MRPT_LOG_ERROR_FMT(
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0,
           "Could not forward ROS2 observation to MOLA due to timeout "
           "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
           params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
@@ -756,11 +752,11 @@ void BridgeROS2::callbackOnGpsMsg(
   else
   {
     // Get pose from tf:
-    bool ok = waitForTransform(
-        sensorPose, o.header.frame_id, params_.base_link_frame, true /*print errors*/);
+    bool ok = waitForTransform(sensorPose, o.header.frame_id, params_.base_link_frame);
     if (!ok)
     {
-      MRPT_LOG_ERROR_FMT(
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0,
           "Could not forward ROS2 observation to MOLA due to timeout "
           "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
           params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
@@ -1568,8 +1564,7 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
     const bool           base_to_odom_ok = this->waitForTransform(
                   T_base_to_odom,
                   params_.odom_frame,  // Look for this frame
-                  l.child_frame,  // as seen from this frame
-                  true);
+                  l.child_frame);  // as seen from this frame
     // Note: this wait above typ takes ~50 μs
 
     if (!base_to_odom_ok)
