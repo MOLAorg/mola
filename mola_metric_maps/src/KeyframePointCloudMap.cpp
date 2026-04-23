@@ -499,6 +499,24 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
   }
 
   cached_.icp_search_submap->buildCache();
+
+  // Pre-warm the *global-frame* structures used by NearestPointWithCovCapable
+  // matchers (nn_search_cov2cov).  buildCache() above only builds:
+  //   - bbox, KD-tree on pointcloud_  (local frame)
+  //   - per-point covariances in local frame
+  //
+  // But the matcher accesses, on the submap, all of these instead:
+  //   - pointcloud_global()      -> deep copy of pointcloud_ rotated to global
+  //   - kdTreeEnsureIndexBuilt3D -> KD-tree on the *global* cloud
+  //   - covariancesGlobal()      -> rotated covariances
+  //
+  // Without warming these here, the first ICP align() pays the cost on the
+  // lidar worker thread, which can stall the very first scan for several
+  // seconds on large maps - even when icp_get_prepared_as_global() has
+  // already been called.
+  const auto& globalPoints = cached_.icp_search_submap->pointcloud_global();
+  globalPoints->kdTreeEnsureIndexBuilt3D();
+  cached_.icp_search_submap->covariancesGlobal();
 }
 
 void KeyframePointCloudMap::icp_cleanup() const
