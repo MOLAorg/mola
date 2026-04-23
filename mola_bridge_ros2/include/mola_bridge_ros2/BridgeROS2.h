@@ -285,8 +285,7 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   void callbackOnRelocalizeTopic(const geometry_msgs::msg::PoseWithCovarianceStamped& o);
 
   bool waitForTransform(
-      mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
-      bool printErrors);
+      mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame);
 
   void importRosOdometryToMOLA();
 
