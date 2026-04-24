@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -80,10 +81,32 @@ class MapSourceBase
 
   using map_updates_callback_t = std::function<void(const MapUpdate&)>;
 
+  /** Subscribe to map updates.
+   *
+   * Behaves analogously to ROS' `transient_local` durability: any prior
+   * `advertiseUpdatedMap()` call made with `keep_last_one_only=true` is
+   * cached (one entry per `map_name`) and replayed once into the new
+   * callback at subscription time. This avoids losing the initial state
+   * when the producer advertises before the consumer has had a chance
+   * to subscribe (e.g. on startup, when modules come up in arbitrary
+   * order).
+   */
   void subscribeToMapUpdates(const map_updates_callback_t& callback)
   {
     auto lck = mrpt::lockHelper(mapUpdSubsMtx_);
     mapUpdSubs_.push_back(callback);
+
+    for (const auto& [name, mu] : lastUpdates_)
+    {
+      try
+      {
+        callback(mu);
+      }
+      catch (const std::exception& e)
+      {
+        std::cerr << "[MapSourceBase] Exception in callback: " << e.what();
+      }
+    }
   }
 
  protected:
@@ -96,6 +119,12 @@ class MapSourceBase
   void advertiseUpdatedMap(const MapUpdate& l)
   {
     auto lck = mrpt::lockHelper(mapUpdSubsMtx_);
+
+    if (l.keep_last_one_only)
+    {
+      lastUpdates_[l.map_name] = l;
+    }
+
     for (const auto& callback : mapUpdSubs_)
     {
       try
@@ -111,7 +140,10 @@ class MapSourceBase
 
  private:
   std::vector<map_updates_callback_t> mapUpdSubs_;
-  std::mutex                          mapUpdSubsMtx_;
+  /// Cache of last latched update per `map_name`; replayed to late
+  /// subscribers. Only populated when `keep_last_one_only=true`.
+  std::map<std::string, MapUpdate> lastUpdates_;
+  std::mutex                       mapUpdSubsMtx_;
 };
 
 }  // namespace mola
