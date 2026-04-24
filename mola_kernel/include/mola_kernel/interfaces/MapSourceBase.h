@@ -91,12 +91,25 @@ class MapSourceBase
    * to subscribe (e.g. on startup, when modules come up in arbitrary
    * order).
    */
+  /** Subscribe to map updates.
+   *
+   * Behaves analogously to ROS' `transient_local` durability: any prior
+   * `advertiseUpdatedMap()` call made with `keep_last_one_only=true` is
+   * cached (one entry per `map_name`) and replayed once into the new
+   * callback at subscription time. This avoids losing the initial state
+   * when the producer advertises before the consumer has had a chance
+   * to subscribe (e.g. on startup, when modules come up in arbitrary
+   * order).
+   */
   void subscribeToMapUpdates(const map_updates_callback_t& callback)
   {
-    auto lck = mrpt::lockHelper(mapUpdSubsMtx_);
-    mapUpdSubs_.push_back(callback);
-
-    for (const auto& [name, mu] : lastUpdates_)
+    std::map<std::string, MapUpdate> cachedUpdates;
+    {
+      auto lck = mrpt::lockHelper(mapUpdSubsMtx_);
+      mapUpdSubs_.push_back(callback);
+      cachedUpdates = lastUpdates_;
+    }
+    for (const auto& [name, mu] : cachedUpdates)
     {
       try
       {
