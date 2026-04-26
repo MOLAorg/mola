@@ -43,8 +43,13 @@ std::tuple<bool /*isFirst*/, mrpt::poses::CPose3D /*distanceToClosest*/> Searcha
     std::vector<float>                 closestSqrDist;
     std::vector<uint64_t>              closestID;
 
+    // Cap k at the actual cloud size: nn_multiple_search resizes its output
+    // vectors to k regardless of how many neighbours it finds, leaving
+    // trailing entries uninitialized when fewer than k points exist. Reading
+    // those garbage entries would corrupt the best-match selection below.
+    const size_t k = std::min<size_t>(20, kf_points_.size());
     kf_points_.nn_multiple_search(
-        p.translation().cast<float>(), 20, closest, closestSqrDist, closestID);
+        p.translation().cast<float>(), k, closest, closestSqrDist, closestID);
     ASSERT_(!closest.empty());  // empty()==false from check above
 
     // Check for both, rotation and translation.

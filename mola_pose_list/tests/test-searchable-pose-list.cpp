@@ -118,7 +118,25 @@ void test_legacy_insert_no_id()
   ASSERT_NEAR_(dist.translation().norm(), 50.1 - 23.0, 1e-3);
 }
 
-// ── 4. from_last_only mode: id-keyed APIs are no-ops ──────────────────────
+// ── 4. Regression: check() works correctly when fewer than k=20 KFs exist.
+// Before the fix, nn_multiple_search returned sized-20 vectors with trailing
+// garbage when the cloud had fewer points, corrupting the best-match pick.
+void test_check_with_few_kfs()
+{
+  mola::SearchablePoseList list(false);
+
+  // Just 3 KFs along x.
+  list.insert(xyz(0, 0, 0), 1);
+  list.insert(xyz(5, 0, 0), 2);
+  list.insert(xyz(10, 0, 0), 3);
+
+  // Query near (5,0,0) must select the (5,0,0) KF.
+  auto [isFirst, dist] = list.check(xyz(4.9, 0, 0));
+  ASSERT_(!isFirst);
+  ASSERT_NEAR_(dist.translation().norm(), 0.1, 1e-5);
+}
+
+// ── 5. from_last_only mode: id-keyed APIs are no-ops ──────────────────────
 void test_from_last_only_is_noop_for_id_api()
 {
   mola::SearchablePoseList list(true /*from_last_only*/);
@@ -146,6 +164,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_legacy_insert_no_id ...\n";
     test_legacy_insert_no_id();
+
+    std::cout << "test_check_with_few_kfs ...\n";
+    test_check_with_few_kfs();
 
     std::cout << "test_from_last_only_is_noop_for_id_api ...\n";
     test_from_last_only_is_noop_for_id_api();
