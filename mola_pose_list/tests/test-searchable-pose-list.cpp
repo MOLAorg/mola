@@ -12,7 +12,7 @@
 
 /**
  * @file   test-searchable-pose-list.cpp
- * @brief  Unit tests for mola_pose_list
+ * @brief  Unit tests for mola_pose_list / SearchablePoseList
  * @author Jose Luis Blanco Claraco
  * @date   Mar 5, 2024
  */
@@ -20,18 +20,135 @@
 #include <mola_pose_list/SearchablePoseList.h>
 #include <mrpt/poses/Lie/SE.h>
 
+#include <cmath>
 #include <iostream>
 
-static void test1()
+namespace
 {
-  // write me!
+using mrpt::poses::CPose3D;
+
+CPose3D xyz(double x, double y, double z) { return CPose3D::FromXYZYawPitchRoll(x, y, z, 0, 0, 0); }
+
+// Populate a list with 25 KFs spaced 1 m along x, ids = id_base..id_base+24.
+// Returns the id of the KF whose x is targetX.
+mola::SearchablePoseList::KFID populateLine(
+    mola::SearchablePoseList& list, mola::SearchablePoseList::KFID id_base = 100)
+{
+  for (mola::SearchablePoseList::KFID i = 0; i < 25; ++i)
+  {
+    list.insert(xyz(static_cast<double>(i), 0, 0), id_base + i);
+  }
+  return id_base;
 }
+
+// ── 1. id-keyed insertion + setPoseById updates the NN search ──────────────
+void test_insert_with_id_and_set_pose()
+{
+  mola::SearchablePoseList list(false /*from_last_only*/);
+  const auto               idBase = populateLine(list);  // KFs at x=0..24
+
+  ASSERT_EQUAL_(list.size(), 25UL);
+
+  // Query at (5.1, 0, 0): nearest is KF (idBase+5) at (5,0,0).
+  {
+    auto [isFirst, dist] = list.check(xyz(5.1, 0, 0));
+    ASSERT_(!isFirst);
+    ASSERT_NEAR_(dist.translation().norm(), 0.1, 1e-5);
+  }
+
+  // Move that KF to (1000, 0, 0): query at (5.1,0,0) now snaps to KF at (4,0,0)
+  // or (6,0,0); both are at distance ~1.1 / ~0.9. Closest is (6,0,0): dist 0.9.
+  list.setPoseById(idBase + 5, xyz(1000, 0, 0));
+  {
+    auto [isFirst, dist] = list.check(xyz(5.1, 0, 0));
+    ASSERT_(!isFirst);
+    ASSERT_NEAR_(dist.translation().norm(), 0.9, 1e-5);
+  }
+
+  // setPoseById on an unknown id is a no-op.
+  list.setPoseById(999999, xyz(0, 0, 0));
+  ASSERT_EQUAL_(list.size(), 25UL);
+}
+
+// ── 2. removeAllFartherThan preserves the id->index mapping ────────────────
+void test_remove_preserves_ids()
+{
+  mola::SearchablePoseList list(false);
+  const auto               idBase = populateLine(list);  // KFs at x=0..24
+
+  // Drop everything farther than 10 m from (12,0,0): keeps KFs at x=2..22
+  // (21 KFs).
+  list.removeAllFartherThan(xyz(12, 0, 0), 10.0);
+  ASSERT_EQUAL_(list.size(), 21UL);
+
+  // Surviving id (idBase+12) is still addressable: move it to (1000,0,0),
+  // confirm the query no longer snaps to it.
+  list.setPoseById(idBase + 12, xyz(1000, 0, 0));
+  {
+    auto [isFirst, dist] = list.check(xyz(11.5, 0, 0));
+    ASSERT_(!isFirst);
+    // Closest is now (11,0,0) → 0.5
+    ASSERT_NEAR_(dist.translation().norm(), 0.5, 1e-5);
+  }
+
+  // An evicted id (idBase+0 was at x=0, distance 12 from anchor → removed)
+  // is silently a no-op.
+  list.setPoseById(idBase + 0, xyz(0, 0, 0));
+  ASSERT_EQUAL_(list.size(), 21UL);
+}
+
+// ── 3. legacy insert(p) (no id) keeps working alongside id-tagged inserts ──
+void test_legacy_insert_no_id()
+{
+  mola::SearchablePoseList list(false);
+  // 24 untagged + 1 tagged
+  for (int i = 0; i < 24; ++i)
+  {
+    list.insert(xyz(static_cast<double>(i), 0, 0));  // no id
+  }
+  list.insert(xyz(50, 0, 0), 42);
+
+  ASSERT_EQUAL_(list.size(), 25UL);
+
+  // Move the tagged one far away: query at (50.1,0,0) used to snap there.
+  list.setPoseById(42, xyz(1000, 0, 0));
+  auto [isFirst, dist] = list.check(xyz(50.1, 0, 0));
+  ASSERT_(!isFirst);
+  // Closest among the untagged line (max x = 23) is (23, 0, 0): dist ≈ 27.1
+  ASSERT_NEAR_(dist.translation().norm(), 50.1 - 23.0, 1e-3);
+}
+
+// ── 4. from_last_only mode: id-keyed APIs are no-ops ──────────────────────
+void test_from_last_only_is_noop_for_id_api()
+{
+  mola::SearchablePoseList list(true /*from_last_only*/);
+
+  list.insert(xyz(1, 2, 3), 7);  // id ignored, behaves like insert(p)
+  ASSERT_EQUAL_(list.size(), 1UL);
+
+  // setPoseById is a no-op; the stored last-pose is unchanged.
+  list.setPoseById(7, xyz(99, 99, 99));
+  auto [isFirst, dist] = list.check(xyz(1, 2, 3));
+  ASSERT_(!isFirst);
+  ASSERT_NEAR_(dist.translation().norm(), 0.0, 1e-9);
+}
+}  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
   try
   {
-    test1();
+    std::cout << "test_insert_with_id_and_set_pose ...\n";
+    test_insert_with_id_and_set_pose();
+
+    std::cout << "test_remove_preserves_ids ...\n";
+    test_remove_preserves_ids();
+
+    std::cout << "test_legacy_insert_no_id ...\n";
+    test_legacy_insert_no_id();
+
+    std::cout << "test_from_last_only_is_noop_for_id_api ...\n";
+    test_from_last_only_is_noop_for_id_api();
 
     std::cout << "Test successful."
               << "\n";

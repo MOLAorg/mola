@@ -20,17 +20,31 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/poses/CPose3D.h>
 
+#include <cstdint>
+#include <deque>
+#include <map>
+#include <optional>
+#include <vector>
+
 namespace mola
 {
 /** Data structure to search for nearby SE(3) poses.
  *
  *  It uses a KD-tree for the search.
  *
+ *  Optionally, each inserted pose can be tagged with an external ID
+ *  (e.g. a keyframe ID) so that callers can later update its stored
+ *  pose in place via setPoseById(). This is used by the online
+ *  gravity-rebake feature to keep distance-checkers in sync with
+ *  per-KF pose corrections without rebuilding from scratch.
+ *
  * \ingroup mola_pose_list_grp
  */
 class SearchablePoseList
 {
  public:
+  using KFID = uint64_t;
+
   SearchablePoseList() = default;
 
   SearchablePoseList(bool measure_from_last_kf_only) : from_last_only_(measure_from_last_kf_only) {}
@@ -57,8 +71,34 @@ class SearchablePoseList
     {
       kf_points_.insertPoint(p.translation());
       kf_poses_.push_back(p);
+      kf_ids_.push_back(std::nullopt);
     }
   }
+
+  /** Same as insert(p), but tags the stored entry with `id` so that the
+   *  pose can later be updated in place via setPoseById(). No-op in
+   *  `from_last_only_` mode (the single tracked pose has no id).
+   */
+  void insert(const mrpt::poses::CPose3D& p, KFID id)
+  {
+    if (from_last_only_)
+    {
+      last_kf_ = p;
+      return;
+    }
+    const size_t idx = kf_poses_.size();
+    kf_points_.insertPoint(p.translation());
+    kf_poses_.push_back(p);
+    kf_ids_.push_back(id);
+    id_to_idx_[id] = idx;
+  }
+
+  /** Updates the stored pose for an entry previously inserted with an id.
+   *  No-op if `from_last_only_` is set or `id` is unknown.
+   *  The internal KD-tree point is updated in place; subsequent NN queries
+   *  reflect the new pose.
+   */
+  void setPoseById(KFID id, const mrpt::poses::CPose3D& new_pose);
 
   [[nodiscard]] std::tuple<bool /*isFirst*/, mrpt::poses::CPose3D /*distanceToClosest*/> check(
       const mrpt::poses::CPose3D& p) const;
@@ -72,7 +112,21 @@ class SearchablePoseList
   // if from_last_only_==false
   std::deque<mrpt::poses::CPose3D> kf_poses_;
   mrpt::maps::CSimplePointsMap     kf_points_;
+  /// Optional KFID for each entry, parallel to kf_poses_.
+  std::deque<std::optional<KFID>> kf_ids_;
+  /// Inverse lookup: KFID -> index into kf_poses_/kf_points_/kf_ids_.
+  std::map<KFID, size_t> id_to_idx_;
 
   bool from_last_only_ = false;
 };
 }  // namespace mola
+
+/** Feature macro: SearchablePoseList exposes the id-keyed API
+ *  (`insert(pose, id)`, `setPoseById`) used by the online gravity-rebake
+ *  feature to keep distance-checkers in sync with per-KF pose corrections.
+ *  Downstream packages in separate repos should guard usage with
+ *  `#if defined(MOLA_POSE_LIST_HAS_ID_KEYED_API)` (combined with
+ *  `__has_include(<mola_pose_list/SearchablePoseList.h>)`) to remain
+ *  buildable against older `mola_pose_list` checkouts.
+ */
+#define MOLA_POSE_LIST_HAS_ID_KEYED_API 1
