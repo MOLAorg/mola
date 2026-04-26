@@ -690,7 +690,7 @@ void test_kf_pose_plumbing()
   ASSERT_NEAR_(poseAfter.z(), newPose1.z(), 1e-9);
   double y, p, r;
   poseAfter.getYawPitchRoll(y, p, r);
-  ASSERT_NEAR_(p, 5.0 * M_PI / 180.0, 1e-9);
+  ASSERT_NEAR_(p, 5.0_deg, 1e-9);
 
   // setKeyframePose on a missing id is a no-op (does not throw, does not add).
   m.setKeyframePose(KFID{999}, CPose3D::Identity());

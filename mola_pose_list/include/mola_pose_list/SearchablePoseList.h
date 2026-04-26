@@ -86,6 +86,9 @@ class SearchablePoseList
       last_kf_ = p;
       return;
     }
+    ASSERTMSG_(
+        id_to_idx_.find(id) == id_to_idx_.end(),
+        "SearchablePoseList::insert: KFID already present");
     const size_t idx = kf_poses_.size();
     kf_points_.insertPoint(p.translation());
     kf_poses_.push_back(p);

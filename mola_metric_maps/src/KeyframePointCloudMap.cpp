@@ -533,6 +533,10 @@ void KeyframePointCloudMap::merge_with(
   ASSERTMSG_(
       sourceMapKF, "Implementation expects source map to be also of type KeyframePointCloudMap");
 
+  ASSERT_(sourceMapKF != this);
+
+  auto lck = mrpt::lockHelper(*state_mtx_);
+
   for (const auto& [srcKfId, srcKf] : sourceMapKF->keyframes_)
   {
     const auto& srcPc = srcKf.pointcloud();
