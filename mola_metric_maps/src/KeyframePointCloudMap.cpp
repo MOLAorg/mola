@@ -551,6 +551,7 @@ void KeyframePointCloudMap::merge_with(
     {
       new_kf.pose(*otherRelativePose + new_kf.pose());
     }
+    last_inserted_kf_id_ = it->first;
   }
 }
 
@@ -1158,7 +1159,50 @@ void KeyframePointCloudMap::internal_clear()
   auto lck = mrpt::lockHelper(*state_mtx_);
 
   keyframes_.clear();
+  last_inserted_kf_id_.reset();
+  evicted_kf_ids_.clear();
   cached_.reset();
+}
+
+KeyframePointCloudMap::KeyFrameID KeyframePointCloudMap::nextFreeKeyFrameID_public() const
+{
+  auto lck = mrpt::lockHelper(*state_mtx_);
+  return nextFreeKeyFrameID();
+}
+
+std::map<KeyframePointCloudMap::KeyFrameID, mrpt::poses::CPose3D>
+    KeyframePointCloudMap::cloneKFPoses() const
+{
+  auto                                       lck = mrpt::lockHelper(*state_mtx_);
+  std::map<KeyFrameID, mrpt::poses::CPose3D> out;
+  for (const auto& [id, kf] : keyframes_) out.emplace(id, kf.pose());
+  return out;
+}
+
+void KeyframePointCloudMap::setKeyframePose(KeyFrameID id, const mrpt::poses::CPose3D& new_pose)
+{
+  auto lck = mrpt::lockHelper(*state_mtx_);
+  auto it  = keyframes_.find(id);
+  if (it == keyframes_.end()) return;
+  it->second.pose(new_pose);
+  // KF-local caches are invalidated by KeyFrame::pose(). Top-level caches
+  // (bounding box, icp submap) also depend on KF poses, so invalidate them:
+  cached_.reset();
+}
+
+std::optional<KeyframePointCloudMap::KeyFrameID> KeyframePointCloudMap::lastInsertedKeyFrameID()
+    const
+{
+  auto lck = mrpt::lockHelper(*state_mtx_);
+  return last_inserted_kf_id_;
+}
+
+std::vector<KeyframePointCloudMap::KeyFrameID> KeyframePointCloudMap::drainEvictedKeyFrameIDs()
+{
+  auto                    lck = mrpt::lockHelper(*state_mtx_);
+  std::vector<KeyFrameID> out;
+  out.swap(evicted_kf_ids_);
+  return out;
 }
 
 bool KeyframePointCloudMap::internal_insertObservation(
@@ -1181,6 +1225,7 @@ bool KeyframePointCloudMap::internal_insertObservation(
       const double dist = pc_in_map.distanceTo(it->second.pose());
       if (dist > insertionOptions.remove_frames_farther_than)
       {
+        evicted_kf_ids_.push_back(it->first);
         it = keyframes_.erase(it);
       }
       else
@@ -1206,6 +1251,8 @@ bool KeyframePointCloudMap::internal_insertObservation(
 
     new_kf.buildCache();
     cached_.reset();
+
+    last_inserted_kf_id_ = it->first;
 
     return true;
   }

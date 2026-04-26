@@ -28,6 +28,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <set>
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -627,7 +628,110 @@ void test_view_filter_with_rotated_local_frame()
   }
 }
 
-// ── 16. Default filter parameters are sane ────────────────────────────────
+// ── 17. Per-KF pose plumbing for online gravity rebake ────────────────────
+//
+// Covers the additions used by mola_lidar_odometry's TrajectoryRebaker:
+//   - cloneKFPoses
+//   - setKeyframePose (existing id, missing id is a no-op)
+//   - lastInsertedKeyFrameID (none / after insert / after clear)
+//   - drainEvictedKeyFrameIDs (returns then clears)
+//   - nextFreeKeyFrameID_public
+//   - eviction tracking via insertionOptions.remove_frames_farther_than
+void test_kf_pose_plumbing()
+{
+  using mrpt::literals::operator""_deg;
+  using mrpt::poses::CPose3D;
+  using KFID = mola::KeyframePointCloudMap::KeyFrameID;
+
+  mola::KeyframePointCloudMap m;
+  m.creationOptions.k_correspondences_for_cov = 5;
+  m.creationOptions.max_search_keyframes      = 3;
+
+  // Fresh map: no last id, next id is 0.
+  ASSERT_(!m.lastInsertedKeyFrameID().has_value());
+  ASSERT_EQUAL_(m.nextFreeKeyFrameID_public(), KFID{0});
+  ASSERT_(m.cloneKFPoses().empty());
+  ASSERT_(m.drainEvictedKeyFrameIDs().empty());
+
+  // Insert 3 KFs at distinct positions.
+  std::vector<CPose3D> seedPoses = {
+      CPose3D::FromXYZYawPitchRoll(0.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg),
+      CPose3D::FromXYZYawPitchRoll(2.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg),
+      CPose3D::FromXYZYawPitchRoll(4.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg)};
+
+  for (size_t i = 0; i < seedPoses.size(); ++i)
+  {
+    auto obs        = mrpt::obs::CObservationPointCloud::Create();
+    obs->pointcloud = makeCloudWithViews(makeGridPts(static_cast<float>(i) * 10.f));
+    const auto next = m.nextFreeKeyFrameID_public();
+    ASSERT_EQUAL_(next, static_cast<KFID>(i));
+    m.insertObservation(*obs, seedPoses[i]);
+    ASSERT_(m.lastInsertedKeyFrameID().has_value());
+    ASSERT_EQUAL_(*m.lastInsertedKeyFrameID(), static_cast<KFID>(i));
+  }
+
+  // cloneKFPoses returns a snapshot keyed by id.
+  auto snap = m.cloneKFPoses();
+  ASSERT_EQUAL_(snap.size(), seedPoses.size());
+  for (size_t i = 0; i < seedPoses.size(); ++i)
+  {
+    ASSERT_NEAR_(snap.at(static_cast<KFID>(i)).x(), seedPoses[i].x(), 1e-9);
+  }
+
+  // Mutating the snapshot does not affect the map.
+  snap.at(KFID{0}) = CPose3D::FromXYZYawPitchRoll(99.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg);
+  ASSERT_NEAR_(m.cloneKFPoses().at(KFID{0}).x(), 0.0, 1e-9);
+
+  // setKeyframePose updates the stored pose.
+  const auto newPose1 = CPose3D::FromXYZYawPitchRoll(2.0, 0.0, 1.5, 0.0_deg, 5.0_deg, 0.0_deg);
+  m.setKeyframePose(KFID{1}, newPose1);
+  const auto poseAfter = m.cloneKFPoses().at(KFID{1});
+  ASSERT_NEAR_(poseAfter.x(), newPose1.x(), 1e-9);
+  ASSERT_NEAR_(poseAfter.z(), newPose1.z(), 1e-9);
+  double y, p, r;
+  poseAfter.getYawPitchRoll(y, p, r);
+  ASSERT_NEAR_(p, 5.0 * M_PI / 180.0, 1e-9);
+
+  // setKeyframePose on a missing id is a no-op (does not throw, does not add).
+  m.setKeyframePose(KFID{999}, CPose3D::Identity());
+  ASSERT_EQUAL_(m.cloneKFPoses().size(), seedPoses.size());
+
+  // No evictions yet.
+  ASSERT_(m.drainEvictedKeyFrameIDs().empty());
+
+  // Trigger partial eviction: insert a new KF at x=5, threshold=2.5 m.
+  // KF 0 (dist 5) and KF 1 (dist ~3.35, since z was raised to 1.5) fall
+  // outside the threshold; KF 2 at x=4 (dist 1) survives. Keeping at least
+  // one KF in place preserves id monotonicity (next id = 3).
+  m.insertionOptions.remove_frames_farther_than = 2.5;  // metres
+
+  auto obs            = mrpt::obs::CObservationPointCloud::Create();
+  obs->pointcloud     = makeCloudWithViews(makeGridPts(40.f));
+  const auto poseNear = CPose3D::FromXYZYawPitchRoll(5.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg);
+  m.insertObservation(*obs, poseNear);
+
+  ASSERT_(m.lastInsertedKeyFrameID().has_value());
+  ASSERT_EQUAL_(*m.lastInsertedKeyFrameID(), KFID{3});
+
+  // drainEvictedKeyFrameIDs returns the ids of KFs dropped during the
+  // last insertion(s), then clears its internal list.
+  const auto evicted1 = m.drainEvictedKeyFrameIDs();
+  ASSERT_EQUAL_(evicted1.size(), 2UL);
+  std::set<KFID> evictedSet(evicted1.begin(), evicted1.end());
+  ASSERT_(evictedSet.count(KFID{0}) == 1);
+  ASSERT_(evictedSet.count(KFID{1}) == 1);
+
+  // A second drain returns an empty vector.
+  ASSERT_(m.drainEvictedKeyFrameIDs().empty());
+
+  // After clear(), bookkeeping is reset.
+  m.clear();
+  ASSERT_(!m.lastInsertedKeyFrameID().has_value());
+  ASSERT_(m.drainEvictedKeyFrameIDs().empty());
+  ASSERT_EQUAL_(m.nextFreeKeyFrameID_public(), KFID{0});
+}
+
+// ── 18. Default filter parameters are sane ────────────────────────────────
 void test_default_creation_options()
 {
   mola::KeyframePointCloudMap m;
@@ -689,6 +793,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_view_filter_with_rotated_local_frame ...\n";
     test_view_filter_with_rotated_local_frame();
+
+    std::cout << "test_kf_pose_plumbing ...\n";
+    test_kf_pose_plumbing();
 
     std::cout << "test_default_creation_options ...\n";
     test_default_creation_options();

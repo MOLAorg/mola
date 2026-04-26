@@ -32,6 +32,7 @@
 
 #include <map>
 #include <optional>
+#include <vector>
 
 namespace mola
 {
@@ -71,6 +72,28 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   KeyframePointCloudMap() = default;
 
   ~KeyframePointCloudMap();
+
+  /** The KF id that will be assigned to the next inserted key-frame. */
+  [[nodiscard]] KeyFrameID nextFreeKeyFrameID_public() const;
+
+  /** Snapshot of all key-frame poses, keyed by KF id. Cheap. Thread-safe. */
+  [[nodiscard]] std::map<KeyFrameID, mrpt::poses::CPose3D> cloneKFPoses() const;
+
+  /** Overwrites the pose of one KF in the map, invalidating its caches.
+   *  No-op if `id` is not present. Thread-safe.
+   */
+  void setKeyframePose(KeyFrameID id, const mrpt::poses::CPose3D& new_pose);
+
+  /** The id of the last key-frame successfully inserted, or nullopt if none
+   *  has been inserted since the map was created/cleared.
+   */
+  [[nodiscard]] std::optional<KeyFrameID> lastInsertedKeyFrameID() const;
+
+  /** Returns and clears the list of KF ids evicted since the last call (or
+   *  since map construction). Used by callers that maintain per-KF
+   *  auxiliary state and need to drop it on eviction.
+   */
+  [[nodiscard]] std::vector<KeyFrameID> drainEvictedKeyFrameIDs();
 
   /** @} */
 
@@ -457,6 +480,12 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
   std::map<KeyFrameID, KeyFrame> keyframes_;
 
+  /// Last key-frame id successfully inserted (nullopt if none since creation/clear).
+  std::optional<KeyFrameID> last_inserted_kf_id_;
+
+  /// KF ids evicted since the last call to drainEvictedKeyFrameIDs().
+  std::vector<KeyFrameID> evicted_kf_ids_;
+
   /// for cached_ and _keyframes
   mutable mrpt::containers::NonCopiableData<std::recursive_mutex> state_mtx_;
 
@@ -529,3 +558,13 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 };
 
 }  // namespace mola
+
+/** Feature macro: KeyframePointCloudMap exposes the per-KF pose plumbing
+ *  (`cloneKFPoses`, `setKeyframePose`, `lastInsertedKeyFrameID`,
+ *  `drainEvictedKeyFrameIDs`, `nextFreeKeyFrameID_public`) used by
+ *  online gravity rebake. Downstream packages should guard usage with
+ *  `#if defined(MOLA_METRIC_MAPS_HAS_KFM_POSE_PLUMBING)` (combined with
+ *  `__has_include(<mola_metric_maps/KeyframePointCloudMap.h>)`) to remain
+ *  buildable against older `mola_metric_maps` checkouts.
+ */
+#define MOLA_METRIC_MAPS_HAS_KFM_POSE_PLUMBING 1
