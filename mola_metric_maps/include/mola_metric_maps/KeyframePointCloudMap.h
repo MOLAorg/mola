@@ -486,6 +486,12 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   /// KF ids evicted since the last call to drainEvictedKeyFrameIDs().
   std::vector<KeyFrameID> evicted_kf_ids_;
 
+  /// Monotonically increasing KF id allocator. Incremented on every
+  /// insertion, never decremented on eviction, so ids are never reused.
+  /// Reset to 0 on internal_clear(); restored to max-loaded-id+1 in
+  /// serializeFrom().
+  KeyFrameID next_free_kf_id_ = 0;
+
   /// for cached_ and _keyframes
   mutable mrpt::containers::NonCopiableData<std::recursive_mutex> state_mtx_;
 
@@ -546,15 +552,10 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     return {kf_idx, local_pt_idx};
   }
 
-  /// Return the next key-frame ID, which is the size of the map:
-  [[nodiscard]] KeyFrameID nextFreeKeyFrameID() const
-  {
-    if (keyframes_.empty())
-    {
-      return 0;  // First key-frame
-    }
-    return keyframes_.rbegin()->first + 1;  // Next ID
-  }
+  /// Returns the next monotonically-allocated key-frame ID. The id is NOT
+  /// consumed by this call; callers must use it as the key for the new KF
+  /// and then bump `next_free_kf_id_`.
+  [[nodiscard]] KeyFrameID nextFreeKeyFrameID() const { return next_free_kf_id_; }
 };
 
 }  // namespace mola

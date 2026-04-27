@@ -195,6 +195,10 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
       MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
   };
 
+  // Restore the monotonic id counter so future insertions don't collide
+  // with already-loaded ids.
+  next_free_kf_id_ = keyframes_.empty() ? 0 : (keyframes_.rbegin()->first + 1);
+
   // cache reset:
   cached_.reset();
 }
@@ -545,7 +549,7 @@ void KeyframePointCloudMap::merge_with(
       continue;
     }
     auto [it, isNew] =
-        keyframes_.emplace(nextFreeKeyFrameID(), creationOptions.k_correspondences_for_cov);
+        keyframes_.emplace(next_free_kf_id_++, creationOptions.k_correspondences_for_cov);
     auto& new_kf = it->second;
 
     // copy
@@ -1165,6 +1169,7 @@ void KeyframePointCloudMap::internal_clear()
   keyframes_.clear();
   last_inserted_kf_id_.reset();
   evicted_kf_ids_.clear();
+  next_free_kf_id_ = 0;
   cached_.reset();
 }
 
@@ -1244,9 +1249,9 @@ bool KeyframePointCloudMap::internal_insertObservation(
   {
     ASSERT_(obsPC->pointcloud);
 
-    // Add KF:
+    // Add KF: allocate a fresh monotonic id (never reused, even after eviction).
     auto [it, isNew] =
-        keyframes_.emplace(nextFreeKeyFrameID(), creationOptions.k_correspondences_for_cov);
+        keyframes_.emplace(next_free_kf_id_++, creationOptions.k_correspondences_for_cov);
     auto& new_kf = it->second;
 
     new_kf.timestamp = obs.timestamp;
