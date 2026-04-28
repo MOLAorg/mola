@@ -140,6 +140,23 @@ A MOLA ROS 2 deployment is defined by five independent choices:
    * - ``/tf_static`` topic in bag
      - ``/tf_static``
      - ``MOLA_TF_STATIC_TOPIC`` (rosbag2 YAML ``tf_static_topic``)
+   * - LiDAR/IMU subscription QoS
+     - ``best_effort`` / depth ``50``
+     - ``lidar_qos_reliability:=`` / ``MOLA_LIDAR_QOS_RELIABILITY``,
+       ``lidar_qos_depth:=`` / ``MOLA_LIDAR_QOS_DEPTH``,
+       ``imu_qos_reliability:=`` / ``MOLA_IMU_QOS_RELIABILITY``,
+       ``imu_qos_depth:=`` / ``MOLA_IMU_QOS_DEPTH``
+
+.. note::
+
+   Subscription QoS for sensor topics defaults to REP-2003 (``best_effort``,
+   ``volatile``) with a queue depth of 50. For high-rate sensors consumed
+   together with a heavy SLAM pipeline (e.g. a 640 Hz IMU), set
+   ``imu_qos_reliability:=reliable`` and increase ``imu_qos_depth`` (e.g.
+   ``1000``) so the bridge subscription matches the publisher and can
+   absorb executor stalls. See the launch arguments documented in
+   :ref:`mola_lo_ros_node` and the per-topic ``qos:`` block accepted by
+   ``BridgeROS2``'s ``subscribe`` list.
 
 |
 

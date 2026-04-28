@@ -77,6 +77,89 @@
 
 using namespace mola;
 
+namespace
+{
+// Default subscription queue depth for sensor topics. ROS 2's
+// SensorDataQoS defaults to keep_last(5), which is too shallow for
+// high-rate sensors (e.g. 640 Hz IMU) when the executor is under
+// load: the queue overflows and best-effort drops are silent.
+constexpr size_t kDefaultSubscriptionDepth = 50;
+
+// Build an rclcpp::QoS for a sensor subscription, optionally
+// overridden per-topic via a YAML `qos:` block:
+//
+//   qos:
+//     reliability: best_effort | reliable     (default: best_effort)
+//     history:     keep_last   | keep_all     (default: keep_last)
+//     depth:       <int>                      (default: 50)
+//     durability:  volatile    | transient_local (default: volatile)
+//
+// Defaults match `rclcpp::SensorDataQoS()` (REP-2003) but with a
+// deeper queue (50 instead of 5) to absorb executor stalls.
+rclcpp::QoS buildSubscriptionQoS(const mrpt::containers::yaml& topicCfg)
+{
+  std::string reliability = "best_effort";
+  std::string history     = "keep_last";
+  size_t      depth       = kDefaultSubscriptionDepth;
+  std::string durability  = "volatile";
+
+  if (topicCfg.has("qos"))
+  {
+    const auto qosCfg = topicCfg["qos"];
+    if (qosCfg.has("reliability"))
+    {
+      reliability = qosCfg["reliability"].as<std::string>();
+    }
+    if (qosCfg.has("history"))
+    {
+      history = qosCfg["history"].as<std::string>();
+    }
+    if (qosCfg.has("depth"))
+    {
+      depth = qosCfg["depth"].as<uint64_t>();
+    }
+    if (qosCfg.has("durability"))
+    {
+      durability = qosCfg["durability"].as<std::string>();
+    }
+  }
+
+  rclcpp::QoS qos = (history == "keep_all") ? rclcpp::QoS(rclcpp::KeepAll())
+                                            : rclcpp::QoS(rclcpp::KeepLast(depth));
+
+  if (reliability == "reliable")
+  {
+    qos.reliable();
+  }
+  else if (reliability == "best_effort")
+  {
+    qos.best_effort();
+  }
+  else
+  {
+    THROW_EXCEPTION_FMT(
+        "Invalid qos.reliability='%s' (expected 'reliable' or 'best_effort')", reliability.c_str());
+  }
+
+  if (durability == "transient_local")
+  {
+    qos.transient_local();
+  }
+  else if (durability == "volatile")
+  {
+    qos.durability_volatile();
+  }
+  else
+  {
+    THROW_EXCEPTION_FMT(
+        "Invalid qos.durability='%s' (expected 'volatile' or 'transient_local')",
+        durability.c_str());
+  }
+
+  return qos;
+}
+}  // namespace
+
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(BridgeROS2, RawDataSourceBase, mola)
 
@@ -1988,9 +2071,10 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
 {
   using namespace std::string_literals;
 
-  // Should be used to subscribe to sensor topics, per REP-2003:
+  // Default subscription QoS follows REP-2003 (best-effort, volatile)
+  // but with a deeper queue. Each topic entry may override it via an
+  // optional `qos:` block; see buildSubscriptionQoS().
   // https://ros.org/reps/rep-2003.html
-  const rclcpp::QoS qos = rclcpp::SensorDataQoS();
 
   for (const auto& topicItem : ds_subscribe.asSequence())
   {
@@ -2003,6 +2087,8 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     const auto topic_name          = topic["topic"].as<std::string>();
     const auto type                = topic["msg_type"].as<std::string>();
     const auto output_sensor_label = topic["output_sensor_label"].as<std::string>();
+
+    const rclcpp::QoS qos = buildSubscriptionQoS(topic);
 
     // Skip entries with empty topic name (allows optional subscribe slots
     // controlled via env vars, e.g. ${ODOM1_TOPIC|}):
