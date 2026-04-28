@@ -150,6 +150,73 @@ void test_from_last_only_is_noop_for_id_api()
   ASSERT_(!isFirst);
   ASSERT_NEAR_(dist.translation().norm(), 0.0, 1e-9);
 }
+// ── 6. countNearby: basic translation-only counting ───────────────────────
+void test_count_nearby_translation()
+{
+  mola::SearchablePoseList list(false);
+
+  // KFs at x = 0, 1, 2, 3, 4 m
+  for (int i = 0; i < 5; ++i)
+  {
+    list.insert(xyz(static_cast<double>(i), 0, 0));
+  }
+
+  // Query at (2, 0, 0), threshold 1.5 m trans, large rot.
+  // Expected: x=1,2,3 are within 1.5 m => count=3
+  const uint32_t count = list.countNearby(xyz(2, 0, 0), 1.5, M_PI);
+  ASSERT_EQUAL_(count, 3u);
+
+  // Tight threshold: only the exact match
+  const uint32_t count2 = list.countNearby(xyz(2, 0, 0), 0.1, M_PI);
+  ASSERT_EQUAL_(count2, 1u);
+
+  // No matches
+  const uint32_t count3 = list.countNearby(xyz(100, 0, 0), 1.0, M_PI);
+  ASSERT_EQUAL_(count3, 0u);
+}
+
+// ── 7. countNearby: rotation threshold is applied ─────────────────────────
+void test_count_nearby_rotation()
+{
+  mola::SearchablePoseList list(false);
+
+  // Two KFs at the same translation but different yaw
+  list.insert(mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, 0, 0, 0));
+  list.insert(mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, M_PI, 0, 0));
+
+  // Large rot threshold: both match
+  const uint32_t both = list.countNearby(
+      mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, M_PI / 2, 0, 0), 0.1, M_PI);
+  ASSERT_EQUAL_(both, 2u);
+
+  // Tight rot threshold: only the one with yaw=pi/2 should survive...
+  // but none of the stored poses is within pi/4 of pi/2; let's use yaw=0:
+  // query at yaw=0.1, threshold=0.2 rad => only stored yaw=0 is within 0.2 rad.
+  const uint32_t one =
+      list.countNearby(mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, 0.1, 0, 0), 0.1, 0.2);
+  ASSERT_EQUAL_(one, 1u);
+}
+
+// ── 8. countNearby: from_last_only mode ───────────────────────────────────
+void test_count_nearby_from_last_only()
+{
+  mola::SearchablePoseList list(true /*from_last_only*/);
+  list.insert(xyz(5, 0, 0));
+
+  // Within threshold
+  ASSERT_EQUAL_(list.countNearby(xyz(5.05, 0, 0), 0.1, M_PI), 1u);
+
+  // Outside threshold
+  ASSERT_EQUAL_(list.countNearby(xyz(10, 0, 0), 0.1, M_PI), 0u);
+}
+
+// ── 9. countNearby: empty list returns 0 ─────────────────────────────────
+void test_count_nearby_empty()
+{
+  mola::SearchablePoseList list(false);
+  ASSERT_EQUAL_(list.countNearby(xyz(0, 0, 0), 100.0, M_PI), 0u);
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -170,6 +237,18 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_from_last_only_is_noop_for_id_api ...\n";
     test_from_last_only_is_noop_for_id_api();
+
+    std::cout << "test_count_nearby_translation ...\n";
+    test_count_nearby_translation();
+
+    std::cout << "test_count_nearby_rotation ...\n";
+    test_count_nearby_rotation();
+
+    std::cout << "test_count_nearby_from_last_only ...\n";
+    test_count_nearby_from_last_only();
+
+    std::cout << "test_count_nearby_empty ...\n";
+    test_count_nearby_empty();
 
     std::cout << "Test successful."
               << "\n";
