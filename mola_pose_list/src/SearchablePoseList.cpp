@@ -79,6 +79,46 @@ std::tuple<bool /*isFirst*/, mrpt::poses::CPose3D /*distanceToClosest*/> Searcha
   return {isFirst, distanceToClosest};
 }
 
+uint32_t SearchablePoseList::countNearby(
+    const mrpt::poses::CPose3D& p, const double maxTranslation, const double maxRotationRad) const
+{
+  if (empty())
+  {
+    return 0;
+  }
+
+  if (from_last_only_)
+  {
+    if (!has_last_kf_) return 0;
+    const mrpt::poses::CPose3D diff  = p - last_kf_;
+    const double               trans = diff.translation().norm();
+    if (trans > maxTranslation)
+    {
+      return 0;
+    }
+    const double rot = mrpt::poses::Lie::SO<3>::log(diff.getRotationMatrix()).norm();
+    return (rot <= maxRotationRad) ? 1u : 0u;
+  }
+
+  ASSERT_EQUAL_(kf_poses_.size(), kf_points_.size());
+
+  uint32_t count = 0;
+  for (const auto& candidate : kf_poses_)
+  {
+    const mrpt::poses::CPose3D diff = p - candidate;
+    if (diff.translation().norm() > maxTranslation)
+    {
+      continue;
+    }
+    const double rot = mrpt::poses::Lie::SO<3>::log(diff.getRotationMatrix()).norm();
+    if (rot <= maxRotationRad)
+    {
+      ++count;
+    }
+  }
+  return count;
+}
+
 void SearchablePoseList::removeAllFartherThan(
     const mrpt::poses::CPose3D& p, const double maxTranslation)
 {

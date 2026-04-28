@@ -53,19 +53,20 @@ class SearchablePoseList
   {
     if (from_last_only_)
     {
-      return last_kf_ == mrpt::poses::CPose3D::Identity();
+      return !has_last_kf_;
     }
 
     return kf_poses_.empty();
   }
 
-  size_t size() const { return from_last_only_ ? 1 : kf_poses_.size(); }
+  size_t size() const { return from_last_only_ ? (has_last_kf_ ? 1 : 0) : kf_poses_.size(); }
 
   void insert(const mrpt::poses::CPose3D& p)
   {
     if (from_last_only_)
     {
-      last_kf_ = p;
+      last_kf_     = p;
+      has_last_kf_ = true;
     }
     else
     {
@@ -83,7 +84,8 @@ class SearchablePoseList
   {
     if (from_last_only_)
     {
-      last_kf_ = p;
+      last_kf_     = p;
+      has_last_kf_ = true;
       return;
     }
     ASSERTMSG_(
@@ -106,11 +108,20 @@ class SearchablePoseList
   [[nodiscard]] std::tuple<bool /*isFirst*/, mrpt::poses::CPose3D /*distanceToClosest*/> check(
       const mrpt::poses::CPose3D& p) const;
 
+  /** Returns the count of stored poses that are within both the given
+   *  translation and rotation distance from \a p.
+   *  The check is: translation(p - candidate).norm() <= maxTranslation
+   *             && SO3_log(rotation(p - candidate)).norm() <= maxRotationRad
+   */
+  [[nodiscard]] uint32_t countNearby(
+      const mrpt::poses::CPose3D& p, double maxTranslation, double maxRotationRad) const;
+
   void removeAllFartherThan(const mrpt::poses::CPose3D& p, double maxTranslation);
 
  private:
   // if from_last_only_==true
-  mrpt::poses::CPose3D last_kf_ = mrpt::poses::CPose3D::Identity();
+  mrpt::poses::CPose3D last_kf_     = mrpt::poses::CPose3D::Identity();
+  bool                 has_last_kf_ = false;
 
   // if from_last_only_==false
   std::deque<mrpt::poses::CPose3D> kf_poses_;
@@ -123,6 +134,13 @@ class SearchablePoseList
   bool from_last_only_ = false;
 };
 }  // namespace mola
+
+/** Feature macro: SearchablePoseList exposes countNearby() and the
+ *  sensor-pose-as-key plumbing used by mola_lidar_odometry.
+ *  Downstream packages should guard usage with
+ *  `#if defined(MOLA_POSE_LIST_HAS_KFM_POSE_PLUMBING)`.
+ */
+#define MOLA_POSE_LIST_HAS_KFM_POSE_PLUMBING 1
 
 /** Feature macro: SearchablePoseList exposes the id-keyed API
  *  (`insert(pose, id)`, `setPoseById`) used by the online gravity-rebake
