@@ -3,7 +3,7 @@ name: CI Build colcon
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ "develop" ]
   pull_request:
     types: [ opened, synchronize, reopened ]
 
