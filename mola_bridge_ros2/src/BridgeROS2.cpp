@@ -103,6 +103,7 @@ rclcpp::QoS buildSubscriptionQoS(const mrpt::containers::yaml& topicCfg)
   size_t      depth       = kDefaultSubscriptionDepth;
   std::string durability  = "volatile";
 
+  bool depthExplicitlySet = false;
   if (topicCfg.has("qos"))
   {
     const auto qosCfg = topicCfg["qos"];
@@ -116,7 +117,8 @@ rclcpp::QoS buildSubscriptionQoS(const mrpt::containers::yaml& topicCfg)
     }
     if (qosCfg.has("depth"))
     {
-      depth = qosCfg["depth"].as<uint64_t>();
+      depth              = qosCfg["depth"].as<uint64_t>();
+      depthExplicitlySet = true;
     }
     if (qosCfg.has("durability"))
     {
@@ -124,8 +126,24 @@ rclcpp::QoS buildSubscriptionQoS(const mrpt::containers::yaml& topicCfg)
     }
   }
 
-  rclcpp::QoS qos = (history == "keep_all") ? rclcpp::QoS(rclcpp::KeepAll())
-                                            : rclcpp::QoS(rclcpp::KeepLast(depth));
+  rclcpp::QoS qos = rclcpp::QoS(rclcpp::KeepLast(kDefaultSubscriptionDepth));
+  if (history == "keep_all")
+  {
+    qos = rclcpp::QoS(rclcpp::KeepAll());
+  }
+  else if (history == "keep_last")
+  {
+    if (depthExplicitlySet && depth == 0)
+    {
+      THROW_EXCEPTION("Invalid qos.depth=0 with history='keep_last' (must be >0)");
+    }
+    qos = rclcpp::QoS(rclcpp::KeepLast(depth));
+  }
+  else
+  {
+    THROW_EXCEPTION_FMT(
+        "Invalid qos.history='%s' (expected 'keep_last' or 'keep_all')", history.c_str());
+  }
 
   if (reliability == "reliable")
   {
@@ -2088,8 +2106,6 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     const auto type                = topic["msg_type"].as<std::string>();
     const auto output_sensor_label = topic["output_sensor_label"].as<std::string>();
 
-    const rclcpp::QoS qos = buildSubscriptionQoS(topic);
-
     // Skip entries with empty topic name (allows optional subscribe slots
     // controlled via env vars, e.g. ${ODOM1_TOPIC|}):
     if (topic_name.empty())
@@ -2101,6 +2117,8 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
 
     MRPT_LOG_DEBUG_STREAM(
         "Creating ros2 subscriber for topic='" << topic_name << "' (" << type << ")");
+
+    const rclcpp::QoS qos = buildSubscriptionQoS(topic);
 
     // Optional: fixed sensorPose (then ignores/don't need "tf" data):
     std::optional<mrpt::poses::CPose3D> fixedSensorPose;
