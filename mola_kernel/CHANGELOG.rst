@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.8.0 (2026-04-29)
+------------------
 * Merge branch 'Zeal-Robotics-fix/map-source-latched-replay' into develop
 * chore: transient callbacks done with a copy of last updates
 * fix(mola_kernel): replay latched MapUpdates to late subscribers

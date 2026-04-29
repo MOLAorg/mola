@@ -2,8 +2,8 @@
 Changelog for package mola_pose_list
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.8.0 (2026-04-29)
+------------------
 * Merge pull request `#141 <https://github.com/MOLAorg/mola/issues/141>`_ from MOLAorg/feat/pose-list-multiple
   feat: pose lists now support multiple nearby poses (Useful for non-repetitive scanners)
 * feat: pose lists now support multiple nearby poses (Useful for Livox scanners)

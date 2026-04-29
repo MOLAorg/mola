@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.8.0 (2026-04-29)
+------------------
 * Merge pull request `#139 <https://github.com/MOLAorg/mola/issues/139>`_ from MOLAorg/fix/monothonic-kf-ids
   Fix: ensure monothonic KF ids
 * Fix: ensure monothonic KF ids
