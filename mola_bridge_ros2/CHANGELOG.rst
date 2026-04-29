@@ -3,6 +3,65 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#140 <https://github.com/MOLAorg/mola/issues/140>`_ from MOLAorg/feat/bridge-ros2-qos
+  feat: BridgeROS2 now have configurable QoS
+* fix: harden parameter parsing
+* feat: BridgeROS2 now have configurable QoS
+* Merge pull request `#135 <https://github.com/MOLAorg/mola/issues/135>`_ from MOLAorg/pr-132
+  feat(bridge_ros2): align REP-105 TF with Nav2 conventions without regressing direct-publish mode
+* feat(bridge_ros2): align REP-105 TF publishing with Nav2 conventions
+  This brings the localization /tf publisher in line with the convention
+  used by AMCL, slam_toolbox, RTAB-Map and Cartographer, addressing three
+  issues observed when MOLA is consumed by Nav2-style downstream nodes:
+  1. REP-105 composition bug (fix). The inner factor of
+  map -> odom = (map -> base)(t_scan) * (base -> odom)(t)
+  was sampled at "latest" via waitForTransform(), which only supports
+  tf2::TimePoint{}. The two factors must be sampled at the same
+  instant or the published correction is biased by the odom-frame
+  motion accumulated during the localizer's processing latency. Switch
+  to tf_buffer\_->lookupTransform(..., scan_tp). On lookup failure the
+  publish is skipped (an empty default-constructed TransformStamped
+  would inject TF_NO_FRAME_ID into every consumer's tf2 buffer).
+  2. transform_tolerance (new param, default 0.1s). The published stamp
+  is now node->now() + transform_tolerance so consumers can do
+  lookupTransform(map, base_link, now()) without
+  ExtrapolationException. Mirrors AMCL's transform_tolerance and
+  RTAB-Map's tf_tolerance. Uses the ROS clock so use_sim_time is
+  honored automatically.
+  3. transform_publish_period (new param, default 0.05s = 20 Hz). A
+  wall timer re-broadcasts the cached map -> odom independent of
+  localization update rate, keeping the TF buffer continuously fresh
+  even when the localizer runs slower than the consumer query rate.
+  Set to 0 to disable. Mirrors slam_toolbox's transform_publish_period
+  and RTAB-Map's tf_delay.
+  Backwards compat: to exactly preserve the prior (post-bugfix) stamping
+  behavior set transform_tolerance: 0 and transform_publish_period: 0.
+  publish_in_sim_time retains its meaning for all other publishers
+  (sensor TFs, odom messages, etc.); only the localization /tf stamp
+  source changed.
+* Merge branch 'develop' into perf/keyframe-prewarm-global-submap
+* Merge pull request `#133 <https://github.com/MOLAorg/mola/issues/133>`_ from Zeal-Robotics/fix/bridge-ros2-throttle-tf-lookup-errors
+  fix(bridge_ros2): throttle TF lookup error logging
+* fix(bridge_ros2): throttle TF lookup error logging
+  Failed sensor TF lookups (e.g. missing static URDF transforms during
+  bring-up) flooded the console with two unthrottled ERROR lines per
+  observation. With a Livox IMU at ~100 Hz this produced ~200 lines/s
+  per affected topic, drowning out other diagnostics.
+  - Throttle (5 s) every per-observation "Could not forward ROS2
+  observation to MOLA due to timeout..." in the PointCloud2,
+  LaserScan, Imu, NavSatFix and gps_msgs paths, plus the
+  "Could not get /tf" path that uses lookupSensorPose, and the
+  REP-105 odom->base_link recompute warning in publishLocalizationTf.
+  - Drop the redundant printErrors plumbing from waitForTransform: the
+  inner MRPT_LOG_ERROR(ex.what()) duplicated what callers already
+  print with more context (frames + timestamp). The raw tf2 reason
+  is still emitted at DEBUG for deep diagnostics.
+  Per-callsite throttle state means independent sensors still surface
+  "this stream stopped" promptly; we just stop spamming the same one.
+* Contributors: Jose Luis Blanco-Claraco, Robin Van Cauwenbergh
+
 2.7.0 (2026-04-22)
 ------------------
 * Merge pull request `#131 <https://github.com/MOLAorg/mola/issues/131>`_ from MOLAorg/feat/actions-custom-runner

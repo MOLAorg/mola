@@ -2,6 +2,31 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge branch 'Zeal-Robotics-fix/map-source-latched-replay' into develop
+* chore: transient callbacks done with a copy of last updates
+* fix(mola_kernel): replay latched MapUpdates to late subscribers
+  `MapSourceBase::subscribeToMapUpdates()` now caches the most recent
+  `MapUpdate` per `map_name` whenever it was advertised with
+  `keep_last_one_only=true`, and replays it once into any callback
+  registered later. This mirrors ROS' `transient_local` durability at
+  the MOLA-callback layer.
+  Without this, a producer that advertises its initial map before a
+  consumer has had a chance to subscribe (e.g. `mola_lidar_odometry`
+  publishing the loaded `.mm` on its first scan, before
+  `mola_bridge_ros2::doLookForNewMolaSubs()` has run for the first
+  time) would silently lose that update. The race is more likely with
+  small maps, where odometry initialization is fast enough to beat the
+  bridge's first sub-discovery poll. With this change the late
+  subscriber receives the cached update on registration, and the ROS
+  publisher created by the bridge then carries the map onward via its
+  existing `transient_local` QoS.
+  Updates flagged with `keep_last_one_only=false` (e.g. deskewed
+  scans) are intentionally not cached, matching their fire-and-forget
+  semantics.
+* Contributors: Jose Luis Blanco-Claraco, Robin Van Cauwenbergh
+
 2.7.0 (2026-04-22)
 ------------------
 * Merge pull request `#129 <https://github.com/MOLAorg/mola/issues/129>`_ from MOLAorg/feat/ros2-diagnostics

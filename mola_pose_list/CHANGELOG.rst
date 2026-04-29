@@ -2,6 +2,47 @@
 Changelog for package mola_pose_list
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#141 <https://github.com/MOLAorg/mola/issues/141>`_ from MOLAorg/feat/pose-list-multiple
+  feat: pose lists now support multiple nearby poses (Useful for non-repetitive scanners)
+* feat: pose lists now support multiple nearby poses (Useful for Livox scanners)
+* Merge pull request `#138 <https://github.com/MOLAorg/mola/issues/138>`_ from MOLAorg/fix/kf-map
+  fix: robustify edge cases from last API changes
+* fix: robustify edge cases from last API changes
+* Merge pull request `#137 <https://github.com/MOLAorg/mola/issues/137>`_ from MOLAorg/feat/metric-map-changes-for-lo-grav-align
+  mola_metric_maps: per-KF pose plumbing for online gravity rebake
+* fix(mola_pose_list): cap k at cloud size in SearchablePoseList::check
+  nn_multiple_search resizes its output vectors to the requested k
+  regardless of how many neighbours actually exist, leaving trailing
+  entries uninitialized when the cloud has fewer than k points. The
+  best-match selection in check() then iterated over those garbage
+  distances and indices, producing a wrong nearest-pose result whenever
+  the list held fewer than 20 entries.
+  Cap k to the actual cloud size before calling nn_multiple_search.
+  Adds a regression test (test_check_with_few_kfs) that previously failed
+  with the stale code: 3 KFs along x, query at (4.9, 0, 0) used to snap
+  to the (0, 0, 0) entry instead of the correct (5, 0, 0).
+  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+* feat(mola_pose_list): id-keyed SearchablePoseList for online gravity rebake
+  Add an optional KFID tag to SearchablePoseList entries plus an in-place
+  pose updater. This lets the LIO online gravity-rebake update its
+  distance-checkers when per-KF poses are corrected, without rebuilding
+  the whole list.
+  New API:
+  - insert(pose, id) overload
+  - setPoseById(id, new_pose): updates the stored pose and the kd-tree
+  point in place; no-op for unknown ids or in from_last_only mode
+  removeAllFartherThan now also maintains the id->index map for surviving
+  entries.
+  Exports MOLA_POSE_LIST_HAS_ID_KEYED_API so downstream packages in
+  separate repos (mola_lidar_odometry) can guard usage with __has_include
+  + this macro and stay buildable against older mola_pose_list checkouts.
+  Adds unit tests for the new id-keyed API in test-searchable-pose-list
+  (also fills in the previously-empty test fixture).
+  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+* Contributors: Jose Luis Blanco-Claraco
+
 2.7.0 (2026-04-22)
 ------------------
 

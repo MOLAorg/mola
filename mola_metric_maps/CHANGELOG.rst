@@ -2,6 +2,55 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#139 <https://github.com/MOLAorg/mola/issues/139>`_ from MOLAorg/fix/monothonic-kf-ids
+  Fix: ensure monothonic KF ids
+* Fix: ensure monothonic KF ids
+* Merge pull request `#138 <https://github.com/MOLAorg/mola/issues/138>`_ from MOLAorg/fix/kf-map
+  fix: robustify edge cases from last API changes
+* fix: robustify edge cases from last API changes
+* Merge pull request `#137 <https://github.com/MOLAorg/mola/issues/137>`_ from MOLAorg/feat/metric-map-changes-for-lo-grav-align
+  mola_metric_maps: per-KF pose plumbing for online gravity rebake
+* feat(mola_metric_maps): per-KF pose plumbing for online gravity rebake
+  Add the KeyframePointCloudMap APIs needed by mola_lidar_odometry's
+  online gravity-rebake feature:
+  - cloneKFPoses: snapshot of all KF poses keyed by id
+  - setKeyframePose: per-KF pose overwrite with cache invalidation
+  - lastInsertedKeyFrameID / nextFreeKeyFrameID_public: id introspection
+  - drainEvictedKeyFrameIDs: pull-then-clear list of KFs dropped during
+  remove_frames_farther_than-driven evictions inside insertObservation
+  Also exports the MOLA_METRIC_MAPS_HAS_KFM_POSE_PLUMBING feature macro
+  so downstream packages in separate repos (mola_lidar_odometry) can
+  guard usage with __has_include + this macro and stay buildable
+  against older mola_metric_maps checkouts.
+  Adds unit-test coverage for the new APIs in
+  test-mola_metric_maps_keyframemap.
+  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+* Merge pull request `#134 <https://github.com/MOLAorg/mola/issues/134>`_ from Zeal-Robotics/perf/keyframe-prewarm-global-submap
+  perf(mola_metric_maps): pre-warm global-frame submap data in icp_get_prepared_as_global
+* perf(mola_metric_maps): pre-warm global-frame submap data in icp_get_prepared_as_global
+  icp_get_prepared_as_global() was building, on the search submap, only the
+  local-frame KD-tree and per-point covariances (via KeyFrame::buildCache):
+  - bbox
+  - kdTreeEnsureIndexBuilt3D() on pointcloud\_     (local frame)
+  - computeCovariancesAndDensity()                 (local frame)
+  The very first call to nn_search_cov2cov() then lazily materialized the
+  global-frame counterparts on the caller thread:
+  - pointcloud_global()      (deep copy of pointcloud\_ rotated by pose())
+  - kdTreeEnsureIndexBuilt3D() on the global cloud
+  - covariancesGlobal()      (rotated covariances)
+  For a non-trivial preloaded local map this stalled the first ICP align()
+  by several seconds (e.g. ~6 s on a typical localization map), defeating
+  the purpose of having a separate "prepare global" hook. Front-ends that
+  explicitly pre-warm via icp_get_prepared_as_global() at startup were
+  hit hardest, since the remaining lazy work then showed up on the very
+  first scan instead of being amortized across startup.
+  Pre-trigger the same three calls at the end of
+  icp_get_prepared_as_global() so the search submap is fully ready by the
+  time ICP::align() / nn_search_cov2cov() runs.
+* Contributors: Jose Luis Blanco-Claraco, Robin Van Cauwenbergh
+
 2.7.0 (2026-04-22)
 ------------------
 * Reorganize website
