@@ -2007,7 +2007,7 @@ void BridgeROS2::publishMetricMapGeoreferencingData(
 {
   MRPT_LOG_INFO_STREAM(
       "Publishing map georeferencing metadata: T_enu_to_map="
-      << g.T_enu_to_map.asString()  //
+      << g.T_enu_to_map.mean.asString()  //
       << " geo_coord.lat=" << g.geo_coord.lat.getAsString()  //
       << " geo_coord.lon=" << g.geo_coord.lon.getAsString()  //
       << " geo_coord.height=" << g.geo_coord.height  //
