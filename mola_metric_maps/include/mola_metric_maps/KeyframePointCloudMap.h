@@ -18,6 +18,7 @@
  */
 #pragma once
 
+#include <mola_kernel/interfaces/KeyframeMapCapable.h>
 #include <mp2p_icp/IcpPrepareCapable.h>
 #include <mp2p_icp/MetricMapMergeCapable.h>
 #include <mp2p_icp/NearestPointWithCovCapable.h>
@@ -51,7 +52,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
                               public mrpt::maps::NearestNeighborsCapable,
                               public mp2p_icp::IcpPrepareCapable,
                               public mp2p_icp::NearestPointWithCovCapable,
-                              public mp2p_icp::MetricMapMergeCapable
+                              public mp2p_icp::MetricMapMergeCapable,
+                              public mola::KeyframeMapCapable
 {
   DEFINE_SERIALIZABLE(KeyframePointCloudMap, mola)
  public:
@@ -82,7 +84,13 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   /** Overwrites the pose of one KF in the map, invalidating its caches.
    *  No-op if `id` is not present. Thread-safe.
    */
-  void setKeyframePose(KeyFrameID id, const mrpt::poses::CPose3D& new_pose);
+  void setKeyframePose(KeyFrameID id, const mrpt::poses::CPose3D& new_pose) override;
+
+  // mola::KeyframeMapCapable overrides:
+  [[nodiscard]] std::map<KeyFrameID, mrpt::poses::CPose3D> keyframePoses() const override;
+  [[nodiscard]] std::optional<KeyFrameID>                  oldestActiveKeyframeID() const override;
+  void                                                     applyPivotTransform(
+                                                          KeyFrameID pivot_id, const mrpt::poses::CPose3D& delta_at_pivot) override;
 
   /** The id of the last key-frame successfully inserted, or nullopt if none
    *  has been inserted since the map was created/cleared.
@@ -182,6 +190,7 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
       const MetricMapMergeCapable&               source,
       const std::optional<mrpt::poses::CPose3D>& otherRelativePose = std::nullopt) override;
 
+  /** Transform all KF poses left-multiplying with this transform. Thread safe. */
   void transform_map_left_multiply(const mrpt::poses::CPose3D& b) override;
 
   /** @} */
@@ -556,14 +565,19 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   /// consumed by this call; callers must use it as the key for the new KF
   /// and then bump `next_free_kf_id_`.
   [[nodiscard]] KeyFrameID nextFreeKeyFrameID() const { return next_free_kf_id_; }
+
+  /** Non-thread safe version of transform_map_left_multiply() */
+  void transform_map_left_multiply_impl(const mrpt::poses::CPose3D& b);
 };
 
 }  // namespace mola
 
 /** Feature macro: KeyframePointCloudMap exposes the per-KF pose plumbing
  *  (`cloneKFPoses`, `setKeyframePose`, `lastInsertedKeyFrameID`,
- *  `drainEvictedKeyFrameIDs`, `nextFreeKeyFrameID_public`) used by
- *  online gravity rebake. Downstream packages should guard usage with
+ *  `drainEvictedKeyFrameIDs`, `nextFreeKeyFrameID_public`) and inherits
+ *  from `mola::KeyframeMapCapable` (providing `keyframePoses()`,
+ *  `oldestActiveKeyframeID()`, `setKeyframePose()`, `applyPivotTransform()`).
+ *  Downstream packages should guard usage with
  *  `#if defined(MOLA_METRIC_MAPS_HAS_KFM_POSE_PLUMBING)` (combined with
  *  `__has_include(<mola_metric_maps/KeyframePointCloudMap.h>)`) to remain
  *  buildable against older `mola_metric_maps` checkouts.
