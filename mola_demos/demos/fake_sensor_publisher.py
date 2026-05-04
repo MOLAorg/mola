@@ -84,7 +84,8 @@ def _quaternion_from_euler_zyx(roll, pitch, yaw):
 
 def _imu_quat_from_enu_yaw(yaw_enu, pitch=0.0, roll=0.0):
     """
-    IMU quaternion for imu_attitude_azimuth_offset_deg=0.
+    Convert ENU yaw to IMU quaternion for imu_attitude_azimuth_offset_deg=0.
+
     The smoother recovers ENU yaw as: ENU_yaw = quat_yaw + pi/2.
     So we must publish: quat_yaw = ENU_yaw - pi/2.
     """
