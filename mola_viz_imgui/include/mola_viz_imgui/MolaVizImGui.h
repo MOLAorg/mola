@@ -345,7 +345,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
     std::map<subwindow_name_t, PendingSensorObs> sensor_windows;
 
     /// Console overlay lines.
-    std::vector<std::string> console_messages;
+    std::deque<std::string> console_messages;
 
     /// Decaying point clouds.
     std::deque<DecayingCloud> decaying_clouds;

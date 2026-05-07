@@ -1010,7 +1010,7 @@ std::future<bool> MolaVizImGui::output_console_message(
           wd.console_messages.push_back(line);
           while (wd.console_messages.size() > max_console_lines_)
           {
-            wd.console_messages.erase(wd.console_messages.begin());
+            wd.console_messages.pop_front();
           }
         }
         return true;

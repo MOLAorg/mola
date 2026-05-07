@@ -71,6 +71,8 @@ std::string window_id_for(const std::string& subWindowTitle, const char* suffix)
 // Helper: show common sensor metadata as ImGui::Text lines.
 // ---------------------------------------------------------------------------
 
+// Must only be called from the GUI thread.  The static maps below are not
+// mutex-protected; thread safety relies on all callers running on the GUI thread.
 void show_common_sensor_info(const mrpt::obs::CObservation& obs, const std::string& key)
 {
   // Rate estimation — one low-pass filter per key:

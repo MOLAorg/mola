@@ -54,9 +54,8 @@ mola_add_library(
     mrpt::maps
     mrpt::obs
     OpenGL::GL
-  PRIVATE_LINK_LIBRARIES
-    imgui::imgui       # Dear ImGui static lib (includes GLFW + OpenGL3 backends)
-    mrpt::gui          # for mrpt::imgui::CImGuiSceneView (header-only)
+    imgui::imgui       # public header MolaVizImGui.h includes <imgui.h> etc.
+    mrpt::gui          # public header includes mrpt/imgui/CImGuiSceneView.h
   CMAKE_DEPENDENCIES
     mola_kernel
     mrpt-opengl

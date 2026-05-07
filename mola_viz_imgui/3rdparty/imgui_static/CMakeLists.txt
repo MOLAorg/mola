@@ -46,11 +46,13 @@ target_include_directories(imgui_static
     ${_IMGUI_ROOT}/misc/cpp
 )
 
-# Enable the docking branch feature set:
+# Enable the docking branch feature set.
+# No explicit loader macro: imgui_impl_opengl3 will use its bundled
+# imgui_impl_opengl3_loader.h (available since ImGui ~1.87), so we do not need
+# to find or link GLEW/GLAD/gl3w separately.
 target_compile_definitions(imgui_static
   PUBLIC
     IMGUI_ENABLE_DOCKING       # activates docking API
-    IMGUI_IMPL_OPENGL_LOADER_GLEW  # or GLAD — adjust to whatever mrpt uses
 )
 
 target_link_libraries(imgui_static
