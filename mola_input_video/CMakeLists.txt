@@ -7,7 +7,7 @@
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.22...3.31)  # Ubuntu 22.04+
 
 # Tell CMake we'll use C++ for use in its tests/flags
 project(mola_input_video LANGUAGES CXX)
