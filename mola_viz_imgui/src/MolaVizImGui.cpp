@@ -542,14 +542,28 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
   {
     wd.background_scene_view->setScene(wd.background_scene);
     wd.background_scene_view->setBackgroundColor(0.15f, 0.15f, 0.18f);
+  }
+
+  // Push the authoritative cam_* state into the view every frame so that API
+  // calls (update_viewport_look_at, update_viewport_camera_azimuth, …) take
+  // effect.  The view's own mouse-driven camera also writes to the same
+  // CCamera object (via CImGuiSceneView), so cam_* lag one frame behind when
+  // the user drags — that is acceptable and cheaper than a round-trip mutex.
+  {
     auto& cam = wd.background_scene_view->camera();
     cam.setAzimuthDegrees(wd.cam_azimuth_deg);
     cam.setElevationDegrees(wd.cam_elevation_deg);
     cam.setZoomDistance(wd.cam_zoom);
     cam.setPointingAt(wd.cam_look_at[0], wd.cam_look_at[1], wd.cam_look_at[2]);
+    cam.setProjectiveModel(!wd.cam_orthographic);
   }
 
-  // Render inside a full-dockspace ImGui window:
+  // Size the background window to fill the entire OS window so the 3D scene
+  // occupies the full viewport (dockable windows float on top of it).
+  ImGuiViewport* viewport = ImGui::GetMainViewport();
+  ImGui::SetNextWindowPos(viewport->WorkPos);
+  ImGui::SetNextWindowSize(viewport->WorkSize);
+
   ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
                            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                            ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
