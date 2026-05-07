@@ -324,6 +324,9 @@ How to install all MOLA modules:
          ros-$ROS_DISTRO-mola-state-estimation \
          ros-$ROS_DISTRO-mola-lidar-odometry
 
+         # If you want parser for KITTI, MULRAN, EuROC, etc.
+         ros-$ROS_DISTRO-mola-academic-datasets
+
     .. code-block:: bash
 
         # (OPTIONAL) Install example small datasets to run demos/unit tests:
