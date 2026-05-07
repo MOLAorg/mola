@@ -118,6 +118,7 @@ void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
         // ── Label ──────────────────────────────────────────────────────────
         if constexpr (std::is_same_v<T, mola::gui::Label>)
         {
+          if (!widget.text) return;
           // Poll LiveString every frame (cheap: atomic load + possible mutex).
           widget.text->pollIntoDisplay();
           ImGui::TextUnformatted(widget.text->display.c_str());

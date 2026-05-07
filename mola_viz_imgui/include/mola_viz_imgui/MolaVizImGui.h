@@ -353,9 +353,6 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
 
     /// Menu bar (empty = no menu bar rendered).
     mola::gui::MenuBar menu_bar;
-
-    /// ImGui context — one per GLFW window for multi-viewport setups.
-    ImGuiContext* imgui_ctx = nullptr;
   };
 
   std::map<window_name_t, PerWindowData> windows_;
@@ -377,6 +374,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
 
   std::thread       guiThread_;
   std::atomic<bool> guiThreadShutdown_{false};
+  ImGuiContext*     imgui_ctx_ = nullptr;  // single context, owned by gui_thread
   void              gui_thread();
 
   using task_queue_t = std::vector<std::function<void()>>;

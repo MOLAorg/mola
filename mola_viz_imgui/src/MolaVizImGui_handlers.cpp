@@ -199,6 +199,15 @@ void handler_point_cloud(
   auto obs = std::dynamic_pointer_cast<CObservation>(o);
   if (!obs) return;
 
+  // CObservation3DRangeScan is dual-registered (also for handler_images).
+  // Skip the point-cloud view when the config flag is off so we don't
+  // allocate GL state for a window that will never be shown.
+  if (std::dynamic_pointer_cast<CObservation3DRangeScan>(o) &&
+      (!instance || !instance->show_rgbd_as_point_cloud_))
+  {
+    return;
+  }
+
   const std::string winId = window_id_for(subWindowTitle, "pointcloud");
 
   // Per-window persistent state.  Cleared on GUI-thread shutdown via
@@ -252,8 +261,7 @@ void handler_point_cloud(
 
   if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o); objPc)
   {
-    auto& mut = const_cast<CObservationPointCloud&>(*objPc);
-    mut.load();
+    objPc->load();
     if (objPc->pointcloud)
     {
       st.glPc->loadFromPointsMap(objPc->pointcloud.get());
@@ -263,8 +271,7 @@ void handler_point_cloud(
   }
   else if (auto objRS = std::dynamic_pointer_cast<CObservationRotatingScan>(o); objRS)
   {
-    auto& mut = const_cast<CObservationRotatingScan&>(*objRS);
-    mut.load();
+    objRS->load();
     mrpt::math::TBoundingBoxf bbox = mrpt::math::TBoundingBoxf::PlusMinusInfinity();
     for (size_t r = 0; r < objRS->rowCount; r++)
     {
@@ -284,8 +291,7 @@ void handler_point_cloud(
   {
     if (instance->show_rgbd_as_point_cloud_)
     {
-      auto& mut = const_cast<CObservation3DRangeScan&>(*obj3D);
-      mut.load();
+      obj3D->load();
       if (obj3D->hasPoints3D)
       {
         for (size_t i = 0; i < obj3D->points3D_x.size(); i++)
@@ -298,7 +304,7 @@ void handler_point_cloud(
         pp.takeIntoAccountSensorPoseOnRobot = true;
         auto pointMapCol                    = mrpt::maps::CColouredPointsMap::Create();
         pointMapCol->colorScheme.scheme     = mrpt::maps::CColouredPointsMap::cmFromIntensityImage;
-        mut.unprojectInto(*pointMapCol, pp);
+        obj3D->unprojectInto(*pointMapCol, pp);
         st.glPc->loadFromPointsMap(pointMapCol.get());
         color_from_z = false;
       }
@@ -306,7 +312,7 @@ void handler_point_cloud(
       {
         mrpt::obs::T3DPointsProjectionParams pp;
         pp.takeIntoAccountSensorPoseOnRobot = true;
-        mut.unprojectInto(*st.glPc, pp);
+        obj3D->unprojectInto(*st.glPc, pp);
       }
       populated = true;
     }

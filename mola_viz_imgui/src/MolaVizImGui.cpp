@@ -275,6 +275,10 @@ std::string MolaVizImGui::resolve_imgui_ini_path(const window_name_t& windowName
 
 MolaVizImGui::PerWindowData& MolaVizImGui::create_and_add_window(const window_name_t& name)
 {
+  // Only one host GLFW window is supported.  Multi-OS-window setups should
+  // use ImGuiConfigFlags_ViewportsEnable instead of multiple contexts.
+  ASSERT_(windows_.empty());
+
   // Must be called from the GUI thread.
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -296,13 +300,10 @@ MolaVizImGui::PerWindowData& MolaVizImGui::create_and_add_window(const window_na
   wd.background_scene      = mrpt::opengl::COpenGLScene::Create();
   wd.background_scene_view = std::make_unique<mrpt::imgui::CImGuiSceneView>();
 
-  // Create and configure a per-window ImGui context so multiple GLFW windows
-  // can coexist (each has its own imgui.ini section).
-  wd.imgui_ctx = ImGui::CreateContext();
-  ImGui::SetCurrentContext(wd.imgui_ctx);
-
+  // imgui_ctx_ was already created in gui_thread() before this call.
+  // Configure IO flags and .ini persistence on that single context.
   ImGuiIO& io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // docking branch
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
   // Persist window / docking layout to a per-app .ini file.  The buffer
@@ -335,6 +336,12 @@ void MolaVizImGui::gui_thread()
   mrpt::system::thread_name("MolaVizImGui::gui_thread");
 
   if (!glfwInit()) throw std::runtime_error("MolaVizImGui: glfwInit() failed");
+
+  // Single ImGui context for the lifetime of the GUI thread.  All GLFW
+  // windows share it; multi-OS-window support (if ever needed) should use
+  // ImGuiConfigFlags_ViewportsEnable instead of multiple contexts.
+  imgui_ctx_ = ImGui::CreateContext();
+  ImGui::SetCurrentContext(imgui_ctx_);
 
   create_and_add_window(DEFAULT_WINDOW_NAME);
 
@@ -378,7 +385,6 @@ void MolaVizImGui::gui_thread()
   {
     if (!wd.glfw_window) continue;
     glfwMakeContextCurrent(wd.glfw_window);
-    ImGui::SetCurrentContext(wd.imgui_ctx);
 
     // 1) Handler-owned state (function-local statics in handler files).
     //    These hold CImGuiSceneView instances whose destructors call
@@ -391,15 +397,18 @@ void MolaVizImGui::gui_thread()
     wd.background_scene.reset();  // drops scene (textures, VBOs)
     wd.background_scene_view.reset();  // drops FBO/RBO/texture in the view
 
-    // 3) ImGui + GLFW teardown, still with context current:
+    // 3) ImGui backend + GLFW teardown, still with context current.
+    //    The ImGui context itself is destroyed once after the loop.
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext(wd.imgui_ctx);
-    wd.imgui_ctx = nullptr;
     glfwDestroyWindow(wd.glfw_window);
     wd.glfw_window = nullptr;
   }
   windows_.clear();
+
+  ImGui::DestroyContext(imgui_ctx_);
+  imgui_ctx_ = nullptr;
+
   glfwTerminate();
 
   MRPT_LOG_DEBUG("MolaVizImGui::gui_thread() done.");
@@ -416,7 +425,6 @@ void MolaVizImGui::render_frame(const window_name_t& name, PerWindowData& wd)
   int display_w, display_h;
   glfwGetFramebufferSize(wd.glfw_window, &display_w, &display_h);
 
-  ImGui::SetCurrentContext(wd.imgui_ctx);
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
