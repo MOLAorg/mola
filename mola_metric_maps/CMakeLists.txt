@@ -8,7 +8,7 @@
 # ------------------------------------------------------------------------------
 
 # Minimum CMake vesion: limited by CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.22...3.31)  # Ubuntu 22.04+
 
 if("$ENV{ROS_VERSION}" STREQUAL "2")
   set(DETECTED_ROS2 TRUE)
