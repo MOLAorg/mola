@@ -18,6 +18,8 @@
   <depend>mrpt_libgui</depend>
 
   <depend>libglfw3-dev</depend>
+  <depend>libglu1-mesa-dev</depend> <!-- remove with mrpt3 -->
+  <depend>freeglut3-dev</depend>  <!-- remove with mrpt3 -->
 
   <!-- Dear ImGui is a git submodule built internally; no system package needed -->
 
