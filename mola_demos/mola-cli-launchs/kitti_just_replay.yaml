@@ -37,6 +37,12 @@ modules:
   # MolaViz
   # =====================
   - name: viz
-    type: mola::MolaViz
-    #verbosity_level: DEBUG
-    params: ~ # none
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
+    verbosity_level: DEBUG
+    params:
+      # Persist ImGui window layout and docking state to
+      # $XDG_CONFIG_HOME/mola/imgui_<imgui_app_name>.ini (or
+      # $HOME/.config/mola/imgui_<imgui_app_name>.ini) across runs.
+      # Use a distinct name per launch config so different apps don't
+      # overwrite each other's layouts.  Set to "" to disable persistence.
+      imgui_app_name: kitti_replay

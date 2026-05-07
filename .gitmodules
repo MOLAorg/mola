@@ -1,3 +1,7 @@
 [submodule "3rdparty/robin-map"]
 	path = mola_metric_maps/3rdparty/robin-map
 	url = https://github.com/Tessil/robin-map.git
+[submodule "mola_viz_imgui/3rdparty/imgui"]
+	path = mola_viz_imgui/3rdparty/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking

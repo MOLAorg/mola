@@ -19,7 +19,7 @@ modules:
         win_pos: 5 70 400 400
     params:
       base_dir: ${PARIS_LUCO_BASE_DIR}
-      sequence: '00'  # There is only one sequence in this dataset
+      sequence: "00" # There is only one sequence in this dataset
       time_warp_scale: 1.0
       start_paused: ${MOLA_DATASET_START_PAUSED|false}
 
@@ -27,6 +27,6 @@ modules:
   # MolaViz
   # =====================
   - name: viz
-    type: mola::MolaViz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
     #verbosity_level: DEBUG
     params: ~ # none

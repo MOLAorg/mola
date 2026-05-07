@@ -20,11 +20,11 @@ modules:
   # MolaViz
   # =====================
   - name: viz
-    type: mola::MolaViz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
     #verbosity_level: DEBUG
     params: ~ # none
 
-# Offline or online sensory data sources =====================
+  # Offline or online sensory data sources =====================
   - type: mola::Rosbag2Dataset
     name: rosbag2_input
     # In Rosbag2Dataset, this execution rate (Hz) determines the
@@ -34,13 +34,13 @@ modules:
     # in bursts.
     execution_rate: 50 # Hz
     #verbosity_level: DEBUG
-    
+
     # Optional visualization of raw sensor streams in the MolaViz GUI
     gui_preview_sensors:
       - raw_sensor_label: ${MOLA_LIDAR_TOPIC|'/ouster/points'}
         decimation: 1
         win_pos: 5 5 400 400
-        
+
       #- raw_sensor_label: '/ouster/range_image'
       #  decimation: 1
       #  win_pos: 5 420 400 400
@@ -48,15 +48,15 @@ modules:
     params:
       # We use an environment variable to force the user to specify a bag file:
       rosbag_filename: ${ROSBAG2_FILE}
-      
-      base_link_frame_id: 'base_footprint'
-      
+
+      base_link_frame_id: "base_footprint"
+
       time_warp_scale: 1.0
       start_paused: ${MOLA_DATASET_START_PAUSED|false}
-      
+
       #rosbag_storage_id: '' # Empty=auto guess. (mcap|sqlite3}
       #rosbag_serialization: 'cdr'
-      
+
       # 'sensors' contains maps from output "sensorLabel"s, to the
       # configuration of that data source (mainly, 'type', 'topic'):
       # If no 'sensors' entry is given, all ROSBAG topics will be exposed
@@ -67,7 +67,7 @@ modules:
         - topic: ${MOLA_LIDAR_TOPIC|'/ouster/points'}
           type: CObservationPointCloud
           # If present, this will override whatever /tf tells about the sensor pose:
-          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
+          fixed_sensor_pose: "0 0 0 0 0 0" # 'x y z yaw_deg pitch_deg roll_deg'
           use_fixed_sensor_pose: ${MOLA_USE_FIXED_LIDAR_POSE|false}
 
         #- topic: /ouster/range_image
