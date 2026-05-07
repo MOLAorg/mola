@@ -37,6 +37,6 @@ modules:
   # MolaViz
   # =====================
   - name: viz
-    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}ImGui
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
     #verbosity_level: DEBUG
     params: ~ # none
