@@ -14,6 +14,8 @@
 **Current Version**: 2.6.0
 **Official Docs**: https://docs.mola-slam.org/latest/
 
+**Important**: Whenever a change is made to the repo, reflect it here if applicable, to keep it in sync with the code.
+
 ---
 
 ## Architecture

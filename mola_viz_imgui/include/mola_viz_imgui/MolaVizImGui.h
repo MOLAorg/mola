@@ -322,12 +322,16 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
     /// glfwDestroyWindow(). CImGuiSceneView is non-copyable and non-movable.
     std::unique_ptr<mrpt::imgui::CImGuiSceneView> background_scene_view;
 
-    /// Legacy camera state (used to initialize background_scene_view).
+    /// Camera state mirrored from background_scene_view after each render.
+    /// API calls (update_viewport_*) write here; render_background_scene
+    /// pushes to the view on the first frame (cam_dirty=true) and reads
+    /// back every frame so mouse interaction persists.
     float cam_azimuth_deg   = 110.0f;
     float cam_elevation_deg = 15.0f;
     float cam_zoom          = 20.0f;
     float cam_look_at[3]    = {0.0f, 0.0f, 0.0f};
     bool  cam_orthographic  = false;
+    bool  cam_dirty         = true;  ///< push cam_* into view on next render
 
     /// Sub-windows registered for this host window.
     std::map<subwindow_name_t, SubWindowState> sub_windows;
@@ -394,9 +398,9 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   void render_sensor_windows(const window_name_t& parentName, PerWindowData& win);
   void render_console_overlay(PerWindowData& win);
   void render_widget_description(const mola::gui::WindowDescription& desc, SubWindowState& sw);
-  void render_tab(const mola::gui::Tab& tab);
-  void render_any_widget(const mola::gui::AnyWidget& w);
-  void render_leaf_widget(const mola::gui::LeafWidget& w);
+  void render_tab(const mola::gui::Tab& tab, const std::string& ctx);
+  void render_any_widget(const mola::gui::AnyWidget& w, const std::string& ctx);
+  void render_leaf_widget(const mola::gui::LeafWidget& w, const std::string& ctx);
 
   void internal_handle_decaying_clouds(PerWindowData& win);
 

@@ -552,11 +552,10 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
     wd.background_scene_view->setBackgroundColor(0.15f, 0.15f, 0.18f);
   }
 
-  // Push the authoritative cam_* state into the view every frame so that API
-  // calls (update_viewport_look_at, update_viewport_camera_azimuth, …) take
-  // effect.  The view's own mouse-driven camera also writes to the same
-  // CCamera object (via CImGuiSceneView), so cam_* lag one frame behind when
-  // the user drags — that is acceptable and cheaper than a round-trip mutex.
+  // Push cam_* into the view only when explicitly requested (initialization or
+  // an API call such as update_viewport_look_at).  After every render we read
+  // the camera back so mouse-driven orbit/pan/zoom persists across frames.
+  if (wd.cam_dirty)
   {
     auto& cam = wd.background_scene_view->camera();
     cam.setAzimuthDegrees(wd.cam_azimuth_deg);
@@ -564,6 +563,7 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
     cam.setZoomDistance(wd.cam_zoom);
     cam.setPointingAt(wd.cam_look_at[0], wd.cam_look_at[1], wd.cam_look_at[2]);
     cam.setProjectiveModel(!wd.cam_orthographic);
+    wd.cam_dirty = false;
   }
 
   // Size the background window to fill the entire OS window so the 3D scene
@@ -572,9 +572,14 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
   ImGui::SetNextWindowPos(viewport->WorkPos);
   ImGui::SetNextWindowSize(viewport->WorkSize);
 
+  // NoDocking: prevent this special full-screen window from accidentally
+  // being docked into the dockspace (e.g. via a persisted .ini state).
+  // NoSavedSettings: don't let imgui.ini persist position/size/collapse for
+  // this window — those are meaningless for a full-screen background layer.
   ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
                            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+                           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus |
+                           ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings;
 
   ImGui::SetNextWindowBgAlpha(0.0f);
   if (ImGui::Begin("##bg_scene", nullptr, flags))
@@ -584,6 +589,18 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
     {
     }
     wd.background_scene_view->render();
+
+    // Read back camera state so any mouse-driven orbit/pan/zoom made inside
+    // render() (via CImGuiSceneView::handleMouseInteraction) persists to the
+    // next frame.  Without this, cam_* would be pushed back unchanged next
+    // frame and all user camera interaction would be silently discarded.
+    const auto& cam      = wd.background_scene_view->camera();
+    wd.cam_azimuth_deg   = cam.getAzimuthDegrees();
+    wd.cam_elevation_deg = cam.getElevationDegrees();
+    wd.cam_zoom          = cam.getZoomDistance();
+    wd.cam_look_at[0]    = cam.getPointingAtX();
+    wd.cam_look_at[1]    = cam.getPointingAtY();
+    wd.cam_look_at[2]    = cam.getPointingAtZ();
   }
   ImGui::End();
 }
@@ -903,6 +920,7 @@ std::future<bool> MolaVizImGui::update_viewport_look_at(
         wd.cam_look_at[0] = lookAt.x;
         wd.cam_look_at[1] = lookAt.y;
         wd.cam_look_at[2] = lookAt.z;
+        wd.cam_dirty      = true;
         return true;
       });
   std::lock_guard lk(guiThreadPendingTasksMtx_);
@@ -931,6 +949,7 @@ std::future<bool> MolaVizImGui::update_viewport_camera_azimuth(
         {
           wd.cam_azimuth_deg += static_cast<float>(mrpt::RAD2DEG(azimuth));
         }
+        wd.cam_dirty = true;
         return true;
       });
   std::lock_guard lk(guiThreadPendingTasksMtx_);
@@ -950,6 +969,7 @@ std::future<bool> MolaVizImGui::update_viewport_camera_orthographic(
           return false;
         }
         it->second.cam_orthographic = orthographic;
+        it->second.cam_dirty        = true;
         return true;
       });
   std::lock_guard lk(guiThreadPendingTasksMtx_);
