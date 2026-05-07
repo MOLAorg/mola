@@ -181,3 +181,18 @@ Do not use direct MRPT GUI calls in modules — use the `VizInterface` abstracti
 - Example configs: `mola_demos/mola-cli-launchs/`
 - Per-package docs: each directory has a `README.md`
 - Main docs source: `docs/` (Sphinx + Doxygen)
+
+---
+
+## Documentation Build (Multi-Repo)
+
+The MOLA documentation website is built from **all MOLAorg repos cloned together**
+in a common parent directory. The Sphinx/Doxygen build in `docs/` pulls content from
+sibling repos via relative paths (e.g. `../../../mola_academic_datasets/` in
+`docs/source/Doxyfile`, and toctree stubs in `.rst` files that `.. include::` from
+sibling checkouts).
+
+**Consequence**: do not remove toctree entries from `docs/source/modules.rst` (or
+other `.rst` files) just because a package moved to a different repo — the entry will
+still resolve correctly at build time as long as the new repo is cloned alongside this
+one. Add the new repo's root to `docs/source/Doxyfile` `INPUT` instead.

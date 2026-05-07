@@ -789,6 +789,7 @@ INPUT                  = \
     ../../../mola_lidar_odometry/module/include \
     ../../../mp2p_icp/mp2p_icp \
     ../../../mola_state_estimation/ \
+    ../../../mola_academic_datasets/ \
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
