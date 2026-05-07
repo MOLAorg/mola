@@ -17,8 +17,7 @@ jobs:
   # including PRs from forks.
   # -----------------------------------------------------------------------
   build_github_hosted:
-    name: "x86_64 / ${{ matrix.ros_distribution }} (testing=${{
-      matrix.use_ros_testing }})"
+    name: "x86_64 / ${{ matrix.name }}"
     runs-on: ubuntu-latest
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -27,29 +26,35 @@ jobs:
       matrix:
         include:
           # Humble Hawksbill (May 2022 - May 2027)
-          - docker_image: ubuntu:jammy
+          - name: humble stable
+            docker_image: ubuntu:jammy
             ros_distribution: humble
             use_ros_testing: false
 
-          - docker_image: ubuntu:jammy
+          - name: humble testing
+            docker_image: ubuntu:jammy
             ros_distribution: humble
             use_ros_testing: true
 
           # Jazzy (2024 - 2029)
-          - docker_image: ubuntu:noble
+          - name: jazzy stable
+            docker_image: ubuntu:noble
             ros_distribution: jazzy
             use_ros_testing: false
 
-          - docker_image: ubuntu:noble
+          - name: jazzy testing
+            docker_image: ubuntu:noble
             ros_distribution: jazzy
             use_ros_testing: true
 
           # Rolling Ridley (No End-Of-Life)
-          - docker_image: ubuntu:noble
+          - name: rolling stable
+            docker_image: ubuntu:noble
             ros_distribution: rolling
             use_ros_testing: false
 
-          - docker_image: ubuntu:noble
+          - name: rolling testing
+            docker_image: ubuntu:noble
             ros_distribution: rolling
             use_ros_testing: true
 
@@ -88,8 +93,7 @@ jobs:
   # untrusted code.
   # -----------------------------------------------------------------------
   build_self_hosted:
-    name: "arm64 / ${{ matrix.ros_distribution }} (testing=${{
-      matrix.use_ros_testing }})"
+    name: "arm64 / ${{ matrix.name }}"
     if: >
       github.event_name == 'push' ||
       github.event.pull_request.head.repo.full_name == github.repository
@@ -104,29 +108,35 @@ jobs:
       matrix:
         include:
           # Humble Hawksbill (May 2022 - May 2027)
-          - docker_image: ubuntu:jammy
+          - name: humble stable
+            docker_image: ubuntu:jammy
             ros_distribution: humble
             use_ros_testing: false
 
-          - docker_image: ubuntu:jammy
+          - name: humble testing
+            docker_image: ubuntu:jammy
             ros_distribution: humble
             use_ros_testing: true
 
           # Jazzy (2024 - 2029)
-          - docker_image: ubuntu:noble
+          - name: jazzy stable
+            docker_image: ubuntu:noble
             ros_distribution: jazzy
             use_ros_testing: false
 
-          - docker_image: ubuntu:noble
+          - name: jazzy testing
+            docker_image: ubuntu:noble
             ros_distribution: jazzy
             use_ros_testing: true
 
           # Rolling Ridley (No End-Of-Life)
-          - docker_image: ubuntu:noble
+          - name: rolling stable
+            docker_image: ubuntu:noble
             ros_distribution: rolling
             use_ros_testing: false
 
-          - docker_image: ubuntu:noble
+          - name: rolling testing
+            docker_image: ubuntu:noble
             ros_distribution: rolling
             use_ros_testing: true
 
