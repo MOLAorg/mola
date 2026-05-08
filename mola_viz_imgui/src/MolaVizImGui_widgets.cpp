@@ -40,7 +40,7 @@ void MolaVizImGui::render_widget_description(
   if (desc.tabs.size() == 1)
   {
     // Single-tab optimisation: skip the tab bar.
-    render_tab(desc.tabs.front());
+    render_tab(desc.tabs.front(), desc.title);
     return;
   }
 
@@ -50,7 +50,7 @@ void MolaVizImGui::render_widget_description(
     {
       if (ImGui::BeginTabItem(tab.title.c_str()))
       {
-        render_tab(tab);
+        render_tab(tab, desc.title);
         ImGui::EndTabItem();
       }
     }
@@ -62,11 +62,11 @@ void MolaVizImGui::render_widget_description(
 // render_tab
 // ---------------------------------------------------------------------------
 
-void MolaVizImGui::render_tab(const mola::gui::Tab& tab)
+void MolaVizImGui::render_tab(const mola::gui::Tab& tab, const std::string& ctx)
 {
   for (const auto& anyW : tab.widgets)
   {
-    render_any_widget(anyW);
+    render_any_widget(anyW, ctx);
   }
 }
 
@@ -74,10 +74,10 @@ void MolaVizImGui::render_tab(const mola::gui::Tab& tab)
 // render_any_widget — dispatches Row vs leaf
 // ---------------------------------------------------------------------------
 
-void MolaVizImGui::render_any_widget(const mola::gui::AnyWidget& w)
+void MolaVizImGui::render_any_widget(const mola::gui::AnyWidget& w, const std::string& ctx)
 {
   std::visit(
-      [this](auto&& widget)
+      [this, &ctx](auto&& widget)
       {
         using T = std::decay_t<decltype(widget)>;
         if constexpr (std::is_same_v<T, mola::gui::Row>)
@@ -92,13 +92,13 @@ void MolaVizImGui::render_any_widget(const mola::gui::AnyWidget& w)
                                         : ImGui::GetStyle().ItemSpacing.x;
               ImGui::SameLine(0.0f, spacing);
             }
-            render_leaf_widget(leaf);
+            render_leaf_widget(leaf, ctx);
             first = false;
           }
         }
         else
         {
-          render_leaf_widget(widget);
+          render_leaf_widget(widget, ctx);
         }
       },
       w);
@@ -108,10 +108,10 @@ void MolaVizImGui::render_any_widget(const mola::gui::AnyWidget& w)
 // render_leaf_widget — one ImGui call per widget type
 // ---------------------------------------------------------------------------
 
-void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
+void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w, const std::string& ctx)
 {
   std::visit(
-      [](auto&& widget)
+      [&ctx](auto&& widget)
       {
         using T = std::decay_t<decltype(widget)>;
 
@@ -133,14 +133,12 @@ void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
         // ── CheckBox ───────────────────────────────────────────────────────
         else if constexpr (std::is_same_v<T, mola::gui::CheckBox>)
         {
-          // ImGui::Checkbox needs a bool* it can write to.
-          // We keep a mutable copy in a static map keyed by label — acceptable
-          // for a per-frame immediate-mode widget since labels are unique
-          // within a window.  For production code, store the bool in
-          // SubWindowState instead.
+          // Keyed by (ctx + "##" + label) so two checkboxes with the same
+          // label in different sub-windows do not share state.
           static std::map<std::string, bool> states;
-          auto                               it = states.find(widget.label);
-          if (it == states.end()) it = states.emplace(widget.label, widget.initial_value).first;
+          const std::string                  key = ctx + "##" + widget.label;
+          auto                               it  = states.find(key);
+          if (it == states.end()) it = states.emplace(key, widget.initial_value).first;
 
           if (ImGui::Checkbox(widget.label.c_str(), &it->second))
           {
@@ -172,15 +170,15 @@ void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
             ImGui::TextUnformatted(widget.label.c_str());
           }
 
-          // Use imgui_stdlib: InputText with std::string buffer.
           static std::map<std::string, std::string> buffers;
-          auto                                      it = buffers.find(widget.label);
+          const std::string                         key = ctx + "##" + widget.label;
+          auto                                      it  = buffers.find(key);
           if (it == buffers.end())
           {
-            it = buffers.emplace(widget.label, widget.initial_value).first;
+            it = buffers.emplace(key, widget.initial_value).first;
           }
 
-          const std::string id = "##tb_" + widget.label;
+          const std::string id = "##tb_" + key;
           if (ImGui::InputText(id.c_str(), &it->second, ImGuiInputTextFlags_EnterReturnsTrue))
           {
             if (widget.on_change)
@@ -239,8 +237,9 @@ void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
         else if constexpr (std::is_same_v<T, mola::gui::SliderFloat>)
         {
           static std::map<std::string, float> vals;
-          auto                                it = vals.find(widget.label);
-          if (it == vals.end()) it = vals.emplace(widget.label, widget.initial_value).first;
+          const std::string                   key = ctx + "##" + widget.label;
+          auto                                it  = vals.find(key);
+          if (it == vals.end()) it = vals.emplace(key, widget.initial_value).first;
 
           if (ImGui::SliderFloat(
                   widget.label.c_str(), &it->second, widget.min_value, widget.max_value,
@@ -254,8 +253,9 @@ void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
         else if constexpr (std::is_same_v<T, mola::gui::SliderInt>)
         {
           static std::map<std::string, int> vals;
-          auto                              it = vals.find(widget.label);
-          if (it == vals.end()) it = vals.emplace(widget.label, widget.initial_value).first;
+          const std::string                 key = ctx + "##" + widget.label;
+          auto                              it  = vals.find(key);
+          if (it == vals.end()) it = vals.emplace(key, widget.initial_value).first;
 
           if (ImGui::SliderInt(
                   widget.label.c_str(), &it->second, widget.min_value, widget.max_value))
@@ -268,8 +268,11 @@ void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
         else if constexpr (std::is_same_v<T, mola::gui::ComboBox>)
         {
           static std::map<std::string, int> indices;
-          auto                              it = indices.find(widget.label);
-          if (it == indices.end()) it = indices.emplace(widget.label, widget.initial_index).first;
+          // Use ctx + "##" + label as the stable key.  When label is empty
+          // we still get a unique-per-window key from ctx alone.
+          const std::string key = ctx + "##" + widget.label;
+          auto              it  = indices.find(key);
+          if (it == indices.end()) it = indices.emplace(key, widget.initial_index).first;
 
           // ImGui::Combo needs a null-terminated item list:
           std::string items_str;
@@ -280,10 +283,8 @@ void MolaVizImGui::render_leaf_widget(const mola::gui::LeafWidget& w)
           }
           items_str += '\0';
 
-          const std::string id =
-              widget.label.empty()
-                  ? ("##combo_" + std::to_string(reinterpret_cast<uintptr_t>(&widget)))
-                  : widget.label;
+          // The ImGui id uses "##key" so the visible label stays clean.
+          const std::string id = widget.label.empty() ? ("##combo_" + key) : widget.label;
 
           if (ImGui::Combo(id.c_str(), &it->second, items_str.c_str()))
             if (widget.on_change) widget.on_change(it->second);
