@@ -834,15 +834,15 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
     const static auto ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES =
         mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_VIZ_SHOW_ACTIVE_SUBMAP", false);
 
+    float pointSize = renderOptions.point_size;
     if (ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES)
     {
-      float pointSize = renderOptions.point_size;
       if (cached_.icp_search_kfs && cached_.icp_search_kfs->count(kf_id) != 0)
       {
         pointSize *= 4;
       }
-      obj->setPointSize(pointSize);
     }
+    obj->setPointSize(pointSize);
 
     outObj.insert(obj);
 
