@@ -440,7 +440,8 @@ void MolaVizImGui::render_frame(const window_name_t& name, PerWindowData& wd)
 
   constexpr ImGuiWindowFlags dockspace_flags =
       ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar;
+      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar |
+      ImGuiWindowFlags_NoBackground;  // PassthruCentralNode requires this
 
   ImGui::Begin("##DockSpaceRoot", nullptr, dockspace_flags);
   ImGui::PopStyleVar(3);
@@ -485,7 +486,10 @@ void MolaVizImGui::render_frame(const window_name_t& name, PerWindowData& wd)
     // The handler renders its own ImGui window keyed on the same title via
     // render_sensor_windows(), so drawing this one too would produce a
     // duplicate empty window next to the real content.
-    if (sw.desc.tabs.empty() && wd.sensor_windows.count(swName)) continue;
+    if (sw.desc.tabs.empty() && wd.sensor_windows.count(swName))
+    {
+      continue;
+    }
     render_subwindow(sw);
   }
 
@@ -545,11 +549,13 @@ void MolaVizImGui::render_background_scene(PerWindowData& wd)
 
   if (!wd.background_scene || !wd.background_scene_view) return;
 
-  // Sync scene pointer into the view (idempotent if already set):
+  // Sync scene pointer into the view (idempotent if already set).
+  // Note: do NOT call setBackgroundColor() here — leaving it unset lets the
+  // mrpt::opengl::Scene's natural viewport gradient show through; otherwise
+  // CImGuiSceneView would override it with a flat dark fill on every frame.
   if (wd.background_scene_view->scene() != wd.background_scene)
   {
     wd.background_scene_view->setScene(wd.background_scene);
-    wd.background_scene_view->setBackgroundColor(0.15f, 0.15f, 0.18f);
   }
 
   // Push cam_* into the view only when explicitly requested (initialization or
@@ -1171,7 +1177,7 @@ void MolaVizImGui::dataset_ui_check_new_modules()
     desc.position = {300, 5};
     desc.size     = {650, 70};
 
-    mola::gui::Tab tab{"Controls"};
+    mola::gui::Tab tab{"Controls", {}};
     mola::gui::Row row;
 
     row.widgets.emplace_back(mola::gui::CheckBox{
