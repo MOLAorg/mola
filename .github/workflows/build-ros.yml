@@ -27,7 +27,7 @@ jobs:
         include:
           # Humble Hawksbill (May 2022 - May 2027)
           - name: humble stable
-            docker_image: ubuntu:jammy
+            docker_image: ros:humble
             ros_distribution: humble
             use_ros_testing: false
 
@@ -38,7 +38,7 @@ jobs:
 
           # Jazzy (2024 - 2029)
           - name: jazzy stable
-            docker_image: ubuntu:noble
+            docker_image: ros:jazzy
             ros_distribution: jazzy
             use_ros_testing: false
 
@@ -63,14 +63,22 @@ jobs:
 
     steps:
       - name: Install Git
-        run: apt-get update && apt-get install -y git
+        run: apt-get update && apt-get install -y git curl gnupg2 ca-certificates
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
+      # Pre-built ros:* images have ROS base but need colcon/rosdep tooling.
+      - name: Install colcon and rosdep (pre-built ROS images)
+        if: startsWith(matrix.docker_image, 'ros:')
+        run: |
+          apt-get install -y python3-colcon-common-extensions python3-rosdep ros-dev-tools
+          test -f /etc/ros/rosdep/sources.list.d/20-default.list || rosdep init
+
       - name: setup ROS environment
+        if: matrix.use_ros_testing == true
         uses: ros-tooling/setup-ros@v0.7
         with:
           required-ros-distributions: ${{ matrix.ros_distribution }}
