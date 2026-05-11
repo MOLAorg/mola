@@ -2,8 +2,8 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.9.0 (2026-05-11)
+------------------
 * Merge pull request `#112 <https://github.com/MOLAorg/mola/issues/112>`_ from MOLAorg/feat/dear-imgui-viz
   Introduce Dear ImGui alternative viz module
 * chore: misc improvements

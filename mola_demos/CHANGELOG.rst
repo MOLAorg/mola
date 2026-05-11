@@ -2,8 +2,8 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.9.0 (2026-05-11)
+------------------
 * chore: clear leftover
 * Merge pull request `#112 <https://github.com/MOLAorg/mola/issues/112>`_ from MOLAorg/feat/dear-imgui-viz
   Introduce Dear ImGui alternative viz module

@@ -2,8 +2,8 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.9.0 (2026-05-11)
+------------------
 * fix: Imgui background scene color was washed out
 * Merge pull request `#144 <https://github.com/MOLAorg/mola/issues/144>`_ from MOLAorg/imgui-improvements
   fix: background scene doesn't respond to mouse

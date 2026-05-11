@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+2.9.0 (2026-05-11)
+------------------
 * Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version
   bump min req cmake version to 3.22
 * bump min req cmake version to 3.22
