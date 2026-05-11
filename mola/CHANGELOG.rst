@@ -2,6 +2,14 @@
 Changelog for package mola
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* mola metapackage no longer installs academic dataset modules
+* Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version
+  bump min req cmake version to 3.22
+* bump min req cmake version to 3.22
+* Contributors: Jose Luis Blanco-Claraco
+
 2.8.0 (2026-04-29)
 ------------------
 

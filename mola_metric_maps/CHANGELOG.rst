@@ -2,6 +2,17 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix: KeyframePointCloudMap viz should honor pointSize
+* Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version
+  bump min req cmake version to 3.22
+* bump min req cmake version to 3.22
+* Merge pull request `#142 <https://github.com/MOLAorg/mola/issues/142>`_ from MOLAorg/feat/add-keyframe-map-capable-api
+  feat: Add keyframe map capable API
+* feat: Add keyframe map capable API
+* Contributors: Jose Luis Blanco-Claraco
+
 2.8.0 (2026-04-29)
 ------------------
 * Merge pull request `#139 <https://github.com/MOLAorg/mola/issues/139>`_ from MOLAorg/fix/monothonic-kf-ids

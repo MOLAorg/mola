@@ -2,6 +2,20 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* chore: clear leftover
+* Merge pull request `#112 <https://github.com/MOLAorg/mola/issues/112>`_ from MOLAorg/feat/dear-imgui-viz
+  Introduce Dear ImGui alternative viz module
+* imgui windows: persistent state across sessions
+* Introduce Dear ImGui alternative viz module
+* Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version
+  bump min req cmake version to 3.22
+* bump min req cmake version to 3.22
+* fix: pep257 docs
+* demos: replace mock sensor publisher scripts with one centralized script
+* Contributors: Jose Luis Blanco-Claraco
+
 2.8.0 (2026-04-29)
 ------------------
 

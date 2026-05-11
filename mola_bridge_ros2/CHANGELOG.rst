@@ -3,6 +3,14 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version
+  bump min req cmake version to 3.22
+* bump min req cmake version to 3.22
+* Less verbose output: don't print covariance matrix for each geo-referenced solution
+* Contributors: Jose Luis Blanco-Claraco
+
 2.8.0 (2026-04-29)
 ------------------
 * Merge pull request `#140 <https://github.com/MOLAorg/mola/issues/140>`_ from MOLAorg/feat/bridge-ros2-qos
