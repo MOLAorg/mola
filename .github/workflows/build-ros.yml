@@ -87,7 +87,7 @@ jobs:
       - name: Install rosdep dependencies
         run: |
           . /opt/ros/*/setup.sh
-          rosdep update
+          for i in 1 2 3; do rosdep update && break || { echo "rosdep update failed (attempt $i/3), retrying..."; sleep 10; }; done
           rosdep install --from-paths . --ignore-src -r -y
 
       - name: Build with colcon
@@ -171,7 +171,7 @@ jobs:
       - name: Install rosdep dependencies
         run: |
           . /opt/ros/*/setup.sh
-          rosdep update
+          for i in 1 2 3; do rosdep update && break || { echo "rosdep update failed (attempt $i/3), retrying..."; sleep 10; }; done
           rosdep install --from-paths . --ignore-src -r -y
 
       - name: Build with colcon
