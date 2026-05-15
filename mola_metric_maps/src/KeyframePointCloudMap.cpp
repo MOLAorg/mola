@@ -214,17 +214,30 @@ mrpt::math::TBoundingBoxf KeyframePointCloudMap::boundingBox() const
     return *cached_.boundingBox;
   }
 
-  // TODO(jlbc): To be refined with new mrpt implementation of Oriented Bounding Boxes
-#if MRPT_VERSION >= 0x020e0d && 0
-  mrpt::math::TOrientedBox ob;
-#else
-  // Pessimistic bounding box:
   cached_.boundingBox = mrpt::math::TBoundingBoxf::PlusMinusInfinity();
   for (const auto& [kf_id, kf] : keyframes_)
   {
+#if MRPT_VERSION >= 0x020e0d
+    // Use TOrientedBox to correctly transform all 8 corners of the local AABB
+    // before computing the global axis-aligned envelope.
+    // TBoundingBox::compose() only transforms min/max, which is inaccurate under rotation.
+    const auto                  lbbox        = kf.localBoundingBox();
+    const mrpt::math::TPoint3Df center_local = {
+        (lbbox.min.x + lbbox.max.x) * 0.5f, (lbbox.min.y + lbbox.max.y) * 0.5f,
+        (lbbox.min.z + lbbox.max.z) * 0.5f};
+    const mrpt::math::TPoint3Df size = {
+        lbbox.max.x - lbbox.min.x, lbbox.max.y - lbbox.min.y, lbbox.max.z - lbbox.min.z};
+    const auto          global_center = kf.pose().composePoint(mrpt::math::TPoint3D(center_local));
+    mrpt::math::TPose3D obb_pose      = kf.pose().asTPose();
+    obb_pose.x                        = global_center.x;
+    obb_pose.y                        = global_center.y;
+    obb_pose.z                        = global_center.z;
+    cached_.boundingBox               = cached_.boundingBox->unionWith(
+                      mrpt::math::TOrientedBoxf(obb_pose, size).getAxisAlignedBox());
+#else
     cached_.boundingBox = cached_.boundingBox->unionWith(kf.localBoundingBox().compose(kf.pose()));
-  }
 #endif
+  }
 
   return *cached_.boundingBox;
 }
