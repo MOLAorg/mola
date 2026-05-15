@@ -37,16 +37,43 @@
 
 namespace mola
 {
-/** An efficient storage class for large point clouds built as keyframes, each having an associated
- * local cloud.
+/** Keyframe-based map: a collection of local point clouds, each anchored to a
+ * known SE(3) pose (the keyframe pose).
  *
- * The user of the class is responsible for processing raw observations into
- * mrpt::obs::CObservationPointCloud observations, the only ones allowed as input to the insert*()
- * methods, with points already transformed from the sensor frame to the vehicle (`base_link`)
- * frame. This can be easily done with mp2p_icp::Generator, plus an optional filtering pipeline.
+ * Unlike voxel maps that merge all points into a single global grid, this class
+ * keeps each keyframe's point cloud in its **local coordinate frame**. Only the
+ * SE(3) pose of each keyframe is stored globally, so correcting the map after a
+ * loop closure only requires updating poses, not re-inserting any points.
  *
- * Each key-frame is responsible of keeping its own KD-tree for NN searches and keeping up-to-date
- * covariances for each point local vicinity.
+ * ## Input
+ * The caller inserts `mrpt::obs::CObservationPointCloud` observations, with
+ * points already expressed in the vehicle `base_link` frame. This is typically
+ * produced by an `mp2p_icp::Generator` + optional filter pipeline.
+ *
+ * ## Per-keyframe data
+ * Each `KeyFrame` holds:
+ * - A multi-layer point cloud (`mp2p_icp::metric_map_t`) in local coordinates.
+ * - The global SE(3) pose (`mrpt::poses::CPose3D`).
+ * - A KD-tree (built lazily) for nearest-neighbor searches within that KF.
+ * - Per-point local covariance estimates (used by point-to-plane ICP).
+ * - A cached local AABB for fast global bounding-box queries.
+ *
+ * ## ICP integration
+ * For registration queries the class assembles a "search submap" from the
+ * keyframes nearest to the current pose (`IcpPrepareCapable`). The
+ * `NearestPointWithCovCapable` interface exposes per-point covariances to
+ * plane-aware ICP solvers.
+ *
+ * ## Interfaces implemented
+ * - `mrpt::maps::CMetricMap` — standard MRPT map (serialization, visualization).
+ * - `mrpt::maps::NearestNeighborsCapable` — KNN queries over the active submap.
+ * - `mp2p_icp::IcpPrepareCapable` — prepare a local submap for ICP.
+ * - `mp2p_icp::NearestPointWithCovCapable` — NN with local covariance.
+ * - `mp2p_icp::MetricMapMergeCapable` — merge another map into this one.
+ * - `mola::KeyframeMapCapable` — keyframe pose management (add, update, query).
+ *
+ * @note For single-frame global voxel maps, see `mola::SparseVoxelPointCloud`,
+ *       `mola::HashedVoxelPointCloud`, or `mola::NDT`.
  */
 class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
                               public mrpt::maps::NearestNeighborsCapable,

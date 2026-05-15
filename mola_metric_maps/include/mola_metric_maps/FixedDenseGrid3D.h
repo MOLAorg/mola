@@ -26,10 +26,23 @@
 
 namespace mola
 {
-/** A dense 3D grid holding cells of type "T" of fixed size
- *  NxNxN cells, with N=2^SIDE_NUM_BITS.
+/** A dense 3D grid of NxNxN cells with N = 2^SIDE_NUM_BITS.
  *
- *  Used internally in SparseVoxelPointCloud
+ * All cells are allocated contiguously via `calloc` (zero-initialized), which
+ * is faster than `new[]` for large arrays because the OS can provide
+ * zero-filled pages without actually writing them. For this reason, `T` must
+ * be trivially copyable (enforced by `static_assert`).
+ *
+ * Cell storage order is X-major: `cells_[cx + cy*N + cz*N*N]`.
+ * The bit-shift arithmetic in `cellByIndex()` exploits the power-of-two side
+ * length to replace multiplications with shifts.
+ *
+ * This is an internal building block for `mola::SparseVoxelPointCloud`, where
+ * it serves as the dense inner grid inside each sparse outer block.
+ *
+ * @tparam T             Cell type. Must be trivially copyable.
+ * @tparam SIDE_NUM_BITS log₂ of the number of cells per dimension (e.g. 5 → 32³).
+ * @tparam inner_coord_t Integer type for the index coordinates (e.g. `uint32_t`).
  */
 template <typename T, size_t SIDE_NUM_BITS, typename inner_coord_t>
 class FixedDenseGrid3D

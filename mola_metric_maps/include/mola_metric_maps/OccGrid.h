@@ -27,8 +27,17 @@
 namespace mola
 {
 /**
- * @brief Extends MRPT's occupancy grid with super-resolution likelihood field.
+ * @brief Extends MRPT's occupancy grid with a super-resolution likelihood cache.
  *
+ * Wraps `mrpt::maps::COccupancyGridMap2D` and adds a finer-resolution
+ * `CDynamicGrid<float>` (`likelihoodCacheGrid_`) to hold precomputed log-likelihood
+ * values. The cache is sized at `superResolutionFactor` times the grid resolution
+ * and is invalidated on each map update; lazy repopulation is the intended design.
+ *
+ * @note **Status: experimental / incomplete.** The likelihood cache is allocated
+ *   but never populated or queried — `insertObservation()` contains an explicit
+ *   `// TODO` for the pending recalculation enqueue logic. This class is not yet
+ *   used in any production MOLA pipeline.
  */
 class OccGrid : public mrpt::serialization::CSerializable
 {

@@ -24,8 +24,15 @@
 
 namespace mola
 {
-/** Discrete index type for voxel or 3D grid maps, suitable for std::map and
- * std::unordered_map, using mola::index3d_hash as hash type.
+/** Discrete 3D voxel index: a plain (cx, cy, cz) triple of integer coordinates.
+ *
+ * Suitable for both `std::map` (using `index3d_hash` as comparator) and
+ * `std::unordered_map` / `tsl::robin_map` (using `index3d_hash` as hash).
+ *
+ * The default coordinate type is `int32_t`, which covers roughly ±2×10⁹ voxels
+ * per axis. Use `uint32_t` for inner (non-negative) indices in dense grids.
+ *
+ * @see index3d_hash for the associated hash / comparator functor.
  */
 template <typename cell_coord_t = int32_t>
 struct index3d_t
@@ -59,12 +66,17 @@ std::ostream& operator<<(std::ostream& o, const index3d_t<cell_coord_t>& idx)
   return o;
 }
 
-/** This implement the optimized hash from this paper:
+/** Hash functor and comparator for `index3d_t`, usable with both
+ * `std::unordered_map` / `tsl::robin_map` (hash) and `std::map` (comparator).
  *
- *  Teschner, M., Heidelberger, B., Müller, M., Pomerantes, D., & Gross, M. H.
- * (2003, November). Optimized spatial hashing for collision detection of
- * deformable objects. In Vmv (Vol. 3, pp. 47-54).
+ * The hash function is the optimized spatial hash from:
+ *   Teschner et al., "Optimized spatial hashing for collision detection of
+ *   deformable objects", VMV 2003.
+ * It mixes the three integer coordinates with large prime multipliers and
+ * truncates to 20 bits, giving good distribution for typical voxel grids.
  *
+ * The `operator()(k1,k2)` overload provides a strict weak ordering on
+ * `index3d_t` (X-primary, Y-secondary, Z-tertiary) for `std::map`.
  */
 template <typename cell_coord_t = int32_t>
 struct index3d_hash

@@ -37,9 +37,27 @@
 
 namespace mola
 {
-/** HashedVoxelPointCloud: a pointcloud stored as a sparse set of cubic voxels,
- * indexed by a hash map. Efficient for storing point clouds, decimating them,
- *  and running nearest nearest-neighbor search.
+/** HashedVoxelPointCloud: a point cloud stored as a flat sparse hash map of
+ * cubic voxels. Each voxel holds up to SSO_MAX_POINTS_PER_VOXEL points in a
+ * fixed-size array (no heap allocation per voxel). The hash map backend is
+ * `tsl::robin_map`, which gives O(1) average-case insert and lookup.
+ *
+ * Typical uses:
+ * - Efficient voxel-based decimation during LiDAR scan insertion.
+ * - Nearest-neighbor queries for ICP and localization (via the
+ *   `mrpt::maps::NearestNeighborsCapable` interface).
+ *
+ * Each occupied voxel can hold up to SSO_MAX_POINTS_PER_VOXEL (32) points
+ * stored directly inside the `VoxelData` object, avoiding per-point heap
+ * allocations. Points beyond that limit are silently dropped.
+ *
+ * Global point identifiers (`global_plain_index_t`) pack the 3D voxel
+ * indices and the sub-voxel point index into a single `uint64_t` for use
+ * with the MRPT NN API.
+ *
+ * @note For a two-level (outer sparse + inner dense) voxel map, see
+ *       `mola::SparseVoxelPointCloud`.
+ * @note For a Normal Distributions Transform map, see `mola::NDT`.
  */
 class HashedVoxelPointCloud : public mrpt::maps::CMetricMap,
                               public mrpt::maps::NearestNeighborsCapable

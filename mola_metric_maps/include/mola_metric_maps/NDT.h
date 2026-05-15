@@ -39,17 +39,31 @@
 
 namespace mola
 {
-/** 3D NDT maps: Voxels with points approximated by Gaussians.
- * Implementation of \cite magnusson2007scan.
+/** 3D Normal Distributions Transform (NDT) map.
  *
- * This implements two nearest-neighbor virtual APIs:
- * - mrpt::maps::NearestNeighborsCapable: It will return pairings of local
- *   points against global (this map) points in voxels that do not conform
- *   planes.
+ * Points are accumulated in cubic voxels (indexed by a `tsl::robin_map`).
+ * When a voxel contains enough points, a Gaussian distribution (mean + covariance
+ * via PCA) is fitted to its contents using `mp2p_icp::estimate_points_eigen`.
+ * The planarity of the fitted Gaussian is tested against
+ * `TInsertionOptions::max_eigen_ratio_for_planes` to decide whether the voxel
+ * represents a plane or a volumetric distribution.
  *
- * - mp2p_icp::NearestPlaneCapable: It will return points-to-plane pairings,
- *   if the local point falls within a voxel with points conforming a plane.
+ * Implementation follows \cite magnusson2007scan.
  *
+ * Two nearest-neighbor interfaces are provided:
+ * - `mrpt::maps::NearestNeighborsCapable`: returns point-to-point pairings
+ *   for voxels whose Gaussian does **not** satisfy the planarity test.
+ * - `mp2p_icp::NearestPlaneCapable` (`nn_search_pt2pl`): returns
+ *   point-to-plane pairings when the query point falls within a voxel whose
+ *   Gaussian **does** satisfy the planarity test.
+ *
+ * This dual-interface design lets ICP engines (e.g. mp2p_icp) automatically
+ * select the geometrically appropriate pairing type without extra logic.
+ *
+ * @note For a simpler flat hash map without NDT fitting, see
+ *       `mola::HashedVoxelPointCloud`.
+ * @note For a two-level voxel map with per-voxel means, see
+ *       `mola::SparseVoxelPointCloud`.
  */
 class NDT : public mrpt::maps::CMetricMap,
             public mrpt::maps::NearestNeighborsCapable,

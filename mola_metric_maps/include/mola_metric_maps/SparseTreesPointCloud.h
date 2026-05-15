@@ -37,9 +37,31 @@
 
 namespace mola
 {
-/** SparseTreesPointCloud: Point cloud stored as a 3D grid of
- * KD-trees/pointclouds. Efficient for storing point clouds and running nearest
- * nearest-neighbor search.
+/** SparseTreesPointCloud: a point cloud partitioned into a coarse 3D grid of
+ * independent sub-maps, each holding an `mrpt::maps::CSimplePointsMap` with its
+ * own KD-tree.
+ *
+ * The outer grid uses a `std::map` (ordered, not hashed) keyed by
+ * `index3d_t<int32_t>`. Each grid cell ("block") stores all points that fall
+ * inside its cubic region and builds a KD-tree over them on demand. NN queries
+ * search only the cells in the immediate neighbourhood of the query point.
+ *
+ * The per-block KD-tree strategy makes this suitable for large maps where
+ * different regions are queried at different times, avoiding the cost of
+ * rebuilding a single global tree. A small LRU cache of recently accessed
+ * blocks is maintained to speed up sequential insertions.
+ *
+ * Insertion optionally enforces a minimum inter-point clearance
+ * (`minimum_points_clearance`) to limit density, and can evict distant blocks
+ * (`remove_submaps_farther_than`) to bound memory usage.
+ *
+ * @note **Status: experimental.** This class is functionally complete and
+ *   tested, but is an alternative design that has not been profiled against
+ *   `mola::HashedVoxelPointCloud` or `mola::SparseVoxelPointCloud` for typical
+ *   SLAM workloads. Prefer those classes for production use.
+ * @note For a hash-based flat voxel map, see `mola::HashedVoxelPointCloud`.
+ * @note For a two-level hash map with dense inner grids, see
+ *   `mola::SparseVoxelPointCloud`.
  */
 class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
                               public mrpt::maps::NearestNeighborsCapable
