@@ -25,7 +25,6 @@
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/core/lock_helper.h>
-#include <mrpt/maps/CColouredPointsMap.h>
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
@@ -431,8 +430,10 @@ void populate_from_3d_range_scan(
     pp.takeIntoAccountSensorPoseOnRobot = true;
     if (obj3D.hasRangeImage && obj3D.hasIntensityImage)
     {
-      auto pointMapCol                = mrpt::maps::CColouredPointsMap::Create();
-      pointMapCol->colorScheme.scheme = mrpt::maps::CColouredPointsMap::cmFromIntensityImage;
+      auto pointMapCol = mrpt::maps::CGenericPointsMap::Create();
+      pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Ru8);
+      pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Gu8);
+      pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Bu8);
       obj3DMut.unprojectInto(*pointMapCol, pp);
       glPc->loadFromPointsMap(pointMapCol.get());
       color_from_z = false;
@@ -1540,6 +1541,8 @@ std::future<std::optional<std::string>> MolaViz::open_file_dialog(
 // ---------------------------------------------------------------------------
 // VizInterface - deprecated shims (delegate to new API, one line each)
 // ---------------------------------------------------------------------------
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 std::future<nanogui::Window*> MolaViz::create_subwindow(
     const std::string& subWindowTitle, const std::string& parentWindow)
@@ -1625,6 +1628,8 @@ std::future<void> MolaViz::subwindow_move_resize(
         itSubWin->second->setSize({size.x, size.y});
       });
 }
+
+#pragma GCC diagnostic pop
 
 // ---------------------------------------------------------------------------
 // Observation / RTTI handler dispatch
