@@ -39,9 +39,12 @@ namespace mola
  * registry, `initialize()`, `spinOnce()`), owns the GLFW window and the
  * dedicated GUI thread, and provides the Dataset_UI control panels.
  *
- * For embedding the visualizer into a host application that already owns an
- * ImGui context, use `MolaVizImGuiCore` directly — this class is only needed
- * when running as a standalone MOLA module.
+ * **Embed mode**: when a host application (e.g. `ct_imgui_ui`) already owns an
+ * ImGui context, call `MolaVizImGui::install_embed_core(core)` with its
+ * pre-initialized `MolaVizImGuiCore` **before** calling
+ * `MolaLauncherApp::setup()`.  This module will then skip GLFW/window
+ * creation and use the provided core instead, so all VizInterface calls are
+ * routed through the host's render loop.
  *
  * \ingroup mola_viz_imgui_grp
  */
@@ -74,6 +77,15 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   static bool          IsRunning();
   static MolaVizImGui* Instance();
 
+  /** Embed mode: install a pre-initialized `MolaVizImGuiCore` that was
+   *  created by the host application.  Must be called **before** the first
+   *  `MolaLauncherApp::setup()` call that includes a `mola::MolaVizImGui`
+   *  module.  The install is consumed (cleared) by the first
+   *  `initialize()` that picks it up, so subsequent setups create a fresh
+   *  GLFW-owned core as usual.
+   */
+  static void install_embed_core(std::shared_ptr<MolaVizImGuiCore> core);
+
   /** @} */
 
   // =========================================================================
@@ -82,32 +94,32 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
 
   [[nodiscard]] const std::string& gui_backend() const noexcept override
   {
-    return core_.gui_backend();
+    return core_ptr_->gui_backend();
   }
 
   /** @} */
 
   // =========================================================================
-  /** @name VizInterface — sub-window API (delegated to core_)
+  /** @name VizInterface — sub-window API (delegated to core_ptr_)
    * @{ */
 
   std::future<void> create_subwindow_from_description(
       const mola::gui::WindowDescription& desc,
       const std::string&                  parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.create_subwindow_from_description(desc, parentWindow);
+    return core_ptr_->create_subwindow_from_description(desc, parentWindow);
   }
 
   std::future<void> enqueue_custom_gui_code(const std::function<void()>& userCode) override
   {
-    return core_.enqueue_custom_gui_code(userCode);
+    return core_ptr_->enqueue_custom_gui_code(userCode);
   }
 
   void* get_subwindow_handle(
       const std::string& subWindowTitle,
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.get_subwindow_handle(subWindowTitle, parentWindow);
+    return core_ptr_->get_subwindow_handle(subWindowTitle, parentWindow);
   }
 
   std::future<std::optional<std::string>> open_file_dialog(
@@ -116,19 +128,19 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const std::string&                                      default_path = "",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.open_file_dialog(title, save, filters, default_path, parentWindow);
+    return core_ptr_->open_file_dialog(title, save, filters, default_path, parentWindow);
   }
 
   std::future<void> set_menu_bar(
       const mola::gui::MenuBar& bar, const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.set_menu_bar(bar, parentWindow);
+    return core_ptr_->set_menu_bar(bar, parentWindow);
   }
 
   /** @} */
 
   // =========================================================================
-  /** @name VizInterface — 3-D scene API (delegated to core_)
+  /** @name VizInterface — 3-D scene API (delegated to core_ptr_)
    * @{ */
 
   std::future<bool> update_3d_object(
@@ -136,7 +148,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.update_3d_object(objName, obj, viewportName, parentWindow);
+    return core_ptr_->update_3d_object(objName, obj, viewportName, parentWindow);
   }
 
   std::future<bool> insert_point_cloud_with_decay(
@@ -144,7 +156,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.insert_point_cloud_with_decay(
+    return core_ptr_->insert_point_cloud_with_decay(
         cloud, decay_time_seconds, viewportName, parentWindow);
   }
 
@@ -152,14 +164,14 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.clear_all_point_clouds_with_decay(viewportName, parentWindow);
+    return core_ptr_->clear_all_point_clouds_with_decay(viewportName, parentWindow);
   }
 
   std::future<bool> update_viewport_look_at(
       const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.update_viewport_look_at(lookAt, viewportName, parentWindow);
+    return core_ptr_->update_viewport_look_at(lookAt, viewportName, parentWindow);
   }
 
   std::future<bool> update_viewport_camera_azimuth(
@@ -167,7 +179,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.update_viewport_camera_azimuth(
+    return core_ptr_->update_viewport_camera_azimuth(
         azimuth, absolute_falseForRelative, viewportName, parentWindow);
   }
 
@@ -175,20 +187,20 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       bool orthographic, const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.update_viewport_camera_orthographic(orthographic, viewportName, parentWindow);
+    return core_ptr_->update_viewport_camera_orthographic(orthographic, viewportName, parentWindow);
   }
 
   std::future<bool> execute_custom_code_on_background_scene(
       const std::function<void(mrpt::opengl::Scene&)>& userCode,
       const std::string&                               parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.execute_custom_code_on_background_scene(userCode, parentWindow);
+    return core_ptr_->execute_custom_code_on_background_scene(userCode, parentWindow);
   }
 
   /** @} */
 
   // =========================================================================
-  /** @name VizInterface — observation handler API (delegated to core_)
+  /** @name VizInterface — observation handler API (delegated to core_ptr_)
    * @{ */
 
   std::future<bool> subwindow_update_visualization(
@@ -196,20 +208,20 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const mrpt::containers::yaml* extra_parameters = nullptr,
       const std::string&            parentWindow     = DEFAULT_WINDOW_NAME) override
   {
-    return core_.subwindow_update_visualization(
+    return core_ptr_->subwindow_update_visualization(
         obj, subWindowTitle, extra_parameters, parentWindow);
   }
 
   /** @} */
 
   // =========================================================================
-  /** @name VizInterface — console output (delegated to core_)
+  /** @name VizInterface — console output (delegated to core_ptr_)
    * @{ */
 
   std::future<bool> output_console_message(
       const std::string& message, const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.output_console_message(message, parentWindow);
+    return core_ptr_->output_console_message(message, parentWindow);
   }
 
   /** @} */
@@ -221,20 +233,20 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   [[deprecated]] std::future<nanogui::Window*> create_subwindow(
       const std::string& title, const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.create_subwindow(title, parentWindow);
+    return core_ptr_->create_subwindow(title, parentWindow);
   }
 
   [[deprecated]] std::future<void> enqueue_custom_nanogui_code(
       const std::function<void()>& userCode) override
   {
-    return core_.enqueue_custom_nanogui_code(userCode);
+    return core_ptr_->enqueue_custom_nanogui_code(userCode);
   }
 
   [[deprecated]] std::future<void> subwindow_grid_layout(
       const std::string& subWindowTitle, bool orientationVertical, int resolution,
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.subwindow_grid_layout(
+    return core_ptr_->subwindow_grid_layout(
         subWindowTitle, orientationVertical, resolution, parentWindow);
   }
 
@@ -243,7 +255,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const mrpt::math::TPoint2D_<int>& size,
       const std::string&                parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_.subwindow_move_resize(subWindowTitle, location, size, parentWindow);
+    return core_ptr_->subwindow_move_resize(subWindowTitle, location, size, parentWindow);
   }
 
   /** @} */
@@ -260,17 +272,25 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
     MolaVizImGuiCore::register_gui_handler(name, handler);
   }
 
-  static void register_gui_cleanup(const std::function<void()>& cleanup)
+  void register_gui_cleanup(const std::function<void()>& cleanup)
   {
-    MolaVizImGuiCore::register_gui_cleanup(cleanup);
+    core_ptr_->register_gui_cleanup(cleanup);
   }
 
   /** @} */
 
-  // Module parameters are configured via YAML in initialize(); they live in core_.
-
  private:
-  MolaVizImGuiCore core_;
+  // Active core — points to the host-provided instance (embed mode) or the
+  // locally owned one (host mode).  Always non-null after initialize().
+  std::shared_ptr<MolaVizImGuiCore> core_ptr_;
+
+  bool embed_mode_ = false;
+
+  // ---------------------------------------------------------------------------
+  // Embed mode: one-shot install, consumed by initialize().
+  // ---------------------------------------------------------------------------
+  static std::shared_ptr<MolaVizImGuiCore> s_embed_core_;
+  static std::mutex                        s_embed_core_mtx_;
 
   // ---------------------------------------------------------------------------
   // Singleton
@@ -279,7 +299,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   static std::mutex    instanceMtx_;
 
   // ---------------------------------------------------------------------------
-  // GUI thread
+  // GUI thread (host mode only)
   // ---------------------------------------------------------------------------
   std::thread       guiThread_;
   std::atomic<bool> guiThreadShutdown_{false};

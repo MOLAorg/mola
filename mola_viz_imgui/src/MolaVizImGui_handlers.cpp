@@ -19,6 +19,7 @@
  * @date   2026
  */
 
+#include <GLFW/glfw3.h>
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
 #include <mrpt/imgui/CImGuiSceneView.h>
 #include <mrpt/maps/CColouredPointsMap.h>
@@ -36,7 +37,7 @@
 #include <mrpt/opengl/stock_objects.h>
 
 #include <cstdio>
-#include <mutex>
+#include <set>
 
 using namespace mola;
 
@@ -159,9 +160,27 @@ void handler_images(
   // shutdown (while the GL context is still current) via register_gui_cleanup,
   // to avoid ~CImGuiSceneView calling glDelete* on a dead context.
   static std::map<std::string, ImageViewState> stateMap;
-  static std::once_flag                        cleanupReg;
-  std::call_once(
-      cleanupReg, []() { MolaVizImGuiCore::register_gui_cleanup([]() { stateMap.clear(); }); });
+  static std::set<MolaVizImGuiCore*>           cleanupRegistered;
+
+  if (instance && cleanupRegistered.find(instance) == cleanupRegistered.end())
+  {
+    cleanupRegistered.insert(instance);
+    char addrBuf[32];
+    std::snprintf(addrBuf, sizeof(addrBuf), "%p", static_cast<const void*>(instance));
+    const std::string prefix = std::string(addrBuf) + ":";
+    instance->register_gui_cleanup(
+        [instance, prefix]()
+        {
+          for (auto it = stateMap.begin(); it != stateMap.end();)
+          {
+            if (it->first.substr(0, prefix.size()) == prefix)
+              it = stateMap.erase(it);
+            else
+              ++it;
+          }
+          cleanupRegistered.erase(instance);
+        });
+  }
   auto& st = stateMap[stateKey];
 
   if (!st.initialized)
@@ -230,9 +249,27 @@ void handler_point_cloud(
   // via register_gui_cleanup so CImGuiSceneView's GL resources don't outlive
   // the context.
   static std::map<std::string, PointCloudViewState> stateMap;
-  static std::once_flag                             cleanupReg;
-  std::call_once(
-      cleanupReg, []() { MolaVizImGuiCore::register_gui_cleanup([]() { stateMap.clear(); }); });
+  static std::set<MolaVizImGuiCore*>                cleanupRegistered;
+
+  if (instance && cleanupRegistered.find(instance) == cleanupRegistered.end())
+  {
+    cleanupRegistered.insert(instance);
+    char addrBuf[32];
+    std::snprintf(addrBuf, sizeof(addrBuf), "%p", static_cast<const void*>(instance));
+    const std::string prefix = std::string(addrBuf) + ":";
+    instance->register_gui_cleanup(
+        [instance, prefix]()
+        {
+          for (auto it = stateMap.begin(); it != stateMap.end();)
+          {
+            if (it->first.substr(0, prefix.size()) == prefix)
+              it = stateMap.erase(it);
+            else
+              ++it;
+          }
+          cleanupRegistered.erase(instance);
+        });
+  }
   auto& st = stateMap[stateKey];
 
   if (!st.initialized)
@@ -385,16 +422,17 @@ void handler_point_cloud(
 void handler_gps(
     const mrpt::rtti::CObject::Ptr& o, void* /*handle*/,
     const MolaVizImGuiCore::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
-    MolaVizImGuiCore* /*instance*/, const mrpt::containers::yaml* /*extra*/)
+    MolaVizImGuiCore* instance, const mrpt::containers::yaml* /*extra*/)
 {
   auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationGPS>(o);
   if (!obj) return;
 
-  const std::string winId = window_id_for(subWindowTitle, "GPS");
+  const std::string winId    = window_id_for(subWindowTitle, "GPS");
+  const std::string stateKey = state_key_for(instance, winId);
 
   if (ImGui::Begin(winId.c_str()))
   {
-    show_common_sensor_info(*obj, winId);
+    show_common_sensor_info(*obj, stateKey);
 
     if (auto* gga = obj->getMsgByClassPtr<mrpt::obs::gnss::Message_NMEA_GGA>(); gga)
     {
@@ -424,16 +462,17 @@ void handler_gps(
 void handler_imu(
     const mrpt::rtti::CObject::Ptr& o, void* /*handle*/,
     const MolaVizImGuiCore::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
-    MolaVizImGuiCore* /*instance*/, const mrpt::containers::yaml* /*extra*/)
+    MolaVizImGuiCore* instance, const mrpt::containers::yaml* /*extra*/)
 {
   auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationIMU>(o);
   if (!obj) return;
 
-  const std::string winId = window_id_for(subWindowTitle, "IMU");
+  const std::string winId    = window_id_for(subWindowTitle, "IMU");
+  const std::string stateKey = state_key_for(instance, winId);
 
   if (ImGui::Begin(winId.c_str()))
   {
-    show_common_sensor_info(*obj, winId);
+    show_common_sensor_info(*obj, stateKey);
 
     if (obj->has(mrpt::obs::IMU_WX))
       ImGui::Text(

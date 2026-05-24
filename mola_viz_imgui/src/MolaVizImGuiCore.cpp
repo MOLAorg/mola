@@ -17,6 +17,9 @@
  * @date   2026
  */
 
+#include <GLFW/glfw3.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/lock_helper.h>
@@ -56,39 +59,6 @@ struct ImGuiHandlersContainer
   ImGuiHandlersContainer() = default;
 };
 
-// ---------------------------------------------------------------------------
-// Cleanup registry
-
-struct ImGuiCleanupContainer
-{
-  static ImGuiCleanupContainer& Instance()
-  {
-    static ImGuiCleanupContainer o;
-    return o;
-  }
-  std::vector<std::function<void()>> cleanups;
-  std::mutex                         mtx;
-};
-
-void run_gui_cleanups()
-{
-  auto&                              c = ImGuiCleanupContainer::Instance();
-  std::vector<std::function<void()>> local;
-  {
-    std::lock_guard lk(c.mtx);
-    local = c.cleanups;
-  }
-  for (auto& fn : local)
-  {
-    try
-    {
-      fn();
-    }
-    catch (...)
-    {
-    }
-  }
-}
 }  // namespace
 
 void MolaVizImGuiCore::register_gui_handler(
@@ -101,12 +71,22 @@ void MolaVizImGuiCore::register_gui_handler(
 
 void MolaVizImGuiCore::register_gui_cleanup(const std::function<void()>& cleanup)
 {
-  auto&           c = ImGuiCleanupContainer::Instance();
-  std::lock_guard lk(c.mtx);
-  c.cleanups.push_back(cleanup);
+  instance_cleanups_.push_back(cleanup);
 }
 
-void MolaVizImGuiCore::run_registered_cleanups() { run_gui_cleanups(); }
+void MolaVizImGuiCore::run_registered_cleanups()
+{
+  for (auto& fn : instance_cleanups_)
+  {
+    try
+    {
+      fn();
+    }
+    catch (...)
+    {
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Backend identity
@@ -160,6 +140,15 @@ void MolaVizImGuiCore::init_for_embed(const window_name_t& name)
 void MolaVizImGuiCore::shutdown_for_embed()
 {
   if (!embed_active_) return;
+
+  // Discard any queued GUI tasks so we don't run user code against
+  // half-torn-down state.  Destroying the packaged_tasks breaks their
+  // promises, so callers blocked on the returned futures get a
+  // broken_promise exception instead of hanging forever.
+  {
+    std::lock_guard lk(guiThreadPendingTasksMtx_);
+    guiThreadPendingTasks_.clear();
+  }
 
   // Release GL handles held by static state in handler files (CImGuiSceneView
   // FBOs, textures, VAOs).  Caller guarantees GL context is current.
@@ -479,8 +468,11 @@ void MolaVizImGuiCore::render_subwindow(SubWindowState& sw)
 
   if (desc.starts_hidden) ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
 
-  bool open = true;
-  if (ImGui::Begin(desc.title.c_str(), &open)) render_widget_description(desc, sw);
+  if (!sw.open) return;
+
+  // Persist the close state in SubWindowState so clicking the window's [x]
+  // sticks across frames instead of the window reappearing each frame.
+  if (ImGui::Begin(desc.title.c_str(), &sw.open)) render_widget_description(desc, sw);
   ImGui::End();
 }
 
@@ -650,8 +642,11 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
         mrpt::opengl::CSetOfObjects::Ptr container;
         if (auto o = scene->getByName(objName, viewportName); o)
           container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
-        else
+        if (!container)
         {
+          // Either the name was unused, or an object of a different type is
+          // stored under it; (re)create a CSetOfObjects (insert overwrites by
+          // name) so we never dereference a null container below.
           container = mrpt::opengl::CSetOfObjects::Create();
           scene->insert(container, viewportName);
         }
@@ -695,8 +690,12 @@ std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
         }
         container->insert(cloud);
 
-        const size_t maxScans = std::max<size_t>(
-            1u, static_cast<size_t>(std::round(decay_time_seconds * assumed_sensor_rate_hz_)));
+        // Clamp to >= 0 first: a negative decay_time_seconds would round to a
+        // negative double and wrap around to a huge size_t, letting the decay
+        // queue grow without bound.
+        const double decaySecs = std::max(0.0, decay_time_seconds);
+        const size_t maxScans  = std::max<size_t>(
+            1u, static_cast<size_t>(std::round(decaySecs * assumed_sensor_rate_hz_)));
         wd.max_decaying_clouds = maxScans;
 
         const float alpha = mrpt::u8tof(cloud->shaderPointsVertexColorBuffer().at(0).A);
@@ -728,7 +727,7 @@ std::future<bool> MolaVizImGuiCore::clear_all_point_clouds_with_decay(
         constexpr const char* DECAY_NAME = "__viz_decaying_clouds";
         std::lock_guard       lk(wd.background_scene_mtx);
         if (auto o = wd.background_scene->getByName(DECAY_NAME, viewportName); o)
-          std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o)->clear();
+          if (auto c = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o); c) c->clear();
         wd.decaying_clouds.clear();
         return true;
       });

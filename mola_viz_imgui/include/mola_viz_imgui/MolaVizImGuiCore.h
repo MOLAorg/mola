@@ -18,16 +18,14 @@
  */
 #pragma once
 
-#include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
 #include <mola_kernel/interfaces/VizInterface.h>
 #include <mrpt/imgui/CImGuiSceneView.h>
 #include <mrpt/opengl/COpenGLScene.h>
 #include <mrpt/system/COutputLogger.h>
 
 #include <atomic>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <future>
@@ -37,6 +35,11 @@
 #include <optional>
 #include <string>
 #include <vector>
+
+// Forward declaration: only GLFWwindow* pointers appear in this header, so the
+// GLFW/OpenGL backend headers are pulled in by the .cpp implementation files
+// instead of being forced on every consumer of the public API.
+struct GLFWwindow;
 
 namespace mola
 {
@@ -265,12 +268,17 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
 
   static void register_gui_handler(const class_name_t& name, const update_handler_t& handler);
 
-  static void register_gui_cleanup(const std::function<void()>& cleanup);
-
-  /** Run all registered cleanup callbacks.  Must be called with the GL
-   *  context current (releases FBOs, textures, VAOs).
+  /** Register a cleanup callback on this instance.  The callback is called
+   *  (with the GL context current) during shutdown_for_embed() / destruction
+   *  and should release any GL handles this instance allocated.  Multiple
+   *  callbacks may be registered; they are called in registration order.
    */
-  static void run_registered_cleanups();
+  void register_gui_cleanup(const std::function<void()>& cleanup);
+
+  /** Run all cleanup callbacks registered on this instance.
+   *  Must be called with the GL context current.
+   */
+  void run_registered_cleanups();
 
   /** @} */
   // =========================================================================
@@ -299,6 +307,7 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   {
     mola::gui::WindowDescription desc;
     int                          active_tab  = 0;
+    bool                         open        = true;
     unsigned int                 fbo_id      = 0;
     unsigned int                 fbo_texture = 0;
     int                          fbo_w       = 0;
@@ -381,6 +390,19 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
 
   void internal_drain_task_queue();
   void internal_handle_decaying_clouds(PerWindowData& win);
+
+  // Cleanup callbacks registered via register_gui_cleanup().
+  std::vector<std::function<void()>> instance_cleanups_;
+
+  // Per-instance widget state, keyed by "<ctx>##<label>" (or LiveString id for
+  // text panels).  Kept on the instance — not as function-local statics — so
+  // multiple cores in one process don't share widget state.
+  std::map<std::string, bool>        widget_checkbox_states_;
+  std::map<std::string, std::string> widget_text_buffers_;
+  std::map<std::string, float>       widget_slider_float_vals_;
+  std::map<std::string, int>         widget_slider_int_vals_;
+  std::map<std::string, int>         widget_combo_indices_;
+  std::map<uint64_t, std::string>    widget_textpanel_bufs_;
 };
 
 }  // namespace mola

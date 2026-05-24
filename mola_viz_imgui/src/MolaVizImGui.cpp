@@ -21,6 +21,9 @@
  * C++ library for the Dear ImGui MOLA GUI backend
  */
 
+#include <GLFW/glfw3.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <mola_viz_imgui/MolaVizImGui.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
@@ -67,15 +70,35 @@ MolaVizImGui* MolaVizImGui::Instance()
 }
 
 // ---------------------------------------------------------------------------
+// Embed-mode install
+// ---------------------------------------------------------------------------
+
+std::shared_ptr<MolaVizImGuiCore> MolaVizImGui::s_embed_core_;
+std::mutex                        MolaVizImGui::s_embed_core_mtx_;
+
+void MolaVizImGui::install_embed_core(std::shared_ptr<MolaVizImGuiCore> core)
+{
+  std::lock_guard lk(s_embed_core_mtx_);
+  s_embed_core_ = std::move(core);
+}
+
+// ---------------------------------------------------------------------------
 // Constructor / destructor
 // ---------------------------------------------------------------------------
 
-MolaVizImGui::MolaVizImGui() = default;
+MolaVizImGui::MolaVizImGui()
+{
+  // Allocate a default core; may be replaced by an embed core in initialize().
+  core_ptr_ = std::make_shared<MolaVizImGuiCore>();
+}
 
 MolaVizImGui::~MolaVizImGui()
 {
-  guiThreadShutdown_.store(true);
-  if (guiThread_.joinable()) guiThread_.join();
+  if (!embed_mode_)
+  {
+    guiThreadShutdown_.store(true);
+    if (guiThread_.joinable()) guiThread_.join();
+  }
 
   std::lock_guard lk(instanceMtx_);
   instance_ = nullptr;
@@ -89,31 +112,47 @@ void MolaVizImGui::initialize(const Yaml& c)
 {
   MRPT_START
 
+  // Consume any pre-installed embed core (one-shot).
+  {
+    std::lock_guard lk(s_embed_core_mtx_);
+    if (s_embed_core_)
+    {
+      core_ptr_   = std::move(s_embed_core_);
+      embed_mode_ = true;
+      MRPT_LOG_INFO("MolaVizImGui: running in embed mode (no GLFW window created).");
+    }
+  }
+
   auto cfg = c["params"];
   MRPT_LOG_DEBUG_STREAM("MolaVizImGui: loading params:\n" << cfg);
 
-  core_.max_console_lines_ = cfg.getOrDefault("max_console_lines", core_.max_console_lines_);
-  core_.console_text_font_size_ =
-      cfg.getOrDefault("console_text_font_size", core_.console_text_font_size_);
-  core_.show_rgbd_as_point_cloud_ =
-      cfg.getOrDefault("show_rgbd_as_point_cloud", core_.show_rgbd_as_point_cloud_);
-  core_.assumed_sensor_rate_hz_ =
-      cfg.getOrDefault("assumed_sensor_rate_hz", core_.assumed_sensor_rate_hz_);
-  core_.target_fps_     = cfg.getOrDefault("target_fps", core_.target_fps_);
-  core_.imgui_app_name_ = cfg.getOrDefault("imgui_app_name", core_.imgui_app_name_);
+  core_ptr_->max_console_lines_ =
+      cfg.getOrDefault("max_console_lines", core_ptr_->max_console_lines_);
+  core_ptr_->console_text_font_size_ =
+      cfg.getOrDefault("console_text_font_size", core_ptr_->console_text_font_size_);
+  core_ptr_->show_rgbd_as_point_cloud_ =
+      cfg.getOrDefault("show_rgbd_as_point_cloud", core_ptr_->show_rgbd_as_point_cloud_);
+  core_ptr_->assumed_sensor_rate_hz_ =
+      cfg.getOrDefault("assumed_sensor_rate_hz", core_ptr_->assumed_sensor_rate_hz_);
+  core_ptr_->target_fps_     = cfg.getOrDefault("target_fps", core_ptr_->target_fps_);
+  core_ptr_->imgui_app_name_ = cfg.getOrDefault("imgui_app_name", core_ptr_->imgui_app_name_);
 
   {
     std::lock_guard lk(instanceMtx_);
     instance_ = this;
   }
 
-  guiThread_ = std::thread(&MolaVizImGui::gui_thread, this);
+  if (!embed_mode_)
+  {
+    guiThread_ = std::thread(&MolaVizImGui::gui_thread, this);
+  }
 
   MRPT_END
 }
 
 void MolaVizImGui::spinOnce()
 {
+  // Dataset UI updates run in both host and embed mode.
   const double PERIOD_CHECK_NEW_MODS    = 2.0;
   const double PERIOD_UPDATE_DATASET_UI = 0.25;
   const double tNow                     = mrpt::Clock::nowDouble();
@@ -131,12 +170,12 @@ void MolaVizImGui::spinOnce()
 }
 
 // ---------------------------------------------------------------------------
-// GUI thread
+// GUI thread (host mode only)
 // ---------------------------------------------------------------------------
 
 MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const window_name_t& name)
 {
-  ASSERT_(core_.windows_.empty());
+  ASSERT_(core_ptr_->windows_.empty());
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -153,18 +192,16 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const windo
   glfwMakeContextCurrent(win);
   glfwSwapInterval(0);
 
-  auto& wd = core_.init_window(name, win);
+  auto& wd = core_ptr_->init_window(name, win);
 
   ImGuiIO& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-  // Persist layout to a per-app .ini file.  The string must outlive the
-  // ImGui context, so we store it in core_.imgui_ini_paths_.
-  const std::string resolvedIni = core_.resolve_imgui_ini_path(name);
+  const std::string resolvedIni = core_ptr_->resolve_imgui_ini_path(name);
   if (!resolvedIni.empty())
   {
-    auto [it, inserted] = core_.imgui_ini_paths_.emplace(name, resolvedIni);
+    auto [it, inserted] = core_ptr_->imgui_ini_paths_.emplace(name, resolvedIni);
     io.IniFilename      = it->second.c_str();
     MRPT_LOG_INFO_STREAM("ImGui layout .ini file: " << it->second);
   }
@@ -192,7 +229,7 @@ void MolaVizImGui::gui_thread()
 
   create_and_add_window(DEFAULT_WINDOW_NAME);
 
-  const double frame_period = 1.0 / static_cast<double>(std::max(1, core_.target_fps_));
+  const double frame_period = 1.0 / static_cast<double>(std::max(1, core_ptr_->target_fps_));
 
   while (!guiThreadShutdown_.load())
   {
@@ -201,14 +238,14 @@ void MolaVizImGui::gui_thread()
     glfwPollEvents();
 
     bool any_open = false;
-    for (auto& [name, wd] : core_.windows_)
+    for (auto& [name, wd] : core_ptr_->windows_)
       if (wd.glfw_window && !glfwWindowShouldClose(wd.glfw_window)) any_open = true;
     if (!any_open) break;
 
-    for (auto& [name, wd] : core_.windows_)
+    for (auto& [name, wd] : core_ptr_->windows_)
     {
       if (!wd.glfw_window || glfwWindowShouldClose(wd.glfw_window)) continue;
-      core_.render_frame(name, wd);
+      core_ptr_->render_frame(name, wd);
     }
 
     const double elapsed = mrpt::Clock::nowDouble() - t0;
@@ -217,12 +254,12 @@ void MolaVizImGui::gui_thread()
   }
 
   // Cleanup — GL resources must be released while the context is still current.
-  for (auto& [name, wd] : core_.windows_)
+  for (auto& [name, wd] : core_ptr_->windows_)
   {
     if (!wd.glfw_window) continue;
     glfwMakeContextCurrent(wd.glfw_window);
 
-    MolaVizImGuiCore::run_registered_cleanups();
+    core_ptr_->run_registered_cleanups();
 
     wd.sensor_windows.clear();
     wd.decaying_clouds.clear();
@@ -234,7 +271,7 @@ void MolaVizImGui::gui_thread()
     glfwDestroyWindow(wd.glfw_window);
     wd.glfw_window = nullptr;
   }
-  core_.windows_.clear();
+  core_ptr_->windows_.clear();
 
   ImGui::DestroyContext(imgui_ctx_);
   imgui_ctx_ = nullptr;
@@ -319,7 +356,7 @@ void MolaVizImGui::dataset_ui_check_new_modules()
     tab.widgets.emplace_back(std::move(row));
     desc.tabs.emplace_back(std::move(tab));
 
-    core_.create_subwindow_from_description(desc);
+    core_ptr_->create_subwindow_from_description(desc);
   }
 }
 
