@@ -19,7 +19,8 @@
  * @date   2026
  */
 
-#include <mola_viz_imgui/MolaVizImGui.h>
+#include <GLFW/glfw3.h>
+#include <mola_viz_imgui/MolaVizImGuiCore.h>
 #include <mrpt/imgui/CImGuiSceneView.h>
 #include <mrpt/maps/CColouredPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
@@ -35,7 +36,8 @@
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/stock_objects.h>
 
-#include <mutex>
+#include <cstdio>
+#include <set>
 
 using namespace mola;
 
@@ -65,6 +67,17 @@ std::string window_id_for(const std::string& subWindowTitle, const char* suffix)
   // same title (e.g. image + point-cloud views on a 3DRangeScan) produce
   // distinct ImGui windows while both match the caller-provided title.
   return subWindowTitle + "##" + suffix;
+}
+
+// Key for per-(core-instance,winId) handler state.  Multiple MolaVizImGuiCore
+// instances in the same process (e.g. embedded app + a separate MOLA module)
+// would otherwise share static CImGuiSceneView state across different GL
+// contexts.  Including the instance pointer in the key isolates them.
+std::string state_key_for(const MolaVizImGuiCore* instance, const std::string& winId)
+{
+  char buf[32];
+  std::snprintf(buf, sizeof(buf), "%p", static_cast<const void*>(instance));
+  return std::string(buf) + ":" + winId;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,8 +133,8 @@ struct ImageViewState
 
 void handler_images(
     const mrpt::rtti::CObject::Ptr& o, void* /*handle*/,
-    const MolaVizImGui::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
-    MolaVizImGui* /*instance*/, const mrpt::containers::yaml* /*extra*/)
+    const MolaVizImGuiCore::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
+    MolaVizImGuiCore* instance, const mrpt::containers::yaml* /*extra*/)
 {
   mrpt::img::CImage imgToShow;
 
@@ -140,16 +153,35 @@ void handler_images(
     return;
   }
 
-  const std::string winId = window_id_for(subWindowTitle, "image");
+  const std::string winId    = window_id_for(subWindowTitle, "image");
+  const std::string stateKey = state_key_for(instance, winId);
 
-  // Per-window persistent state.  Cleared from the GUI thread on shutdown
-  // (while the GL context is still current) via register_gui_cleanup, to
-  // avoid ~CImGuiSceneView calling glDelete* on a dead context.
+  // Per-(instance,window) persistent state.  Cleared from the GUI thread on
+  // shutdown (while the GL context is still current) via register_gui_cleanup,
+  // to avoid ~CImGuiSceneView calling glDelete* on a dead context.
   static std::map<std::string, ImageViewState> stateMap;
-  static std::once_flag                        cleanupReg;
-  std::call_once(
-      cleanupReg, []() { MolaVizImGui::register_gui_cleanup([]() { stateMap.clear(); }); });
-  auto& st = stateMap[winId];
+  static std::set<MolaVizImGuiCore*>           cleanupRegistered;
+
+  if (instance && cleanupRegistered.find(instance) == cleanupRegistered.end())
+  {
+    cleanupRegistered.insert(instance);
+    char addrBuf[32];
+    std::snprintf(addrBuf, sizeof(addrBuf), "%p", static_cast<const void*>(instance));
+    const std::string prefix = std::string(addrBuf) + ":";
+    instance->register_gui_cleanup(
+        [instance, prefix]()
+        {
+          for (auto it = stateMap.begin(); it != stateMap.end();)
+          {
+            if (it->first.substr(0, prefix.size()) == prefix)
+              it = stateMap.erase(it);
+            else
+              ++it;
+          }
+          cleanupRegistered.erase(instance);
+        });
+  }
+  auto& st = stateMap[stateKey];
 
   if (!st.initialized)
   {
@@ -193,8 +225,8 @@ struct PointCloudViewState
 
 void handler_point_cloud(
     const mrpt::rtti::CObject::Ptr& o, void* /*handle*/,
-    const MolaVizImGui::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
-    MolaVizImGui* instance, const mrpt::containers::yaml* extra)
+    const MolaVizImGuiCore::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
+    MolaVizImGuiCore* instance, const mrpt::containers::yaml* extra)
 {
   using namespace mrpt::obs;
 
@@ -210,16 +242,35 @@ void handler_point_cloud(
     return;
   }
 
-  const std::string winId = window_id_for(subWindowTitle, "pointcloud");
+  const std::string winId    = window_id_for(subWindowTitle, "pointcloud");
+  const std::string stateKey = state_key_for(instance, winId);
 
-  // Per-window persistent state.  Cleared on GUI-thread shutdown via
-  // register_gui_cleanup so CImGuiSceneView's GL resources don't outlive
+  // Per-(instance,window) persistent state.  Cleared on GUI-thread shutdown
+  // via register_gui_cleanup so CImGuiSceneView's GL resources don't outlive
   // the context.
   static std::map<std::string, PointCloudViewState> stateMap;
-  static std::once_flag                             cleanupReg;
-  std::call_once(
-      cleanupReg, []() { MolaVizImGui::register_gui_cleanup([]() { stateMap.clear(); }); });
-  auto& st = stateMap[winId];
+  static std::set<MolaVizImGuiCore*>                cleanupRegistered;
+
+  if (instance && cleanupRegistered.find(instance) == cleanupRegistered.end())
+  {
+    cleanupRegistered.insert(instance);
+    char addrBuf[32];
+    std::snprintf(addrBuf, sizeof(addrBuf), "%p", static_cast<const void*>(instance));
+    const std::string prefix = std::string(addrBuf) + ":";
+    instance->register_gui_cleanup(
+        [instance, prefix]()
+        {
+          for (auto it = stateMap.begin(); it != stateMap.end();)
+          {
+            if (it->first.substr(0, prefix.size()) == prefix)
+              it = stateMap.erase(it);
+            else
+              ++it;
+          }
+          cleanupRegistered.erase(instance);
+        });
+  }
+  auto& st = stateMap[stateKey];
 
   if (!st.initialized)
   {
@@ -370,17 +421,18 @@ void handler_point_cloud(
 
 void handler_gps(
     const mrpt::rtti::CObject::Ptr& o, void* /*handle*/,
-    const MolaVizImGui::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
-    MolaVizImGui* /*instance*/, const mrpt::containers::yaml* /*extra*/)
+    const MolaVizImGuiCore::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
+    MolaVizImGuiCore* instance, const mrpt::containers::yaml* /*extra*/)
 {
   auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationGPS>(o);
   if (!obj) return;
 
-  const std::string winId = window_id_for(subWindowTitle, "GPS");
+  const std::string winId    = window_id_for(subWindowTitle, "GPS");
+  const std::string stateKey = state_key_for(instance, winId);
 
   if (ImGui::Begin(winId.c_str()))
   {
-    show_common_sensor_info(*obj, winId);
+    show_common_sensor_info(*obj, stateKey);
 
     if (auto* gga = obj->getMsgByClassPtr<mrpt::obs::gnss::Message_NMEA_GGA>(); gga)
     {
@@ -409,17 +461,18 @@ void handler_gps(
 
 void handler_imu(
     const mrpt::rtti::CObject::Ptr& o, void* /*handle*/,
-    const MolaVizImGui::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
-    MolaVizImGui* /*instance*/, const mrpt::containers::yaml* /*extra*/)
+    const MolaVizImGuiCore::window_name_t& /*parentWin*/, const std::string& subWindowTitle,
+    MolaVizImGuiCore* instance, const mrpt::containers::yaml* /*extra*/)
 {
   auto obj = std::dynamic_pointer_cast<mrpt::obs::CObservationIMU>(o);
   if (!obj) return;
 
-  const std::string winId = window_id_for(subWindowTitle, "IMU");
+  const std::string winId    = window_id_for(subWindowTitle, "IMU");
+  const std::string stateKey = state_key_for(instance, winId);
 
   if (ImGui::Begin(winId.c_str()))
   {
-    show_common_sensor_info(*obj, winId);
+    show_common_sensor_info(*obj, stateKey);
 
     if (obj->has(mrpt::obs::IMU_WX))
       ImGui::Text(
@@ -447,14 +500,14 @@ void handler_imu(
 void mola_viz_imgui_register_default_handlers()
 {
   // clang-format off
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservationImage",        &handler_images);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &handler_images);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservationGPS",          &handler_gps);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservationIMU",          &handler_imu);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservationPointCloud",   &handler_point_cloud);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &handler_point_cloud);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservation2DRangeScan",  &handler_point_cloud);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservationRotatingScan", &handler_point_cloud);
-  MolaVizImGui::register_gui_handler("mrpt::obs::CObservationVelodyneScan", &handler_point_cloud);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservationImage",        &handler_images);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &handler_images);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservationGPS",          &handler_gps);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservationIMU",          &handler_imu);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservationPointCloud",   &handler_point_cloud);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservation3DRangeScan",  &handler_point_cloud);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservation2DRangeScan",  &handler_point_cloud);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservationRotatingScan", &handler_point_cloud);
+  MolaVizImGuiCore::register_gui_handler("mrpt::obs::CObservationVelodyneScan", &handler_point_cloud);
   // clang-format on
 }
