@@ -39,7 +39,7 @@ namespace mola
  * registry, `initialize()`, `spinOnce()`), owns the GLFW window and the
  * dedicated GUI thread, and provides the Dataset_UI control panels.
  *
- * **Embed mode**: when a host application (e.g. `ct_imgui_ui`) already owns an
+ * **Embed mode**: when a host application already owns an
  * ImGui context, call `MolaVizImGui::install_embed_core(core)` with its
  * pre-initialized `MolaVizImGuiCore` **before** calling
  * `MolaLauncherApp::setup()`.  This module will then skip GLFW/window
