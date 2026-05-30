@@ -264,10 +264,12 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
       ros_clock_ = rosNode_->get_clock();
     }
 
-    // TF buffer:
-    tf_buffer_ = std::make_shared<tf2::BufferCore>();  // ros_clock_
-    // tf_buffer_->setUsingDedicatedThread(true);
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    // TF buffer + listener -- pass rosNode_ so the listener's /tf and
+    // /tf_static subscriptions share the same DDS participant, clock, and
+    // use_sim_time setting as the bridge.  spin_thread=false: rosNode_ is
+    // already spun by the loop below; a second spinner would be redundant.
+    tf_buffer_   = std::make_shared<tf2::BufferCore>();
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, rosNode_, false);
 
     // TF broadcaster:
     auto lckTfBc = mrpt::lockHelper(ros_tf_bc_mtx_);
