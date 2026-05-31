@@ -264,7 +264,7 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 
   std::atomic<bool> shouldExit_{false};
   std::atomic<bool> isSpinning_{false};
-  bool              owned_rclcpp_{false};  ///< true iff this instance called rclcpp::init()
+  std::atomic<bool> owned_rclcpp_{false};  ///< true iff this instance called rclcpp::init()
 
   /// Returns a copy of the shared_ptr to the ROS 2 node, or empty if not
   /// initialized yet.

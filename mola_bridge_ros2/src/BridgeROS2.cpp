@@ -376,7 +376,7 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
       rclcpp::spin_some(rosNode_);
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    if (owned_rclcpp_)
+    if (owned_rclcpp_ && rclcpp::ok())
     {
       rclcpp::shutdown();
     }
