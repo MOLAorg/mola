@@ -200,12 +200,11 @@ BridgeROS2::~BridgeROS2()
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    if (rclcpp::ok())
+    if (owned_rclcpp_ && rclcpp::ok())
     {
       rclcpp::shutdown();
     }
 
-    rclcpp::shutdown();
     if (rosNodeThread_.joinable())
     {
       rosNodeThread_.join();
@@ -248,10 +247,13 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     const int    argc = static_cast<int>(rosArgs.size());
     const char** argv = rosArgsC.data();
 
-    // Initialize ROS (only once):
+    // Initialize ROS only if not already initialized by the host application.
+    // Track ownership so the destructor and spin thread only call shutdown()
+    // when this instance was the one that called init().
     if (!rclcpp::ok())
     {
       rclcpp::init(argc, argv);
+      owned_rclcpp_ = true;
     }
 
     auto lckNode = mrpt::lockHelper(rosNodeMtx_);
@@ -374,7 +376,10 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
       rclcpp::spin_some(rosNode_);
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    rclcpp::shutdown();
+    if (owned_rclcpp_)
+    {
+      rclcpp::shutdown();
+    }
   }
   catch (const std::exception& e)
   {
