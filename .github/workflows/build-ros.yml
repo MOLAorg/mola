@@ -36,7 +36,7 @@ jobs:
             ros_distribution: humble
             use_ros_testing: true
 
-          # Jazzy (2024 - 2029)
+          # Jazzy Jalisco (May 2024 - May 2029)
           - name: jazzy stable
             docker_image: ros:jazzy
             ros_distribution: jazzy
@@ -126,7 +126,7 @@ jobs:
             ros_distribution: humble
             use_ros_testing: true
 
-          # Jazzy (2024 - 2029)
+          # Jazzy Jalisco (May 2024 - May 2029)
           - name: jazzy stable
             docker_image: ubuntu:noble
             ros_distribution: jazzy
