@@ -1125,7 +1125,7 @@ void MolaViz::dataset_ui_check_new_modules()
             mod->datasetUI_teleport(static_cast<size_t>(pos));
           }
         },
-        270});
+        270, nullptr});
 
     row.widgets.emplace_back(
         mola::gui::Label{std::make_shared<mola::gui::LiveString>("Playback rate:")});

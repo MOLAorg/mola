@@ -319,6 +319,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
     std::weak_ptr<mola::Dataset_UI> module;
     bool                            first_time_seen = true;
     mola::gui::LiveString::Ptr      lbPlaybackPosition;
+    mola::gui::LiveFloat::Ptr       liveSliderPos;
   };
   std::map<std::string, DataPerDatasetUI> datasetUIs_;
 
