@@ -50,7 +50,10 @@ void MolaVizImGuiCore::render_widget_description(
 
 void MolaVizImGuiCore::render_tab(const mola::gui::Tab& tab, const std::string& ctx)
 {
-  for (const auto& anyW : tab.widgets) render_any_widget(anyW, ctx);
+  for (size_t i = 0; i < tab.widgets.size(); ++i)
+  {
+    render_any_widget(tab.widgets[i], ctx + "|" + std::to_string(i));
+  }
 }
 
 void MolaVizImGuiCore::render_any_widget(const mola::gui::AnyWidget& w, const std::string& ctx)
@@ -61,18 +64,16 @@ void MolaVizImGuiCore::render_any_widget(const mola::gui::AnyWidget& w, const st
         using T = std::decay_t<decltype(widget)>;
         if constexpr (std::is_same_v<T, mola::gui::Row>)
         {
-          bool first = true;
-          for (const auto& leaf : widget.widgets)
+          for (size_t i = 0; i < widget.widgets.size(); ++i)
           {
-            if (!first)
+            if (i > 0)
             {
               const float spacing = widget.item_spacing > 0
                                         ? static_cast<float>(widget.item_spacing)
                                         : ImGui::GetStyle().ItemSpacing.x;
               ImGui::SameLine(0.0f, spacing);
             }
-            render_leaf_widget(leaf, ctx);
-            first = false;
+            render_leaf_widget(widget.widgets[i], ctx + "." + std::to_string(i));
           }
         }
         else
@@ -161,11 +162,17 @@ void MolaVizImGuiCore::render_leaf_widget(const mola::gui::LeafWidget& w, const 
           const std::string key  = ctx + "##" + widget.label;
           auto              it   = vals.find(key);
           if (it == vals.end()) it = vals.emplace(key, widget.initial_value).first;
-          if (ImGui::SliderFloat(
-                  widget.label.c_str(), &it->second, widget.min_value, widget.max_value,
-                  widget.format_string.c_str()) &&
-              widget.on_change)
-            widget.on_change(it->second);
+          const bool userChanged = ImGui::SliderFloat(
+              widget.label.c_str(), &it->second, widget.min_value, widget.max_value,
+              widget.format_string.c_str());
+          if (userChanged)
+          {
+            if (widget.on_change) widget.on_change(it->second);
+          }
+          else if (widget.live_value && !ImGui::IsItemActive() && widget.live_value->dirty())
+          {
+            it->second = widget.live_value->poll();
+          }
         }
         else if constexpr (std::is_same_v<T, mola::gui::SliderInt>)
         {

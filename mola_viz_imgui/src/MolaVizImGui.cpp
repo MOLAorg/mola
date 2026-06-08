@@ -299,6 +299,8 @@ void MolaVizImGui::dataset_ui_check_new_modules()
     e.first_time_seen    = false;
     e.module             = modUI;
     e.lbPlaybackPosition = std::make_shared<mola::gui::LiveString>("Progress: ");
+    e.liveSliderPos      = std::make_shared<mola::gui::LiveFloat>(
+        static_cast<float>(modUI->datasetUI_lastQueriedTimestep()));
 
     std::weak_ptr<Dataset_UI> weakMod = modUI;
 
@@ -334,13 +336,20 @@ void MolaVizImGui::dataset_ui_check_new_modules()
 
     row.widgets.emplace_back(mola::gui::Label{e.lbPlaybackPosition});
 
-    row.widgets.emplace_back(mola::gui::SliderFloat{
-        "", static_cast<float>(modUI->datasetUI_lastQueriedTimestep()), 0.0f,
-        static_cast<float>(std::max<size_t>(1u, modUI->datasetUI_size())), "%.0f",
-        [weakMod](float v)
-        {
-          if (auto m = weakMod.lock()) m->datasetUI_teleport(static_cast<size_t>(v));
-        }});
+    {
+      mola::gui::SliderFloat sf;
+      sf.label         = "";
+      sf.initial_value = static_cast<float>(modUI->datasetUI_lastQueriedTimestep());
+      sf.min_value     = 0.0f;
+      sf.max_value     = static_cast<float>(std::max<size_t>(1u, modUI->datasetUI_size()));
+      sf.format_string = "%.0f";
+      sf.live_value    = e.liveSliderPos;
+      sf.on_change     = [weakMod](float v)
+      {
+        if (auto m = weakMod.lock()) m->datasetUI_teleport(static_cast<size_t>(v));
+      };
+      row.widgets.emplace_back(std::move(sf));
+    }
 
     row.widgets.emplace_back(
         mola::gui::Label{std::make_shared<mola::gui::LiveString>("Playback rate:")});
@@ -370,5 +379,6 @@ void MolaVizImGui::dataset_ui_update()
     const size_t pos = mod->datasetUI_lastQueriedTimestep();
     const size_t N   = mod->datasetUI_size();
     e.lbPlaybackPosition->set(mrpt::format("%zu / %zu", pos, N));
+    if (e.liveSliderPos) e.liveSliderPos->set(static_cast<float>(pos));
   }
 }

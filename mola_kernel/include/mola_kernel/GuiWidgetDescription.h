@@ -168,6 +168,67 @@ struct LiveString
 };
 
 // ---------------------------------------------------------------------------
+// LiveFloat - thread-safe float value updated from any thread, consumed by
+//             the GUI thread each frame (analogous to LiveString).
+// ---------------------------------------------------------------------------
+
+/**
+ * A float value that can be written from any thread and polled by the GUI
+ * thread each frame.  Used to drive slider positions from module logic without
+ * requiring the user to drag the slider.
+ *
+ * Usage (writer side, any thread):
+ *   liveFloat.set(static_cast<float>(currentStep));
+ *
+ * Usage (GUI thread, ImGui backend):
+ *   float v = liveFloat.poll();  // returns current value, clears dirty flag
+ */
+struct LiveFloat
+{
+  LiveFloat() = default;
+  explicit LiveFloat(float initial) : pending_(initial), last_(initial) {}
+  ~LiveFloat() = default;
+
+  LiveFloat(const LiveFloat&)            = delete;
+  LiveFloat& operator=(const LiveFloat&) = delete;
+  LiveFloat(LiveFloat&&)                 = delete;
+  LiveFloat& operator=(LiveFloat&&)      = delete;
+
+  using Ptr = std::shared_ptr<LiveFloat>;
+
+  /** Write from any thread. */
+  void set(float v)
+  {
+    {
+      std::lock_guard<std::mutex> lk(mtx_);
+      pending_ = v;
+    }
+    dirty_.store(true, std::memory_order_release);
+  }
+
+  /**
+   * Call from the GUI thread.
+   * Returns the pending value and clears the dirty flag.
+   * If not dirty, returns the last polled value unchanged.
+   */
+  float poll()
+  {
+    if (!dirty_.exchange(false, std::memory_order_acq_rel)) return last_;
+    std::lock_guard<std::mutex> lk(mtx_);
+    last_ = pending_;
+    return last_;
+  }
+
+  bool dirty() const { return dirty_.load(std::memory_order_acquire); }
+
+ private:
+  float             pending_ = 0.0f;
+  float             last_    = 0.0f;
+  std::mutex        mtx_;
+  std::atomic<bool> dirty_{false};
+};
+
+// ---------------------------------------------------------------------------
 // Forward declarations of widget types
 // ---------------------------------------------------------------------------
 
@@ -334,8 +395,13 @@ struct TextPanel
  * The displayed value beside the slider uses `format_string` (printf style,
  * default "%.2f").
  *
- * nanogui : nanogui::Slider (0–1 normalised internally) + adjacent Label.
- *           The backend maps [min_value, max_value] ↔ [0,1] transparently.
+ * If `live_value` is non-null the ImGui backend polls it every frame and
+ * updates the slider position whenever the user is not actively dragging,
+ * allowing the knob to track externally driven progress (e.g. dataset
+ * playback).  The nanogui backend ignores `live_value`.
+ *
+ * nanogui : nanogui::Slider (0-1 normalised internally) + adjacent Label.
+ *           The backend maps [min_value, max_value] <-> [0,1] transparently.
  * ImGui   : ImGui::SliderFloat.
  */
 struct SliderFloat
@@ -347,6 +413,7 @@ struct SliderFloat
   std::string                format_string = "%.2f";
   std::function<void(float)> on_change;
   int                        fixed_width = 0;  ///< 0 = auto (nanogui: setFixedWidth on slider)
+  LiveFloat::Ptr             live_value;  ///< optional; ImGui backend polls each frame
 };
 
 /**
