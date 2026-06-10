@@ -28,64 +28,73 @@ SYNOPSIS
 
     USAGE:
 
-       mola-cli  [--list-module-shared-dirs] [--list-modules]
-                 [--rtti-children-of <mp2p_icp::ICP_Base>] [--rtti-list-all]
-                 [--profiler-whole] [-p] [-v <INFO>] [-c <demo.yml>] [--]
-                 [--version] [-h]
+       mola-cli [OPTIONS] [config...]
 
 
-    Where:
+    POSITIONALS:
 
-       --list-module-shared-dirs
-         Finds all MOLA module source/shared directories, then list them. Paths
-         can be added with the environment variable MOLA_MODULES_SHARED_PATH.
+       config TEXT ...
+         Input YAML config file(s) (*.yaml). If more than one file is given,
+         all of them are loaded and their `modules` sections are merged
+         together into a single running system.
 
-       --list-modules
-         Loads all MOLA modules, then list them. It also shows the list of
-         paths in which the program looks for module dynamic libraries, then
-         exits.
+    OPTIONS:
 
-       --rtti-children-of <mp2p_icp::ICP_Base>
-         Loads all MOLA modules, then list all known classes that inherit from
-         the given one, and exits.
+       -h,  --help
+         Print this help message and exit.
 
-       --rtti-list-all
-         Loads all MOLA modules, then list all classes registered via
-         mrpt::rtti, and exits.
+       -v,  --verbosity TEXT
+         Verbosity level: ERROR|WARN|INFO|DEBUG (Default: INFO)
+
+       -p,  --profiler
+         Enable time profiler by default in all modules (Default: NO)
 
        --profiler-whole
          Enable whole-history time profiler in all modules (Default: NO). **DO
          NOT** use in production, only to benchmark short runs (unbounded
          memory usage)
 
-       -p,  --profiler
-         Enable time profiler by default in all modules (Default: NO)
+       --rtti-list-all
+         Loads all MOLA modules, then list all classes registered via
+         mrpt::rtti, and exits.
 
-       -v <INFO>,  --verbosity <INFO>
-         Verbosity level: ERROR|WARN|INFO|DEBUG (Default: INFO)
+       --rtti-children-of TEXT
+         Loads all MOLA modules, then list all known classes that inherit from
+         the given one, and exits.
 
-       -c <demo.yml>,  --config <demo.yml>
-         Input YAML config file (required) (*.yml)
+       --list-modules
+         Loads all MOLA modules, then list them. It also shows the list of
+         paths in which the program looks for module dynamic libraries, then
+         exits.
 
-       --,  --ignore_rest
-         Ignores the rest of the labeled arguments following this flag.
-
-       --version
-         Displays version information and exits.
-
-       -h,  --help
-         Displays usage information and exits.
+       --list-module-shared-dirs
+         Finds all MOLA module source/shared directories, then list them. Paths
+         can be added with the environment variable MOLA_MODULES_SHARED_PATH.
 
 
 Notes:
 
   - Finer-control of the verbosity for individual modules is possible by using the `verbosity` variable in the YAML launch file, see: :ref:`yaml_slam_cfg_file`.
+  - Each YAML file keeps the same self-contained structure described in
+    :ref:`yaml_slam_cfg_file` (a top-level ``modules`` entry). When several
+    files are given, ``mola-cli`` processes them in the order given on the
+    command line, instantiating the ``modules`` of each one into the same
+    running system. Module ``name``\ s must be unique across **all** the given
+    files.
 
 Example: Launching a SLAM system with performance details at end:
 
 .. code-block:: none
 
   mola-cli kitti_lidar_slam.yml -p
+
+
+Example: Launching a SLAM system whose sensors, pipeline, and visualization
+are defined in separate, reusable files:
+
+.. code-block:: none
+
+  mola-cli sensors.yaml pipeline.yaml visualization.yaml
 
 
 Example: To list all known ICP algorithms:
@@ -152,31 +161,27 @@ SYNOPSIS
 
     USAGE:
 
-       mola-yaml-parser  [--no-env-vars] [--no-cmd-runs] [--no-includes] [--]
-                         [--version] [-h] <YAML files>
+       mola-yaml-parser [OPTIONS] YAML_file
 
-    Where:
 
-       --no-env-vars
-         Disables solving YAML `${xxx}`s (Default: NO)
+    POSITIONALS:
 
-       --no-cmd-runs
-         Disables solving YAML `$(cmd)`s (Default: NO)
+       YAML_file TEXT REQUIRED
+         Input YAML file (required) (*.yml)
+
+    OPTIONS:
+
+       -h,  --help
+         Print this help message and exit.
 
        --no-includes
          Disables solving YAML `$include{}`s (Default: NO)
 
-       --,  --ignore_rest
-         Ignores the rest of the labeled arguments following this flag.
+       --no-cmd-runs
+         Disables solving YAML `$(cmd)`s (Default: NO)
 
-       --version
-         Displays version information and exits.
-
-       -h,  --help
-         Displays usage information and exits.
-
-       <YAML files>
-         (required)  Input YAML file (required) (*.yml)
+       --no-env-vars
+         Disables solving YAML `${xxx}`s (Default: NO)
 
 
 Example:
