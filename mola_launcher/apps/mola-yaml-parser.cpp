@@ -19,40 +19,49 @@
 
 #include <mola_kernel/pretty_print_exception.h>
 #include <mola_yaml/yaml_helpers.h>
-#include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/system/filesystem.h>
 
+#include <CLI/CLI.hpp>
 #include <iostream>
-
-// Declare supported cli switches ===========
-static TCLAP::CmdLine   cmd("mola-yaml-parser");
-static TCLAP::SwitchArg arg_no_includes(
-    "", "no-includes", "Disables solving YAML `$include{}`s (Default: NO)", cmd);
-static TCLAP::SwitchArg arg_no_cmd_runs(
-    "", "no-cmd-runs", "Disables solving YAML `$(cmd)`s (Default: NO)", cmd);
-static TCLAP::SwitchArg arg_no_env_vars(
-    "", "no-env-vars", "Disables solving YAML `${xxx}`s (Default: NO)", cmd);
-static TCLAP::UnlabeledValueArg<std::string> arg_input_files(
-    "YAML_file", "Input YAML file (required) (*.yml)", true, "params.yml", "YAML files", cmd);
+#include <string>
 
 int main(int argc, char** argv)
 {
   try
   {
-    // Parse arguments:
-    if (!cmd.parse(argc, argv)) return 1;  // should exit.
+    CLI::App cli{"mola-yaml-parser"};
 
-    const auto filName = arg_input_files.getValue();
+    bool argNoIncludes = false;
+    cli.add_flag(
+        "--no-includes", argNoIncludes, "Disables solving YAML `$include{}`s (Default: NO)");
+
+    bool argNoCmdRuns = false;
+    cli.add_flag("--no-cmd-runs", argNoCmdRuns, "Disables solving YAML `$(cmd)`s (Default: NO)");
+
+    bool argNoEnvVars = false;
+    cli.add_flag("--no-env-vars", argNoEnvVars, "Disables solving YAML `${xxx}`s (Default: NO)");
+
+    std::string argInputFile;
+    cli.add_option("YAML_file", argInputFile, "Input YAML file (required) (*.yml)")->required();
+
+    try
+    {
+      cli.parse(argc, argv);
+    }
+    catch (const CLI::ParseError& e)
+    {
+      return cli.exit(e);
+    }
 
     // MOLA-specific parsing:
     mola::YAMLParseOptions options;
-    if (arg_no_includes.isSet()) options.doIncludes = false;
-    if (arg_no_cmd_runs.isSet()) options.doCmdRuns = false;
-    if (arg_no_env_vars.isSet()) options.doEnvVars = false;
+    if (argNoIncludes) options.doIncludes = false;
+    if (argNoCmdRuns) options.doCmdRuns = false;
+    if (argNoEnvVars) options.doEnvVars = false;
 
-    auto d = mola::load_yaml_file(filName);
+    auto d = mola::load_yaml_file(argInputFile, options);
 
     // Dump output:
     d.printAsYAML(std::cout);

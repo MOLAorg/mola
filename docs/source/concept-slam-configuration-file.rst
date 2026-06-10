@@ -36,6 +36,29 @@ Notes:
 - ``INSTANCE_NAME1``: Arbitrary name of this instance of the module. All names
   must be unique in a SLAM system.
 
+.. _yaml_multiple_files:
+
+Launching from multiple files
+================================
+
+:ref:`mola_cli` accepts more than one YAML file on the command line:
+
+.. code-block:: none
+
+  mola-cli sensors.yaml pipeline.yaml visualization.yaml
+
+Each file keeps the exact same self-contained structure described above (a
+top-level ``modules`` entry). ``mola-cli`` loads and pre-processes each file
+independently -- so ``$include{}``, ``$()`` and ``${}`` paths inside each file
+are still resolved relative to *that* file's own directory -- and then merges
+all of their ``modules`` lists into a single running system, in the order the
+files were given on the command line.
+
+This is useful to split a SLAM system definition into reusable building
+blocks (e.g. one file per sensor, plus a shared pipeline and visualization
+file). As with a single file, all module ``name``\ s must be unique across
+**all** the given files.
+
 
 .. _yaml_extensions:
 

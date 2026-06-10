@@ -8,7 +8,7 @@
 # ------------------------------------------------------------------------------
 
 find_package(mrpt-core)
-find_package(mrpt-tclap) # tclap wrapper, useful for Windows, etc.
+find_package(CLI11 REQUIRED)
 find_package(mrpt-containers)
 
 mola_add_executable(
@@ -18,7 +18,7 @@ mola_add_executable(
     mola::mola_launcher
     mola::mola_kernel
     mrpt::core
-    mrpt::tclap
+    CLI11::CLI11
 )
 
 mola_add_executable(
@@ -34,6 +34,6 @@ mola_add_executable(
   SOURCES mola-yaml-parser.cpp
   LINK_LIBRARIES
     mola::mola_kernel
-    mrpt::tclap
+    CLI11::CLI11
     mrpt::containers
 )
