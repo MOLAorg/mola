@@ -309,6 +309,13 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 
   void callbackOnRelocalizeTopic(const geometry_msgs::msg::PoseWithCovarianceStamped& o);
 
+  /// Converts an incoming relocalization pose into the localization
+  /// reference_frame, composing reference_frame <- header.frame_id via /tf when
+  /// they differ. Returns false (and leaves \a out unspecified) if the required
+  /// transform is not available.
+  bool relocalizationPoseInReferenceFrame(
+      const geometry_msgs::msg::PoseWithCovarianceStamped& o, mrpt::poses::CPose3DPDFGaussian& out);
+
   bool waitForTransform(
       mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame);
 
