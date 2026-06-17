@@ -322,6 +322,10 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     uint64_t max_overall_points = 1000000;  //!< Max points to render in global maps
 
     float keyframes_axes_length = .0f;  //!< If >0, draw XYZ frames per key-frame in the map
+
+    bool show_covariances = false;  //!< If true, draw per-point covariances as ellipsoids
+    mrpt::img::TColorf cov_color{.0f, 1.0f, .0f};
+    uint32_t           show_cov_decimation = 100;
   };
   TRenderOptions renderOptions;
 
@@ -510,6 +514,9 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      */
     std::shared_ptr<mrpt::opengl::CPointCloudColoured> getViz(const TRenderOptions& ro) const;
 
+    std::shared_ptr<mrpt::opengl::CSetOfObjects> getCovarianceEllipsoidViz(
+        const TRenderOptions& ro) const;
+
    private:
     std::size_t k_correspondences_for_cov_;
     std::size_t min_correspondences_for_cov_;
@@ -526,6 +533,7 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     /// Bounding box in local KF coordinates. Filled by updateBBox()
     mutable std::optional<mrpt::math::TBoundingBoxf> cached_bbox_local_;
     mutable std::optional<float>                     cloud_density_;
+
     /** One cov per point in local KF coordinates (empty: not computed). Filled by
      * computeCovariancesAndDensity()
      */
@@ -541,6 +549,9 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
     /** Cached visualization, created/getted by getViz() */
     mutable std::shared_ptr<mrpt::opengl::CPointCloudColoured> cached_viz_;
+
+    /** Cached cov visualization, created/getted by getCovarianceEllipsoidViz() */
+    mutable std::shared_ptr<mrpt::opengl::CSetOfObjects> cachez_viz_covs_;
   };
 
   std::map<KeyFrameID, KeyFrame> keyframes_;

@@ -24,11 +24,14 @@
 #include <mrpt/math/TOrientedBox.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/customizable_obs_viz.h>
+#include <mrpt/opengl/CEllipsoid3D.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/Scene.h>
 #include <mrpt/opengl/stock_objects.h>
 #include <mrpt/poses/Lie/SO.h>
 #include <mrpt/serialization/CArchive.h>  // serialization
+#include <mrpt/serialization/optional_serialization.h>
+#include <mrpt/serialization/stl_serialization.h>
 #include <mrpt/system/string_utils.h>  // unitsFormat()
 #include <mrpt/version.h>  // For MRPT_VERSION
 
@@ -41,7 +44,9 @@
 
 #include <type_traits>
 
-// #define DO_PROFILE_COV 1
+const thread_local auto ENV_DO_PROFILE_COV =
+    mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_PROFILE_COV", false);
+
 // #define DO_VIZ_DEBUG 1
 
 #if DO_VIZ_DEBUG
@@ -122,9 +127,11 @@ IMPLEMENTS_SERIALIZABLE(KeyframePointCloudMap, CMetricMap, mola)
 // Serialization
 // =====================================
 
-uint8_t KeyframePointCloudMap::serializeGetVersion() const { return 0; }
+uint8_t KeyframePointCloudMap::serializeGetVersion() const { return 1; }
 void    KeyframePointCloudMap::serializeTo(mrpt::serialization::CArchive& out) const
 {
+  auto lck = mrpt::lockHelper(*state_mtx_);
+
   // params:
   // out << params_;
   creationOptions.writeToStream(out);
@@ -149,16 +156,22 @@ void    KeyframePointCloudMap::serializeTo(mrpt::serialization::CArchive& out) c
       out.WriteAs<uint8_t>(0);  // no point cloud
     }
   }
+
+  // v1: add active set, to debug ICP states
+  out << cached_.icp_search_kfs;
 }
 
 void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uint8_t version)
 {
-  // clear contents
+  // clear contents (including cache_)
   this->clear();
+
+  auto lck = mrpt::lockHelper(*state_mtx_);
 
   switch (version)
   {
     case 0:
+    case 1:
     {
       // params:
       creationOptions.readFromStream(in);
@@ -191,6 +204,11 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
           kf.pointcloud(pc);
         }
       }
+
+      if (version >= 1)
+      {
+        in >> cached_.icp_search_kfs;
+      }
     }
     break;
     default:
@@ -200,9 +218,6 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
   // Restore the monotonic id counter so future insertions don't collide
   // with already-loaded ids.
   next_free_kf_id_ = keyframes_.empty() ? 0 : (keyframes_.rbegin()->first + 1);
-
-  // cache reset:
-  cached_.reset();
 }
 
 ///  === KeyframePointCloudMap ===
@@ -842,6 +857,15 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
   {
     return;
   }
+
+  const thread_local auto ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES =
+      mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_VIZ_SHOW_ACTIVE_SUBMAP", false);
+  const thread_local auto ENV_KEYFRAMES_AXES_LENGTH =
+      mrpt::get_env<float>("MOLA_KEYFRAME_MAP_VIZ_OVERRIDE_AXES_LENGTH", .0f);
+
+  const thread_local auto ENV_KEYFRAMES_SHOW_COV =
+      mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_VIZ_SHOW_COV", false);
+
   auto lck = mrpt::lockHelper(*state_mtx_);
 
   // Create one visualization object per KF:
@@ -849,13 +873,11 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
   {
     auto obj = kf.getViz(renderOptions);
 
-    const static auto ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES =
-        mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_VIZ_SHOW_ACTIVE_SUBMAP", false);
-
-    float pointSize = renderOptions.point_size;
+    float      pointSize  = renderOptions.point_size;
+    const bool isActiveKF = (cached_.icp_search_kfs && cached_.icp_search_kfs->count(kf_id) != 0);
     if (ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES)
     {
-      if (cached_.icp_search_kfs && cached_.icp_search_kfs->count(kf_id) != 0)
+      if (isActiveKF)
       {
         pointSize *= 4;
       }
@@ -864,16 +886,25 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
 
     outObj.insert(obj);
 
-    const static auto ENV_KEYFRAMES_AXES_LENGTH =
-        mrpt::get_env<float>("MOLA_KEYFRAME_MAP_VIZ_OVERRIDE_AXES_LENGTH", .0f);
-    const auto activeAxesLength =
+    const auto nominalAxesLength =
         std::max(renderOptions.keyframes_axes_length, ENV_KEYFRAMES_AXES_LENGTH);
 
-    if (activeAxesLength > 0)
+    if (nominalAxesLength > 0)
     {
-      auto glAxes = mrpt::opengl::stock_objects::CornerXYZSimple(activeAxesLength);
+      const float axesLength =
+          (ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES && isActiveKF ? 3.0f : 1.0f) * nominalAxesLength;
+      auto glAxes = mrpt::opengl::stock_objects::CornerXYZSimple(axesLength);
       glAxes->setPose(kf.pose());
       outObj.insert(glAxes);
+    }
+
+    if (ENV_KEYFRAMES_SHOW_COV || renderOptions.show_covariances)
+    {
+      auto glCov = kf.getCovarianceEllipsoidViz(renderOptions);
+      if (glCov)
+      {
+        outObj.insert(glCov);
+      }
     }
   }
 
@@ -1045,6 +1076,12 @@ void KeyframePointCloudMap::TRenderOptions::loadFromConfigFile(
   colormap = c.read_enum(s, "colormap", this->colormap);
   MRPT_LOAD_CONFIG_VAR(recolorByPointField, string, c, s);
   MRPT_LOAD_CONFIG_VAR(keyframes_axes_length, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(show_covariances, bool, c, s);
+  MRPT_LOAD_CONFIG_VAR(cov_color.R, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(cov_color.G, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(cov_color.B, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(cov_color.A, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(show_cov_decimation, uint64_t, c, s);
 }
 
 void KeyframePointCloudMap::TRenderOptions::dumpToTextStream(std::ostream& out) const
@@ -1062,27 +1099,32 @@ void KeyframePointCloudMap::TRenderOptions::dumpToTextStream(std::ostream& out) 
   LOADABLEOPTS_DUMP_VAR(max_points_per_kf, int);
   LOADABLEOPTS_DUMP_VAR(max_overall_points, int);
   LOADABLEOPTS_DUMP_VAR(keyframes_axes_length, float);
+  LOADABLEOPTS_DUMP_VAR(show_covariances, bool);
+  LOADABLEOPTS_DUMP_VAR(show_cov_decimation, int);
 }
 
 void KeyframePointCloudMap::TRenderOptions::writeToStream(mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 3;
+  const int8_t version = 4;
   out << version;
   out << point_size << color << int8_t(colormap) << recolorByPointField;  // v2
   out << max_points_per_kf << max_overall_points;  // v1
   out << keyframes_axes_length;  // v3
+  out << show_covariances << show_cov_decimation;  // v4
 }
 
 void KeyframePointCloudMap::TRenderOptions::readFromStream(mrpt::serialization::CArchive& in)
 {
   int8_t version = 0;
   in >> version;
+  *this = {};
   switch (version)
   {
     case 0:
     case 1:
     case 2:
     case 3:
+    case 4:
     {
       in >> point_size;
       in >> this->color;
@@ -1115,6 +1157,10 @@ void KeyframePointCloudMap::TRenderOptions::readFromStream(mrpt::serialization::
       if (version >= 3)
       {
         in >> keyframes_axes_length;
+      }
+      if (version >= 4)
+      {
+        in >> show_covariances >> show_cov_decimation;
       }
     }
     break;
@@ -1477,9 +1523,11 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
     return;  // Already computed
   }
 
-#if DO_PROFILE_COV
-  auto start = std::chrono::high_resolution_clock::now();
-#endif
+  std::chrono::high_resolution_clock::time_point start;
+  if (ENV_DO_PROFILE_COV)
+  {
+    start = std::chrono::high_resolution_clock::now();
+  }
 #if DO_VIZ_DEBUG
   static int call_counter = 0;
   call_counter++;
@@ -1656,12 +1704,15 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
       static_cast<float>(point_count));
 
   // done.
-#if DO_PROFILE_COV
-  auto end_time = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start);
-  std::cout << "Compute covs: N=" << point_count << " in "
-            << static_cast<double>(duration.count()) * 1e-3 << " ms d=" << *cloud_density_ << "\n";
-#endif
+
+  if (ENV_DO_PROFILE_COV)
+  {
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start);
+    std::cout << "[KeyframePointCloudMap] Compute covs: N=" << point_count << " in "
+              << static_cast<double>(duration.count()) * 1e-3 << " ms d=" << *cloud_density_
+              << "\n";
+  }
 }
 
 void KeyframePointCloudMap::KeyFrame::updateCovariancesGlobal() const
@@ -1711,4 +1762,56 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
 
   cached_viz_ = obj;
   return cached_viz_;
+}
+
+std::shared_ptr<mrpt::opengl::CSetOfObjects>
+    KeyframePointCloudMap::KeyFrame::getCovarianceEllipsoidViz(const TRenderOptions& ro) const
+{
+  buildCache();
+  updatePointsGlobal();
+  updateCovariancesGlobal();
+
+  if (cached_cov_global_.empty())
+  {
+    return {};
+  }
+
+  const thread_local auto ENV_KEYFRAMES_SHOW_COV_DECIMATION =
+      mrpt::get_env<uint32_t>("MOLA_KEYFRAME_MAP_VIZ_SHOW_COV_DECIMATION", 0);
+
+  auto cov_decimation = ENV_KEYFRAMES_SHOW_COV_DECIMATION > 0 ? ENV_KEYFRAMES_SHOW_COV_DECIMATION
+                                                              : ro.show_cov_decimation;
+  cov_decimation      = std::max<uint32_t>(1u, cov_decimation);
+  if (cov_decimation >= cached_cov_global_.size())
+  {
+    cov_decimation = 1;
+  }
+
+  auto obj = mrpt::opengl::CSetOfObjects::Create();
+
+  ASSERT_(pointcloud_global_);
+  ASSERT_EQUAL_(cached_cov_global_.size(), pointcloud_global_->size());
+  const auto& xs = pointcloud_global_->getPointsBufferRef_x();
+  const auto& ys = pointcloud_global_->getPointsBufferRef_y();
+  const auto& zs = pointcloud_global_->getPointsBufferRef_z();
+
+  for (size_t i = 0; i < cached_cov_global_.size(); i++)
+  {
+    if ((i % cov_decimation) != 0)
+    {
+      continue;
+    }
+
+    const auto& cov = cached_cov_global_[i];
+
+    auto elli = mrpt::opengl::CEllipsoid3D::Create();
+    elli->setLocation(xs[i], ys[i], zs[i]);
+    elli->enableDrawSolid3D(false);
+    elli->setCovMatrix(cov * 0.05);
+    elli->setColor(ro.cov_color);
+
+    obj->insert(elli);
+  }
+
+  return obj;
 }
