@@ -339,6 +339,25 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     uint32_t max_search_keyframes      = 3;  //!< Maximum number of key-frames to search for NN
     uint32_t k_correspondences_for_cov = 20;
 
+    /** Minimum number of neighbors (including the query point itself) that must
+     *  actually be found to compute a per-point covariance via plane regularization.
+     *  Points whose key-frame has fewer than this many neighbors available fall back
+     *  to an isotropic (unregularized) covariance, since a plane/line fit from too
+     *  few samples is unreliable and noise-sensitive. Must be >= 3 and
+     *  <= k_correspondences_for_cov.
+     */
+    uint32_t min_correspondences_for_cov = 5;
+
+    /** Maximum distance [meters] allowed between a query point and a
+     *  candidate neighbor for it to be used in the per-point covariance
+     *  estimation. Without this bound, sparse/low-density regions would pull
+     *  in far-away "neighbors" that do not represent the local surface,
+     *  producing meaningless covariance ellipsoids. Points with fewer than
+     *  `min_correspondences_for_cov` neighbors within this radius fall back
+     *  to an isotropic covariance (see above).
+     */
+    double max_distance_for_cov = 1.0;
+
     /** Weight converting angular distance [rad] to equivalent linear
      *  distance [m] for keyframe proximity ranking. Higher values favor
      *  angularly-close (similar orientation) frames. */
@@ -388,8 +407,12 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   class KeyFrame
   {
    public:
-    KeyFrame(std::size_t k_correspondences_for_cov)
-        : k_correspondences_for_cov_(k_correspondences_for_cov)
+    KeyFrame(
+        std::size_t k_correspondences_for_cov, std::size_t min_correspondences_for_cov,
+        double max_distance_for_cov)
+        : k_correspondences_for_cov_(k_correspondences_for_cov),
+          min_correspondences_for_cov_(min_correspondences_for_cov),
+          max_distance_for_cov_(max_distance_for_cov)
     {
     }
 
@@ -397,6 +420,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     KeyFrame(const KeyFrame& other)
         : timestamp(other.timestamp),
           k_correspondences_for_cov_(other.k_correspondences_for_cov_),
+          min_correspondences_for_cov_(other.min_correspondences_for_cov_),
+          max_distance_for_cov_(other.max_distance_for_cov_),
           pointcloud_(other.pointcloud_),
           pose_(other.pose_)
     {
@@ -409,10 +434,12 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     {
       if (this != &other)
       {
-        k_correspondences_for_cov_ = other.k_correspondences_for_cov_;
-        pointcloud_                = other.pointcloud_;
-        pose_                      = other.pose_;
-        timestamp                  = other.timestamp;
+        k_correspondences_for_cov_   = other.k_correspondences_for_cov_;
+        min_correspondences_for_cov_ = other.min_correspondences_for_cov_;
+        max_distance_for_cov_        = other.max_distance_for_cov_;
+        pointcloud_                  = other.pointcloud_;
+        pose_                        = other.pose_;
+        timestamp                    = other.timestamp;
 
         invalidateCache();
       }
@@ -485,6 +512,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
    private:
     std::size_t k_correspondences_for_cov_;
+    std::size_t min_correspondences_for_cov_;
+    double      max_distance_for_cov_;
 
     void updateBBox() const;
     void computeCovariancesAndDensity() const;
