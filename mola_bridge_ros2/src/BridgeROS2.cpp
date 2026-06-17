@@ -1450,9 +1450,15 @@ void BridgeROS2::service_relocalize_near_pose(
     return;
   }
 
+  mrpt::poses::CPose3DPDFGaussian p;
+  if (!relocalizationPoseInReferenceFrame(request->pose, p))
+  {
+    response->accepted = false;
+    return;
+  }
+
   for (const auto& m : molaSubs_.relocalization)
   {
-    const mrpt::poses::CPose3DPDFGaussian p = mrpt::ros2bridge::fromROS(request->pose.pose);
     m->relocalize_near_pose_pdf(p);
   }
 
@@ -1463,11 +1469,43 @@ void BridgeROS2::callbackOnRelocalizeTopic(const geometry_msgs::msg::PoseWithCov
 {
   auto lck = mrpt::lockHelper(rosPubsMtx_);
 
+  mrpt::poses::CPose3DPDFGaussian p;
+  if (!relocalizationPoseInReferenceFrame(o, p))
+  {
+    MRPT_LOG_THROTTLE_ERROR_FMT(
+        5.0, "Ignoring relocalization request: no /tf transform '%s' -> '%s'.",
+        o.header.frame_id.c_str(), params_.reference_frame.c_str());
+    return;
+  }
+
   for (const auto& m : molaSubs_.relocalization)
   {
-    const mrpt::poses::CPose3DPDFGaussian p = mrpt::ros2bridge::fromROS(o.pose);
     m->relocalize_near_pose_pdf(p);
   }
+}
+
+bool BridgeROS2::relocalizationPoseInReferenceFrame(
+    const geometry_msgs::msg::PoseWithCovarianceStamped& o, mrpt::poses::CPose3DPDFGaussian& out)
+{
+  out = mrpt::ros2bridge::fromROS(o.pose);
+
+  // The pose may arrive in any tf frame (e.g. RViz publishes the "2D Pose
+  // Estimate" in its fixed frame), but MOLA relocalization interprets it in the
+  // localization reference_frame. Compose reference_frame <- header.frame_id so
+  // the request is not silently misread when the two frames differ.
+  if (o.header.frame_id.empty() || o.header.frame_id == params_.reference_frame)
+  {
+    return true;
+  }
+
+  mrpt::poses::CPose3D reference_T_msg;
+  if (!waitForTransform(reference_T_msg, o.header.frame_id, params_.reference_frame))
+  {
+    return false;
+  }
+
+  out.changeCoordinatesReference(reference_T_msg);
+  return true;
 }
 
 void BridgeROS2::service_map_load(
