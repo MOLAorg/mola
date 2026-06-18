@@ -18,6 +18,7 @@
  */
 
 #include <mola_metric_maps/KeyframePointCloudMap.h>
+#include <mp2p_icp/pointcloud_field_utils.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/core/get_env.h>
 #include <mrpt/maps/CGenericPointsMap.h>
@@ -1487,29 +1488,7 @@ void KeyframePointCloudMap::KeyFrame::updatePointsGlobal() const
   // so it copies local-frame values as-is.  Rotate them to the global frame now.
   if (has_view)
   {
-    auto* vx = pointcloud_global_->getPointsBufferRef_float_field("view_x");
-    auto* vy = pointcloud_global_->getPointsBufferRef_float_field("view_y");
-    auto* vz = pointcloud_global_->getPointsBufferRef_float_field("view_z");
-
-    if (vx == nullptr || vy == nullptr || vz == nullptr)
-    {
-      // One or more view fields are missing in the destination map even
-      // though the source had all three.
-      // TODO: log a warning here once a logger is available.
-    }
-    else
-    {
-      const size_t n = pointcloud_global_->size();
-
-      // TODO: Write an AVX2 version of this rotation loop.
-      for (size_t i = 0; i < n; ++i)
-      {
-        const auto vg = pose_.rotateVector({(*vx)[i], (*vy)[i], (*vz)[i]}).cast<float>();
-        (*vx)[i]      = vg.x;
-        (*vy)[i]      = vg.y;
-        (*vz)[i]      = vg.z;
-      }
-    }
+    mp2p_icp::rotateViewDirectionFields(*pointcloud_global_, pose_);
   }
 }
 

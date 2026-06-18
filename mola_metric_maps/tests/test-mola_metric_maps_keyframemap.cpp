@@ -628,7 +628,64 @@ void test_view_filter_with_rotated_local_frame()
   }
 }
 
-// ── 17. Per-KF pose plumbing for online gravity rebake ────────────────────
+// ── 17. View filter pairing must be accepted regardless of KF heading ─────
+//
+// Regression test for the FilterMerge double-rotation bug: a keyframe's
+// view_{x,y,z} fields must be expressed in the *local KF frame* regardless
+// of the keyframe's absolute heading (see the contract documented at
+// `TCreationOptions::use_view_direction_filter`). If view vectors were
+// rotated twice (once by the inserter, once by `updatePointsGlobal()`), the
+// effective residual rotation error would grow with the keyframe heading,
+// eventually flipping an aligned-view pair into a "rejected" one. Sweeping
+// heading in {0, 90, 180, 270} deg must accept the very same Q->P pair at
+// every heading, since the underlying geometry (Q and P seen from the same
+// direction) does not change with heading.
+void test_view_filter_heading_sweep_pairing_accepted()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+
+  // Global reference: background grid at z=0 + P with view=(0,+1,0).
+  auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f);  // bg: view=(0,0,+1)
+  appendPt(global_pts, 50.f, 0.f, 0.f, 0.f, +1.f, 0.f);  // P: view=(0,+1,0)
+
+  auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts));
+  global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+  global_m.creationOptions.use_view_direction_filter = true;
+  global_m.creationOptions.max_view_angle_deg        = 60.0;  // tight
+
+  for (const double heading_deg : {0.0, 90.0, 180.0, 270.0})
+  {
+    const auto kfPose = mrpt::poses::CPose3D::FromXYZYawPitchRoll(
+        0.0, 0.0, 0.0, mrpt::DEG2RAD(heading_deg), 0.0, 0.0);
+
+    // Q sits near P=(50,0,0) in the global frame, regardless of heading.
+    // Express both its position and its view vector (which globally must
+    // match P's view (0,+1,0)) in the LOCAL KF frame.
+    const mrpt::math::TPoint3D  Q_global_pt{50.0, 0.0, kDz};
+    const mrpt::math::TPoint3D  Q_local_pt = kfPose.inverseComposePoint(Q_global_pt);
+    const mrpt::math::TVector3D localView  = kfPose.inverseRotateVector({0.0, 1.0, 0.0});
+
+    auto local_pts = makeGridPts(kDz, 0.f, 0.f, 1.f);  // bg, local view=(0,0,+1)
+    appendPt(
+        local_pts, static_cast<float>(Q_local_pt.x), static_cast<float>(Q_local_pt.y),
+        static_cast<float>(Q_local_pt.z), static_cast<float>(localView.x),
+        static_cast<float>(localView.y), static_cast<float>(localView.z));
+
+    auto local_m = makeMapFromCloud(makeCloudWithViews(local_pts), kfPose);
+
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global_m.nn_search_cov2cov(local_m, kfPose, kMaxDist, pairings);
+
+    const mrpt::math::TPoint3Df Q_local{
+        static_cast<float>(Q_local_pt.x), static_cast<float>(Q_local_pt.y),
+        static_cast<float>(Q_local_pt.z)};
+    const mrpt::math::TPoint3Df P_global{50.f, 0.f, 0.f};
+    ASSERT_(hasPairing(pairings, Q_local, P_global));
+  }
+}
+
+// ── 19. Per-KF pose plumbing for online gravity rebake ────────────────────
 //
 // Covers the additions used by mola_lidar_odometry's TrajectoryRebaker:
 //   - cloneKFPoses
@@ -731,7 +788,7 @@ void test_kf_pose_plumbing()
   ASSERT_EQUAL_(m.nextFreeKeyFrameID_public(), KFID{0});
 }
 
-// ── 18. Default filter parameters are sane ────────────────────────────────
+// ── 20. Default filter parameters are sane ────────────────────────────────
 void test_default_creation_options()
 {
   mola::KeyframePointCloudMap m;
@@ -793,6 +850,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_view_filter_with_rotated_local_frame ...\n";
     test_view_filter_with_rotated_local_frame();
+
+    std::cout << "test_view_filter_heading_sweep_pairing_accepted ...\n";
+    test_view_filter_heading_sweep_pairing_accepted();
 
     std::cout << "test_kf_pose_plumbing ...\n";
     test_kf_pose_plumbing();
