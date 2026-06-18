@@ -256,7 +256,7 @@ void test_unsupported_class_is_rejected()
   ASSERT_(applied.empty());
 }
 
-// Directly exercises MapOptionsCapable::trySetCreationOptions()'s safety check: a voxel_size
+// Directly exercises OptionsCapable::trySetCreationOptions()'s safety check: a voxel_size
 // change must be REJECTED once the map already holds data, but ACCEPTED on an empty map.
 void test_creation_options_safety()
 {

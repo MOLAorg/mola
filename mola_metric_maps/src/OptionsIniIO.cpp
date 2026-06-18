@@ -17,7 +17,7 @@
  * @date   Jun 18, 2026
  */
 
-#include <mola_metric_maps/MapOptionsCapable.h>
+#include <mola_metric_maps/OptionsCapable.h>
 #include <mola_metric_maps/OptionsIniIO.h>
 #include <mrpt/maps/COccupancyGridMap2D.h>
 #include <mrpt/maps/CPointsMap.h>
@@ -104,9 +104,9 @@ bool mola::importLoadableOptionsFromIni(
 bool mola::exportMapLayerOptionsToIni(
     mrpt::maps::CMetricMap& map, mrpt::config::CConfigFileBase& cfg, const std::string& layerName)
 {
-  // Generic path: any class (present or future) implementing mola::MapOptionsCapable is handled
+  // Generic path: any class (present or future) implementing mola::OptionsCapable is handled
   // uniformly, without needing to know its concrete type or the names of its options structures.
-  if (auto* capable = dynamic_cast<mola::MapOptionsCapable*>(&map))
+  if (auto* capable = dynamic_cast<mola::OptionsCapable*>(&map))
   {
     cfg.write(layerName, "class", std::string(map.GetRuntimeClass()->className));
     for (const auto& [name, opts] : capable->optionsByName())
@@ -117,7 +117,7 @@ bool mola::exportMapLayerOptionsToIni(
   }
 
   // Fallback for classes from outside this library, which cannot implement
-  // mola::MapOptionsCapable directly:
+  // mola::OptionsCapable directly:
   if (const auto* m = dynamic_cast<const mrpt::maps::COccupancyGridMap2D*>(&map))
   {
     cfg.write(layerName, "class", std::string(map.GetRuntimeClass()->className));
@@ -157,7 +157,7 @@ bool mola::importMapLayerOptionsFromIni(
     std::vector<std::string>* rejectedSections)
 {
   // Generic path, mirroring exportMapLayerOptionsToIni() above.
-  if (auto* capable = dynamic_cast<mola::MapOptionsCapable*>(&map))
+  if (auto* capable = dynamic_cast<mola::OptionsCapable*>(&map))
   {
     for (const auto& [name, opts] : capable->optionsByName())
     {

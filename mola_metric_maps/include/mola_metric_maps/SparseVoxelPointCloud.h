@@ -19,7 +19,7 @@
 #pragma once
 
 #include <mola_metric_maps/FixedDenseGrid3D.h>
-#include <mola_metric_maps/MapOptionsCapable.h>
+#include <mola_metric_maps/OptionsCapable.h>
 #include <mola_metric_maps/index3d_t.h>
 #include <mrpt/core/round.h>
 #include <mrpt/img/TColor.h>
@@ -60,7 +60,7 @@ namespace mola
  */
 class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
                               public mrpt::maps::NearestNeighborsCapable,
-                              public mola::MapOptionsCapable
+                              public mola::OptionsCapable
 {
   DEFINE_SERIALIZABLE(SparseVoxelPointCloud, mola)
  public:
@@ -502,7 +502,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
   };
   TRenderOptions renderOptions;
 
-  // mola::MapOptionsCapable interface:
+  // mola::OptionsCapable interface:
   [[nodiscard]] std::map<std::string, mrpt::config::CLoadableOptions*> optionsByName() override;
   bool                                                                 trySetCreationOptions(
                                                                       const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;

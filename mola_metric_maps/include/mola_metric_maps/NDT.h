@@ -18,7 +18,7 @@
  */
 #pragma once
 
-#include <mola_metric_maps/MapOptionsCapable.h>
+#include <mola_metric_maps/OptionsCapable.h>
 #include <mola_metric_maps/index3d_t.h>
 #include <mp2p_icp/NearestPlaneCapable.h>
 #include <mp2p_icp/estimate_points_eigen.h>  // PointCloudEigen
@@ -69,7 +69,7 @@ namespace mola
 class NDT : public mrpt::maps::CMetricMap,
             public mrpt::maps::NearestNeighborsCapable,
             public mp2p_icp::NearestPlaneCapable,
-            public mola::MapOptionsCapable
+            public mola::OptionsCapable
 {
   DEFINE_SERIALIZABLE(NDT, mola)
  public:
@@ -491,7 +491,7 @@ class NDT : public mrpt::maps::CMetricMap,
   };
   TRenderOptions renderOptions;
 
-  // mola::MapOptionsCapable interface:
+  // mola::OptionsCapable interface:
   [[nodiscard]] std::map<std::string, mrpt::config::CLoadableOptions*> optionsByName() override;
   bool                                                                 trySetCreationOptions(
                                                                       const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;

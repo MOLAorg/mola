@@ -11,7 +11,7 @@
 */
 
 /**
- * @file   MapOptionsCapable.h
+ * @file   OptionsCapable.h
  * @brief  Virtual interface for metric maps that expose their CLoadableOptions generically.
  * @author Jose Luis Blanco Claraco
  * @date   Jun 18, 2026
@@ -40,15 +40,15 @@ namespace mola
  *  \note This interface is a temporary home for functionality that may eventually be proposed
  *  for inclusion in MRPT itself (mrpt::maps::CMetricMap). Until then, it lives here.
  */
-class MapOptionsCapable
+class OptionsCapable
 {
  public:
-  MapOptionsCapable()                                    = default;
-  MapOptionsCapable(const MapOptionsCapable&)            = default;
-  MapOptionsCapable& operator=(const MapOptionsCapable&) = default;
-  MapOptionsCapable(MapOptionsCapable&&)                 = default;
-  MapOptionsCapable& operator=(MapOptionsCapable&&)      = default;
-  virtual ~MapOptionsCapable()                           = default;
+  OptionsCapable()                                 = default;
+  OptionsCapable(const OptionsCapable&)            = default;
+  OptionsCapable& operator=(const OptionsCapable&) = default;
+  OptionsCapable(OptionsCapable&&)                 = default;
+  OptionsCapable& operator=(OptionsCapable&&)      = default;
+  virtual ~OptionsCapable()                        = default;
 
   /** Maps an options-group name (e.g. "insertionOptions") to a pointer to the corresponding,
    *  live `CLoadableOptions` member. Pointers remain valid as long as `this` is alive, and point

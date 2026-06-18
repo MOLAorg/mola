@@ -53,8 +53,8 @@ bool importLoadableOptionsFromIni(
     const std::string& section);
 
 /** Exports all `CLoadableOptions` structures of `map` into `cfg`, one section per structure,
- * named `"<layerName>.<structName>"`. If `map` implements `mola::MapOptionsCapable`, the set of
- * structures (and their names) is obtained generically via `MapOptionsCapable::optionsByName()`
+ * named `"<layerName>.<structName>"`. If `map` implements `mola::OptionsCapable`, the set of
+ * structures (and their names) is obtained generically via `OptionsCapable::optionsByName()`
  * -- this covers all classes in this library, present and future, without needing per-class
  * code here. Otherwise, a fallback handles basic `mrpt::maps` classes (`CPointsMap` and
  * derivatives, `COccupancyGridMap2D`) via `dynamic_cast`.
@@ -74,7 +74,7 @@ bool exportMapLayerOptionsToIni(
  * Names of the sections actually applied are appended to `appliedSections`, if provided.
  *
  * The "creationOptions" structure (if present) is handled specially: instead of being
- * overwritten directly, the new values are passed to `MapOptionsCapable::trySetCreationOptions()`,
+ * overwritten directly, the new values are passed to `OptionsCapable::trySetCreationOptions()`,
  * which may refuse to apply them (e.g. a voxel size change that would require discarding the
  * map's current contents). Section names refused this way are appended to `rejectedSections`, if
  * provided, instead of `appliedSections`.

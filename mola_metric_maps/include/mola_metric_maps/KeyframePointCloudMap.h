@@ -19,7 +19,7 @@
 #pragma once
 
 #include <mola_kernel/interfaces/KeyframeMapCapable.h>
-#include <mola_metric_maps/MapOptionsCapable.h>
+#include <mola_metric_maps/OptionsCapable.h>
 #include <mp2p_icp/IcpPrepareCapable.h>
 #include <mp2p_icp/MetricMapMergeCapable.h>
 #include <mp2p_icp/NearestPointWithCovCapable.h>
@@ -82,7 +82,7 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
                               public mp2p_icp::NearestPointWithCovCapable,
                               public mp2p_icp::MetricMapMergeCapable,
                               public mola::KeyframeMapCapable,
-                              public mola::MapOptionsCapable
+                              public mola::OptionsCapable
 {
   DEFINE_SERIALIZABLE(KeyframePointCloudMap, mola)
  public:
@@ -410,7 +410,7 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   };
   TCreationOptions creationOptions;
 
-  // mola::MapOptionsCapable interface:
+  // mola::OptionsCapable interface:
   [[nodiscard]] std::map<std::string, mrpt::config::CLoadableOptions*> optionsByName() override;
   bool                                                                 trySetCreationOptions(
                                                                       const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;

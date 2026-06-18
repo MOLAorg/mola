@@ -52,9 +52,9 @@ set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/HashedVoxelPointCloud.h
   include/mola_metric_maps/index3d_t.h
   include/mola_metric_maps/KeyframePointCloudMap.h
-  include/mola_metric_maps/MapOptionsCapable.h
   include/mola_metric_maps/NDT.h
   include/mola_metric_maps/OccGrid.h
+  include/mola_metric_maps/OptionsCapable.h
   include/mola_metric_maps/OptionsIniIO.h
   include/mola_metric_maps/SparseTreesPointCloud.h
   include/mola_metric_maps/SparseVoxelPointCloud.h

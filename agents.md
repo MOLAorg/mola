@@ -109,7 +109,7 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - `NDTMap` (Normal Distribution Transform)
 - `KeyframeMap`
 - All support MRPT serialization
-- `mola::MapOptionsCapable` (`include/mola_metric_maps/MapOptionsCapable.h`): mixin interface
+- `mola::OptionsCapable` (`include/mola_metric_maps/OptionsCapable.h`): mixin interface
   implemented by all map classes above, exposing their `CLoadableOptions` groups generically by
   name (`optionsByName()`) and a safe creation-options setter (`trySetCreationOptions()`, which
   returns `false` instead of discarding map contents when a structural change, e.g. voxel size,
@@ -117,7 +117,7 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   move into MRPT itself.
 - CLI tools `mm2ini` / `ini2mm` (in `apps/`): export/import the `CLoadableOptions`
   (creation/insertion/likelihood/render options) of all layers in a `.mm` file to/from a
-  `.ini` file, using `MapOptionsCapable` generically for classes in this library, plus a
+  `.ini` file, using `OptionsCapable` generically for classes in this library, plus a
   `dynamic_cast`-based fallback in `include/mola_metric_maps/OptionsIniIO.h` for basic
   `mrpt::maps` classes (`CPointsMap`-derived, `COccupancyGridMap2D`).
 
