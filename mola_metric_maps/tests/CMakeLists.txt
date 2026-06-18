@@ -41,3 +41,10 @@ mola_add_test(
   mola_metric_maps
 )
 
+mola_add_test(
+  TARGET  test-mola_metric_maps_options_ini_io
+  SOURCES test-options-ini-io.cpp
+  LINK_LIBRARIES
+  mola_metric_maps
+)
+

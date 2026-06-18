@@ -109,6 +109,10 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - `NDTMap` (Normal Distribution Transform)
 - `KeyframeMap`
 - All support MRPT serialization
+- CLI tools `mm2ini` / `ini2mm` (in `apps/`): export/import the `CLoadableOptions`
+  (creation/insertion/likelihood/render options) of all layers in a `.mm` file to/from a
+  `.ini` file. Supported layer classes are identified via `dynamic_cast` in
+  `include/mola_metric_maps/OptionsIniIO.h`; add new map classes there.
 
 ---
 
