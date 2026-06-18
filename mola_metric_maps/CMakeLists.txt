@@ -42,6 +42,7 @@ set(LIB_SRCS
   src/KeyframePointCloudMap.cpp
   src/NDT.cpp
   src/OccGrid.cpp
+  src/OptionsIniIO.cpp
   src/register.cpp
   src/SparseTreesPointCloud.cpp
   src/SparseVoxelPointCloud.cpp
@@ -53,6 +54,8 @@ set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/KeyframePointCloudMap.h
   include/mola_metric_maps/NDT.h
   include/mola_metric_maps/OccGrid.h
+  include/mola_metric_maps/OptionsCapable.h
+  include/mola_metric_maps/OptionsIniIO.h
   include/mola_metric_maps/SparseTreesPointCloud.h
   include/mola_metric_maps/SparseVoxelPointCloud.h
 )
@@ -77,6 +80,9 @@ if (TBB_FOUND AND MOLA_METRIC_MAPS_USE_TBB)
   target_link_libraries(${PROJECT_NAME} PRIVATE TBB::tbb)
 endif()
 
+# -----------------------
+# define apps:
+add_subdirectory(apps)
 
 # -----------------------
 # define tests:

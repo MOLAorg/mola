@@ -175,7 +175,8 @@ HashedVoxelPointCloud::~HashedVoxelPointCloud() = default;
 
 void HashedVoxelPointCloud::setVoxelProperties(float voxel_size)
 {
-  voxel_size_ = voxel_size;
+  voxel_size_                = voxel_size;
+  creationOptions.voxel_size = voxel_size;
 
   // calculated fields:
   voxel_size_inv_ = 1.0f / voxel_size_;
@@ -569,6 +570,45 @@ bool HashedVoxelPointCloud::isEmpty() const
 {
   // empty if no voxels exist:
   return voxels_.empty();
+}
+
+std::map<std::string, mrpt::config::CLoadableOptions*> HashedVoxelPointCloud::optionsByName()
+{
+  return {
+      {"creationOptions", &creationOptions},
+      {"insertionOptions", &insertionOptions},
+      {"likelihoodOptions", &likelihoodOptions},
+      {"renderOptions", &renderOptions},
+  };
+}
+
+void HashedVoxelPointCloud::TCreationOptions::loadFromConfigFile(
+    const mrpt::config::CConfigFileBase& c, const std::string& s)
+{
+  MRPT_LOAD_CONFIG_VAR(voxel_size, float, c, s);
+}
+
+void HashedVoxelPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out) const
+{
+  out << "\n------ [HashedVoxelPointCloud::TCreationOptions] ------- \n\n";
+  LOADABLEOPTS_DUMP_VAR(voxel_size, float);
+}
+
+bool HashedVoxelPointCloud::trySetCreationOptions(
+    const mrpt::config::CConfigFileBase& cfg, const std::string& section)
+{
+  TCreationOptions newOpts = creationOptions;
+  newOpts.loadFromConfigFile(cfg, section);
+
+  if (newOpts.voxel_size != creationOptions.voxel_size)
+  {
+    if (!isEmpty())
+    {
+      return false;  // would require discarding existing voxels
+    }
+    setVoxelProperties(newOpts.voxel_size);
+  }
+  return true;
 }
 
 void HashedVoxelPointCloud::saveMetricMapRepresentationToFile(

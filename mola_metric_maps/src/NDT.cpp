@@ -183,7 +183,8 @@ NDT::~NDT() = default;
 
 void NDT::setVoxelProperties(float voxel_size)
 {
-  voxel_size_ = voxel_size;
+  voxel_size_                = voxel_size;
+  creationOptions.voxel_size = voxel_size;
 
   // calculated fields:
   voxel_size_inv_ = 1.0f / voxel_size_;
@@ -718,6 +719,45 @@ bool NDT::isEmpty() const
 {
   // empty if no voxels exist:
   return voxels_.empty();
+}
+
+std::map<std::string, mrpt::config::CLoadableOptions*> NDT::optionsByName()
+{
+  return {
+      {"creationOptions", &creationOptions},
+      {"insertionOptions", &insertionOptions},
+      {"likelihoodOptions", &likelihoodOptions},
+      {"renderOptions", &renderOptions},
+  };
+}
+
+void NDT::TCreationOptions::loadFromConfigFile(
+    const mrpt::config::CConfigFileBase& c, const std::string& s)
+{
+  MRPT_LOAD_CONFIG_VAR(voxel_size, float, c, s);
+}
+
+void NDT::TCreationOptions::dumpToTextStream(std::ostream& out) const
+{
+  out << "\n------ [NDT::TCreationOptions] ------- \n\n";
+  LOADABLEOPTS_DUMP_VAR(voxel_size, float);
+}
+
+bool NDT::trySetCreationOptions(
+    const mrpt::config::CConfigFileBase& cfg, const std::string& section)
+{
+  TCreationOptions newOpts = creationOptions;
+  newOpts.loadFromConfigFile(cfg, section);
+
+  if (newOpts.voxel_size != creationOptions.voxel_size)
+  {
+    if (!isEmpty())
+    {
+      return false;  // would require discarding existing voxels
+    }
+    setVoxelProperties(newOpts.voxel_size);
+  }
+  return true;
 }
 
 void NDT::saveMetricMapRepresentationToFile(const std::string& filNamePrefix) const

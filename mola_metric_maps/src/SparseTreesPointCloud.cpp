@@ -160,7 +160,8 @@ SparseTreesPointCloud::~SparseTreesPointCloud() = default;
 
 void SparseTreesPointCloud::setGridProperties(float grid_size)
 {
-  grid_size_ = grid_size;
+  grid_size_                = grid_size;
+  creationOptions.grid_size = grid_size;
 
   // calculated fields:
   grid_size_inv_  = 1.0f / grid_size;
@@ -565,6 +566,45 @@ bool SparseTreesPointCloud::isEmpty() const
 {
   // empty if no voxels exist:
   return grids_.empty();
+}
+
+std::map<std::string, mrpt::config::CLoadableOptions*> SparseTreesPointCloud::optionsByName()
+{
+  return {
+      {"creationOptions", &creationOptions},
+      {"insertionOptions", &insertionOptions},
+      {"likelihoodOptions", &likelihoodOptions},
+      {"renderOptions", &renderOptions},
+  };
+}
+
+void SparseTreesPointCloud::TCreationOptions::loadFromConfigFile(
+    const mrpt::config::CConfigFileBase& c, const std::string& s)
+{
+  MRPT_LOAD_CONFIG_VAR(grid_size, float, c, s);
+}
+
+void SparseTreesPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out) const
+{
+  out << "\n------ [SparseTreesPointCloud::TCreationOptions] ------- \n\n";
+  LOADABLEOPTS_DUMP_VAR(grid_size, float);
+}
+
+bool SparseTreesPointCloud::trySetCreationOptions(
+    const mrpt::config::CConfigFileBase& cfg, const std::string& section)
+{
+  TCreationOptions newOpts = creationOptions;
+  newOpts.loadFromConfigFile(cfg, section);
+
+  if (newOpts.grid_size != creationOptions.grid_size)
+  {
+    if (!isEmpty())
+    {
+      return false;  // would require discarding existing grid blocks
+    }
+    setGridProperties(newOpts.grid_size);
+  }
+  return true;
 }
 
 void SparseTreesPointCloud::saveMetricMapRepresentationToFile(

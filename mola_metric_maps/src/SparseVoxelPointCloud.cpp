@@ -198,7 +198,8 @@ SparseVoxelPointCloud::~SparseVoxelPointCloud() = default;
 
 void SparseVoxelPointCloud::setVoxelProperties(float voxel_size)
 {
-  voxel_size_ = voxel_size;
+  voxel_size_                = voxel_size;
+  creationOptions.voxel_size = voxel_size;
 
   // calculated fields:
   voxel_size_inv_ = 1.0f / voxel_size_;
@@ -598,6 +599,45 @@ bool SparseVoxelPointCloud::isEmpty() const
 {
   // empty if no voxels exist:
   return grids_.empty();
+}
+
+std::map<std::string, mrpt::config::CLoadableOptions*> SparseVoxelPointCloud::optionsByName()
+{
+  return {
+      {"creationOptions", &creationOptions},
+      {"insertionOptions", &insertionOptions},
+      {"likelihoodOptions", &likelihoodOptions},
+      {"renderOptions", &renderOptions},
+  };
+}
+
+void SparseVoxelPointCloud::TCreationOptions::loadFromConfigFile(
+    const mrpt::config::CConfigFileBase& c, const std::string& s)
+{
+  MRPT_LOAD_CONFIG_VAR(voxel_size, float, c, s);
+}
+
+void SparseVoxelPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out) const
+{
+  out << "\n------ [SparseVoxelPointCloud::TCreationOptions] ------- \n\n";
+  LOADABLEOPTS_DUMP_VAR(voxel_size, float);
+}
+
+bool SparseVoxelPointCloud::trySetCreationOptions(
+    const mrpt::config::CConfigFileBase& cfg, const std::string& section)
+{
+  TCreationOptions newOpts = creationOptions;
+  newOpts.loadFromConfigFile(cfg, section);
+
+  if (newOpts.voxel_size != creationOptions.voxel_size)
+  {
+    if (!isEmpty())
+    {
+      return false;  // would require discarding existing voxels
+    }
+    setVoxelProperties(newOpts.voxel_size);
+  }
+  return true;
 }
 
 void SparseVoxelPointCloud::saveMetricMapRepresentationToFile(

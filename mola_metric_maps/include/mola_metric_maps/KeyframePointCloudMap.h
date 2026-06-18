@@ -19,6 +19,7 @@
 #pragma once
 
 #include <mola_kernel/interfaces/KeyframeMapCapable.h>
+#include <mola_metric_maps/OptionsCapable.h>
 #include <mp2p_icp/IcpPrepareCapable.h>
 #include <mp2p_icp/MetricMapMergeCapable.h>
 #include <mp2p_icp/NearestPointWithCovCapable.h>
@@ -80,7 +81,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
                               public mp2p_icp::IcpPrepareCapable,
                               public mp2p_icp::NearestPointWithCovCapable,
                               public mp2p_icp::MetricMapMergeCapable,
-                              public mola::KeyframeMapCapable
+                              public mola::KeyframeMapCapable,
+                              public mola::OptionsCapable
 {
   DEFINE_SERIALIZABLE(KeyframePointCloudMap, mola)
  public:
@@ -408,6 +410,11 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   };
   TCreationOptions creationOptions;
 
+  // mola::OptionsCapable interface:
+  [[nodiscard]] std::map<std::string, mrpt::config::CLoadableOptions*> optionsByName() override;
+  bool                                                                 trySetCreationOptions(
+                                                                      const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;
+
   // Interface for use within a mrpt::maps::CMultiMetricMap:
   MAP_DEFINITION_START(KeyframePointCloudMap)
   mola::KeyframePointCloudMap::TCreationOptions   creationOptions;
@@ -510,6 +517,20 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
       cached_cov_global_.clear();
       cloud_density_.reset();
       pointcloud_global_.reset();
+    }
+
+    /** Updates the per-point covariance estimation parameters (normally frozen at construction
+     *  time from `TCreationOptions`) and invalidates any cached covariance, so it gets
+     *  recomputed with the new parameters next time it is queried.
+     */
+    void updateCovarianceParams(
+        std::size_t k_correspondences_for_cov, std::size_t min_correspondences_for_cov,
+        double max_distance_for_cov)
+    {
+      k_correspondences_for_cov_   = k_correspondences_for_cov;
+      min_correspondences_for_cov_ = min_correspondences_for_cov;
+      max_distance_for_cov_        = max_distance_for_cov;
+      invalidateCache();
     }
 
     const auto& covariancesGlobal() const
