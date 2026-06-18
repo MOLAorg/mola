@@ -49,27 +49,104 @@
 #include <type_traits>
 
 #if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
-namespace
-{
-// SFINAE detection of mp2p_icp::rotateViewDirectionFields(): the function
+// Feature detection for mp2p_icp::rotateViewDirectionFields(): the function
 // was added to an already-existing header (pointcloud_field_utils.h), so
 // __has_include() alone cannot tell an old mp2p_icp_map checkout (header
-// present, function absent) apart from a new one. This trait probes the
-// declaration itself, purely in C++, with no CMake-side version check needed.
-template <typename, typename = void>
-struct mp2p_icp_has_rotate_view_fields : std::false_type
+// present, function absent) apart from a new one.
+//
+// A plain decltype/void_t probe on the *qualified* name doesn't work: looking
+// up a name that simply does not exist in a fixed, non-dependent namespace is
+// a hard compile error, not a SFINAE-friendly substitution failure (confirmed
+// against mp2p_icp 2.9.0, which lacks the function). A using-directive-based
+// "ADL barrier" doesn't work either: a using-directive only injects the used
+// namespace's members at the *nearest common ancestor* of the directive's
+// own namespace and the used one (here, the global namespace, since
+// mp2p_icp and any namespace we declare are unrelated siblings) -- so a
+// fallback declared in our own namespace is found first and always wins,
+// regardless of whether the real overload exists.
+//
+// What does work: reopening mp2p_icp itself to add a low-priority ellipsis
+// fallback as a genuine member of that same namespace. Now both candidates
+// (real declaration, if any, and our fallback) live in the exact same
+// namespace, so ordinary overload resolution picks the real one whenever
+// it exists (exact match beats the ellipsis conversion), and falls back
+// to ours otherwise -- with no lookup error in either case.
+namespace mp2p_icp
+{
+struct rotate_view_fields_unavailable_tag
 {
 };
+[[maybe_unused]] rotate_view_fields_unavailable_tag rotateViewDirectionFields(...);
+}  // namespace mp2p_icp
 
-template <typename T>
-struct mp2p_icp_has_rotate_view_fields<
-    T, std::void_t<decltype(mp2p_icp::rotateViewDirectionFields(
-           std::declval<mrpt::maps::CPointsMap&>(), std::declval<const mrpt::poses::CPose3D&>()))>>
-    : std::true_type
+namespace
 {
-};
+template <typename Pts, typename Pose>
+constexpr bool mp2p_icp_has_rotate_view_fields()
+{
+  return !std::is_same_v<
+      decltype(mp2p_icp::rotateViewDirectionFields(
+          std::declval<Pts&>(), std::declval<const Pose&>())),
+      mp2p_icp::rotate_view_fields_unavailable_tag>;
+}
 }  // namespace
 #endif
+
+namespace
+{
+// MRPT_TODO: this is the pre-fix, open-coded rotation loop, kept only as a
+// fallback for mp2p_icp_map checkouts older than the one introducing
+// mp2p_icp::rotateViewDirectionFields() (see MOLAorg/mp2p_icp#70). Delete
+// this function (and its call sites below) once the minimum required
+// mp2p_icp_map version provides the helper.
+[[maybe_unused]] void rotateViewDirectionFieldsLegacy(
+    mrpt::maps::CPointsMap& pts, const mrpt::poses::CPose3D& tf)
+{
+  auto* vx = pts.getPointsBufferRef_float_field("view_x");
+  auto* vy = pts.getPointsBufferRef_float_field("view_y");
+  auto* vz = pts.getPointsBufferRef_float_field("view_z");
+
+  if (vx == nullptr || vy == nullptr || vz == nullptr)
+  {
+    // One or more view fields are missing in the destination map even
+    // though the source had all three.
+    // TODO: log a warning here once a logger is available.
+    return;
+  }
+
+  const size_t n = pts.size();
+
+  // TODO: Write an AVX2 version of this rotation loop.
+  for (size_t i = 0; i < n; ++i)
+  {
+    const auto vg = tf.rotateVector({(*vx)[i], (*vy)[i], (*vz)[i]}).cast<float>();
+    (*vx)[i]      = vg.x;
+    (*vy)[i]      = vg.y;
+    (*vz)[i]      = vg.z;
+  }
+}
+
+#if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
+template <typename Pts, typename Pose>
+void rotateViewDirectionFieldsOrFallback(Pts& pts, const Pose& tf)
+{
+  // This dispatch must live in a template so that if constexpr genuinely
+  // discards (without type-checking) the untaken branch: outside of a
+  // template, both branches of "if constexpr" are still fully compiled,
+  // which would try to actually call the ellipsis fallback declared above
+  // when the real helper is absent -- an ill-formed call, since it'd
+  // require copying a non-copyable mrpt::maps::CPointsMap.
+  if constexpr (mp2p_icp_has_rotate_view_fields<Pts, Pose>())
+  {
+    mp2p_icp::rotateViewDirectionFields(pts, tf);
+  }
+  else
+  {
+    rotateViewDirectionFieldsLegacy(pts, tf);
+  }
+}
+#endif
+}  // namespace
 
 const thread_local auto ENV_DO_PROFILE_COV =
     mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_PROFILE_COV", false);
@@ -1515,43 +1592,10 @@ void KeyframePointCloudMap::KeyFrame::updatePointsGlobal() const
   if (has_view)
   {
 #if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
-    if constexpr (mp2p_icp_has_rotate_view_fields<void>::value)
-    {
-      mp2p_icp::rotateViewDirectionFields(*pointcloud_global_, pose_);
-    }
-    else
+    rotateViewDirectionFieldsOrFallback(*pointcloud_global_, pose_);
+#else
+    rotateViewDirectionFieldsLegacy(*pointcloud_global_, pose_);
 #endif
-    {
-      // MRPT_TODO: this is a legacy fallback for mp2p_icp_map checkouts
-      // older than the one introducing mp2p_icp::rotateViewDirectionFields()
-      // (see MOLAorg/mp2p_icp#70), detected purely in C++ via the
-      // mp2p_icp_has_rotate_view_fields SFINAE trait above. Once the minimum
-      // required mp2p_icp_map version provides the helper, delete this
-      // branch, the #if/else above, and the trait itself.
-      auto* vx = pointcloud_global_->getPointsBufferRef_float_field("view_x");
-      auto* vy = pointcloud_global_->getPointsBufferRef_float_field("view_y");
-      auto* vz = pointcloud_global_->getPointsBufferRef_float_field("view_z");
-
-      if (vx == nullptr || vy == nullptr || vz == nullptr)
-      {
-        // One or more view fields are missing in the destination map even
-        // though the source had all three.
-        // TODO: log a warning here once a logger is available.
-      }
-      else
-      {
-        const size_t n = pointcloud_global_->size();
-
-        // TODO: Write an AVX2 version of this rotation loop.
-        for (size_t i = 0; i < n; ++i)
-        {
-          const auto vg = pose_.rotateVector({(*vx)[i], (*vy)[i], (*vz)[i]}).cast<float>();
-          (*vx)[i]      = vg.x;
-          (*vy)[i]      = vg.y;
-          (*vz)[i]      = vg.z;
-        }
-      }
-    }
   }
 }
 
