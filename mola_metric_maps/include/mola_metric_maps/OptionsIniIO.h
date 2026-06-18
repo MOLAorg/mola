@@ -52,10 +52,12 @@ bool importLoadableOptionsFromIni(
     mrpt::config::CLoadableOptions& opts, const mrpt::config::CConfigFileBase& cfg,
     const std::string& section);
 
-/** Identifies the concrete type of `map` via a chain of `dynamic_cast<>`s against all metric map
- * classes known to this library (plus basic `mrpt::maps` ones), and exports all of its
- * `CLoadableOptions` member structs (creationOptions, insertionOptions, likelihoodOptions,
- * renderOptions) into `cfg`, one section per struct, named `"<layerName>.<structName>"`.
+/** Exports all `CLoadableOptions` structures of `map` into `cfg`, one section per structure,
+ * named `"<layerName>.<structName>"`. If `map` implements `mola::MapOptionsCapable`, the set of
+ * structures (and their names) is obtained generically via `MapOptionsCapable::optionsByName()`
+ * -- this covers all classes in this library, present and future, without needing per-class
+ * code here. Otherwise, a fallback handles basic `mrpt::maps` classes (`CPointsMap` and
+ * derivatives, `COccupancyGridMap2D`) via `dynamic_cast`.
  *
  * Also writes a `[<layerName>]` section with a `class` key holding the MRPT RTTI class name, used
  * by importMapLayerOptionsFromIni() as a sanity check.
@@ -63,20 +65,25 @@ bool importLoadableOptionsFromIni(
  * \return false if `map` is none of the known, supported classes (nothing is written).
  */
 bool exportMapLayerOptionsToIni(
-    const mrpt::maps::CMetricMap& map, mrpt::config::CConfigFileBase& cfg,
-    const std::string& layerName);
+    mrpt::maps::CMetricMap& map, mrpt::config::CConfigFileBase& cfg, const std::string& layerName);
 
-/** The reverse of exportMapLayerOptionsToIni(): identifies the concrete type of `map` and, for
- * each of its `CLoadableOptions` member structs whose section is present in `cfg`, loads it
- * from `cfg` into `map`, overwriting its current values.
+/** The reverse of exportMapLayerOptionsToIni(): for each of `map`'s `CLoadableOptions`
+ * structures whose section is present in `cfg`, loads it from `cfg` into `map`.
  *
  * Sections absent from `cfg` are silently skipped, leaving the corresponding options untouched.
  * Names of the sections actually applied are appended to `appliedSections`, if provided.
+ *
+ * The "creationOptions" structure (if present) is handled specially: instead of being
+ * overwritten directly, the new values are passed to `MapOptionsCapable::trySetCreationOptions()`,
+ * which may refuse to apply them (e.g. a voxel size change that would require discarding the
+ * map's current contents). Section names refused this way are appended to `rejectedSections`, if
+ * provided, instead of `appliedSections`.
  *
  * \return false if `map` is none of the known, supported classes (nothing is read).
  */
 bool importMapLayerOptionsFromIni(
     mrpt::maps::CMetricMap& map, const mrpt::config::CConfigFileBase& cfg,
-    const std::string& layerName, std::vector<std::string>* appliedSections = nullptr);
+    const std::string& layerName, std::vector<std::string>* appliedSections = nullptr,
+    std::vector<std::string>* rejectedSections = nullptr);
 
 }  // namespace mola

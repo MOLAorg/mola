@@ -18,6 +18,7 @@
  */
 #pragma once
 
+#include <mola_metric_maps/MapOptionsCapable.h>
 #include <mola_metric_maps/index3d_t.h>
 #include <mp2p_icp/NearestPlaneCapable.h>
 #include <mp2p_icp/estimate_points_eigen.h>  // PointCloudEigen
@@ -67,7 +68,8 @@ namespace mola
  */
 class NDT : public mrpt::maps::CMetricMap,
             public mrpt::maps::NearestNeighborsCapable,
-            public mp2p_icp::NearestPlaneCapable
+            public mp2p_icp::NearestPlaneCapable,
+            public mola::MapOptionsCapable
 {
   DEFINE_SERIALIZABLE(NDT, mola)
  public:
@@ -379,6 +381,23 @@ class NDT : public mrpt::maps::CMetricMap,
 
   /** @} */
 
+  /** Options that configure the map's internal structure. Unlike the other option groups,
+   *  changing `voxel_size` after the map already holds data requires discarding its contents
+   *  (see `setVoxelProperties()`); use `trySetCreationOptions()` to apply it safely.
+   */
+  struct TCreationOptions : public mrpt::config::CLoadableOptions
+  {
+    TCreationOptions() = default;
+
+    void loadFromConfigFile(
+        const mrpt::config::CConfigFileBase& source,
+        const std::string&                   section) override;  // See base docs
+    void dumpToTextStream(std::ostream& out) const override;  // See base docs
+
+    float voxel_size = 1.00f;
+  };
+  TCreationOptions creationOptions;
+
   /** Options for insertObservation()
    */
   struct TInsertionOptions : public mrpt::config::CLoadableOptions
@@ -471,6 +490,11 @@ class NDT : public mrpt::maps::CMetricMap,
     std::string recolorByPointField = "intensity";
   };
   TRenderOptions renderOptions;
+
+  // mola::MapOptionsCapable interface:
+  [[nodiscard]] std::map<std::string, mrpt::config::CLoadableOptions*> optionsByName() override;
+  bool                                                                 trySetCreationOptions(
+                                                                      const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;
 
  public:
   // Interface for use within a mrpt::maps::CMultiMetricMap:

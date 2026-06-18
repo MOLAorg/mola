@@ -1017,6 +1017,29 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
 
 bool KeyframePointCloudMap::isEmpty() const { return keyframes_.empty(); }
 
+std::map<std::string, mrpt::config::CLoadableOptions*> KeyframePointCloudMap::optionsByName()
+{
+  return {
+      {"creationOptions", &creationOptions},
+      {"insertionOptions", &insertionOptions},
+      {"likelihoodOptions", &likelihoodOptions},
+      {"renderOptions", &renderOptions},
+  };
+}
+
+bool KeyframePointCloudMap::trySetCreationOptions(
+    const mrpt::config::CConfigFileBase& cfg, const std::string& section)
+{
+  // All TCreationOptions fields are runtime search/threshold parameters used when looking for
+  // ICP correspondences across keyframes -- none of them affect already-built internal
+  // structures (each keyframe's own KD-tree, point clouds, etc.), so it is always safe to apply
+  // them in place, regardless of whether the map already holds data.
+  TCreationOptions newOpts = creationOptions;
+  newOpts.loadFromConfigFile(cfg, section);
+  creationOptions = newOpts;
+  return true;
+}
+
 void KeyframePointCloudMap::saveMetricMapRepresentationToFile(
     const std::string& filNamePrefix) const
 {

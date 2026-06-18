@@ -24,7 +24,6 @@
 #include <mrpt/system/os.h>
 
 #include <CLI/CLI.hpp>
-#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 
@@ -77,12 +76,22 @@ void run_ini2mm(
     }
 
     std::vector<std::string> applied;
-    if (!mola::importMapLayerOptionsFromIni(*layer, cfg, layerName, &applied))
+    std::vector<std::string> rejected;
+    if (!mola::importMapLayerOptionsFromIni(*layer, cfg, layerName, &applied, &rejected))
     {
       std::cerr << "[ini2mm] WARNING: layer '" << layerName << "' has unsupported class '"
                 << layer->GetRuntimeClass()->className << "', skipping it." << std::endl;
       continue;
     }
+
+    for (const auto& s : rejected)
+    {
+      std::cerr << "[ini2mm] WARNING: layer '" << layerName << "': new creation options in [" << s
+                << "] were REJECTED, since applying them would require discarding the "
+                << "map's current contents (e.g. a voxel/grid size change). Left untouched."
+                << std::endl;
+    }
+
     if (applied.empty())
     {
       std::cout << "[ini2mm]  - layer '" << layerName
@@ -97,23 +106,6 @@ void run_ini2mm(
       std::cout << " [" << s << "]";
     }
     std::cout << std::endl;
-
-    const std::string creationSuffix  = ".creationOptions";
-    const auto        hasCreationOpts = std::any_of(
-               applied.begin(), applied.end(),
-               [&](const std::string& s)
-               {
-          return s.size() >= creationSuffix.size() &&
-                 s.compare(
-                            s.size() - creationSuffix.size(), creationSuffix.size(), creationSuffix) == 0;
-        });
-    if (hasCreationOpts)
-    {
-      std::cerr << "[ini2mm] WARNING: layer '" << layerName
-                << "' has a 'creationOptions' section. These fields only take effect when the "
-                << "map is first created, so updating them here will NOT rebuild already-existing "
-                << "internal data structures (e.g. grid/voxel sizes)." << std::endl;
-    }
 
     numUpdated++;
   }

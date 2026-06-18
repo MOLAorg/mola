@@ -17,12 +17,8 @@
  * @date   Jun 18, 2026
  */
 
-#include <mola_metric_maps/HashedVoxelPointCloud.h>
-#include <mola_metric_maps/KeyframePointCloudMap.h>
-#include <mola_metric_maps/NDT.h>
+#include <mola_metric_maps/MapOptionsCapable.h>
 #include <mola_metric_maps/OptionsIniIO.h>
-#include <mola_metric_maps/SparseTreesPointCloud.h>
-#include <mola_metric_maps/SparseVoxelPointCloud.h>
 #include <mrpt/maps/COccupancyGridMap2D.h>
 #include <mrpt/maps/CPointsMap.h>
 
@@ -106,64 +102,25 @@ bool mola::importLoadableOptionsFromIni(
 }
 
 bool mola::exportMapLayerOptionsToIni(
-    const mrpt::maps::CMetricMap& map, mrpt::config::CConfigFileBase& cfg,
-    const std::string& layerName)
+    mrpt::maps::CMetricMap& map, mrpt::config::CConfigFileBase& cfg, const std::string& layerName)
 {
-  // Recognized first, so unsupported layers leave the .ini file untouched.
-  if (dynamic_cast<const mola::NDT*>(&map) ||
-      dynamic_cast<const mola::HashedVoxelPointCloud*>(&map) ||
-      dynamic_cast<const mola::SparseVoxelPointCloud*>(&map) ||
-      dynamic_cast<const mola::SparseTreesPointCloud*>(&map) ||
-      dynamic_cast<const mola::KeyframePointCloudMap*>(&map) ||
-      dynamic_cast<const mrpt::maps::COccupancyGridMap2D*>(&map) ||
-      dynamic_cast<const mrpt::maps::CPointsMap*>(&map))
+  // Generic path: any class (present or future) implementing mola::MapOptionsCapable is handled
+  // uniformly, without needing to know its concrete type or the names of its options structures.
+  if (auto* capable = dynamic_cast<mola::MapOptionsCapable*>(&map))
   {
     cfg.write(layerName, "class", std::string(map.GetRuntimeClass()->className));
+    for (const auto& [name, opts] : capable->optionsByName())
+    {
+      exportLoadableOptionsToIni(*opts, cfg, sectionFor(layerName, name));
+    }
+    return true;
   }
 
-  if (const auto* m = dynamic_cast<const mola::NDT*>(&map))
-  {
-    exportLoadableOptionsToIni(m->insertionOptions, cfg, sectionFor(layerName, "insertionOptions"));
-    exportLoadableOptionsToIni(
-        m->likelihoodOptions, cfg, sectionFor(layerName, "likelihoodOptions"));
-    exportLoadableOptionsToIni(m->renderOptions, cfg, sectionFor(layerName, "renderOptions"));
-    return true;
-  }
-  if (const auto* m = dynamic_cast<const mola::HashedVoxelPointCloud*>(&map))
-  {
-    exportLoadableOptionsToIni(m->insertionOptions, cfg, sectionFor(layerName, "insertionOptions"));
-    exportLoadableOptionsToIni(
-        m->likelihoodOptions, cfg, sectionFor(layerName, "likelihoodOptions"));
-    exportLoadableOptionsToIni(m->renderOptions, cfg, sectionFor(layerName, "renderOptions"));
-    return true;
-  }
-  if (const auto* m = dynamic_cast<const mola::SparseVoxelPointCloud*>(&map))
-  {
-    exportLoadableOptionsToIni(m->insertionOptions, cfg, sectionFor(layerName, "insertionOptions"));
-    exportLoadableOptionsToIni(
-        m->likelihoodOptions, cfg, sectionFor(layerName, "likelihoodOptions"));
-    exportLoadableOptionsToIni(m->renderOptions, cfg, sectionFor(layerName, "renderOptions"));
-    return true;
-  }
-  if (const auto* m = dynamic_cast<const mola::SparseTreesPointCloud*>(&map))
-  {
-    exportLoadableOptionsToIni(m->insertionOptions, cfg, sectionFor(layerName, "insertionOptions"));
-    exportLoadableOptionsToIni(
-        m->likelihoodOptions, cfg, sectionFor(layerName, "likelihoodOptions"));
-    exportLoadableOptionsToIni(m->renderOptions, cfg, sectionFor(layerName, "renderOptions"));
-    return true;
-  }
-  if (const auto* m = dynamic_cast<const mola::KeyframePointCloudMap*>(&map))
-  {
-    exportLoadableOptionsToIni(m->creationOptions, cfg, sectionFor(layerName, "creationOptions"));
-    exportLoadableOptionsToIni(m->insertionOptions, cfg, sectionFor(layerName, "insertionOptions"));
-    exportLoadableOptionsToIni(
-        m->likelihoodOptions, cfg, sectionFor(layerName, "likelihoodOptions"));
-    exportLoadableOptionsToIni(m->renderOptions, cfg, sectionFor(layerName, "renderOptions"));
-    return true;
-  }
+  // Fallback for classes from outside this library, which cannot implement
+  // mola::MapOptionsCapable directly:
   if (const auto* m = dynamic_cast<const mrpt::maps::COccupancyGridMap2D*>(&map))
   {
+    cfg.write(layerName, "class", std::string(map.GetRuntimeClass()->className));
     // "horizontalTolerance" is excluded: COccupancyGridMap2D::TInsertionOptions dumps it in
     // radians (plain LOADABLEOPTS_DUMP_VAR) but loads it as degrees (MRPT_LOAD_CONFIG_VAR_DEGREESf)
     // -- an inconsistency in MRPT itself that would silently scale the value by ~57x on import.
@@ -183,6 +140,7 @@ bool mola::exportMapLayerOptionsToIni(
   // the same CPointsMap::T{Insertion,Likelihood,Render}Options structs.
   if (const auto* m = dynamic_cast<const mrpt::maps::CPointsMap*>(&map))
   {
+    cfg.write(layerName, "class", std::string(map.GetRuntimeClass()->className));
     exportLoadableOptionsToIni(m->insertionOptions, cfg, sectionFor(layerName, "insertionOptions"));
     exportLoadableOptionsToIni(
         m->likelihoodOptions, cfg, sectionFor(layerName, "likelihoodOptions"));
@@ -195,8 +153,48 @@ bool mola::exportMapLayerOptionsToIni(
 
 bool mola::importMapLayerOptionsFromIni(
     mrpt::maps::CMetricMap& map, const mrpt::config::CConfigFileBase& cfg,
-    const std::string& layerName, std::vector<std::string>* appliedSections)
+    const std::string& layerName, std::vector<std::string>* appliedSections,
+    std::vector<std::string>* rejectedSections)
 {
+  // Generic path, mirroring exportMapLayerOptionsToIni() above.
+  if (auto* capable = dynamic_cast<mola::MapOptionsCapable*>(&map))
+  {
+    for (const auto& [name, opts] : capable->optionsByName())
+    {
+      const auto section = sectionFor(layerName, name);
+      if (!cfg.sectionExists(section))
+      {
+        continue;
+      }
+
+      if (name == "creationOptions")
+      {
+        // Creation options may be unsafe to change in place (e.g. a voxel size): let the map
+        // itself decide, instead of blindly overwriting the live struct through `opts`.
+        if (capable->trySetCreationOptions(cfg, section))
+        {
+          if (appliedSections)
+          {
+            appliedSections->push_back(section);
+          }
+        }
+        else if (rejectedSections)
+        {
+          rejectedSections->push_back(section);
+        }
+        continue;
+      }
+
+      opts->loadFromConfigFile(cfg, section);
+      if (appliedSections)
+      {
+        appliedSections->push_back(section);
+      }
+    }
+    return true;
+  }
+
+  // Fallback for classes from outside this library:
   const auto apply = [&](mrpt::config::CLoadableOptions& opts, const std::string& structName)
   {
     const auto section = sectionFor(layerName, structName);
@@ -206,42 +204,6 @@ bool mola::importMapLayerOptionsFromIni(
     }
   };
 
-  if (auto* m = dynamic_cast<mola::NDT*>(&map))
-  {
-    apply(m->insertionOptions, "insertionOptions");
-    apply(m->likelihoodOptions, "likelihoodOptions");
-    apply(m->renderOptions, "renderOptions");
-    return true;
-  }
-  if (auto* m = dynamic_cast<mola::HashedVoxelPointCloud*>(&map))
-  {
-    apply(m->insertionOptions, "insertionOptions");
-    apply(m->likelihoodOptions, "likelihoodOptions");
-    apply(m->renderOptions, "renderOptions");
-    return true;
-  }
-  if (auto* m = dynamic_cast<mola::SparseVoxelPointCloud*>(&map))
-  {
-    apply(m->insertionOptions, "insertionOptions");
-    apply(m->likelihoodOptions, "likelihoodOptions");
-    apply(m->renderOptions, "renderOptions");
-    return true;
-  }
-  if (auto* m = dynamic_cast<mola::SparseTreesPointCloud*>(&map))
-  {
-    apply(m->insertionOptions, "insertionOptions");
-    apply(m->likelihoodOptions, "likelihoodOptions");
-    apply(m->renderOptions, "renderOptions");
-    return true;
-  }
-  if (auto* m = dynamic_cast<mola::KeyframePointCloudMap*>(&map))
-  {
-    apply(m->creationOptions, "creationOptions");
-    apply(m->insertionOptions, "insertionOptions");
-    apply(m->likelihoodOptions, "likelihoodOptions");
-    apply(m->renderOptions, "renderOptions");
-    return true;
-  }
   if (auto* m = dynamic_cast<mrpt::maps::COccupancyGridMap2D*>(&map))
   {
     apply(m->insertionOptions, "insertionOptions");

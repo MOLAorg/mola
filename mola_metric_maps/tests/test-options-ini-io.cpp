@@ -141,43 +141,39 @@ std::string doubleAllNumericValues(const std::string& iniText)
   return oss.str();
 }
 
-// Compares two CConfigFileBase objects key-by-key (section-aware), tolerating the
+// Compares a single section of two CConfigFileBase objects key-by-key, tolerating the
 // different text formatting that dumpToTextStream() ("%f", 6 decimals) vs. plain
 // ostream<<double formatting (used by doubleAllNumericValues()) produce for the same
 // underlying numeric value.
-void assertConfigFilesMatch(
-    const mrpt::config::CConfigFileBase& expected, const mrpt::config::CConfigFileBase& actual)
+void assertSectionMatches(
+    const mrpt::config::CConfigFileBase& expected, const mrpt::config::CConfigFileBase& actual,
+    const std::string& section)
 {
-  std::vector<std::string> sections;
-  expected.getAllSections(sections);
-  ASSERT_(!sections.empty());
+  ASSERT_(expected.sectionExists(section));
+  ASSERT_(actual.sectionExists(section));
 
-  for (const auto& section : sections)
+  std::vector<std::string> keys;
+  expected.getAllKeys(section, keys);
+
+  for (const auto& key : keys)
   {
-    std::vector<std::string> keys;
-    expected.getAllKeys(section, keys);
-    ASSERT_(actual.sectionExists(section));
+    const auto expectedVal = expected.read_string(section, key, "");
+    const auto actualVal   = actual.read_string(section, key, "<missing>");
 
-    for (const auto& key : keys)
+    char*        e1          = nullptr;
+    char*        e2          = nullptr;
+    const double a           = std::strtod(expectedVal.c_str(), &e1);
+    const double b           = std::strtod(actualVal.c_str(), &e2);
+    const bool   bothNumeric = e1 != nullptr && *e1 == '\0' && !expectedVal.empty() &&
+                             e2 != nullptr && *e2 == '\0' && !actualVal.empty();
+
+    if (bothNumeric)
     {
-      const auto expectedVal = expected.read_string(section, key, "");
-      const auto actualVal   = actual.read_string(section, key, "<missing>");
-
-      char*        e1          = nullptr;
-      char*        e2          = nullptr;
-      const double a           = std::strtod(expectedVal.c_str(), &e1);
-      const double b           = std::strtod(actualVal.c_str(), &e2);
-      const bool   bothNumeric = e1 != nullptr && *e1 == '\0' && !expectedVal.empty() &&
-                               e2 != nullptr && *e2 == '\0' && !actualVal.empty();
-
-      if (bothNumeric)
-      {
-        ASSERT_NEAR_(a, b, 1e-3 + std::abs(a) * 1e-3);
-      }
-      else
-      {
-        ASSERT_EQUAL_(expectedVal, actualVal);
-      }
+      ASSERT_NEAR_(a, b, 1e-3 + std::abs(a) * 1e-3);
+    }
+    else
+    {
+      ASSERT_EQUAL_(expectedVal, actualVal);
     }
   }
 }
@@ -187,9 +183,10 @@ void assertConfigFilesMatch(
 //  2) Export its CLoadableOptions to an in-memory .ini.
 //  3) Simulate a hand-edit of the .ini (double all numeric values).
 //  4) Re-import it into the SAME (already-populated) map instance.
-//  5) Check: (a) the map's data survived the options update untouched, and
-//            (b) re-exporting now yields the *edited* values, proving the
-//                import actually took effect.
+//  5) Check: (a) the map's data survived the options update untouched, (b) every *applied*
+//     section now reflects the edited values (proving the import took effect), and (c) every
+//     *rejected* section (e.g. a creation option that would require discarding existing
+//     contents) was correctly left at its original value.
 template <typename MapT>
 void testOptionsRoundTrip(const std::string& testName, const mrpt::maps::CSimpleMap& sm)
 {
@@ -210,16 +207,26 @@ void testOptionsRoundTrip(const std::string& testName, const mrpt::maps::CSimple
   mrpt::config::CConfigFileMemory cfgEdited(editedIniText);
 
   std::vector<std::string> applied;
-  ASSERT_(mola::importMapLayerOptionsFromIni(map, cfgEdited, "layer", &applied));
+  std::vector<std::string> rejected;
+  ASSERT_(mola::importMapLayerOptionsFromIni(map, cfgEdited, "layer", &applied, &rejected));
   ASSERT_(!applied.empty());
 
   // (a) data must survive untouched:
   ASSERT_EQUAL_(hadDataBefore, !map.isEmpty());
 
-  // (b) re-exporting now must reflect the *edited* values, proving the import took effect:
   mrpt::config::CConfigFileMemory cfgAfter;
   ASSERT_(mola::exportMapLayerOptionsToIni(map, cfgAfter, "layer"));
-  assertConfigFilesMatch(cfgEdited, cfgAfter);
+
+  // (b) applied sections must now reflect the *edited* values:
+  for (const auto& section : applied)
+  {
+    assertSectionMatches(cfgEdited, cfgAfter, section);
+  }
+  // (c) rejected sections must be unchanged from their original values:
+  for (const auto& section : rejected)
+  {
+    assertSectionMatches(cfgOriginal, cfgAfter, section);
+  }
 }
 
 void test_all_classes()
@@ -249,6 +256,40 @@ void test_unsupported_class_is_rejected()
   ASSERT_(applied.empty());
 }
 
+// Directly exercises MapOptionsCapable::trySetCreationOptions()'s safety check: a voxel_size
+// change must be REJECTED once the map already holds data, but ACCEPTED on an empty map.
+void test_creation_options_safety()
+{
+  mrpt::config::CConfigFileMemory cfgNewVoxelSize;
+  cfgNewVoxelSize.write("layer.creationOptions", "voxel_size", 9.0);
+
+  // On an empty map, changing voxel_size is harmless:
+  {
+    mola::NDT map;
+    ASSERT_(map.isEmpty());
+    std::vector<std::string> applied, rejected;
+    ASSERT_(mola::importMapLayerOptionsFromIni(map, cfgNewVoxelSize, "layer", &applied, &rejected));
+    ASSERT_(rejected.empty());
+    ASSERT_EQUAL_(applied.size(), 1U);
+    ASSERT_NEAR_(map.creationOptions.voxel_size, 9.0f, 1e-6f);
+  }
+
+  // Once the map holds data, the very same change must be rejected, and the map left untouched:
+  {
+    mola::NDT map;
+    map.insertPoint({1.0f, 2.0f, 3.0f}, {.0f, .0f, .0f});
+    ASSERT_(!map.isEmpty());
+    const float voxelSizeBefore = map.creationOptions.voxel_size;
+
+    std::vector<std::string> applied, rejected;
+    ASSERT_(mola::importMapLayerOptionsFromIni(map, cfgNewVoxelSize, "layer", &applied, &rejected));
+    ASSERT_(applied.empty());
+    ASSERT_EQUAL_(rejected.size(), 1U);
+    ASSERT_(!map.isEmpty());
+    ASSERT_NEAR_(map.creationOptions.voxel_size, voxelSizeBefore, 1e-6f);
+  }
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -257,6 +298,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     test_all_classes();
     test_unsupported_class_is_rejected();
+    test_creation_options_safety();
   }
   catch (std::exception& e)
   {
