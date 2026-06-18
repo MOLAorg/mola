@@ -288,6 +288,24 @@ void test_creation_options_safety()
     ASSERT_(!map.isEmpty());
     ASSERT_NEAR_(map.creationOptions.voxel_size, voxelSizeBefore, 1e-6f);
   }
+
+  // Re-applying the SAME (unchanged) voxel_size on a non-empty map must be a true no-op: it
+  // must be accepted (not rejected) AND must not wipe the map's existing contents.
+  {
+    mola::NDT map;
+    map.insertPoint({1.0f, 2.0f, 3.0f}, {.0f, .0f, .0f});
+    ASSERT_(!map.isEmpty());
+
+    mrpt::config::CConfigFileMemory cfgSameVoxelSize;
+    cfgSameVoxelSize.write("layer.creationOptions", "voxel_size", map.creationOptions.voxel_size);
+
+    std::vector<std::string> applied, rejected;
+    ASSERT_(
+        mola::importMapLayerOptionsFromIni(map, cfgSameVoxelSize, "layer", &applied, &rejected));
+    ASSERT_(rejected.empty());
+    ASSERT_EQUAL_(applied.size(), 1U);
+    ASSERT_(!map.isEmpty());
+  }
 }
 
 }  // namespace

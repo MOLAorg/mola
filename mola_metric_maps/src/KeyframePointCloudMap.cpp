@@ -1030,13 +1030,26 @@ std::map<std::string, mrpt::config::CLoadableOptions*> KeyframePointCloudMap::op
 bool KeyframePointCloudMap::trySetCreationOptions(
     const mrpt::config::CConfigFileBase& cfg, const std::string& section)
 {
-  // All TCreationOptions fields are runtime search/threshold parameters used when looking for
-  // ICP correspondences across keyframes -- none of them affect already-built internal
-  // structures (each keyframe's own KD-tree, point clouds, etc.), so it is always safe to apply
-  // them in place, regardless of whether the map already holds data.
+  // All TCreationOptions fields are runtime search/threshold parameters -- none of them affect
+  // already-built internal structures (each keyframe's own KD-tree, point clouds, etc.), so it
+  // is always safe to apply them in place, regardless of whether the map already holds data.
+  //
+  // Caveat: k_correspondences_for_cov/min_correspondences_for_cov/max_distance_for_cov are
+  // copied into each KeyFrame at construction time (used to lazily compute per-point
+  // covariances), instead of being read live from `creationOptions`. Propagate the new values
+  // to all existing keyframes and invalidate their cached covariances, so they get recomputed
+  // with the new parameters next time they are queried.
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
   creationOptions = newOpts;
+
+  auto lck = mrpt::lockHelper(*state_mtx_);
+  for (auto& kv : keyframes_)
+  {
+    kv.second.updateCovarianceParams(
+        creationOptions.k_correspondences_for_cov, creationOptions.min_correspondences_for_cov,
+        creationOptions.max_distance_for_cov);
+  }
   return true;
 }
 

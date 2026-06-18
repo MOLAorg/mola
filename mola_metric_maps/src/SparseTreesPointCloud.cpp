@@ -596,11 +596,14 @@ bool SparseTreesPointCloud::trySetCreationOptions(
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
 
-  if (newOpts.grid_size != creationOptions.grid_size && !isEmpty())
+  if (newOpts.grid_size != creationOptions.grid_size)
   {
-    return false;  // would require discarding existing grid blocks
+    if (!isEmpty())
+    {
+      return false;  // would require discarding existing grid blocks
+    }
+    setGridProperties(newOpts.grid_size);
   }
-  setGridProperties(newOpts.grid_size);
   return true;
 }
 

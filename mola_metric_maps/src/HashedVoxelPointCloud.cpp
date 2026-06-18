@@ -600,11 +600,14 @@ bool HashedVoxelPointCloud::trySetCreationOptions(
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
 
-  if (newOpts.voxel_size != creationOptions.voxel_size && !isEmpty())
+  if (newOpts.voxel_size != creationOptions.voxel_size)
   {
-    return false;  // would require discarding existing voxels
+    if (!isEmpty())
+    {
+      return false;  // would require discarding existing voxels
+    }
+    setVoxelProperties(newOpts.voxel_size);
   }
-  setVoxelProperties(newOpts.voxel_size);
   return true;
 }
 

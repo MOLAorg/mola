@@ -519,6 +519,20 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
       pointcloud_global_.reset();
     }
 
+    /** Updates the per-point covariance estimation parameters (normally frozen at construction
+     *  time from `TCreationOptions`) and invalidates any cached covariance, so it gets
+     *  recomputed with the new parameters next time it is queried.
+     */
+    void updateCovarianceParams(
+        std::size_t k_correspondences_for_cov, std::size_t min_correspondences_for_cov,
+        double max_distance_for_cov)
+    {
+      k_correspondences_for_cov_   = k_correspondences_for_cov;
+      min_correspondences_for_cov_ = min_correspondences_for_cov;
+      max_distance_for_cov_        = max_distance_for_cov;
+      invalidateCache();
+    }
+
     const auto& covariancesGlobal() const
     {
       computeCovariancesAndDensity();  // will reuse cached if possible

@@ -110,11 +110,13 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - `KeyframeMap`
 - All support MRPT serialization
 - `mola::OptionsCapable` (`include/mola_metric_maps/OptionsCapable.h`): mixin interface
-  implemented by all map classes above, exposing their `CLoadableOptions` groups generically by
-  name (`optionsByName()`) and a safe creation-options setter (`trySetCreationOptions()`, which
-  returns `false` instead of discarding map contents when a structural change, e.g. voxel size,
-  is incompatible with already-inserted data). Temporary home for a feature that may eventually
-  move into MRPT itself.
+  implemented by `NDT`, `HashedVoxelPointCloud`, `SparseVoxelPointCloud`, `SparseTreesPointCloud`,
+  and `KeyframePointCloudMap` (i.e. all map classes defined in this library; basic `mrpt::maps`
+  classes do not implement it -- see the `mm2ini`/`ini2mm` fallback below), exposing their
+  `CLoadableOptions` groups generically by name (`optionsByName()`) and a safe creation-options
+  setter (`trySetCreationOptions()`, which returns `false` instead of discarding map contents
+  when a structural change, e.g. voxel size, is incompatible with already-inserted data).
+  Temporary home for a feature that may eventually move into MRPT itself.
 - CLI tools `mm2ini` / `ini2mm` (in `apps/`): export/import the `CLoadableOptions`
   (creation/insertion/likelihood/render options) of all layers in a `.mm` file to/from a
   `.ini` file, using `OptionsCapable` generically for classes in this library, plus a
