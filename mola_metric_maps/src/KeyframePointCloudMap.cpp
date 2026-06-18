@@ -18,7 +18,10 @@
  */
 
 #include <mola_metric_maps/KeyframePointCloudMap.h>
+#if __has_include(<mp2p_icp/pointcloud_field_utils.h>)
 #include <mp2p_icp/pointcloud_field_utils.h>
+#define MOLA_MM_HAS_ROTATE_VIEW_HEADER 1
+#endif
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/core/get_env.h>
 #include <mrpt/maps/CGenericPointsMap.h>
@@ -44,6 +47,29 @@
 #endif
 
 #include <type_traits>
+
+#if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
+namespace
+{
+// SFINAE detection of mp2p_icp::rotateViewDirectionFields(): the function
+// was added to an already-existing header (pointcloud_field_utils.h), so
+// __has_include() alone cannot tell an old mp2p_icp_map checkout (header
+// present, function absent) apart from a new one. This trait probes the
+// declaration itself, purely in C++, with no CMake-side version check needed.
+template <typename, typename = void>
+struct mp2p_icp_has_rotate_view_fields : std::false_type
+{
+};
+
+template <typename T>
+struct mp2p_icp_has_rotate_view_fields<
+    T, std::void_t<decltype(mp2p_icp::rotateViewDirectionFields(
+           std::declval<mrpt::maps::CPointsMap&>(), std::declval<const mrpt::poses::CPose3D&>()))>>
+    : std::true_type
+{
+};
+}  // namespace
+#endif
 
 const thread_local auto ENV_DO_PROFILE_COV =
     mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_PROFILE_COV", false);
@@ -1488,7 +1514,44 @@ void KeyframePointCloudMap::KeyFrame::updatePointsGlobal() const
   // so it copies local-frame values as-is.  Rotate them to the global frame now.
   if (has_view)
   {
-    mp2p_icp::rotateViewDirectionFields(*pointcloud_global_, pose_);
+#if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
+    if constexpr (mp2p_icp_has_rotate_view_fields<void>::value)
+    {
+      mp2p_icp::rotateViewDirectionFields(*pointcloud_global_, pose_);
+    }
+    else
+#endif
+    {
+      // MRPT_TODO: this is a legacy fallback for mp2p_icp_map checkouts
+      // older than the one introducing mp2p_icp::rotateViewDirectionFields()
+      // (see MOLAorg/mp2p_icp#70), detected purely in C++ via the
+      // mp2p_icp_has_rotate_view_fields SFINAE trait above. Once the minimum
+      // required mp2p_icp_map version provides the helper, delete this
+      // branch, the #if/else above, and the trait itself.
+      auto* vx = pointcloud_global_->getPointsBufferRef_float_field("view_x");
+      auto* vy = pointcloud_global_->getPointsBufferRef_float_field("view_y");
+      auto* vz = pointcloud_global_->getPointsBufferRef_float_field("view_z");
+
+      if (vx == nullptr || vy == nullptr || vz == nullptr)
+      {
+        // One or more view fields are missing in the destination map even
+        // though the source had all three.
+        // TODO: log a warning here once a logger is available.
+      }
+      else
+      {
+        const size_t n = pointcloud_global_->size();
+
+        // TODO: Write an AVX2 version of this rotation loop.
+        for (size_t i = 0; i < n; ++i)
+        {
+          const auto vg = pose_.rotateVector({(*vx)[i], (*vy)[i], (*vz)[i]}).cast<float>();
+          (*vx)[i]      = vg.x;
+          (*vy)[i]      = vg.y;
+          (*vz)[i]      = vg.z;
+        }
+      }
+    }
   }
 }
 
