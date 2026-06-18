@@ -387,6 +387,16 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *
      *  Setting this to `false`, or to a threshold ≥ 180°, effectively disables
      *  the filter even when view fields are present.
+     *
+     *  Contract: the "view_x/y/z" fields stored in a keyframe's point cloud
+     *  (`KeyFrame::pointcloud_`) MUST be expressed in the *local KF frame*,
+     *  not in the global/map frame. `KeyFrame::updatePointsGlobal()` rotates
+     *  them to the global frame using `mp2p_icp::rotateViewDirectionFields()`
+     *  (see `mp2p_icp/pointcloud_field_utils.h`). Any code that inserts
+     *  points carrying these fields into a keyframe (e.g.
+     *  `mp2p_icp_filters::FilterMerge`) must call the same helper to rotate
+     *  the fields alongside the point coordinates, or this filter will
+     *  silently compare vectors expressed in inconsistent frames.
      */
     bool use_view_direction_filter = true;
 
