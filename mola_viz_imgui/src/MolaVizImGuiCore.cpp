@@ -660,6 +660,41 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
   return task->get_future();
 }
 
+std::future<bool> MolaVizImGuiCore::clear_background_scene(
+    const std::string& viewportName, const window_name_t& parentWindow)
+{
+  auto task = std::make_shared<std::packaged_task<bool()>>(
+      [this, viewportName, parentWindow]()
+      {
+        auto it = windows_.find(parentWindow);
+        if (it == windows_.end())
+        {
+          return false;
+        }
+
+        auto&           scene = it->second.background_scene;
+        std::lock_guard lk(it->second.background_scene_mtx);
+
+        auto viewport = scene->getViewport(viewportName);
+        if (!viewport)
+        {
+          return false;
+        }
+
+        viewport->clear();
+
+        // Also drop the decaying-clouds bookkeeping: their backing
+        // CSetOfObjects container just got cleared above, so keeping these
+        // around would only fade alphas on now-orphaned point clouds.
+        it->second.decaying_clouds.clear();
+        return true;
+      });
+
+  std::lock_guard lk(guiThreadPendingTasksMtx_);
+  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+  return task->get_future();
+}
+
 std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
     const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
     const std::string& viewportName, const std::string& parentWindow)

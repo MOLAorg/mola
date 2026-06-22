@@ -149,6 +149,16 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    */
   std::mutex* get_background_scene_mutex(const window_name_t& name = DEFAULT_WINDOW_NAME);
 
+  /** Removes every object from a viewport of the background scene.
+   *
+   *  Unlike `update_3d_object()` (which only touches the single named object
+   *  it is given) or `clear_all_point_clouds_with_decay()` (limited to the
+   *  decay container), this is a full reset of the viewport contents.
+   */
+  std::future<bool> clear_background_scene(
+      const std::string&   viewportName = "main",
+      const window_name_t& parentWindow = DEFAULT_WINDOW_NAME);
+
   /** @} */
   // =========================================================================
   /** @name VizInterface — backend identity
