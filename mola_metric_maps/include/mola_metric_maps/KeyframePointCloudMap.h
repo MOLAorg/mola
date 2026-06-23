@@ -669,15 +669,3 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 };
 
 }  // namespace mola
-
-/** Feature macro: KeyframePointCloudMap exposes the per-KF pose plumbing
- *  (`cloneKFPoses`, `setKeyframePose`, `lastInsertedKeyFrameID`,
- *  `drainEvictedKeyFrameIDs`, `nextFreeKeyFrameID_public`) and inherits
- *  from `mola::KeyframeMapCapable` (providing `keyframePoses()`,
- *  `oldestActiveKeyframeID()`, `setKeyframePose()`, `applyPivotTransform()`).
- *  Downstream packages should guard usage with
- *  `#if defined(MOLA_METRIC_MAPS_HAS_KFM_POSE_PLUMBING)` (combined with
- *  `__has_include(<mola_metric_maps/KeyframePointCloudMap.h>)`) to remain
- *  buildable against older `mola_metric_maps` checkouts.
- */
-#define MOLA_METRIC_MAPS_HAS_KFM_POSE_PLUMBING 1
