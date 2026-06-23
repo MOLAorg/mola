@@ -353,6 +353,7 @@ void MolaLauncherApp::spin()
     {
       runAtStart();
     }
+    ~RunningGuard() { runAtEnd_(); }
     const std::function<void()> runAtEnd_;
   };
   RunningGuard runningGuard(
