@@ -127,6 +127,11 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
   std::optional<mrpt::Clock::time_point> rosbag_begin_time_;
   size_t                                 read_ahead_length_ = 15;
 
+  /// Optional limit on dataset replay duration, counted from the first
+  /// published message [seconds]. 0 (default) means unlimited (play the
+  /// whole bag). Useful for quick validation runs on long bags.
+  double max_duration_sec_ = 0;
+
   std::optional<mrpt::Clock::time_point> last_play_wallclock_time_;
   double                                 last_dataset_time_ = 0;
 

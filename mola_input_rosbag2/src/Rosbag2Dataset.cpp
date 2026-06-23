@@ -122,6 +122,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   ASSERTMSG_(tf_topic_ != tf_static_topic_, "'tf_topic' and 'tf_static_topic' must differ");
 
   YAML_LOAD_MEMBER_OPT(read_ahead_length, size_t);
+  YAML_LOAD_MEMBER_OPT(max_duration_sec, double);
   paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
   const bool isDir  = mrpt::system::directoryExists(rosbag_filename_);
@@ -534,6 +535,18 @@ void Rosbag2Dataset::spinOnce()
         10.0,
         "End of dataset reached! Nothing else to publish (CTRL+C to "
         "quit)");
+    return;
+  }
+
+  if (max_duration_sec_ > 0 && last_dataset_time_ > max_duration_sec_)
+  {
+    onDatasetPlaybackEnds();  // notify base class
+
+    MRPT_LOG_THROTTLE_INFO_FMT(
+        10.0,
+        "max_duration_sec (%.1f s) reached! Nothing else to publish (CTRL+C "
+        "to quit)",
+        max_duration_sec_);
     return;
   }
 
