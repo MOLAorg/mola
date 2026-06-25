@@ -28,6 +28,7 @@ set(LIB_SRCS
   src/interfaces/KeyframeMapCapable.cpp
   src/interfaces/NavStateFilter.cpp
   src/interfaces/RawDataSourceBase.cpp
+  src/interfaces/SharedKeyframeMap.cpp
   src/interfaces/VizInterface.cpp
   src/utils/Synchronizer.cpp
   src/MinimalModuleContainer.cpp
@@ -54,6 +55,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/interfaces/RawDataSourceBase.h
   include/mola_kernel/interfaces/KeyframeMapCapable.h
   include/mola_kernel/interfaces/Relocalization.h
+  include/mola_kernel/interfaces/SharedKeyframeMap.h
   include/mola_kernel/interfaces/VizInterface.h
   include/mola_kernel/MinimalModuleContainer.h
   include/mola_kernel/pretty_print_exception.h
