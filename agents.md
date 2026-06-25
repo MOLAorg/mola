@@ -84,6 +84,13 @@ All plugin modules derive from these virtual base classes:
 - `VizInterface` — visualization (backend-agnostic, updated in v2.6)
 - `Relocalization` — global localization / loop closure
 - `OfflineDatasetSource` — offline dataset handling
+- `KeyframeMapCapable` — mixin for keyframe-based metric maps needing per-KF
+  pose plumbing (e.g. LIO's online gravity-tilt correction)
+- `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
+  `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
+  `requestInsertKeyframe()`, decoupled from their own local map/odometry
+  frame. Detected via `findService<>()` the same way as `NavStateFilter`,
+  but optional. Feature macro `MOLA_KERNEL_HAS_SHARED_KEYFRAME_MAP`.
 
 Other key types:
 - `GuiWidgetDescription` — descriptor for GUI widget creation (backend-agnostic)
