@@ -550,6 +550,86 @@ void test_yaml2stringAdditional()
   }
 }
 
+// ---------------------------------------------------------------------------
+// 11. `$import` directive: import a base file and OVERRIDE particular entries
+//
+// A map with a `$import` key (scalar path or sequence of paths) is replaced by
+// the deep-merge of the imported file(s) with the map's remaining keys overlaid
+// on top (siblings override the base; nested maps merge deeply).
+// ---------------------------------------------------------------------------
+void test_parseImportOverride()
+{
+  using mrpt::containers::yaml;
+
+  mola::YAMLParseOptions opts;
+  opts.includesBasePath = MOLA_MODULE_SOURCE_DIR;
+
+  // --- single import + scalar override + new key + deep-nested override ---
+  {
+    const std::string input =
+        "params:\n"
+        "  $import: test_import_base.yaml\n"
+        "  b: 99\n"  // override an existing scalar
+        "  c: 3\n"  // add a brand-new key
+        "  nested:\n"
+        "    y: 200\n";  // deep-override one nested key (x must survive)
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_(y.isMap());
+    ASSERT_EQUAL_(y["params"]["a"].as<int>(), 1);  // from base
+    ASSERT_EQUAL_(y["params"]["b"].as<int>(), 99);  // overridden
+    ASSERT_EQUAL_(y["params"]["c"].as<int>(), 3);  // added
+    ASSERT_EQUAL_(y["params"]["nested"]["x"].as<int>(), 10);  // kept (deep merge)
+    ASSERT_EQUAL_(y["params"]["nested"]["y"].as<int>(), 200);  // overridden
+    ASSERT_EQUAL_(y["params"]["list"](0).as<std::string>(), "p");  // from base
+  }
+
+  // --- sequence import: later file overrides earlier; sibling overrides both ---
+  {
+    const std::string input =
+        "config:\n"
+        "  $import:\n"
+        "    - test1.yaml\n"  // a:10 b:20
+        "    - test_import_o2.yaml\n"  // b:777 e:5
+        "  a: 1000\n";  // sibling override
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["config"]["a"].as<int>(), 1000);  // sibling wins over imports
+    ASSERT_EQUAL_(y["config"]["b"].as<int>(), 777);  // 2nd import wins over 1st
+    ASSERT_EQUAL_(y["config"]["e"].as<int>(), 5);
+  }
+
+  // --- via load_yaml_file(): relative import resolved against the file's dir ---
+  {
+    const auto file = MOLA_MODULE_SOURCE_DIR + "/test_import_top.yaml"s;
+    const auto y    = mola::load_yaml_file(file);
+    ASSERT_EQUAL_(y["params"]["a"].as<int>(), 1);  // from base
+    ASSERT_EQUAL_(y["params"]["b"].as<int>(), 42);  // overridden
+    ASSERT_EQUAL_(y["params"]["nested"]["x"].as<int>(), 10);  // kept
+    ASSERT_EQUAL_(y["params"]["nested"]["y"].as<int>(), 222);  // overridden
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 12. `$import` of a missing file must throw
+// ---------------------------------------------------------------------------
+void test_parseImportMissingFile()
+{
+  mola::YAMLParseOptions opts;
+  opts.includesBasePath = MOLA_MODULE_SOURCE_DIR;
+
+  bool did_throw = false;
+  try
+  {
+    const std::string input = "p:\n  $import: this_file_does_not_exist_xyz.yaml\n";
+    const auto        y     = mola::parse_yaml(mrpt::containers::yaml::FromText(input), opts);
+    (void)y;
+  }
+  catch (const std::exception&)
+  {
+    did_throw = true;
+  }
+  ASSERT_(did_throw);
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -570,6 +650,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_parseMissingIncludeFile();
     test_parseVarsInLoadedFile();
     test_yaml2stringAdditional();
+    test_parseImportOverride();
+    test_parseImportMissingFile();
 
     std::cout << "Test successful.\n";
   }

@@ -1,0 +1,7 @@
+# top-level file exercising $import + overrides via load_yaml_file()
+---
+params:
+  $import: test_import_base.yaml
+  b: 42
+  nested:
+    y: 222

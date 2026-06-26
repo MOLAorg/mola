@@ -142,6 +142,60 @@ is replaced by the full contents of the referenced file.
          $include{my_params.yaml}   # ← my_params.yaml contributes all keys here
 
 
+.. _yaml_import:
+
+Import a base file and override entries: ``$import``
+------------------------------------------------------
+
+While ``$include{}`` replaces a *whole* node with the contents of a file, the
+``$import`` **map key** lets you load a file as a **base** and then **override**
+only a few of its entries inline.  A map containing an ``$import`` key is
+replaced by the **deep-merge** of the imported file(s) with the map's
+*remaining* keys overlaid on top:
+
+- The ``$import`` value is either a single file path (scalar) or a **sequence**
+  of paths.  When several files are given, they are merged in order, so a later
+  file overrides an earlier one.
+- The **sibling** keys of ``$import`` are then overlaid and therefore **override**
+  the imported base.  Nested maps are merged **deeply**, so you can override a
+  single deep key without restating its whole subtree; scalars and sequences are
+  replaced wholesale.
+- Paths follow the same rules as ``$include{}`` (absolute or relative to the
+  current file's directory; the path expression itself is pre-processed by the
+  ``$()`` / ``${}`` passes), and the same **circular-reference detection** applies.
+
+This is the recommended way to share a common parameter block across several
+near-identical launch files while tweaking just a few values, instead of
+duplicating the whole block:
+
+.. code-block:: yaml
+
+    modules:
+      - type: CLASS_NAME1
+        name: instance1
+        params:
+          $import: shared-params.yaml   # base (a path, or a sequence of paths)
+          max_rate_hz: 10.0             # override a single entry of the base
+          nested:
+            gain: 2.0                   # deep-override one nested key (siblings kept)
+
+Equivalent multi-file base, where ``overrides.yaml`` wins over ``base.yaml``:
+
+.. code-block:: yaml
+
+    params:
+      $import:
+        - base.yaml
+        - overrides.yaml
+      extra_key: 123                    # still overrides both imported files
+
+.. note::
+
+   ``$import`` is resolved in the same (first) pass as ``$include{}``.  Use
+   ``$include{}`` when a node *is* the file; use ``$import`` when you want the
+   file as a base **plus** local overrides.
+
+
 .. _yaml_cmd:
 
 Run an external command: ``$(command)``
@@ -267,6 +321,10 @@ when a token falls inside a comment:
      - Contents of ``path``
      - 1st
      - Left verbatim
+   * - ``$import`` (map key)
+     - Imported file(s), with sibling keys overriding
+     - 1st
+     - n/a (a map key, not a scalar token)
    * - ``$(command)``
      - stdout of ``command``
      - 2nd
@@ -289,13 +347,13 @@ Debugging pre-processing
 --------------------------
 
 Set the environment variable ``VERBOSE=1`` before launching any MOLA
-executable to print each ``$include{}`` directive as it is resolved:
+executable to print each external file (``$include{}`` or ``$import``) as it is
+resolved:
 
 .. code-block:: bash
 
     VERBOSE=1 ros2 launch my_slam_system slam.launch.py
 
-Each include prints a line of the form::
+Each resolved file prints a line of the form::
 
-    [mola::parse_yaml] $include{ "/absolute/path/to/file.yaml" }
-    [mola::parse_yaml] $include done: "/absolute/path/to/file.yaml"
+    [mola::parse_yaml] loading external YAML: "/absolute/path/to/file.yaml"

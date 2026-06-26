@@ -352,6 +352,104 @@ struct IncludeGuard
 };
 
 /**
+ * Recursively deep-merge `overlay` on top of `base` (in place).
+ *
+ *  - When both nodes are maps, keys are merged recursively: a key present only
+ *    in `overlay` is added; a key present in both is merged by recursing.
+ *  - For any other combination (scalar, sequence, or type mismatch), `overlay`
+ *    REPLACES `base` wholesale.
+ *
+ * This is the override semantics of the `$import` directive: sibling entries
+ * override the imported base, and nested maps are merged deeply so a single
+ * deep key can be overridden without restating its whole subtree.
+ */
+void deepMergeNode(yaml::node_t& base, const yaml::node_t& overlay)
+{
+  if (base.isMap() && overlay.isMap())
+  {
+    auto& baseMap = base.asMap();
+    for (const auto& [key, value] : overlay.asMap())
+    {
+      if (auto it = baseMap.find(key); it != baseMap.end())
+      {
+        deepMergeNode(it->second, value);
+      }
+      else
+      {
+        baseMap[key] = value;
+      }
+    }
+  }
+  else
+  {
+    base = overlay;
+  }
+}
+
+/**
+ * Resolve `pathExpr` (which may itself contain `${}` / `$()` expressions and be
+ * a relative path) and load + fully pre-process the referenced YAML file,
+ * returning the resulting node.
+ *
+ * Shared by the `$include{path}` scalar directive (whole-node replacement) and
+ * the `$import` map directive (structural merge). Relative paths resolve against
+ * `opts.includesBasePath`; nested includes/imports inside the loaded file
+ * resolve against that file's own directory. Circular references are detected
+ * via the thread-local `g_activeIncludes` stack.
+ */
+[[nodiscard]] yaml::node_t loadExternalYaml(
+    const std::string& pathExpr, const mola::YAMLParseOptions& opts)
+{
+  // Resolve any variable/command expressions inside the path itself.
+  std::string expr = trimWSNL(mola::parse_yaml(pathExpr, opts));
+
+  // Resolve relative paths against the current include base.
+  if (!opts.includesBasePath.empty())
+  {
+    fs::path p = expr;
+    if (p.is_relative())
+    {
+      p    = fs::path(opts.includesBasePath) / p;
+      expr = p.string();
+    }
+  }
+
+  // Derive the nested base dir from the resolved path so that relative
+  // includes/imports inside the loaded file resolve relative to its own dir.
+  const std::string newIncludeBaseDir = fs::path(expr).remove_filename().string();
+
+  if (!mrpt::system::fileExists(expr))
+  {
+    THROW_EXCEPTION_FMT("Cannot find referenced YAML file: `%s`", expr.c_str());
+  }
+
+  // Detect circular references via the active include/import chain.
+  const std::string canonicalExpr = fs::weakly_canonical(fs::path(expr)).string();
+  for (const auto& active : g_activeIncludes)
+  {
+    if (active == canonicalExpr)
+    {
+      THROW_EXCEPTION_FMT(
+          "Circular include/import detected: `%s` is already being processed",
+          canonicalExpr.c_str());
+    }
+  }
+  IncludeGuard includeGuard(canonicalExpr);
+
+  if (::getenv("VERBOSE") != nullptr)
+  {
+    std::cout << "[mola::parse_yaml] loading external YAML: \"" << expr << "\"\n";
+  }
+
+  const auto filData = yaml::FromFile(expr);
+
+  auto nestedOpts             = opts;
+  nestedOpts.includesBasePath = newIncludeBaseDir;
+
+  return yaml::FromText(mola::parse_yaml(mola::yaml_to_string(filData), nestedOpts)).node();
+}
+
+/**
  * Recursively walk a `yaml::node_t` tree and expand any scalar nodes whose
  * text matches `$include{path}`.
  *
@@ -386,68 +484,10 @@ void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opt
           static_cast<unsigned int>(tokenStart), text.c_str());
     }
 
-    // Resolve any variable/command expressions inside the path itself
-    std::string expr = text.substr(exprStart, exprEnd - exprStart);
-    expr             = trimWSNL(mola::parse_yaml(expr, opts));  // pass opts!
-
-    // Resolve relative paths against the current include base.
-    if (!opts.includesBasePath.empty())
-    {
-      fs::path p = expr;
-      if (p.is_relative())
-      {
-        p    = fs::path(opts.includesBasePath) / p;
-        expr = p.string();
-      }
-    }
-
-    // Always derive the nested base dir from the resolved (possibly absolute)
-    // expr, not from the parent's base path.  This ensures that nested
-    // relative $include{} directives inside the included file resolve relative
-    // to *that* file's own directory, regardless of whether expr was absolute
-    // or relative from the caller's perspective.
-    const std::string newIncludeBaseDir = fs::path(expr).remove_filename().string();
-
-    if (!mrpt::system::fileExists(expr))
-    {
-      THROW_EXCEPTION_FMT("Cannot find $include{}'d YAML file: `%s`", expr.c_str());
-    }
-
-    // Detect circular includes: resolve to a canonical path and check whether
-    // it is already in the active include chain for this thread.
-    const std::string canonicalExpr = fs::weakly_canonical(fs::path(expr)).string();
-
-    for (const auto& active : g_activeIncludes)
-    {
-      if (active == canonicalExpr)
-      {
-        THROW_EXCEPTION_FMT(
-            "Circular $include{} detected: `%s` is already being included", canonicalExpr.c_str());
-      }
-    }
-
-    // Push this file onto the active-include stack; popped automatically on
-    // scope exit (including exception unwind) via IncludeGuard.
-    IncludeGuard includeGuard(canonicalExpr);
-
-    if (::getenv("VERBOSE"))
-    {
-      std::cout << "[mola::parse_yaml] $include{ \"" << expr << "\" }\n";
-    }
-
-    // Load the file, update the base path for nested includes, pre-process
-    // the included content, then replace the current node.
-    const auto filData = yaml::FromFile(expr);
-
-    auto nestedOpts             = opts;
-    nestedOpts.includesBasePath = newIncludeBaseDir;
-
-    n = yaml::FromText(mola::parse_yaml(mola::yaml_to_string(filData), nestedOpts));
-
-    if (::getenv("VERBOSE"))
-    {
-      std::cout << "[mola::parse_yaml] $include done: \"" << expr << "\"\n";
-    }
+    // Load + fully pre-process the referenced file, then REPLACE this node with
+    // the loaded content (whole-node substitution).
+    const std::string expr = text.substr(exprStart, exprEnd - exprStart);
+    n                      = loadExternalYaml(expr, opts);
   }
   else if (n.isSequence())
   {
@@ -458,7 +498,66 @@ void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opt
   }
   else if (n.isMap())
   {
-    for (auto& [key, value] : n.asMap())
+    auto& m = n.asMap();
+
+    // `$import` directive: a map whose `$import` key names one (scalar) or
+    // several (sequence) external YAML files is REPLACED by the deep-merge of
+    // those files (in listed order) with the map's REMAINING keys overlaid on
+    // top. So the imported file(s) act as a base, and the sibling entries
+    // OVERRIDE particular entries (nested maps merge deeply; scalars/sequences
+    // replace). This is what lets `params:` reference a shared file and then
+    // tweak just a few keys, instead of duplicating the whole block.
+    // NOTE: parens-init (NOT braces): `node_t{std::string}` would bind to the
+    // initializer_list<node_t> constructor and build a 1-element SEQUENCE node
+    // instead of a scalar, which then throws in operator<'s internalAsStr().
+    const yaml::node_t importKey(std::string("$import"));
+    if (const auto itImport = m.find(importKey); itImport != m.end())
+    {
+      std::vector<std::string> importPaths;
+      const auto&              importVal = itImport->second;
+      if (importVal.isScalar())
+      {
+        importPaths.push_back(importVal.as<std::string>());
+      }
+      else if (importVal.isSequence())
+      {
+        for (const auto& element : importVal.asSequence())
+        {
+          importPaths.push_back(element.as<std::string>());
+        }
+      }
+      else
+      {
+        THROW_EXCEPTION("`$import` value must be a file path string or a sequence of paths.");
+      }
+
+      // Base: deep-merge of the imported file(s), in the order listed.
+      yaml::node_t merged = yaml::Map();
+      for (const auto& path : importPaths)
+      {
+        const yaml::node_t loaded = loadExternalYaml(path, opts);
+        deepMergeNode(merged, loaded);
+      }
+
+      // Overlay: the remaining sibling keys (recursively pre-processed first),
+      // which override the imported base.
+      for (auto& [key, value] : m)
+      {
+        if (key.isScalar() && key.as<std::string>() == "$import")
+        {
+          continue;
+        }
+        recursiveProcessIncludes(value, opts);
+        yaml::node_t single = yaml::Map();
+        single.asMap()[key] = value;
+        deepMergeNode(merged, single);
+      }
+
+      n = merged;
+      return;
+    }
+
+    for (auto& [key, value] : m)
     {
       recursiveProcessIncludes(value, opts);
     }

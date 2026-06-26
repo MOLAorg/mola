@@ -1,0 +1,10 @@
+# base params for $import override tests
+---
+a: 1
+b: 2
+nested:
+  x: 10
+  y: 20
+list:
+  - p
+  - q

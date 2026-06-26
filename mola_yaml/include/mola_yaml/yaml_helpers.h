@@ -47,7 +47,17 @@ namespace mola
  * Pre-processing is performed in the following fixed order:
  *  1. **`$include{path}`** - replaced with the contents of the referenced
  *     YAML file (recursive; relative paths resolved against
- *     `includesBasePath`).
+ *     `includesBasePath`). In the SAME pass, the **`$import`** map directive is
+ *     also resolved: a map whose `$import` key names one (scalar) or several
+ *     (sequence) external YAML files is replaced by the deep-merge of those
+ *     file(s) with the map's REMAINING keys overlaid on top, so the sibling
+ *     entries OVERRIDE particular entries of the imported base (nested maps
+ *     merge deeply; scalars/sequences replace). Example:
+ *     ```
+ *     params:
+ *       $import: shared-params.yaml   # base (a path, or a sequence of paths)
+ *       max_rate_hz: 10.0             # override one entry of the imported base
+ *     ```
  *  2. **`$(cmd)`** - replaced with the trimmed stdout of the shell command
  *     `cmd` (exit code ≠ 0 throws).
  *  3. **`${VAR}`** or **`${VAR|default}`** - replaced with the value of
