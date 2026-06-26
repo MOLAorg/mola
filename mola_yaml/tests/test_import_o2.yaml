@@ -1,0 +1,4 @@
+# second overlay file for $import sequence tests (overlaps test1.yaml's `b`)
+---
+b: 777
+e: 5
