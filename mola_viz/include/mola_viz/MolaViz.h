@@ -112,6 +112,12 @@ class MolaViz : public ExecutableBase, public VizInterface
   std::future<bool> update_3d_object(
       const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
       const std::string& viewportName = "main",
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME,
+      const std::string& parentFrame  = "") override;
+
+  std::future<bool> update_3d_object_frame(
+      const std::string& frameName, const mrpt::math::TPose3D& pose,
+      const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> insert_point_cloud_with_decay(
@@ -269,6 +275,11 @@ class MolaViz : public ExecutableBase, public VizInterface
   std::map<window_name_t, std::map<subwindow_name_t, nanogui::Window*>> subWindows_;
 
   mrpt::gui::CDisplayWindowGUI::Ptr create_and_add_window(const window_name_t& name);
+
+  /** Get-or-create a movable reference-frame node (a named CSetOfObjects at
+   *  the viewport root). GUI-thread only. \sa update_3d_object_frame() */
+  static std::shared_ptr<mrpt::opengl::CSetOfObjects> get_or_create_frame_node_(
+      mrpt::opengl::Scene& scene, const std::string& frameName, const std::string& viewportName);
 
   mutable std::shared_mutex subWindowsMtx_;
 

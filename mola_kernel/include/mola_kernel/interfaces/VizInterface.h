@@ -30,6 +30,7 @@
 #include <mrpt/containers/yaml_frwd.h>
 #include <mrpt/math/TPoint2D.h>
 #include <mrpt/math/TPoint3D.h>
+#include <mrpt/math/TPose3D.h>
 #include <mrpt/opengl/opengl_frwds.h>
 #include <mrpt/rtti/CObject.h>
 
@@ -44,6 +45,13 @@
 namespace nanogui { class Window; }
 // clang-format on
 // ---------------------------------------------------------------------------
+
+/** Feature macro: when defined, VizInterface offers update_3d_object_frame()
+ *  and the `parentFrame` argument of update_3d_object(), i.e. named movable
+ *  reference-frame nodes that child objects can be attached to.  Lets
+ *  out-of-repo modules (e.g. an older mola_lidar_odometry checkout) detect the
+ *  feature at compile time. */
+#define MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES 1
 
 namespace mola
 {
@@ -208,10 +216,43 @@ class VizInterface
    * \param obj            Object to display.
    * \param viewportName   Viewport inside the parent window.
    * \param parentWindow   Host window name.
+   * \param parentFrame    Optional name of a movable reference-frame node
+   *                       previously created via update_3d_object_frame().
+   *                       When non-empty, the object is attached as a child of
+   *                       that frame (so moving the frame moves the object
+   *                       without re-rendering it); the frame node is
+   *                       auto-created at the identity pose if it does not
+   *                       exist yet.  Empty (default) attaches to the viewport
+   *                       root, as before.
    * \return               future<bool>; resolves to true when executed.
    */
   virtual std::future<bool> update_3d_object(
       const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+      const std::string& viewportName = "main", const std::string& parentWindow = "main",
+      const std::string& parentFrame = "") = 0;
+
+  /**
+   * \brief Creates or repositions a named movable "reference frame" node.
+   *
+   * A frame node is an (initially empty) container placed at the viewport
+   * root.  Objects can be attached to it via the `parentFrame` argument of
+   * update_3d_object(); moving the frame then relocates all attached objects
+   * at once, without re-uploading their geometry.  This is how a back end such
+   * as mola_mapper_3d keeps a front end's dense clouds / local map (drawn once
+   * in its own `{odom_i}` frame) correctly placed in `{map}` as it estimates
+   * the `T_map_to_odom_i` transform online.
+   *
+   * Idempotent: the first call creates the node; later calls only update its
+   * pose, preserving any already-attached children.
+   *
+   * \param frameName    Name of the frame node (upsert key). Must be non-empty.
+   * \param pose         Pose of the frame in the viewport (i.e. in `{map}`).
+   * \param viewportName Viewport inside the parent window.
+   * \param parentWindow Host window name.
+   * \return             future<bool>; resolves to true when executed.
+   */
+  virtual std::future<bool> update_3d_object_frame(
+      const std::string& frameName, const mrpt::math::TPose3D& pose,
       const std::string& viewportName = "main", const std::string& parentWindow = "main") = 0;
 
   /**

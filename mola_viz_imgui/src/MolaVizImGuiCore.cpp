@@ -626,12 +626,34 @@ std::future<std::optional<std::string>> MolaVizImGuiCore::open_file_dialog(
 // VizInterface: 3-D scene API
 // ---------------------------------------------------------------------------
 
+namespace
+{
+/** Get-or-create a movable reference-frame node (a named CSetOfObjects at the
+ *  viewport root). Caller must already hold the scene mutex. */
+mrpt::opengl::CSetOfObjects::Ptr getOrCreateFrameNode(
+    mrpt::opengl::COpenGLScene& scene, const std::string& frameName,
+    const std::string& viewportName)
+{
+  mrpt::opengl::CSetOfObjects::Ptr frameNode;
+  if (auto o = scene.getByName(frameName, viewportName); o)
+    frameNode = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+  if (!frameNode)
+  {
+    frameNode = mrpt::opengl::CSetOfObjects::Create();
+    frameNode->setName(frameName);
+    scene.insert(frameNode, viewportName);
+  }
+  return frameNode;
+}
+}  // namespace
+
 std::future<bool> MolaVizImGuiCore::update_3d_object(
     const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
-    const std::string& viewportName, const std::string& parentWindow)
+    const std::string& viewportName, const std::string& parentWindow,
+    const std::string& parentFrame)
 {
   auto task = std::make_shared<std::packaged_task<bool()>>(
-      [this, objName, obj, viewportName, parentWindow]()
+      [this, objName, obj, viewportName, parentWindow, parentFrame]()
       {
         auto it = windows_.find(parentWindow);
         if (it == windows_.end()) return false;
@@ -640,18 +662,79 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
         std::lock_guard lk(it->second.background_scene_mtx);
 
         mrpt::opengl::CSetOfObjects::Ptr container;
-        if (auto o = scene->getByName(objName, viewportName); o)
-          container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
-        if (!container)
+        if (parentFrame.empty())
         {
-          // Either the name was unused, or an object of a different type is
-          // stored under it; (re)create a CSetOfObjects (insert overwrites by
-          // name) so we never dereference a null container below.
-          container = mrpt::opengl::CSetOfObjects::Create();
-          scene->insert(container, viewportName);
+          // Non-recursive search: only direct children of the viewport root,
+          // so objects nested inside frame nodes are not falsely matched.
+          if (auto vp = scene->getViewport(viewportName); vp)
+          {
+            for (const auto& o : *vp)
+            {
+              if (o->getName() == objName)
+              {
+                container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+                break;
+              }
+            }
+          }
+          if (!container)
+          {
+            // Not at root. Evict from any frame node it may live in, then
+            // create a fresh container at the viewport root.
+            if (auto o = scene->getByName(objName, viewportName); o)
+            {
+              scene->removeObject(o, viewportName);
+            }
+            container = mrpt::opengl::CSetOfObjects::Create();
+            scene->insert(container, viewportName);
+          }
+        }
+        else
+        {
+          // Attach as a child of the named movable frame node:
+          auto frameNode = getOrCreateFrameNode(*scene, parentFrame, viewportName);
+          if (auto o = frameNode->getByName(objName); o)
+          {
+            container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+          }
+          if (!container)
+          {
+            // Not in this frame. Evict from root or another frame before
+            // inserting here (removeObject searches recursively).
+            if (auto o = scene->getByName(objName, viewportName); o)
+            {
+              scene->removeObject(o, viewportName);
+            }
+            container = mrpt::opengl::CSetOfObjects::Create();
+            frameNode->insert(container);
+          }
         }
         *container = *obj;
         container->setName(objName);
+        return true;
+      });
+
+  std::lock_guard lk(guiThreadPendingTasksMtx_);
+  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+  return task->get_future();
+}
+
+std::future<bool> MolaVizImGuiCore::update_3d_object_frame(
+    const std::string& frameName, const mrpt::math::TPose3D& pose, const std::string& viewportName,
+    const std::string& parentWindow)
+{
+  auto task = std::make_shared<std::packaged_task<bool()>>(
+      [this, frameName, pose, viewportName, parentWindow]()
+      {
+        ASSERT_(!frameName.empty());
+        auto it = windows_.find(parentWindow);
+        if (it == windows_.end()) return false;
+
+        auto&           scene = it->second.background_scene;
+        std::lock_guard lk(it->second.background_scene_mtx);
+
+        auto frameNode = getOrCreateFrameNode(*scene, frameName, viewportName);
+        frameNode->setPose(pose);
         return true;
       });
 

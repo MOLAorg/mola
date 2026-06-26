@@ -146,9 +146,18 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   std::future<bool> update_3d_object(
       const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
       const std::string& viewportName = "main",
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME,
+      const std::string& parentFrame  = "") override
+  {
+    return core_ptr_->update_3d_object(objName, obj, viewportName, parentWindow, parentFrame);
+  }
+
+  std::future<bool> update_3d_object_frame(
+      const std::string& frameName, const mrpt::math::TPose3D& pose,
+      const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
-    return core_ptr_->update_3d_object(objName, obj, viewportName, parentWindow);
+    return core_ptr_->update_3d_object_frame(frameName, pose, viewportName, parentWindow);
   }
 
   std::future<bool> insert_point_cloud_with_decay(
