@@ -1698,12 +1698,13 @@ std::future<bool> MolaViz::subwindow_update_visualization(
 
 std::future<bool> MolaViz::update_3d_object(
     const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
-    const std::string& viewportName, const std::string& parentWindow)
+    const std::string& viewportName, const std::string& parentWindow,
+    const std::string& parentFrame)
 {
   using return_type = bool;
 
   auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [this, objName, obj, viewportName, parentWindow]()
+      [this, objName, obj, viewportName, parentWindow, parentFrame]()
       {
         MRPT_LOG_DEBUG_STREAM("update_3d_object() objName='" << objName << "'");
 
@@ -1713,19 +1714,104 @@ std::future<bool> MolaViz::update_3d_object(
         ASSERT_(topWin->background_scene);
 
         mrpt::opengl::CSetOfObjects::Ptr glContainer;
-        if (auto o = topWin->background_scene->getByName(objName, viewportName); o)
+        auto&                            scene = *topWin->background_scene;
+        if (parentFrame.empty())
         {
-          glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
-          ASSERT_(glContainer);
+          // Non-recursive search: only direct children of the viewport root,
+          // so objects nested inside frame nodes are not falsely matched.
+          if (auto vp = scene.getViewport(viewportName); vp)
+          {
+            for (const auto& o : *vp)
+            {
+              if (o->getName() == objName)
+              {
+                glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+                break;
+              }
+            }
+          }
+          if (!glContainer)
+          {
+            // Not at root. Evict from any frame node it may live in, then
+            // create a fresh container at the viewport root.
+            if (auto o = scene.getByName(objName, viewportName); o)
+            {
+              scene.removeObject(o, viewportName);
+            }
+            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            scene.insert(glContainer, viewportName);
+          }
         }
         else
         {
-          glContainer = mrpt::opengl::CSetOfObjects::Create();
-          topWin->background_scene->insert(glContainer, viewportName);
+          // Attach as a child of the named movable frame node, auto-creating
+          // the frame at the identity pose if it does not exist yet:
+          auto frameNode = get_or_create_frame_node_(scene, parentFrame, viewportName);
+          if (auto o = frameNode->getByName(objName); o)
+          {
+            glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+          }
+          if (!glContainer)
+          {
+            // Not in this frame. Evict from root or another frame before
+            // inserting here (removeObject searches recursively).
+            if (auto o = scene.getByName(objName, viewportName); o)
+            {
+              scene.removeObject(o, viewportName);
+            }
+            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            frameNode->insert(glContainer);
+          }
         }
 
         *glContainer = *obj;
         glContainer->setName(objName);
+        return true;
+      });
+
+  auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+  guiThreadMustReLayoutTheseWindows_.insert(parentWindow);
+  return task->get_future();
+}
+
+mrpt::opengl::CSetOfObjects::Ptr MolaViz::get_or_create_frame_node_(
+    mrpt::opengl::Scene& scene, const std::string& frameName, const std::string& viewportName)
+{
+  // Called from the GUI thread only.
+  mrpt::opengl::CSetOfObjects::Ptr frameNode;
+  if (auto o = scene.getByName(frameName, viewportName); o)
+  {
+    frameNode = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+    ASSERT_(frameNode);
+  }
+  else
+  {
+    frameNode = mrpt::opengl::CSetOfObjects::Create();
+    frameNode->setName(frameName);
+    scene.insert(frameNode, viewportName);
+  }
+  return frameNode;
+}
+
+std::future<bool> MolaViz::update_3d_object_frame(
+    const std::string& frameName, const mrpt::math::TPose3D& pose, const std::string& viewportName,
+    const std::string& parentWindow)
+{
+  using return_type = bool;
+
+  auto task = std::make_shared<std::packaged_task<return_type()>>(
+      [this, frameName, pose, viewportName, parentWindow]()
+      {
+        ASSERT_(!frameName.empty());
+        ASSERT_(windows_.count(parentWindow));
+        auto topWin = windows_.at(parentWindow).win;
+        ASSERT_(topWin);
+        ASSERT_(topWin->background_scene);
+
+        auto frameNode =
+            get_or_create_frame_node_(*topWin->background_scene, frameName, viewportName);
+        frameNode->setPose(pose);
         return true;
       });
 

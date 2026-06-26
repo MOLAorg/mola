@@ -199,6 +199,12 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   std::future<bool> update_3d_object(
       const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
       const std::string& viewportName = "main",
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME,
+      const std::string& parentFrame  = "") override;
+
+  std::future<bool> update_3d_object_frame(
+      const std::string& frameName, const mrpt::math::TPose3D& pose,
+      const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> insert_point_cloud_with_decay(
