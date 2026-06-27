@@ -1824,12 +1824,12 @@ std::future<bool> MolaViz::update_3d_object_frame(
 std::future<bool> MolaViz::insert_point_cloud_with_decay(
     const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud,
     const double decay_time_seconds, const std::string& viewportName,
-    const std::string& parentWindow)
+    const std::string& parentWindow, const std::string& parentFrame)
 {
   using return_type = bool;
 
   auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [this, cloud, decay_time_seconds, viewportName, parentWindow]()
+      [this, cloud, decay_time_seconds, viewportName, parentWindow, parentFrame]()
       {
         if (!cloud || cloud->empty())
         {
@@ -1843,16 +1843,35 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
         ASSERT_(topWin->background_scene);
 
         mrpt::opengl::CSetOfObjects::Ptr glContainer;
-        if (auto o = topWin->background_scene->getByName(DECAY_CLOUDS_NAME, viewportName); o)
+        if (parentFrame.empty())
         {
-          glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
-          ASSERT_(glContainer);
+          if (auto o = topWin->background_scene->getByName(DECAY_CLOUDS_NAME, viewportName); o)
+          {
+            glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            ASSERT_(glContainer);
+          }
+          else
+          {
+            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            topWin->background_scene->insert(glContainer, viewportName);
+            glContainer->setName(DECAY_CLOUDS_NAME);
+          }
         }
         else
         {
-          glContainer = mrpt::opengl::CSetOfObjects::Create();
-          topWin->background_scene->insert(glContainer, viewportName);
-          glContainer->setName(DECAY_CLOUDS_NAME);
+          auto frameNode =
+              get_or_create_frame_node_(*topWin->background_scene, parentFrame, viewportName);
+          if (auto o = frameNode->getByName(DECAY_CLOUDS_NAME); o)
+          {
+            glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            ASSERT_(glContainer);
+          }
+          else
+          {
+            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            glContainer->setName(DECAY_CLOUDS_NAME);
+            frameNode->insert(glContainer);
+          }
         }
 
         glContainer->insert(cloud);
@@ -1863,11 +1882,15 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
 
         const float initial_alpha = mrpt::u8tof(cloud->shaderPointsVertexColorBuffer().at(0).A);
         winData.decaying_clouds.emplace_back(viewportName, cloud, initial_alpha);
+        winData.decaying_clouds.back().container = glContainer;
 
         while (winData.decaying_clouds.size() > maxScans)
         {
           auto& oldest = winData.decaying_clouds.front();
-          glContainer->removeObject(oldest.cloud);
+          if (oldest.container)
+          {
+            oldest.container->removeObject(oldest.cloud);
+          }
           winData.decaying_clouds.pop_front();
         }
         return true;
@@ -1921,20 +1944,38 @@ std::future<bool> MolaViz::clear_all_point_clouds_with_decay(
 // ---------------------------------------------------------------------------
 
 std::future<bool> MolaViz::update_viewport_look_at(
-    const mrpt::math::TPoint3Df& lookAt, [[maybe_unused]] const std::string& viewportName,
-    const std::string& parentWindow)
+    const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName,
+    const std::string& parentWindow, const std::string& parentFrame)
 {
   using return_type = bool;
 
   auto task = std::make_shared<std::packaged_task<return_type()>>(
-      [this, lookAt, parentWindow]()
+      [this, lookAt, viewportName, parentWindow, parentFrame]()
       {
-        MRPT_LOG_DEBUG_STREAM("update_viewport_look_at() lookAt=" << lookAt.asString());
         ASSERT_(windows_.count(parentWindow));
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
         ASSERT_(topWin->background_scene);
-        topWin->camera().setCameraPointing(lookAt.x, lookAt.y, lookAt.z);
+
+        mrpt::math::TPoint3Df worldLookAt = lookAt;
+        if (!parentFrame.empty())
+        {
+          if (auto o = topWin->background_scene->getByName(parentFrame, viewportName); o)
+          {
+            const auto worldPt =
+                mrpt::poses::CPose3D(o->getPose())
+                    .composePoint(mrpt::math::TPoint3D(lookAt.x, lookAt.y, lookAt.z));
+            worldLookAt = {
+                static_cast<float>(worldPt.x), static_cast<float>(worldPt.y),
+                static_cast<float>(worldPt.z)};
+          }
+          else
+          {
+            return false;  // frame node not in scene yet; skip camera update
+          }
+        }
+        MRPT_LOG_DEBUG_STREAM("update_viewport_look_at() lookAt=" << worldLookAt.asString());
+        topWin->camera().setCameraPointing(worldLookAt.x, worldLookAt.y, worldLookAt.z);
         return true;
       });
 

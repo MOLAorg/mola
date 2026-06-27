@@ -123,7 +123,8 @@ class MolaViz : public ExecutableBase, public VizInterface
   std::future<bool> insert_point_cloud_with_decay(
       const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
       const std::string& viewportName = "main",
-      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME,
+      const std::string& parentFrame  = "") override;
 
   std::future<bool> clear_all_point_clouds_with_decay(
       const std::string& viewportName = "main",
@@ -131,7 +132,8 @@ class MolaViz : public ExecutableBase, public VizInterface
 
   std::future<bool> update_viewport_look_at(
       const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName = "main",
-      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME,
+      const std::string& parentFrame  = "") override;
 
   std::future<bool> update_viewport_camera_azimuth(
       double azimuth, bool absolute_falseForRelative = true,
@@ -260,7 +262,8 @@ class MolaViz : public ExecutableBase, public VizInterface
 
     std::string                                        opengl_viewport_name;
     std::shared_ptr<mrpt::opengl::CPointCloudColoured> cloud;
-    float                                              initial_alpha = 1.0f;
+    mrpt::opengl::CSetOfObjects::Ptr container;  // owning container at insert time
+    float                            initial_alpha = 1.0f;
   };
 
   struct PerWindowData

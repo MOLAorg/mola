@@ -47,10 +47,11 @@ namespace nanogui { class Window; }
 // ---------------------------------------------------------------------------
 
 /** Feature macro: when defined, VizInterface offers update_3d_object_frame()
- *  and the `parentFrame` argument of update_3d_object(), i.e. named movable
- *  reference-frame nodes that child objects can be attached to.  Lets
- *  out-of-repo modules (e.g. an older mola_lidar_odometry checkout) detect the
- *  feature at compile time. */
+ *  and the `parentFrame` argument of update_3d_object(),
+ *  insert_point_cloud_with_decay(), and update_viewport_look_at(), i.e. named
+ *  movable reference-frame nodes that child objects / camera targets can be
+ *  resolved against.  Lets out-of-repo modules (e.g. an older
+ *  mola_lidar_odometry checkout) detect the feature at compile time. */
 #define MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES 1
 
 namespace mola
@@ -262,11 +263,15 @@ class VizInterface
    * \param decay_time_seconds Lifetime in seconds before the cloud fades out.
    * \param viewportName       Target viewport.
    * \param parentWindow       Host window name.
+   * \param parentFrame        If non-empty, the cloud is attached as a child of
+   *                           the named movable frame node (same semantics as
+   *                           the parentFrame argument of update_3d_object()).
    * \return                   future<bool> resolving to true when executed.
    */
   virtual std::future<bool> insert_point_cloud_with_decay(
       const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
-      const std::string& viewportName = "main", const std::string& parentWindow = "main") = 0;
+      const std::string& viewportName = "main", const std::string& parentWindow = "main",
+      const std::string& parentFrame = "") = 0;
 
   /**
    * \brief Removes all clouds previously inserted with
@@ -275,10 +280,20 @@ class VizInterface
   virtual std::future<bool> clear_all_point_clouds_with_decay(
       const std::string& viewportName = "main", const std::string& parentWindow = "main") = 0;
 
-  /** Moves the viewport camera look-at point. */
+  /**
+   * \brief Moves the viewport camera look-at point.
+   *
+   * \param lookAt       Target point in the local coordinate frame of
+   *                     `parentFrame` (if given) or in world/scene space.
+   * \param parentFrame  If non-empty, the backend looks up the named movable
+   *                     frame node, applies its current scene pose to `lookAt`,
+   *                     and uses the resulting world-space point as the target.
+   *                     This makes the camera follow a vehicle rendered under
+   *                     a frame node rather than chasing its odom-frame coords.
+   */
   virtual std::future<bool> update_viewport_look_at(
       const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName = "main",
-      const std::string& parentWindow = "main") = 0;
+      const std::string& parentWindow = "main", const std::string& parentFrame = "") = 0;
 
   /**
    * \brief Rotates the viewport camera around the vertical axis.
