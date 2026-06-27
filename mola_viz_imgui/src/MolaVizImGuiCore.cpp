@@ -780,10 +780,11 @@ std::future<bool> MolaVizImGuiCore::clear_background_scene(
 
 std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
     const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
-    const std::string& viewportName, const std::string& parentWindow)
+    const std::string& viewportName, const std::string& parentWindow,
+    const std::string& parentFrame)
 {
   auto task = std::make_shared<std::packaged_task<bool()>>(
-      [this, cloud, decay_time_seconds, viewportName, parentWindow]()
+      [this, cloud, decay_time_seconds, viewportName, parentWindow, parentFrame]()
       {
         if (!cloud || cloud->empty()) return true;
 
@@ -796,15 +797,28 @@ std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
         std::lock_guard       lk(wd.background_scene_mtx);
 
         mrpt::opengl::CSetOfObjects::Ptr container;
-        if (auto o = wd.background_scene->getByName(DECAY_NAME, viewportName); o)
-          container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
-        if (!container)
+        if (parentFrame.empty())
         {
-          // Either the reserved name was never used, or someone inserted a
-          // non-CSetOfObjects under it.  Recreate fresh (overwrites by name).
-          container = mrpt::opengl::CSetOfObjects::Create();
-          wd.background_scene->insert(container, viewportName);
-          container->setName(DECAY_NAME);
+          if (auto o = wd.background_scene->getByName(DECAY_NAME, viewportName); o)
+            container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+          if (!container)
+          {
+            container = mrpt::opengl::CSetOfObjects::Create();
+            wd.background_scene->insert(container, viewportName);
+            container->setName(DECAY_NAME);
+          }
+        }
+        else
+        {
+          auto frameNode = getOrCreateFrameNode(*wd.background_scene, parentFrame, viewportName);
+          if (auto o = frameNode->getByName(DECAY_NAME); o)
+            container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+          if (!container)
+          {
+            container = mrpt::opengl::CSetOfObjects::Create();
+            container->setName(DECAY_NAME);
+            frameNode->insert(container);
+          }
         }
         container->insert(cloud);
 
@@ -856,18 +870,33 @@ std::future<bool> MolaVizImGuiCore::clear_all_point_clouds_with_decay(
 }
 
 std::future<bool> MolaVizImGuiCore::update_viewport_look_at(
-    const mrpt::math::TPoint3Df& lookAt, const std::string& /*viewportName*/,
-    const std::string&           parentWindow)
+    const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName,
+    const std::string&           parentWindow, const std::string& parentFrame)
 {
   auto task = std::make_shared<std::packaged_task<bool()>>(
-      [this, lookAt, parentWindow]()
+      [this, lookAt, viewportName, parentWindow, parentFrame]()
       {
         auto it = windows_.find(parentWindow);
         if (it == windows_.end()) return false;
-        auto& wd          = it->second;
-        wd.cam_look_at[0] = lookAt.x;
-        wd.cam_look_at[1] = lookAt.y;
-        wd.cam_look_at[2] = lookAt.z;
+        auto& wd = it->second;
+
+        mrpt::math::TPoint3Df worldLookAt = lookAt;
+        if (!parentFrame.empty())
+        {
+          std::lock_guard lk(wd.background_scene_mtx);
+          if (auto o = wd.background_scene->getByName(parentFrame, viewportName); o)
+          {
+            const auto worldPt = mrpt::poses::CPose3D(o->getPose()).composePoint(
+                mrpt::math::TPoint3D(lookAt.x, lookAt.y, lookAt.z));
+            worldLookAt = {
+                static_cast<float>(worldPt.x),
+                static_cast<float>(worldPt.y),
+                static_cast<float>(worldPt.z)};
+          }
+        }
+        wd.cam_look_at[0] = worldLookAt.x;
+        wd.cam_look_at[1] = worldLookAt.y;
+        wd.cam_look_at[2] = worldLookAt.z;
         wd.cam_dirty      = true;
         return true;
       });

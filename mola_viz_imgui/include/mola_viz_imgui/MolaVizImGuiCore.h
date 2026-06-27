@@ -210,7 +210,8 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   std::future<bool> insert_point_cloud_with_decay(
       const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
       const std::string& viewportName = "main",
-      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME,
+      const std::string& parentFrame  = "") override;
 
   std::future<bool> clear_all_point_clouds_with_decay(
       const std::string& viewportName = "main",
@@ -218,7 +219,8 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
 
   std::future<bool> update_viewport_look_at(
       const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName = "main",
-      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME,
+      const std::string& parentFrame  = "") override;
 
   std::future<bool> update_viewport_camera_azimuth(
       double azimuth, bool absolute_falseForRelative = true,
