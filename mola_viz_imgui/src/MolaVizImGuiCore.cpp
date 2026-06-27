@@ -832,10 +832,15 @@ std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
 
         const float alpha = mrpt::u8tof(cloud->shaderPointsVertexColorBuffer().at(0).A);
         wd.decaying_clouds.emplace_back(viewportName, cloud, alpha);
+        wd.decaying_clouds.back().container = container;
 
         while (wd.decaying_clouds.size() > maxScans)
         {
-          container->removeObject(wd.decaying_clouds.front().cloud);
+          auto& oldest = wd.decaying_clouds.front();
+          if (oldest.container)
+          {
+            oldest.container->removeObject(oldest.cloud);
+          }
           wd.decaying_clouds.pop_front();
         }
         return true;
@@ -871,7 +876,7 @@ std::future<bool> MolaVizImGuiCore::clear_all_point_clouds_with_decay(
 
 std::future<bool> MolaVizImGuiCore::update_viewport_look_at(
     const mrpt::math::TPoint3Df& lookAt, const std::string& viewportName,
-    const std::string&           parentWindow, const std::string& parentFrame)
+    const std::string& parentWindow, const std::string& parentFrame)
 {
   auto task = std::make_shared<std::packaged_task<bool()>>(
       [this, lookAt, viewportName, parentWindow, parentFrame]()
@@ -886,12 +891,16 @@ std::future<bool> MolaVizImGuiCore::update_viewport_look_at(
           std::lock_guard lk(wd.background_scene_mtx);
           if (auto o = wd.background_scene->getByName(parentFrame, viewportName); o)
           {
-            const auto worldPt = mrpt::poses::CPose3D(o->getPose()).composePoint(
-                mrpt::math::TPoint3D(lookAt.x, lookAt.y, lookAt.z));
+            const auto worldPt =
+                mrpt::poses::CPose3D(o->getPose())
+                    .composePoint(mrpt::math::TPoint3D(lookAt.x, lookAt.y, lookAt.z));
             worldLookAt = {
-                static_cast<float>(worldPt.x),
-                static_cast<float>(worldPt.y),
+                static_cast<float>(worldPt.x), static_cast<float>(worldPt.y),
                 static_cast<float>(worldPt.z)};
+          }
+          else
+          {
+            return false;  // frame node not in scene yet; skip camera update
           }
         }
         wd.cam_look_at[0] = worldLookAt.x;

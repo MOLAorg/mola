@@ -262,7 +262,8 @@ class MolaViz : public ExecutableBase, public VizInterface
 
     std::string                                        opengl_viewport_name;
     std::shared_ptr<mrpt::opengl::CPointCloudColoured> cloud;
-    float                                              initial_alpha = 1.0f;
+    mrpt::opengl::CSetOfObjects::Ptr container;  // owning container at insert time
+    float                            initial_alpha = 1.0f;
   };
 
   struct PerWindowData

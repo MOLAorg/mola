@@ -47,10 +47,11 @@ namespace nanogui { class Window; }
 // ---------------------------------------------------------------------------
 
 /** Feature macro: when defined, VizInterface offers update_3d_object_frame()
- *  and the `parentFrame` argument of update_3d_object() and
- *  insert_point_cloud_with_decay(), i.e. named movable reference-frame nodes
- *  that child objects can be attached to.  Lets out-of-repo modules (e.g. an
- *  older mola_lidar_odometry checkout) detect the feature at compile time. */
+ *  and the `parentFrame` argument of update_3d_object(),
+ *  insert_point_cloud_with_decay(), and update_viewport_look_at(), i.e. named
+ *  movable reference-frame nodes that child objects / camera targets can be
+ *  resolved against.  Lets out-of-repo modules (e.g. an older
+ *  mola_lidar_odometry checkout) detect the feature at compile time. */
 #define MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES 1
 
 namespace mola

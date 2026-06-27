@@ -1882,11 +1882,15 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
 
         const float initial_alpha = mrpt::u8tof(cloud->shaderPointsVertexColorBuffer().at(0).A);
         winData.decaying_clouds.emplace_back(viewportName, cloud, initial_alpha);
+        winData.decaying_clouds.back().container = glContainer;
 
         while (winData.decaying_clouds.size() > maxScans)
         {
           auto& oldest = winData.decaying_clouds.front();
-          glContainer->removeObject(oldest.cloud);
+          if (oldest.container)
+          {
+            oldest.container->removeObject(oldest.cloud);
+          }
           winData.decaying_clouds.pop_front();
         }
         return true;
@@ -1958,12 +1962,16 @@ std::future<bool> MolaViz::update_viewport_look_at(
         {
           if (auto o = topWin->background_scene->getByName(parentFrame, viewportName); o)
           {
-            const auto worldPt = mrpt::poses::CPose3D(o->getPose()).composePoint(
-                mrpt::math::TPoint3D(lookAt.x, lookAt.y, lookAt.z));
+            const auto worldPt =
+                mrpt::poses::CPose3D(o->getPose())
+                    .composePoint(mrpt::math::TPoint3D(lookAt.x, lookAt.y, lookAt.z));
             worldLookAt = {
-                static_cast<float>(worldPt.x),
-                static_cast<float>(worldPt.y),
+                static_cast<float>(worldPt.x), static_cast<float>(worldPt.y),
                 static_cast<float>(worldPt.z)};
+          }
+          else
+          {
+            return false;  // frame node not in scene yet; skip camera update
           }
         }
         MRPT_LOG_DEBUG_STREAM("update_viewport_look_at() lookAt=" << worldLookAt.asString());
