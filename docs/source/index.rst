@@ -38,6 +38,14 @@
 .. toctree::
   :maxdepth: 2
   :hidden:
+  :caption: Full 3D SLAM
+
+  mola_mapper_3d
+  mola_mapper3d_ros2_node
+
+.. toctree::
+  :maxdepth: 2
+  :hidden:
   :caption: State estimation
 
   mola_state_estimators
