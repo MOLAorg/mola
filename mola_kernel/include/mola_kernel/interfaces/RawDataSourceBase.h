@@ -33,6 +33,8 @@
 #include <mrpt/io/CFileGZOutputStream.h>
 #endif
 
+#include <mutex>
+
 namespace mola
 {
 /** 0-based indices of observations in a dataset */
@@ -93,6 +95,12 @@ class RawDataSourceBase : public mola::ExecutableBase
  private:
   /** Target of captured data */
   std::vector<RawDataConsumer*> rdc_;
+
+  /** Protects rdc_: modules are initialized in PARALLEL threads by
+   * mola_launcher, so two consumers attaching to the same data source race on
+   * this vector.
+   */
+  mutable std::mutex rdc_mtx_;
 
   /** used to optionally export captured observations to an MRPT rawlog */
 #if MRPT_VERSION >= 0x020f07
