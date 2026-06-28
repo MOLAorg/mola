@@ -126,14 +126,22 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
   MRPT_TRY_START
 
   ASSERT_(obs);
+  // Snapshot the consumer list under the lock (it may still be growing if
+  // another module is initializing concurrently), then dispatch without holding
+  // the lock so onNewObservation() is not serialized.
+  std::vector<RawDataConsumer*> consumers;
+  {
+    std::lock_guard<std::mutex> lck(rdc_mtx_);
+    consumers = rdc_;
+  }
   // Forward the data to my associated consumer:
-  if (!rdc_.empty())
+  if (!consumers.empty())
   {
     // prepare observation before processing it:
     prepareObservationBeforeFrontEnds(obs);
 
     // Forward data:
-    for (auto& subscriber : rdc_)
+    for (auto& subscriber : consumers)
     {
       subscriber->onNewObservation(obs);
     }
@@ -262,6 +270,9 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
 void RawDataSourceBase::attachToDataConsumer(RawDataConsumer& rdc)
 {
   // TODO(jlbc) fix shared_from_this()??
+  // Locked: mola_launcher initializes modules in parallel threads, so two
+  // consumers attaching to the same data source would otherwise race on rdc_.
+  std::lock_guard<std::mutex> lck(rdc_mtx_);
   rdc_.push_back(&rdc);  // rdc.getAsPtr();
 }
 
