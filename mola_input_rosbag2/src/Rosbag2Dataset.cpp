@@ -162,6 +162,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   bagMessageCount_ = 0;
   per_bag_msg_counts_.clear();
   rosbag_storage_ids_.clear();
+  std::map<std::string, rosbag2_storage::TopicMetadata> all_topics_by_name;
 
   for (const auto& path : rosbag_filenames_)
   {
@@ -183,6 +184,13 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       co.output_serialization_format = rosbag_serialization_;
       auto tmpReader                 = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
       tmpReader->open(so, co);
+      for (const auto& t : tmpReader->get_all_topics_and_types())
+      {
+        auto [it, inserted] = all_topics_by_name.emplace(t.name, t);
+        ASSERTMSG_(
+            inserted || it->second.type == t.type,
+            "Topic '"s + t.name + "' has inconsistent types across input bags"s);
+      }
       const size_t cnt = static_cast<size_t>(tmpReader->get_metadata().message_count);
       per_bag_msg_counts_.push_back(cnt);
       bagMessageCount_ += cnt;
@@ -200,12 +208,13 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   // Open the first bag to read topic metadata and start replay.
   openBag(0);
 
-  std::vector<rosbag2_storage::TopicMetadata> topics = reader_->get_all_topics_and_types();
+  std::vector<rosbag2_storage::TopicMetadata> topics;
+  topics.reserve(all_topics_by_name.size());
+  for (const auto& [_, topic] : all_topics_by_name) { topics.push_back(topic); }
 
   MRPT_LOG_INFO_STREAM(
-      "List of topics found in bag '" << rosbag_filenames_.at(0) << "' (" << bagMessageCount_
-                                      << " msgs total across " << rosbag_filenames_.size()
-                                      << " bag(s))");
+      "List of topics found across " << rosbag_filenames_.size() << " bag(s) (" << bagMessageCount_
+                                     << " msgs total):");
 
   // Build map: topic name -> type:
   std::map<std::string, std::string> topic2type;
@@ -775,11 +784,12 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bo
     ASSERT_EQUAL_(rosbag_next_idx_write_, idx);
     rosbag_next_idx_write_++;
 
-    // Switch to the next bag when the current one is exhausted.
-    if (!reader_->has_next() && current_bag_idx_ + 1 < rosbag_filenames_.size())
+    // Switch to the next bag when the current one is exhausted (loop to skip empty bags).
+    while (!reader_->has_next() && current_bag_idx_ + 1 < rosbag_filenames_.size())
     {
       openBag(current_bag_idx_ + 1);
     }
+    ASSERT_(reader_->has_next());
 
     auto serialized_message = reader_->read_next();
 
