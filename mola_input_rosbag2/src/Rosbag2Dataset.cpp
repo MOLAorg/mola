@@ -109,9 +109,42 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   const auto cfg = c["params"];
   MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfg);
 
-  YAML_LOAD_MEMBER_REQ(rosbag_filename, std::string);
+  // rosbag_filename: accepts a scalar string or a YAML sequence of strings.
+  // Empty entries in a sequence are silently skipped (convenient for optional
+  // extra bags whose env var resolves to "").
+  ENSURE_YAML_ENTRY_EXISTS(cfg, "rosbag_filename");
+  {
+    const auto& node = cfg["rosbag_filename"];
+    if (node.isScalar())
+    {
+      auto s = node.as<std::string>();
+      if (!s.empty())
+      {
+        rosbag_filenames_.push_back(s);
+      }
+    }
+    else
+    {
+      ASSERT_(node.isSequence());
+      for (const auto& entry : node.asSequence())
+      {
+        auto s = entry.as<std::string>();
+        if (!s.empty())
+        {
+          rosbag_filenames_.push_back(s);
+        }
+      }
+    }
+  }
+  ASSERTMSG_(!rosbag_filenames_.empty(), "'rosbag_filename' resolved to an empty list of paths");
+
   YAML_LOAD_MEMBER_OPT(time_warp_scale, double);
-  YAML_LOAD_MEMBER_OPT(rosbag_storage_id, std::string);
+  // Optional user override for all bags; stored separately from the per-bag
+  // auto-detected ids. Old YAML key kept for backwards compatibility.
+  if (cfg.has("rosbag_storage_id"))
+  {
+    rosbag_storage_id_override_ = cfg["rosbag_storage_id"].as<std::string>();
+  }
   YAML_LOAD_MEMBER_OPT(rosbag_serialization, std::string);
   YAML_LOAD_MEMBER_OPT(base_link_frame_id, std::string);
   YAML_LOAD_MEMBER_OPT(tf_topic, std::string);
@@ -125,70 +158,54 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   YAML_LOAD_MEMBER_OPT(max_duration_sec, double);
   paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
 
-  const bool isDir  = mrpt::system::directoryExists(rosbag_filename_);
-  const bool isFile = !isDir && mrpt::system::fileExists(rosbag_filename_);
+  // Validate all bag paths, auto-detect storage ids, and count total messages.
+  bagMessageCount_ = 0;
+  per_bag_msg_counts_.clear();
+  rosbag_storage_ids_.clear();
 
-  ASSERTMSG_(
-      isFile || isDir, "'"s + rosbag_filename_ + "' is nether an existing directory or file."s);
-
-  // auto guess rosbag_storage_id from rosbag2 extension:
-  if (rosbag_storage_id_.empty())
+  for (const auto& path : rosbag_filenames_)
   {
-    if (isFile)
+    const bool pathIsDir  = mrpt::system::directoryExists(path);
+    const bool pathIsFile = !pathIsDir && mrpt::system::fileExists(path);
+    ASSERTMSG_(
+        pathIsFile || pathIsDir, "'"s + path + "' is neither an existing directory nor a file."s);
+
+    const std::string storageId = detectStorageId(path, rosbag_storage_id_override_);
+    rosbag_storage_ids_.push_back(storageId);
+
+    // Open the bag just to read its message count, then let it close.
     {
-      auto ext = mrpt::system::extractFileExtension(rosbag_filename_);
-      if (ext == "mcap")
-      {
-        rosbag_storage_id_ = "mcap";
-      }
-      else if (ext == "db3")
-      {
-        rosbag_storage_id_ = "sqlite3";
-      }
-      else
-      {
-        THROW_EXCEPTION_FMT(
-            "Argument 'rosbag_storage_id' was not provided and could not determine the rosbag2 "
-            "format from unknown extension of file '%s'",
-            rosbag_filename_.c_str());
-      }
+      rosbag2_storage::StorageOptions so;
+      so.uri        = path;
+      so.storage_id = storageId;
+      rosbag2_cpp::ConverterOptions co;
+      co.input_serialization_format  = rosbag_serialization_;
+      co.output_serialization_format = rosbag_serialization_;
+      auto tmpReader                 = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
+      tmpReader->open(so, co);
+      const size_t cnt = static_cast<size_t>(tmpReader->get_metadata().message_count);
+      per_bag_msg_counts_.push_back(cnt);
+      bagMessageCount_ += cnt;
+      MRPT_LOG_INFO_STREAM(
+          "Bag '" << path << "': " << cnt << " messages (storage: " << storageId << ")");
     }
-    else
-    {
-      const std::string metadata_yaml = mrpt::system::pathJoin({rosbag_filename_, "metadata.yaml"});
-      ASSERT_FILE_EXISTS_(metadata_yaml);
-      const auto metadata = mrpt::containers::yaml::FromFile(metadata_yaml);
-      ASSERT_(metadata.has("rosbag2_bagfile_information"));
-      ASSERT_(metadata["rosbag2_bagfile_information"].has("storage_identifier"));
-      rosbag_storage_id_ =
-          metadata["rosbag2_bagfile_information"]["storage_identifier"].as<std::string>();
-    }
-    MRPT_LOG_INFO_STREAM("Storage identifier auto-detected: " << rosbag_storage_id_);
   }
 
-  // Open input ros bag:
-  rosbag2_storage::StorageOptions storage_options;
+  if (rosbag_filenames_.size() > 1)
+  {
+    MRPT_LOG_INFO_STREAM(
+        "Total messages across " << rosbag_filenames_.size() << " bags: " << bagMessageCount_);
+  }
 
-  storage_options.uri        = rosbag_filename_;
-  storage_options.storage_id = rosbag_storage_id_;
-
-  rosbag2_cpp::ConverterOptions converter_options;
-  converter_options.input_serialization_format  = rosbag_serialization_;
-  converter_options.output_serialization_format = rosbag_serialization_;
-
-  MRPT_LOG_INFO_STREAM("Opening: " << storage_options.uri);
-
-  reader_ = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
-  reader_->open(storage_options, converter_options);
+  // Open the first bag to read topic metadata and start replay.
+  openBag(0);
 
   std::vector<rosbag2_storage::TopicMetadata> topics = reader_->get_all_topics_and_types();
 
-  auto bagMetaData = reader_->get_metadata();
-  bagMessageCount_ = bagMetaData.message_count;
-
   MRPT_LOG_INFO_STREAM(
-      "List of topics found in the bag (" << bagMessageCount_ << " msgs"
-                                          << ")");
+      "List of topics found in bag '" << rosbag_filenames_.at(0) << "' (" << bagMessageCount_
+                                      << " msgs total across " << rosbag_filenames_.size()
+                                      << " bag(s))");
 
   // Build map: topic name -> type:
   std::map<std::string, std::string> topic2type;
@@ -649,6 +666,70 @@ void Rosbag2Dataset::spinOnce()
   MRPT_END
 }
 
+std::string Rosbag2Dataset::detectStorageId(
+    const std::string& path, const std::string& user_override)
+{
+  using namespace std::string_literals;
+
+  if (!user_override.empty())
+  {
+    return user_override;
+  }
+
+  const bool isDir = mrpt::system::directoryExists(path);
+
+  if (!isDir)
+  {
+    auto ext = mrpt::system::extractFileExtension(path);
+    if (ext == "mcap")
+    {
+      return "mcap";
+    }
+    else if (ext == "db3")
+    {
+      return "sqlite3";
+    }
+    else
+    {
+      THROW_EXCEPTION_FMT(
+          "Argument 'rosbag_storage_id' was not provided and could not determine the rosbag2 "
+          "format from unknown extension of file '%s'",
+          path.c_str());
+    }
+  }
+
+  const std::string metadata_yaml = mrpt::system::pathJoin({path, "metadata.yaml"});
+  ASSERT_FILE_EXISTS_(metadata_yaml);
+  const auto metadata = mrpt::containers::yaml::FromFile(metadata_yaml);
+  ASSERT_(metadata.has("rosbag2_bagfile_information"));
+  ASSERT_(metadata["rosbag2_bagfile_information"].has("storage_identifier"));
+  return metadata["rosbag2_bagfile_information"]["storage_identifier"].as<std::string>();
+}
+
+void Rosbag2Dataset::openBag(size_t bag_idx)
+{
+  using namespace std::string_literals;
+
+  ASSERT_LT_(bag_idx, rosbag_filenames_.size());
+
+  current_bag_idx_ = bag_idx;
+
+  rosbag2_storage::StorageOptions storage_options;
+  storage_options.uri        = rosbag_filenames_[bag_idx];
+  storage_options.storage_id = rosbag_storage_ids_[bag_idx];
+
+  rosbag2_cpp::ConverterOptions converter_options;
+  converter_options.input_serialization_format  = rosbag_serialization_;
+  converter_options.output_serialization_format = rosbag_serialization_;
+
+  MRPT_LOG_INFO_STREAM(
+      "Opening bag " << (bag_idx + 1) << "/" << rosbag_filenames_.size() << ": "
+                     << storage_options.uri);
+
+  reader_ = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
+  reader_->open(storage_options, converter_options);
+}
+
 void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bool skipBufferAhead)
 {
   MRPT_START
@@ -693,6 +774,12 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bo
     // serialized data
     ASSERT_EQUAL_(rosbag_next_idx_write_, idx);
     rosbag_next_idx_write_++;
+
+    // Switch to the next bag when the current one is exhausted.
+    if (!reader_->has_next() && current_bag_idx_ + 1 < rosbag_filenames_.size())
+    {
+      openBag(current_bag_idx_ + 1);
+    }
 
     auto serialized_message = reader_->read_next();
 
