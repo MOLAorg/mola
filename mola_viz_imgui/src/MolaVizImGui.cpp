@@ -24,6 +24,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <mola_kernel/assets/mola_icon_64x64.h>
 #include <mola_viz_imgui/MolaVizImGui.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
@@ -31,6 +32,7 @@
 #include <mrpt/system/thread_name.h>
 
 #include <stdexcept>
+#include <vector>
 
 using namespace mola;
 
@@ -188,6 +190,23 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const windo
   const std::string title = "MOLAViz ImGui - " + name;
   GLFWwindow*       win   = glfwCreateWindow(1280, 800, title.c_str(), nullptr, nullptr);
   if (!win) throw std::runtime_error("MolaVizImGui: glfwCreateWindow failed");
+
+  {
+    std::vector<unsigned char> rgba(mola_icon_width * mola_icon_height * 4);
+    const char*                data = mola_icon_data;
+    for (unsigned int i = 0; i < mola_icon_width * mola_icon_height; i++)
+    {
+      unsigned char rgb[3];
+      HEADER_PIXEL(data, rgb);
+      rgba[4 * i + 0] = rgb[0];
+      rgba[4 * i + 1] = rgb[1];
+      rgba[4 * i + 2] = rgb[2];
+      rgba[4 * i + 3] = 0xff;
+    }
+    const GLFWimage icon_image{
+        static_cast<int>(mola_icon_width), static_cast<int>(mola_icon_height), rgba.data()};
+    glfwSetWindowIcon(win, 1, &icon_image);
+  }
 
   glfwMakeContextCurrent(win);
   glfwSwapInterval(0);
