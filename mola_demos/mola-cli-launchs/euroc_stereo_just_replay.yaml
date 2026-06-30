@@ -32,4 +32,5 @@ modules:
   - name: viz
     type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
     #verbosity_level: DEBUG
-    params: ~ # none
+    params:
+      imgui_app_name: euroc_stereo_just_replay

@@ -62,4 +62,5 @@ modules:
   - name: viz
     type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
     #verbosity_level: DEBUG
-    params: ~ # none
+    params:
+      imgui_app_name: video_file_source_just_replay

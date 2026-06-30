@@ -57,4 +57,5 @@ modules:
   - name: viz
     type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
     #verbosity_level: DEBUG
-    params: ~ # none
+    params:
+      imgui_app_name: kitti_just_replay_to_ros2
