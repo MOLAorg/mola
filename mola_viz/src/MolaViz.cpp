@@ -20,6 +20,7 @@
  * C++ library for main MOLA GUI
  */
 
+#include <mola_kernel/assets/mola_icon_64x64.h>
 #include <mola_viz/MolaViz.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
@@ -43,8 +44,6 @@
 
 #include <array>
 #include <cinttypes>
-
-#include "mola_icon_64x64.h"
 
 using namespace mola;
 
