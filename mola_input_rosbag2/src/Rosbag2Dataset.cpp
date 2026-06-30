@@ -210,7 +210,10 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
 
   std::vector<rosbag2_storage::TopicMetadata> topics;
   topics.reserve(all_topics_by_name.size());
-  for (const auto& [_, topic] : all_topics_by_name) { topics.push_back(topic); }
+  for (const auto& [_, topic] : all_topics_by_name)
+  {
+    topics.push_back(topic);
+  }
 
   MRPT_LOG_INFO_STREAM(
       "List of topics found across " << rosbag_filenames_.size() << " bag(s) (" << bagMessageCount_
