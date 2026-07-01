@@ -25,6 +25,17 @@ void ConsoleLogSink::push(const ConsoleLogEntry& e)
   std::lock_guard<std::mutex> lk(mtx_);
   entries_.push_back(e);
   sources_.insert(e.source);
+
+  const double maxAge = window_seconds.load();
+  if (maxAge > 0)
+  {
+    const double cutoff = mrpt::Clock::nowDouble() - maxAge;
+    while (!entries_.empty() && mrpt::Clock::toDouble(entries_.front().timestamp) < cutoff)
+    {
+      entries_.pop_front();
+    }
+  }
+
   const size_t cap = max_entries.load();
   while (entries_.size() > cap)
   {

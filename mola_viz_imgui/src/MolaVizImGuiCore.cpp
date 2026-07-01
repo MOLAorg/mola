@@ -569,11 +569,23 @@ void MolaVizImGuiCore::render_console_window(PerWindowData& /*wd*/)
   std::vector<const char*>       items;
   items.push_back("all");
   for (const auto& s : srcs) items.push_back(s.c_str());
-  if (console_source_combo_ >= static_cast<int>(items.size())) console_source_combo_ = 0;
+
+  // Re-derive the combo index from the selected *name* every frame, since
+  // `srcs` is a sorted set whose order shifts as new modules register --
+  // an index alone would silently start pointing at a different source.
+  int selCombo = 0;
+  if (!console_selected_source_name_.empty())
+  {
+    const auto it = std::find(srcs.begin(), srcs.end(), console_selected_source_name_);
+    if (it != srcs.end())
+      selCombo = static_cast<int>(it - srcs.begin()) + 1;
+    else
+      console_selected_source_name_.clear();
+  }
+
   ImGui::SetNextItemWidth(160);
-  ImGui::Combo("Source", &console_source_combo_, items.data(), static_cast<int>(items.size()));
-  console_selected_source_name_ =
-      console_source_combo_ > 0 ? srcs[static_cast<size_t>(console_source_combo_ - 1)] : "";
+  if (ImGui::Combo("Source", &selCombo, items.data(), static_cast<int>(items.size())))
+    console_selected_source_name_ = selCombo > 0 ? srcs[static_cast<size_t>(selCombo - 1)] : "";
   ImGui::SameLine();
 
   ImGui::TextUnformatted("Levels:");

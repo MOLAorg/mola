@@ -480,13 +480,12 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   // Console window UI state (per instance).
   std::string console_filter_text_;
   bool        console_level_enabled_[4] = {false, true, true, true};  // D,I,W,E
-  int         console_source_combo_     = 0;  // 0 == "all"
   bool        console_autoscroll_       = true;
 
-  // Name resolved from `console_source_combo_` once per frame (empty == "all"),
-  // so every entry filtered that frame -- including the Save path -- is
-  // compared by name rather than by an index into a set that can reorder as
-  // new modules register mid-session.
+  // Selected source filter, keyed by name (empty == "all"), not by an index
+  // into `ConsoleLogSink::sources()` -- that set is sorted and its order
+  // shifts as new modules register mid-session, so an index alone would
+  // silently start pointing at a different source.
   std::string console_selected_source_name_;
 };
 
