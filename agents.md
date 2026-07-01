@@ -81,7 +81,10 @@ All plugin modules derive from these virtual base classes:
 - `NavStateFilter` — navigation state estimators
 - `LocalizationSourceBase` — localization systems
 - `MapSourceBase` / `MapServer` — map sources/servers
-- `VizInterface` — visualization (backend-agnostic, updated in v2.6)
+- `VizInterface` — visualization (backend-agnostic, updated in v2.6). The
+  `mola_viz_imgui` backend auto-exposes a dockable "Console" subwindow that
+  aggregates mrpt-logger output from all running modules (gated by the
+  `console_enabled` param, added subsequently).
 - `Relocalization` — global localization / loop closure
 - `OfflineDatasetSource` — offline dataset handling
 - `KeyframeMapCapable` — mixin for keyframe-based metric maps needing per-KF

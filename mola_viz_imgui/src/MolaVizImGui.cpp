@@ -29,6 +29,7 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
+#include <mrpt/system/string_utils.h>
 #include <mrpt/system/thread_name.h>
 
 #include <stdexcept>
@@ -139,6 +140,15 @@ void MolaVizImGui::initialize(const Yaml& c)
   core_ptr_->target_fps_     = cfg.getOrDefault("target_fps", core_ptr_->target_fps_);
   core_ptr_->imgui_app_name_ = cfg.getOrDefault("imgui_app_name", core_ptr_->imgui_app_name_);
 
+  core_ptr_->console_enabled_ = cfg.getOrDefault("console_enabled", core_ptr_->console_enabled_);
+  core_ptr_->console_max_entries_ =
+      cfg.getOrDefault("console_max_entries", core_ptr_->console_max_entries_);
+  core_ptr_->console_window_seconds_ =
+      cfg.getOrDefault("console_window_seconds", core_ptr_->console_window_seconds_);
+
+  core_ptr_->console_sink_->max_entries    = core_ptr_->console_max_entries_;
+  core_ptr_->console_sink_->window_seconds = core_ptr_->console_window_seconds_;
+
   {
     std::lock_guard lk(instanceMtx_);
     instance_ = this;
@@ -168,6 +178,12 @@ void MolaVizImGui::spinOnce()
   {
     dataset_ui_update();
     lastTimeUpdateDatasetUIs_ = tNow;
+  }
+
+  if (core_ptr_->console_enabled_ && tNow - lastTimeCheckForConsoleModules_ > PERIOD_CHECK_NEW_MODS)
+  {
+    console_check_new_modules();
+    lastTimeCheckForConsoleModules_ = tNow;
   }
 }
 
@@ -399,5 +415,50 @@ void MolaVizImGui::dataset_ui_update()
     const size_t N   = mod->datasetUI_size();
     e.lbPlaybackPosition->set(mrpt::format("%zu / %zu", pos, N));
     if (e.liveSliderPos) e.liveSliderPos->set(static_cast<float>(pos));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Console window: log capture from all discovered ExecutableBase modules
+// ---------------------------------------------------------------------------
+
+void MolaVizImGui::console_check_new_modules()
+{
+  auto sink = core_ptr_->console_sink_;
+  if (!sink) return;
+
+  for (auto& module : findService<ExecutableBase>())
+  {
+    if (module.get() == this) continue;  // never hook ourselves (recursion)
+
+    const std::string name = module->getModuleInstanceName();
+    if (consoleHookedModules_.count(name)) continue;
+    consoleHookedModules_.insert(name);
+    sink->note_source(name);
+
+    // Capture all levels for the UI filter; does not change console verbosity.
+    module->setVerbosityLevelForCallbacks(core_ptr_->console_capture_level_);
+
+    // shared_ptr capture keeps the sink alive as long as the module's logger
+    // holds this callback; 'name' (not loggerName) is captured for a stable id.
+    module->logRegisterCallback(
+        [sink, name](
+            std::string_view msg, mrpt::system::VerbosityLevel       level,
+            std::string_view /*loggerName*/, mrpt::Clock::time_point timestamp)
+        {
+          std::vector<std::string> lines;
+          mrpt::system::tokenize(std::string(msg), "\r\n", lines);
+          if (lines.empty()) lines.push_back(std::string(msg));
+
+          for (const auto& line : lines)
+          {
+            ConsoleLogEntry e;
+            e.timestamp = timestamp;
+            e.level     = level;
+            e.source    = name;
+            e.text      = line;
+            sink->push(e);
+          }
+        });
   }
 }

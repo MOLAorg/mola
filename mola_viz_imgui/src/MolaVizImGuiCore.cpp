@@ -20,15 +20,21 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <imgui_stdlib.h>
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/opengl/COpenGLScene.h>
 #include <mrpt/opengl/CPointCloudColoured.h>
 #include <mrpt/opengl/CSetOfObjects.h>
+#include <mrpt/system/datetime.h>
+#include <mrpt/system/filesystem.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
 
 using namespace mola;
@@ -245,6 +251,10 @@ void MolaVizImGuiCore::spin_one_frame(const window_name_t& name)
   }
 
   render_sensor_windows(name, wd);
+  if (console_enabled_)
+  {
+    render_console_window(wd);
+  }
   render_console_overlay(wd);
   internal_handle_decaying_clouds(wd);
 }
@@ -298,6 +308,10 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   }
 
   render_sensor_windows(name, wd);
+  if (console_enabled_)
+  {
+    render_console_window(wd);
+  }
   render_console_overlay(wd);
   internal_handle_decaying_clouds(wd);
 
@@ -447,6 +461,167 @@ void MolaVizImGuiCore::render_console_overlay(PerWindowData& wd)
   }
 
   ImGui::End();
+}
+
+namespace
+{
+ImVec4 color_for_level(mrpt::system::VerbosityLevel level)
+{
+  switch (level)
+  {
+    case mrpt::system::LVL_DEBUG:
+      return ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+    case mrpt::system::LVL_WARN:
+      return ImVec4(1.0f, 0.85f, 0.3f, 1.0f);
+    case mrpt::system::LVL_ERROR:
+      return ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+    case mrpt::system::LVL_INFO:
+    default:
+      return ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+  }
+}
+
+bool contains_ci(std::string_view hay, std::string_view needle)
+{
+  auto to_lower = [](std::string_view s)
+  {
+    std::string r(s);
+    std::transform(r.begin(), r.end(), r.begin(), [](unsigned char c) { return std::tolower(c); });
+    return r;
+  };
+  return to_lower(hay).find(to_lower(needle)) != std::string::npos;
+}
+
+std::string format_console_line(const ConsoleLogEntry& e)
+{
+  mrpt::system::TTimeParts parts;
+  mrpt::system::timestampToParts(e.timestamp, parts, /*localTime=*/true);
+  const unsigned int millisec =
+      static_cast<unsigned int>((parts.second - static_cast<unsigned int>(parts.second)) * 1000);
+  return mrpt::format(
+      "[%02u:%02u:%02u.%03u] [%s] %s", parts.hour, parts.minute,
+      static_cast<unsigned int>(parts.second), millisec, e.source.c_str(), e.text.c_str());
+}
+}  // namespace
+
+bool MolaVizImGuiCore::console_entry_passes_filters(const ConsoleLogEntry& e) const
+{
+  const double now    = mrpt::Clock::nowDouble();
+  const double maxAge = console_window_seconds_;
+  if (maxAge > 0 && now - mrpt::Clock::toDouble(e.timestamp) > maxAge) return false;
+
+  if (!console_level_enabled_[static_cast<int>(e.level)]) return false;
+
+  if (!console_selected_source_name_.empty() && e.source != console_selected_source_name_)
+    return false;
+
+  if (!console_filter_text_.empty() && !contains_ci(e.text, console_filter_text_) &&
+      !contains_ci(e.source, console_filter_text_))
+    return false;
+
+  return true;
+}
+
+void MolaVizImGuiCore::console_save_to_file()
+{
+  const std::string fname = "mola_console_" +
+                            mrpt::system::fileNameStripInvalidChars(
+                                mrpt::system::dateTimeLocalToString(mrpt::Clock::now())) +
+                            ".txt";
+
+  std::ofstream f(fname);
+  if (!f)
+  {
+    MRPT_LOG_ERROR_STREAM("Console: could not open '" << fname << "' for writing.");
+    return;
+  }
+
+  for (const auto& e : console_sink_->snapshot())
+  {
+    if (!console_entry_passes_filters(e)) continue;
+    f << format_console_line(e) << "\n";
+  }
+  MRPT_LOG_INFO_STREAM("Console: saved log to '" << fname << "'.");
+}
+
+void MolaVizImGuiCore::render_console_window(PerWindowData& /*wd*/)
+{
+  if (!console_sink_) return;
+
+  ImGui::SetNextWindowSize(ImVec2(700, 300), ImGuiCond_FirstUseEver);
+  if (!ImGui::Begin("Console"))
+  {
+    ImGui::End();
+    return;
+  }
+
+  // ---- Toolbar row --------------------------------------------------------
+  if (ImGui::SmallButton("Clear")) console_sink_->clear();
+  ImGui::SameLine();
+  const bool wantSave = ImGui::SmallButton("Save");
+  ImGui::SameLine();
+
+  ImGui::SetNextItemWidth(180);
+  ImGui::InputTextWithHint("##filter", "Filter (substring)", &console_filter_text_);
+  ImGui::SameLine();
+
+  const std::vector<std::string> srcs = console_sink_->sources();
+  std::vector<const char*>       items;
+  items.push_back("all");
+  for (const auto& s : srcs) items.push_back(s.c_str());
+
+  // Re-derive the combo index from the selected *name* every frame, since
+  // `srcs` is a sorted set whose order shifts as new modules register --
+  // an index alone would silently start pointing at a different source.
+  int selCombo = 0;
+  if (!console_selected_source_name_.empty())
+  {
+    const auto it = std::find(srcs.begin(), srcs.end(), console_selected_source_name_);
+    if (it != srcs.end())
+      selCombo = static_cast<int>(it - srcs.begin()) + 1;
+    else
+      console_selected_source_name_.clear();
+  }
+
+  ImGui::SetNextItemWidth(160);
+  if (ImGui::Combo("Source", &selCombo, items.data(), static_cast<int>(items.size())))
+    console_selected_source_name_ = selCombo > 0 ? srcs[static_cast<size_t>(selCombo - 1)] : "";
+  ImGui::SameLine();
+
+  ImGui::TextUnformatted("Levels:");
+  ImGui::SameLine();
+  ImGui::Checkbox("D", &console_level_enabled_[0]);
+  ImGui::SameLine();
+  ImGui::Checkbox("I", &console_level_enabled_[1]);
+  ImGui::SameLine();
+  ImGui::Checkbox("W", &console_level_enabled_[2]);
+  ImGui::SameLine();
+  ImGui::Checkbox("E", &console_level_enabled_[3]);
+  ImGui::SameLine();
+  ImGui::Checkbox("Autoscroll", &console_autoscroll_);
+
+  ImGui::Separator();
+
+  // ---- Log area -------------------------------------------------------------
+  ImGui::BeginChild("##log", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+  for (const auto& e : console_sink_->snapshot())
+  {
+    if (!console_entry_passes_filters(e)) continue;
+
+    const ImVec4 col = color_for_level(e.level);
+    ImGui::PushStyleColor(ImGuiCol_Text, col);
+    ImGui::TextUnformatted(format_console_line(e).c_str());
+    ImGui::PopStyleColor();
+  }
+
+  if (console_autoscroll_ && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+    ImGui::SetScrollHereY(1.0f);
+
+  ImGui::EndChild();
+  ImGui::End();
+
+  if (wantSave) console_save_to_file();
 }
 
 void MolaVizImGuiCore::render_subwindow(SubWindowState& sw)
