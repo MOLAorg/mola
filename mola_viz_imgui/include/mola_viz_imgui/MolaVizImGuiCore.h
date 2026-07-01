@@ -33,6 +33,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,36 @@ struct GLFWwindow;
 
 namespace mola
 {
+
+/** One captured log line, tagged with its originating module and severity. */
+struct ConsoleLogEntry
+{
+  mrpt::Clock::time_point      timestamp;
+  mrpt::system::VerbosityLevel level = mrpt::system::LVL_INFO;
+  std::string                  source;  // module instance name
+  std::string                  text;  // single line (already split on \n)
+};
+
+/** Thread-safe rolling store of captured log lines, bounded by entry count.
+ *  Shared (shared_ptr) between MolaVizImGuiCore and the per-module logger
+ *  callbacks, so it outlives any module still holding a callback. */
+class ConsoleLogSink
+{
+ public:
+  void                        push(const ConsoleLogEntry& e);
+  std::deque<ConsoleLogEntry> snapshot() const;
+  void                        clear();
+  void                        note_source(const std::string& s);
+  std::vector<std::string>    sources() const;
+
+  std::atomic<size_t> max_entries{5000};
+  std::atomic<double> window_seconds{120.0};
+
+ private:
+  mutable std::mutex          mtx_;
+  std::deque<ConsoleLogEntry> entries_;
+  std::set<std::string>       sources_;
+};
 
 /** Core rendering and state-management logic for the Dear ImGui MOLA viz backend.
  *
@@ -314,6 +345,24 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    */
   std::string imgui_app_name_ = "default";
 
+  /** Console subwindow: master enable. When false, no log interception and
+   *  the Console window is not shown. */
+  bool console_enabled_ = true;
+
+  /** Max number of captured log entries kept in the rolling buffer. */
+  unsigned int console_max_entries_ = 5000;
+
+  /** Rolling time window (seconds): entries older than this are dropped. */
+  double console_window_seconds_ = 120.0;
+
+  /** Verbosity threshold used when registering module log callbacks.
+   *  Default DEBUG so the UI can reveal all levels. */
+  mrpt::system::VerbosityLevel console_capture_level_ = mrpt::system::LVL_DEBUG;
+
+  /** Sink shared with the per-module logger callbacks; always allocated,
+   *  populated only while `console_enabled_` is true. */
+  std::shared_ptr<ConsoleLogSink> console_sink_ = std::make_shared<ConsoleLogSink>();
+
   /** @} */
 
   // =========================================================================
@@ -402,6 +451,7 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   void render_subwindow(SubWindowState& sw);
   void render_sensor_windows(const window_name_t& parentName, PerWindowData& win);
   void render_console_overlay(PerWindowData& win);
+  void render_console_window(PerWindowData& win);
   void render_widget_description(const mola::gui::WindowDescription& desc, SubWindowState& sw);
   void render_tab(const mola::gui::Tab& tab, const std::string& ctx);
   void render_any_widget(const mola::gui::AnyWidget& w, const std::string& ctx);
@@ -409,6 +459,10 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
 
   void internal_drain_task_queue();
   void internal_handle_decaying_clouds(PerWindowData& win);
+
+  // Console window: filter test shared between on-screen rendering and Save.
+  bool console_entry_passes_filters(const ConsoleLogEntry& e) const;
+  void console_save_to_file();
 
   // Cleanup callbacks registered via register_gui_cleanup().
   std::vector<std::function<void()>> instance_cleanups_;
@@ -422,6 +476,18 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   std::map<std::string, int>         widget_slider_int_vals_;
   std::map<std::string, int>         widget_combo_indices_;
   std::map<uint64_t, std::string>    widget_textpanel_bufs_;
+
+  // Console window UI state (per instance).
+  std::string console_filter_text_;
+  bool        console_level_enabled_[4] = {false, true, true, true};  // D,I,W,E
+  int         console_source_combo_     = 0;  // 0 == "all"
+  bool        console_autoscroll_       = true;
+
+  // Name resolved from `console_source_combo_` once per frame (empty == "all"),
+  // so every entry filtered that frame -- including the Save path -- is
+  // compared by name rather than by an index into a set that can reorder as
+  // new modules register mid-session.
+  std::string console_selected_source_name_;
 };
 
 }  // namespace mola

@@ -27,6 +27,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 
@@ -336,6 +337,14 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
 
   void dataset_ui_check_new_modules();
   void dataset_ui_update();
+
+  // ---------------------------------------------------------------------------
+  // Console window: log capture from all discovered ExecutableBase modules
+  // ---------------------------------------------------------------------------
+  double                lastTimeCheckForConsoleModules_ = 0;
+  std::set<std::string> consoleHookedModules_;  // instance names already hooked
+
+  void console_check_new_modules();
 };
 
 }  // namespace mola
