@@ -48,8 +48,9 @@ namespace mola
  *
  * ## Input
  * The caller inserts `mrpt::obs::CObservationPointCloud` observations, with
- * points already expressed in the vehicle `base_link` frame. This is typically
- * produced by an `mp2p_icp::Generator` + optional filter pipeline.
+ * points already expressed in the vehicle `base_link` frame and already motion
+ * compensated (deskewed). This is typically produced by an `mp2p_icp::Generator`
+ * plus optional filter pipeline.
  *
  * ## Per-keyframe data
  * Each `KeyFrame` holds:
