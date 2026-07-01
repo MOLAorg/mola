@@ -18,6 +18,7 @@
  */
 #pragma once
 
+#include <mola_kernel/Georeferencing.h>
 #include <mola_kernel/interfaces/ExecutableBase.h>
 #include <mola_kernel/interfaces/RawDataConsumer.h>
 #include <mrpt/containers/yaml.h>
@@ -139,9 +140,32 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
     return false;  // Default: not implemented
   }
 
+  /** (Optional virtual method) Provides the estimator with the geo-reference
+   *  (datum + T_enu_to_map) of the map it is localizing against, so that GNSS
+   *  observations can be converted into map-frame constraints. Typically called
+   *  by the localization front-end once the georeferenced map is loaded.
+   *  The default implementation ignores it (estimators without GNSS support).
+   */
+  virtual void set_geo_reference([[maybe_unused]] const mola::Georeferencing& georef)
+  {
+    // Default: not implemented (estimator does not use GNSS/geo-referencing).
+  }
+
+  /** (Optional virtual method) Returns the geo-reference currently in use by
+   *  the estimator, or std::nullopt if none has been set / not supported.
+   */
+  virtual std::optional<mola::Georeferencing> get_geo_reference() const
+  {
+    return std::nullopt;  // Default: none
+  }
+
  private:
   /// A list of one or multiple MOLA **module names** to which to subscribe
   std::set<std::string> navstate_source_names_;
 };
+
+/// Can be used to detect the existence of set_geo_reference() / get_geo_reference() methods in a
+/// NavStateFilter implementation.
+#define MOLA_KERNEL_NAVSTATE_FILTER_HAS_GEO_REFERENCE
 
 }  // namespace mola
