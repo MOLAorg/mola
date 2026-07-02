@@ -601,8 +601,14 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
     /** Builds (or get cached) visualization of the cloud in this KF, already transformed to its
      * global pose.
+     *
+     * If `overrideColor` is set, ALL points are painted that single color instead of the
+     * normal per-field colormap, and the result is NOT cached (used by the per-keyframe
+     * debug coloring, see `MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF`).
      */
-    std::shared_ptr<mrpt::opengl::CPointCloudColoured> getViz(const TRenderOptions& ro) const;
+    std::shared_ptr<mrpt::opengl::CPointCloudColoured> getViz(
+        const TRenderOptions&                   ro,
+        const std::optional<mrpt::img::TColor>& overrideColor = std::nullopt) const;
 
     std::shared_ptr<mrpt::opengl::CSetOfObjects> getCovarianceEllipsoidViz(
         const TRenderOptions& ro) const;
