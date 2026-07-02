@@ -132,6 +132,26 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   `.ini` file, using `OptionsCapable` generically for classes in this library, plus a
   `dynamic_cast`-based fallback in `include/mola_metric_maps/OptionsIniIO.h` for basic
   `mrpt::maps` classes (`CPointsMap`-derived, `COccupancyGridMap2D`).
+- CLI tool `mm-kf-regroup` (in `apps/`): offline optimization of a `KeyframePointCloudMap`
+  layer for fast **localization-only** operation. It groups many small keyframes into a few
+  larger, deliberately-overlapping "super-keyframes" so the ICP active set stays size 1 (no
+  per-scan keyframe switching). Backed by `KeyframePointCloudMap::regroupKeyframes()`
+  (see `RegroupParams`): builds a keyframe adjacency graph with voxel Jaccard-min overlap
+  edge weights, then greedy overlapping set-cover clustering auto-sized from each keyframe's
+  bounding box (large outdoors, small indoors). Merged clouds are voxel-decimated
+  (`--decimate-voxel`, view-direction fields carried) to bound the overlap-induced point
+  blow-up. On a 1000-KF outdoor map this yields ~5 super-KFs. This is "idea 1" of the
+  keyframe-map persistence plan.
+- CLI tool `mm-kf-bake-kdtrees` (in `apps/`): "idea 2" of the same plan. Caches each
+  keyframe's per-cloud 3D KD-tree index inside the `.mm` so it is not rebuilt on every load
+  (faster localization-only startup). Backed by the `serialize_kdtrees` creationOption of
+  `KeyframePointCloudMap` (default false; bumps map serialization to v2, writing a
+  self-describing per-KF flag byte + KD-tree blob). Requires the MRPT KD-tree save/load
+  index API (`mrpt::math::KDTreeCapable::kdtree_save_index_3D()` / `kdtree_load_index_3D()`,
+  feature-detected via the `MRPT_HAS_KDTREE_SAVE_LOAD_INDEX` macro); when absent the option
+  is a no-op on write and the reader skips any stored blob, so `.mm` files stay
+  interoperable across MRPT builds. On the 5-super-KF outdoor map above (9.4M points),
+  baking adds ~58 MB of index data and the load path installs the indices with no rebuild.
 
 ---
 

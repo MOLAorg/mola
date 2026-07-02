@@ -32,6 +32,7 @@
 #include <mrpt/math/TBoundingBox.h>
 #include <mrpt/opengl/opengl_frwds.h>
 
+#include <functional>
 #include <map>
 #include <optional>
 #include <vector>
@@ -258,6 +259,53 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
   /** @} */
 
+  /** @name Offline keyframe regrouping (localization-oriented map optimization)
+   *  @{ */
+
+  /** Parameters for regroupKeyframes(). */
+  struct RegroupParams
+  {
+    /** Voxel resolution [m] used to compute pairwise cloud overlaps. If <=0, it
+     *  is auto-derived from the median per-keyframe sensing radius. */
+    double voxel_size = 0;
+
+    /** Minimum pairwise voxel-overlap (Jaccard-min, in [0,1]) required to create
+     *  an edge in the keyframe adjacency graph, i.e. for two keyframes to be
+     *  candidates for merging into the same super-keyframe. */
+    double edge_overlap = 0.15;
+
+    /** Inner-core fraction, in (0,1], of a super-keyframe's spatial extent. A member
+     *  keyframe whose center lies within `core_fraction * extent` of the seed is
+     *  marked "covered" (deep inside, single-KF localization is reliable there).
+     *  Members in the outer band stay available to seed/join neighboring
+     *  super-keyframes, which is what produces the deliberate inter-group overlap. */
+    double core_fraction = 0.6;
+
+    /** Spatial extent cap of a super-keyframe, as a multiple of the seed keyframe's
+     *  own sensing radius (half its cloud bounding-box diagonal). This auto-sizes
+     *  groups non-uniformly: large outdoors (long range), small indoors. */
+    double extent_factor = 2.0;
+
+    /** If >0, voxel-downsample each merged super-keyframe cloud at this resolution
+     *  [m] to bound the point-count blow-up from the deliberate overlap. This is
+     *  strongly recommended for large maps. Per-point view-direction fields, when
+     *  present, are carried over (first point kept per voxel). */
+    double merge_decimate_voxel = 0;
+  };
+
+  /** Builds a NEW map whose keyframes are "super-keyframes": spatially coherent
+   *  groups of the original keyframes, merged into single larger clouds with
+   *  deliberate overlap, so that localization only needs ONE active keyframe at a
+   *  time (see \ref RegroupParams and the graph-theoretic grouping in the .cpp).
+   *  All options (creation/insertion/likelihood/render) are copied from `*this`.
+   *  Thread-safe (reads `*this` under its lock). `logCb`, if set, receives
+   *  human-readable progress lines.
+   */
+  [[nodiscard]] std::shared_ptr<KeyframePointCloudMap> regroupKeyframes(
+      const RegroupParams& params, const std::function<void(const std::string&)>& logCb = {}) const;
+
+  /** @} */
+
   /** Options for insertObservation()
    */
   struct TInsertionOptions : public mrpt::config::CLoadableOptions
@@ -408,6 +456,16 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  is `true` and the view fields are present.  Default: 120°.
      */
     double max_view_angle_deg = 120.0;
+
+    /** If `true`, each keyframe's per-cloud 3D KD-tree index is serialized
+     *  alongside its points (see `KeyframePointCloudMap` serialization), so it
+     *  does NOT have to be rebuilt when the map is loaded. This trades a larger
+     *  `.mm` file for faster startup in localization-only use. Requires an MRPT
+     *  build providing the KD-tree save/load API (feature-detected at compile
+     *  time); when unavailable this option is silently a no-op on write. Default
+     *  `false`. Typically enabled offline by the `mm-kf-bake-kdtrees` tool.
+     */
+    bool serialize_kdtrees = false;
   };
   TCreationOptions creationOptions;
 
