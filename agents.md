@@ -184,6 +184,13 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   covariance byte + per-point matrices after that). The tool bakes both by default; use
   `--no-kdtrees` / `--no-covariances` to select, or `--disable` to strip both.
 
+  The tool also sets `approximate_cov=YES` on the output map by default (`--no-approximate-cov`
+  to opt out; forced off by `--disable`). This matters: the baked data is only consumed by the
+  approximate cov2cov path, so without it the loaded map ignores the cache and rebuilds a merged
+  submap from scratch on every KF-set change (the multi-second stall this whole feature exists to
+  avoid). Note the runtime `MOLA_LOCALMAP_APPROXIMATE_COV` env var only configures the live local
+  map, not a loaded `.mm`, whose `approximate_cov` is read from the file.
+
 ---
 
 ## Build System

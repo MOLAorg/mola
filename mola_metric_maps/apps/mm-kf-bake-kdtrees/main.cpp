@@ -39,6 +39,7 @@ struct Args
   bool        disable     = false;  // if set, strip cached data instead of adding it
   bool        kdtrees     = true;  // bake per-KF KD-tree indices
   bool        covariances = true;  // bake per-point covariances
+  bool approximate_cov    = true;  // enable the approximate cov2cov path that reuses the baked data
 };
 
 void run_bake(const Args& args)
@@ -62,10 +63,16 @@ void run_bake(const Args& args)
       {
         kfMap->creationOptions.serialize_kdtrees     = !args.disable && args.kdtrees;
         kfMap->creationOptions.serialize_covariances = !args.disable && args.covariances;
+        // The baked per-KF KD-trees and covariances are only consumed by the
+        // approximate cov2cov path; enable it so the map actually reuses them
+        // (otherwise ICP rebuilds a merged submap from scratch on every use).
+        kfMap->creationOptions.approximate_cov = !args.disable && args.approximate_cov;
         std::cout << "[mm-kf-bake-kdtrees] Layer '" << layerName << "': serialize_kdtrees -> "
                   << (kfMap->creationOptions.serialize_kdtrees ? "true" : "false")
                   << ", serialize_covariances -> "
                   << (kfMap->creationOptions.serialize_covariances ? "true" : "false")
+                  << ", approximate_cov -> "
+                  << (kfMap->creationOptions.approximate_cov ? "true" : "false")
                   << " (cached data is (re)built on save only if not already current)."
                   << std::endl;
       });
@@ -116,6 +123,12 @@ int main(int argc, char** argv)
         "--covariances,!--no-covariances", args.covariances,
         "Bake per-point covariances so they are not recomputed on load (default: on). Works on "
         "any MRPT build.");
+
+    cli.add_flag(
+        "--approximate-cov,!--no-approximate-cov", args.approximate_cov,
+        "Enable the approximate cov2cov path in the output map (default: on). This is the path "
+        "that actually reuses the baked KD-trees and covariances; without it, ICP rebuilds a "
+        "merged submap from scratch and the baked data is unused.");
 
     cli.add_option(
         "-l,--load-plugins", args.plugins,
