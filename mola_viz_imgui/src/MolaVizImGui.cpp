@@ -427,17 +427,24 @@ void MolaVizImGui::console_check_new_modules()
   auto sink = core_ptr_->console_sink_;
   if (!sink) return;
 
+  // Read once per tick: the user may have changed it at runtime via the
+  // Console window's "Capture" combo (MolaVizImGuiCore::render_console_window).
+  const auto captureLevel = core_ptr_->console_capture_level_.load();
+
   for (auto& module : findService<ExecutableBase>())
   {
     if (module.get() == this) continue;  // never hook ourselves (recursion)
+
+    // Re-applied every tick (not just at hook time) so a runtime change to
+    // the capture level propagates to already-hooked modules too. Does not
+    // change what actually prints to the terminal, only what's forwarded to
+    // the console callback -- see setVerbosityLevelForCallbacks() docs.
+    module->setVerbosityLevelForCallbacks(captureLevel);
 
     const std::string name = module->getModuleInstanceName();
     if (consoleHookedModules_.count(name)) continue;
     consoleHookedModules_.insert(name);
     sink->note_source(name);
-
-    // Capture all levels for the UI filter; does not change console verbosity.
-    module->setVerbosityLevelForCallbacks(core_ptr_->console_capture_level_);
 
     // shared_ptr capture keeps the sink alive as long as the module's logger
     // holds this callback; 'name' (not loggerName) is captured for a stable id.
