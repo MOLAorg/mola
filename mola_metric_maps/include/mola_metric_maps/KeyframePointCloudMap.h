@@ -35,6 +35,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <vector>
 
 namespace mola
@@ -466,6 +467,31 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  `false`. Typically enabled offline by the `mm-kf-bake-kdtrees` tool.
      */
     bool serialize_kdtrees = false;
+
+    /** If `true`, `nn_search_cov2cov()` (used by `mp2p_icp::Matcher_Cov2Cov`, i.e.
+     *  GICP-style pipelines) skips building the merged, multi-keyframe submap that
+     *  `icp_get_prepared_as_global()` otherwise assembles for the active KF set.
+     *  Instead, each active keyframe's own already-built KD-tree and per-point
+     *  covariances (both cached at insertion time, in the KF's *local* neighborhood
+     *  only) are queried directly: for every query point, one KD-tree lookup is done
+     *  per active keyframe ("N" lookups instead of 1 on a merged cloud), and the
+     *  overall closest one is kept, together with that keyframe's own cached
+     *  covariance at that point.
+     *
+     *  This trades exactness for speed: the reference covariance at the matched point
+     *  is estimated only from neighbors *within the same source keyframe*, whereas the
+     *  exact (default) mode computes it from neighbors in the merged cloud, which may
+     *  include points contributed by other active keyframes. It also avoids the
+     *  merged-cloud allocation, copy and KD-tree (re)build entirely, which can be a
+     *  significant fraction of `icp_get_prepared_as_global()`'s cost when the active
+     *  set has several sizeable keyframes.
+     *
+     *  Only affects `nn_search_cov2cov()`. The generic `NearestNeighborsCapable`
+     *  entry points (`nn_single_search()`, `nn_multiple_search()`, `nn_radius_search()`)
+     *  still require the merged submap and are not supported in this mode. Default
+     *  `false` (exact, merged-cloud behavior, unchanged).
+     */
+    bool approximate_cov = false;
   };
   TCreationOptions creationOptions;
 
@@ -677,6 +703,12 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     mutable std::optional<std::set<KeyFrameID>>      icp_search_kfs;
     mutable std::optional<KeyFrame>                  icp_search_submap;
 
+    /// Value of creationOptions.approximate_cov used to build the cache above. Compared
+    /// against the live option in icp_get_prepared_as_global() so that toggling the flag
+    /// (even with an unchanged active KF set) forces a rebuild instead of silently reusing
+    /// a cache built under the other mode.
+    mutable bool icp_search_built_approximate = false;
+
     /// Used for getAsSimplePointsMap only.
     mutable mrpt::maps::CSimplePointsMap::Ptr cachedPoints;
   };
@@ -731,6 +763,15 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 
   /** Non-thread safe version of transform_map_left_multiply() */
   void transform_map_left_multiply_impl(const mrpt::poses::CPose3D& b);
+
+  /** Implements `nn_search_cov2cov()` for `creationOptions.approximate_cov == true`: queries
+   *  each keyframe in `activeKfs` with its own cached KD-tree instead of a merged submap.
+   *  `localKf`'s pose must already have been set to the query pose by the caller.
+   *  \sa TCreationOptions::approximate_cov
+   */
+  void nn_search_cov2cov_approximate(
+      const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs, float max_search_distance,
+      mp2p_icp::MatchedPointWithCovList& outPairings) const;
 };
 
 }  // namespace mola

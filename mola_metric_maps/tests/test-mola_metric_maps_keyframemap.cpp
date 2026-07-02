@@ -28,6 +28,7 @@
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -1082,6 +1083,267 @@ void test_default_creation_options()
   ASSERT_NEAR_(m.creationOptions.max_view_angle_deg, 120.0, 1e-9);
   ASSERT_GT_(m.creationOptions.k_correspondences_for_cov, 0U);
   ASSERT_GT_(m.creationOptions.max_search_keyframes, 0U);
+  ASSERT_(m.creationOptions.approximate_cov == false);
+}
+
+// ---------------------------------------------------------------------------
+// approximate_cov: per-active-KF KD-tree queries instead of a merged submap
+// (see TCreationOptions::approximate_cov / nn_search_cov2cov_approximate()).
+// ---------------------------------------------------------------------------
+
+// ── 27. approximate_cov round-trips through serialization ─────────────────
+void test_approximate_cov_option_roundtrip()
+{
+  mola::KeyframePointCloudMap m;
+  m.creationOptions.approximate_cov = true;
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar << m;
+  }
+  buf.Seek(0);
+
+  mola::KeyframePointCloudMap m2;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar >> m2;
+  }
+  ASSERT_(m2.creationOptions.approximate_cov == true);
+}
+
+// ── 28. approximate_cov requires icp_get_prepared_as_global() first ───────
+// Mirrors the exact-mode contract: calling nn_search_cov2cov() without a prior
+// icp_get_prepared_as_global() must fail loudly rather than silently no-op.
+void test_approximate_cov_requires_prepared_call()
+{
+  auto global_m                            = makeMapFromCloud(makeCloudWithViews(makeGridPts()));
+  auto local_m                             = makeMapFromCloud(makeCloudWithViews(makeGridPts()));
+  global_m.creationOptions.approximate_cov = true;
+
+  mp2p_icp::MatchedPointWithCovList pairings;
+  bool                              threw = false;
+  try
+  {
+    global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), 1.0f, pairings);
+  }
+  catch (const std::exception&)
+  {
+    threw = true;
+  }
+  ASSERT_(threw);
+}
+
+// ── 29. approximate_cov (single active KF) matches exact mode ─────────────
+// With exactly one active KF, the "merged submap" is identical to that KF's own
+// global cloud, and covariances are computed from the very same within-KF
+// neighborhood in both modes. So the two modes must produce numerically
+// equivalent pairings (same count, same points, same covariances).
+void test_approximate_cov_matches_exact_single_kf()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+
+  auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f);
+  auto local_pts  = makeGridPts(kDz, 0.f, 0.f, 1.f);
+
+  auto exact_m                             = makeMapFromCloud(makeCloudWithViews(global_pts));
+  auto approx_m                            = makeMapFromCloud(makeCloudWithViews(global_pts));
+  approx_m.creationOptions.approximate_cov = true;
+
+  auto local_m1 = makeMapFromCloud(makeCloudWithViews(local_pts));
+  auto local_m2 = makeMapFromCloud(makeCloudWithViews(local_pts));
+
+  exact_m.creationOptions.use_view_direction_filter  = false;
+  approx_m.creationOptions.use_view_direction_filter = false;
+
+  exact_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+  approx_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+
+  mp2p_icp::MatchedPointWithCovList exactPairings, approxPairings;
+  exact_m.nn_search_cov2cov(local_m1, mrpt::poses::CPose3D::Identity(), kMaxDist, exactPairings);
+  approx_m.nn_search_cov2cov(local_m2, mrpt::poses::CPose3D::Identity(), kMaxDist, approxPairings);
+
+  ASSERT_EQUAL_(exactPairings.size(), approxPairings.size());
+  ASSERT_EQUAL_(exactPairings.size(), global_pts.size());
+
+  // Sort both lists by local_idx so entries line up (TBB may reorder them).
+  const auto byLocalIdx = [](const auto& a, const auto& b) { return a.local_idx < b.local_idx; };
+  std::sort(exactPairings.begin(), exactPairings.end(), byLocalIdx);
+  std::sort(approxPairings.begin(), approxPairings.end(), byLocalIdx);
+
+  for (size_t i = 0; i < exactPairings.size(); i++)
+  {
+    const auto& e = exactPairings[i];
+    const auto& a = approxPairings[i];
+    ASSERT_EQUAL_(e.local_idx, a.local_idx);
+    ASSERT_NEAR_((e.local - a.local).norm(), 0.f, 1e-5f);
+    ASSERT_NEAR_((e.global - a.global).norm(), 0.f, 1e-5f);
+    ASSERT_NEAR_((e.cov_inv - a.cov_inv).norm(), 0.0f, 1e-3f);
+  }
+}
+
+// ── 30. approximate_cov: distance threshold is still respected ────────────
+void test_approximate_cov_distance_threshold_respected()
+{
+  auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f);
+  auto local_pts  = makeGridPts(5.f, 0.f, 0.f, 1.f);  // 5 m away: beyond any small threshold
+
+  auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts));
+  auto local_m  = makeMapFromCloud(makeCloudWithViews(local_pts));
+
+  global_m.creationOptions.approximate_cov           = true;
+  global_m.creationOptions.use_view_direction_filter = false;
+  global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+
+  mp2p_icp::MatchedPointWithCovList pairings;
+  global_m.nn_search_cov2cov(
+      local_m, mrpt::poses::CPose3D::Identity(), /*max_search_distance=*/0.5f, pairings);
+
+  ASSERT_EQUAL_(pairings.size(), 0UL);
+}
+
+// ── 31. approximate_cov with multiple active KFs picks the true closest ────
+// Two well-separated keyframes (no overlap) are both in the active set. Each
+// query point must pair with a point from ITS OWN nearby keyframe, proving the
+// "N kd-tree queries, keep the best" logic correctly picks across keyframes
+// rather than only ever using the first (or last) one queried.
+void test_approximate_cov_multi_kf_picks_closest()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+  constexpr float kKf1X    = 100.0f;  // far enough that the two grids never overlap
+
+  mola::KeyframePointCloudMap m;
+  m.creationOptions.k_correspondences_for_cov = 5;
+  m.creationOptions.max_search_keyframes      = 2;
+  m.creationOptions.approximate_cov           = true;
+  m.creationOptions.use_view_direction_filter = false;
+
+  auto obs0        = mrpt::obs::CObservationPointCloud::Create();
+  obs0->pointcloud = makeCloudWithViews(makeGridPts(0.f));
+  m.insertObservation(*obs0, mrpt::poses::CPose3D::Identity());
+
+  auto obs1        = mrpt::obs::CObservationPointCloud::Create();
+  obs1->pointcloud = makeCloudWithViews(makeGridPts(0.f));
+  m.insertObservation(*obs1, mrpt::poses::CPose3D::FromXYZYawPitchRoll(kKf1X, 0, 0, 0, 0, 0));
+
+  m.icp_get_prepared_as_global(mrpt::poses::CPose3D::FromXYZYawPitchRoll(kKf1X / 2, 0, 0, 0, 0, 0));
+
+  // Local query cloud: one grid near KF0, one grid near KF1 (both offset by kDz).
+  auto local_pts = makeGridPts(kDz, 0.f, 0.f, 1.f);
+  for (const auto& p : makeGridPts(kDz, 0.f, 0.f, 1.f))
+  {
+    appendPt(local_pts, p[0] + kKf1X, p[1], p[2], p[3], p[4], p[5]);
+  }
+  auto local_m = makeMapFromCloud(makeCloudWithViews(local_pts));
+
+  mp2p_icp::MatchedPointWithCovList pairings;
+  m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, pairings);
+
+  // Every local point (near either KF) must find a close pairing in its own KF.
+  ASSERT_EQUAL_(pairings.size(), local_pts.size());
+  for (const auto& p : pairings)
+  {
+    const auto  diff = p.global - p.local;
+    const float d2   = diff.sqrNorm();
+    ASSERT_NEAR_(d2, kDz * kDz, 1e-4f);
+  }
+}
+
+// ── 32. approximate_cov: view-direction filter still applies ──────────────
+// Same scenario as test_view_filter_rejects_opposite_view_pairs(), but with
+// approximate_cov=true and a single active KF, confirming the filter logic is
+// preserved by the per-KF code path.
+void test_approximate_cov_view_filter_rejects_opposite_view_pairs()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+  constexpr float kTrapX   = 10.0f;
+  constexpr float kGoodX   = 20.0f;
+
+  auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f);
+  appendPt(global_pts, kTrapX, 0.f, 0.f, 0.f, 0.f, -1.f);  // P_bad: back-face
+  appendPt(global_pts, kGoodX, 0.f, 0.f, 0.f, 0.f, +1.f);  // P_good: front-face
+  const size_t totalPts = global_pts.size();  // 32
+
+  auto local_pts = makeGridPts(kDz, 0.f, 0.f, 1.f);
+  appendPt(local_pts, kTrapX, 0.f, kDz, 0.f, 0.f, +1.f);  // Q_trap: front-face
+  appendPt(local_pts, kGoodX, 0.f, kDz, 0.f, 0.f, +1.f);  // Q_good: front-face
+  ASSERT_EQUAL_(local_pts.size(), totalPts);
+
+  auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts));
+  auto local_m  = makeMapFromCloud(makeCloudWithViews(local_pts));
+
+  global_m.creationOptions.approximate_cov = true;
+  global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+
+  // ---- filter ON (default 120°) ----
+  global_m.creationOptions.use_view_direction_filter = true;
+  global_m.creationOptions.max_view_angle_deg        = 120.0;
+  {
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, pairings);
+    ASSERT_EQUAL_(pairings.size(), totalPts - 1);
+  }
+
+  // ---- filter OFF ----
+  global_m.creationOptions.use_view_direction_filter = false;
+  {
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, pairings);
+    ASSERT_EQUAL_(pairings.size(), totalPts);
+  }
+}
+
+// ── 33. Toggling approximate_cov forces a rebuild even if the KF selection
+//        (active set) does not change ────────────────────────────────────
+// icp_get_prepared_as_global() early-returns when the active-KF-set selection
+// is unchanged. This must NOT short-circuit a switch between exact/approximate
+// mode, or nn_search_cov2cov() would use a stale cache built under the other
+// mode. Toggle the flag with the very same query pose (so the KF selection is
+// identical) and check both modes still work right after the switch.
+void test_approximate_cov_mode_switch_invalidates_cache()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+
+  auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f);
+  auto local_pts  = makeGridPts(kDz, 0.f, 0.f, 1.f);
+
+  auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts));
+  global_m.creationOptions.use_view_direction_filter = false;
+
+  const auto pose = mrpt::poses::CPose3D::Identity();
+
+  // Start in exact mode.
+  global_m.icp_get_prepared_as_global(pose);
+  {
+    auto                              local_m = makeMapFromCloud(makeCloudWithViews(local_pts));
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global_m.nn_search_cov2cov(local_m, pose, kMaxDist, pairings);
+    ASSERT_EQUAL_(pairings.size(), global_pts.size());
+  }
+
+  // Switch to approximate mode with the SAME pose (same KF selection).
+  global_m.creationOptions.approximate_cov = true;
+  global_m.icp_get_prepared_as_global(pose);
+  {
+    auto                              local_m = makeMapFromCloud(makeCloudWithViews(local_pts));
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global_m.nn_search_cov2cov(local_m, pose, kMaxDist, pairings);
+    ASSERT_EQUAL_(pairings.size(), global_pts.size());
+  }
+
+  // Switch back to exact mode, again with the same pose.
+  global_m.creationOptions.approximate_cov = false;
+  global_m.icp_get_prepared_as_global(pose);
+  {
+    auto                              local_m = makeMapFromCloud(makeCloudWithViews(local_pts));
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global_m.nn_search_cov2cov(local_m, pose, kMaxDist, pairings);
+    ASSERT_EQUAL_(pairings.size(), global_pts.size());
+  }
 }
 }  // namespace
 
@@ -1166,6 +1428,27 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_viz_color_by_kf ...\n";
     test_viz_color_by_kf();
+
+    std::cout << "test_approximate_cov_option_roundtrip ...\n";
+    test_approximate_cov_option_roundtrip();
+
+    std::cout << "test_approximate_cov_requires_prepared_call ...\n";
+    test_approximate_cov_requires_prepared_call();
+
+    std::cout << "test_approximate_cov_matches_exact_single_kf ...\n";
+    test_approximate_cov_matches_exact_single_kf();
+
+    std::cout << "test_approximate_cov_distance_threshold_respected ...\n";
+    test_approximate_cov_distance_threshold_respected();
+
+    std::cout << "test_approximate_cov_multi_kf_picks_closest ...\n";
+    test_approximate_cov_multi_kf_picks_closest();
+
+    std::cout << "test_approximate_cov_view_filter_rejects_opposite_view_pairs ...\n";
+    test_approximate_cov_view_filter_rejects_opposite_view_pairs();
+
+    std::cout << "test_approximate_cov_mode_switch_invalidates_cache ...\n";
+    test_approximate_cov_mode_switch_invalidates_cache();
 
     std::cout << "\nAll tests passed.\n";
   }

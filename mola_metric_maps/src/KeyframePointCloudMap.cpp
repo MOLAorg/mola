@@ -618,19 +618,46 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
   kfs_to_search_limited = selectedIds;
 
   // ---------------------------------------------------------------
-  // 4) Rebuild merged submap if the selection changed
+  // 4) Rebuild merged submap if the selection (or the exact/approximate mode) changed
   // ---------------------------------------------------------------
-  if (cached_.icp_search_kfs && *cached_.icp_search_kfs == kfs_to_search_limited)
+  if (cached_.icp_search_kfs && *cached_.icp_search_kfs == kfs_to_search_limited &&
+      cached_.icp_search_built_approximate == creationOptions.approximate_cov)
   {
     return;  // Already up to date.
   }
 
-  cached_.icp_search_kfs = kfs_to_search_limited;
+  cached_.icp_search_kfs               = kfs_to_search_limited;
+  cached_.icp_search_built_approximate = creationOptions.approximate_cov;
 
   // NOTE: Do NOT unlock 'lck' here. The mutex must be held for the entire submap
   // rebuild below, because cached_.icp_search_submap and keyframes_ are both
   // shared mutable state that can be read concurrently by nn_* methods and
   // icp_get_prepared_as_global() itself.
+
+  if (creationOptions.approximate_cov)
+  {
+    // Approximate mode: skip the merged-cloud submap entirely. nn_search_cov2cov()
+    // will instead query each active KF's own cached KD-tree directly. Here we only
+    // need to warm each active KF's per-KF (local) cache and its *global*-frame
+    // structures, so the first ICP align() does not pay that cost on the caller's
+    // thread. See TCreationOptions::approximate_cov.
+    cached_.icp_search_submap.reset();
+
+    for (const auto kf_id : kfs_to_search_limited)
+    {
+      const auto& kf = keyframes_.at(kf_id);
+      if (!kf.pointcloud())
+      {
+        continue;
+      }
+      kf.buildCache();  // local bbox, KD-tree, per-point local covariances
+
+      const auto& globalPoints = kf.pointcloud_global();
+      globalPoints->kdTreeEnsureIndexBuilt3D();
+      kf.covariancesGlobal();
+    }
+    return;
+  }
 
   cached_.icp_search_submap.reset();
   cached_.icp_search_submap.emplace(
@@ -771,10 +798,6 @@ void KeyframePointCloudMap::nn_search_cov2cov(
 {
   auto lck = mrpt::lockHelper(*state_mtx_);
 
-  ASSERTMSG_(
-      cached_.icp_search_submap,
-      "Using this method requires calling icp_get_prepared_as_global() first");
-
   // Enforce local map to recompute its covariances to the new pose:
   const auto* localMapKF = dynamic_cast<const KeyframePointCloudMap*>(&localMap);
   ASSERTMSG_(
@@ -784,6 +807,21 @@ void KeyframePointCloudMap::nn_search_cov2cov(
   auto&      localKf             = const_cast<KeyFrame&>(localMapKF->keyframes_.at(0));
   const auto originalLocalKfPose = localKf.pose();
   localKf.pose(localMapPose);
+
+  if (creationOptions.approximate_cov)
+  {
+    ASSERTMSG_(
+        cached_.icp_search_kfs,
+        "Using this method requires calling icp_get_prepared_as_global() first");
+    nn_search_cov2cov_approximate(
+        localKf, *cached_.icp_search_kfs, max_search_distance, outPairings);
+    localKf.pose(originalLocalKfPose);
+    return;
+  }
+
+  ASSERTMSG_(
+      cached_.icp_search_submap,
+      "Using this method requires calling icp_get_prepared_as_global() first");
 
   const auto& localKfCov        = localKf.covariancesGlobal();
   const auto& localPointsTransf = localKf.pointcloud_global();
@@ -974,6 +1012,196 @@ void KeyframePointCloudMap::nn_search_cov2cov(
   localKf.pose(originalLocalKfPose);
 }
 
+namespace
+{
+/// Best-effort, packed identifier for a (active-KF ordinal, local point index) pair, used as
+/// point_with_cov_pair_t::global_idx in approximate cov2cov mode (see
+/// KeyframePointCloudMap::nn_search_cov2cov_approximate()). Unlike the exact (merged-cloud)
+/// mode, there is no single flat index space to draw from, so 8 bits are reserved for the
+/// active-KF ordinal (creationOptions.max_search_keyframes is never more than a few dozen) and
+/// 24 bits for the local index (post-decimation KF clouds are always far below 16M points).
+/// Collisions beyond those bounds only affect Matcher_Cov2Cov's optional
+/// "allowMatchAlreadyMatchedGlobalPoints" bookkeeping, not correctness of the pairing itself.
+uint32_t packApproxGlobalIdx(uint32_t kf_ordinal, uint32_t local_idx)
+{
+  return ((kf_ordinal & 0xFFu) << 24) | (local_idx & 0x00FFFFFFu);
+}
+}  // namespace
+
+void KeyframePointCloudMap::nn_search_cov2cov_approximate(
+    const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs, const float max_search_distance,
+    mp2p_icp::MatchedPointWithCovList& outPairings) const
+{
+  const auto& localKfCov        = localKf.covariancesGlobal();
+  const auto& localPointsTransf = localKf.pointcloud_global();
+  const auto& localPoints       = localKf.pointcloud();
+
+  const auto  localPointCount = localPointsTransf->size();
+  const float max_sqr_dist    = mrpt::square(max_search_distance);
+
+  const auto& xs_tf = localPointsTransf->getPointsBufferRef_x();
+  const auto& ys_tf = localPointsTransf->getPointsBufferRef_y();
+  const auto& zs_tf = localPointsTransf->getPointsBufferRef_z();
+
+  const auto& xs = localPoints->getPointsBufferRef_x();
+  const auto& ys = localPoints->getPointsBufferRef_y();
+  const auto& zs = localPoints->getPointsBufferRef_z();
+
+  // View-direction filter setup: see the exact-mode nn_search_cov2cov() above for the full
+  // rationale. Here the same per-pair test is applied against whichever active KF ends up
+  // being the closest one for a given query point.
+  const bool try_view_filter = creationOptions.use_view_direction_filter;
+
+  const mrpt::aligned_std_vector<float>* local_view_x = nullptr;
+  const mrpt::aligned_std_vector<float>* local_view_y = nullptr;
+  const mrpt::aligned_std_vector<float>* local_view_z = nullptr;
+  if (try_view_filter)
+  {
+    local_view_x = localPoints->getPointsBufferRef_float_field("view_x");
+    local_view_y = localPoints->getPointsBufferRef_float_field("view_y");
+    local_view_z = localPoints->getPointsBufferRef_float_field("view_z");
+  }
+  const bool have_local_view_fields =
+      (local_view_x != nullptr) && (local_view_y != nullptr) && (local_view_z != nullptr);
+
+  const double max_view_angle_deg = std::clamp(creationOptions.max_view_angle_deg, 0.0, 180.0);
+  const bool   do_view_filter =
+      try_view_filter && have_local_view_fields && max_view_angle_deg < 180.0;
+  const float view_cos_threshold =
+      do_view_filter ? static_cast<float>(std::cos(mrpt::DEG2RAD(max_view_angle_deg))) : -2.0f;
+
+  // Per-active-KF lookup tables, built once (not per query point).
+  struct ActiveKfEntry
+  {
+    const mrpt::maps::CPointsMap*                  globalPoints = nullptr;
+    const std::vector<mrpt::math::CMatrixFloat33>* globalCov    = nullptr;
+    const mrpt::aligned_std_vector<float>*         view_x       = nullptr;
+    const mrpt::aligned_std_vector<float>*         view_y       = nullptr;
+    const mrpt::aligned_std_vector<float>*         view_z       = nullptr;
+  };
+  std::vector<ActiveKfEntry> entries;
+  entries.reserve(activeKfs.size());
+  for (const auto kf_id : activeKfs)
+  {
+    const auto& kf = keyframes_.at(kf_id);
+    if (!kf.pointcloud() || kf.pointcloud()->empty())
+    {
+      continue;
+    }
+    ActiveKfEntry e;
+    const auto&   gp = kf.pointcloud_global();
+    gp->kdTreeEnsureIndexBuilt3D();
+    e.globalPoints = gp.get();
+    e.globalCov    = &kf.covariancesGlobal();
+    if (do_view_filter)
+    {
+      e.view_x = gp->getPointsBufferRef_float_field("view_x");
+      e.view_y = gp->getPointsBufferRef_float_field("view_y");
+      e.view_z = gp->getPointsBufferRef_float_field("view_z");
+    }
+    entries.push_back(e);
+  }
+
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+  tbb::enumerable_thread_specific<mp2p_icp::MatchedPointWithCovList> tls;
+
+  tbb::parallel_for(
+      static_cast<size_t>(0), localPointCount,
+      [&](size_t local_idx)
+#else
+  for (size_t local_idx = 0; local_idx < localPointCount; local_idx++)
+#endif
+      {
+        // "N" KD-tree queries (one per active KF) instead of one on a merged cloud:
+        float  best_dist_sqr = std::numeric_limits<float>::max();
+        size_t best_entry    = 0;
+        size_t best_idx      = 0;
+        bool   found         = false;
+
+        for (size_t e = 0; e < entries.size(); e++)
+        {
+          float      d   = std::numeric_limits<float>::max();
+          const auto idx = entries[e].globalPoints->kdTreeClosestPoint3D(
+              xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx], d);
+          if (d < best_dist_sqr)
+          {
+            best_dist_sqr = d;
+            best_entry    = e;
+            best_idx      = idx;
+            found         = true;
+          }
+        }
+
+        if (!found || best_dist_sqr > max_sqr_dist)
+        {
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+          return;  // exit TBB lambda for this index
+#else
+      continue;  // skip to next iteration of the for loop
+#endif
+        }
+
+        const auto& entry = entries[best_entry];
+
+        if (do_view_filter && entry.view_x != nullptr && entry.view_y != nullptr &&
+            entry.view_z != nullptr)
+        {
+          const auto v_local_global =
+              localKf.pose()
+                  .rotateVector(
+                      {(*local_view_x)[local_idx], (*local_view_y)[local_idx],
+                       (*local_view_z)[local_idx]})
+                  .cast<float>();
+
+          const float dot = v_local_global.x * (*entry.view_x)[best_idx] +
+                            v_local_global.y * (*entry.view_y)[best_idx] +
+                            v_local_global.z * (*entry.view_z)[best_idx];
+
+          if (dot < view_cos_threshold)
+          {
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+            return;  // exit TBB lambda for this index
+#else
+        continue;  // skip to next iteration of the for loop
+#endif
+          }
+        }
+
+    // Add pairing:
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+        auto& p = tls.local().emplace_back();
+#else
+    auto& p = outPairings.emplace_back();
+#endif
+
+        const auto& g_xs = entry.globalPoints->getPointsBufferRef_x();
+        const auto& g_ys = entry.globalPoints->getPointsBufferRef_y();
+        const auto& g_zs = entry.globalPoints->getPointsBufferRef_z();
+
+        p.global_idx =
+            packApproxGlobalIdx(static_cast<uint32_t>(best_entry), static_cast<uint32_t>(best_idx));
+        p.local_idx = static_cast<uint32_t>(local_idx);
+        p.local     = {xs[local_idx], ys[local_idx], zs[local_idx]};
+        p.global    = {g_xs[best_idx], g_ys[best_idx], g_zs[best_idx]};
+
+        /* Following GICP \cite segal2009gicp this should be:
+         *  `(COV_{global} + R*COV_{local}*R^T)^{-1}`
+         *  But localKfCov already incorporate R*C*R^T from localKf.pose(p)
+         */
+        p.cov_inv = (entry.globalCov->at(best_idx) + localKfCov.at(local_idx)).inverse();
+      }
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+  );
+  // Merge from all threads:
+  for (auto& localVec : tls)
+  {
+    outPairings.insert(
+        outPairings.end(), std::make_move_iterator(localVec.begin()),
+        std::make_move_iterator(localVec.end()));
+  }
+#endif
+}
+
 std::size_t KeyframePointCloudMap::point_count() const
 {
   std::size_t total = 0;
@@ -1123,6 +1351,9 @@ bool KeyframePointCloudMap::trySetCreationOptions(
   // covariances), instead of being read live from `creationOptions`. Propagate the new values
   // to all existing keyframes and invalidate their cached covariances, so they get recomputed
   // with the new parameters next time they are queried.
+  // Note on approximate_cov: icp_get_prepared_as_global() compares
+  // cached_.icp_search_built_approximate against the live option, so a change here (even
+  // with an unchanged active KF set) is picked up and forces a rebuild on the next call.
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
   creationOptions = newOpts;
@@ -1813,6 +2044,7 @@ void KeyframePointCloudMap::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR_CS(use_view_direction_filter, bool);
   MRPT_LOAD_CONFIG_VAR_CS(max_view_angle_deg, double);
   MRPT_LOAD_CONFIG_VAR_CS(serialize_kdtrees, bool);
+  MRPT_LOAD_CONFIG_VAR_CS(approximate_cov, bool);
 }
 
 void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out) const
@@ -1827,17 +2059,19 @@ void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(use_view_direction_filter, bool);
   LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
   LOADABLEOPTS_DUMP_VAR(serialize_kdtrees, bool);
+  LOADABLEOPTS_DUMP_VAR(approximate_cov, bool);
 }
 
 void KeyframePointCloudMap::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  out.WriteAs<uint8_t>(4);  // version
+  out.WriteAs<uint8_t>(5);  // version
   out << max_search_keyframes << k_correspondences_for_cov;
   out << rotation_distance_weight << num_diverse_keyframes;  // v1
   out << use_view_direction_filter << max_view_angle_deg;  // v2
   out << min_correspondences_for_cov << max_distance_for_cov;  // v3
   out << serialize_kdtrees;  // v4
+  out << approximate_cov;  // v5
 }
 
 void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1852,6 +2086,7 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
     case 2:
     case 3:
     case 4:
+    case 5:
     {
       in >> max_search_keyframes >> k_correspondences_for_cov;
       if (version >= 1)
@@ -1870,6 +2105,10 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
       if (version >= 4)
       {
         in >> serialize_kdtrees;
+      }
+      if (version >= 5)
+      {
+        in >> approximate_cov;
       }
     }
     break;
