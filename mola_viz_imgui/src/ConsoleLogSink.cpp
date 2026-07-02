@@ -41,6 +41,8 @@ void ConsoleLogSink::push(const ConsoleLogEntry& e)
   {
     entries_.pop_front();
   }
+
+  version_.fetch_add(1, std::memory_order_relaxed);
 }
 
 std::deque<ConsoleLogEntry> ConsoleLogSink::snapshot() const
@@ -53,6 +55,7 @@ void ConsoleLogSink::clear()
 {
   std::lock_guard<std::mutex> lk(mtx_);
   entries_.clear();
+  version_.fetch_add(1, std::memory_order_relaxed);
 }
 
 void ConsoleLogSink::note_source(const std::string& s)

@@ -588,6 +588,18 @@ void MolaVizImGuiCore::render_console_window(PerWindowData& /*wd*/)
     console_selected_source_name_ = selCombo > 0 ? srcs[static_cast<size_t>(selCombo - 1)] : "";
   ImGui::SameLine();
 
+  static const char* kCaptureLevelNames[] = {"Debug", "Info", "Warn", "Error"};
+  int                captureIdx           = static_cast<int>(console_capture_level_.load());
+  ImGui::SetNextItemWidth(100);
+  if (ImGui::Combo("Capture", &captureIdx, kCaptureLevelNames, IM_ARRAYSIZE(kCaptureLevelNames)))
+    console_capture_level_.store(static_cast<mrpt::system::VerbosityLevel>(captureIdx));
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip(
+        "Verbosity threshold sent by every module to this console (pipeline-wide).\n"
+        "Raising it to Debug makes ALL modules pay the cost of formatting debug\n"
+        "log lines, even ones the Levels filter below then hides.\n"
+        "The Levels checkboxes only filter what's already been captured.");
+
   ImGui::TextUnformatted("Levels:");
   ImGui::SameLine();
   ImGui::Checkbox("D", &console_level_enabled_[0]);
@@ -603,9 +615,27 @@ void MolaVizImGuiCore::render_console_window(PerWindowData& /*wd*/)
   ImGui::Separator();
 
   // ---- Log area -------------------------------------------------------------
+  // Re-snapshot the sink only when it actually changed (version bump on
+  // push()/clear()). Producer threads (module loggers) and this GUI thread
+  // both contend on the sink's mutex; a plain snapshot() on every rendered
+  // frame -- regardless of whether new entries arrived -- copies the whole
+  // (up to `max_entries`) deque under that lock at up to `target_fps_` Hz,
+  // which is wasted work when logging is idle or between bursts, and briefly
+  // blocks any module trying to push() a new line while the copy runs.
+  // Read the version *before* copying: if a push() races in between and
+  // lands in the copy anyway, we'll just re-snapshot once more than strictly
+  // needed next frame -- reading it after the copy could instead record a
+  // version newer than what was actually captured, permanently hiding that
+  // entry until the next push happens to change the version again.
+  if (const uint64_t v = console_sink_->version(); v != console_cached_version_)
+  {
+    console_cached_entries_ = console_sink_->snapshot();
+    console_cached_version_ = v;
+  }
+
   ImGui::BeginChild("##log", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
 
-  for (const auto& e : console_sink_->snapshot())
+  for (const auto& e : console_cached_entries_)
   {
     if (!console_entry_passes_filters(e)) continue;
 

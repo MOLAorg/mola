@@ -66,6 +66,11 @@ class ConsoleLogSink
   void                        note_source(const std::string& s);
   std::vector<std::string>    sources() const;
 
+  /** Bumped on every push()/clear(). Lock-free, so callers that re-render
+   *  every frame (e.g. the Console window) can skip the snapshot()/lock/copy
+   *  entirely when nothing changed since their last cached copy. */
+  uint64_t version() const { return version_.load(std::memory_order_relaxed); }
+
   std::atomic<size_t> max_entries{5000};
   std::atomic<double> window_seconds{120.0};
 
@@ -73,6 +78,7 @@ class ConsoleLogSink
   mutable std::mutex          mtx_;
   std::deque<ConsoleLogEntry> entries_;
   std::set<std::string>       sources_;
+  std::atomic<uint64_t>       version_{0};
 };
 
 /** Core rendering and state-management logic for the Dear ImGui MOLA viz backend.
@@ -355,9 +361,16 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   /** Rolling time window (seconds): entries older than this are dropped. */
   double console_window_seconds_ = 120.0;
 
-  /** Verbosity threshold used when registering module log callbacks.
-   *  Default DEBUG so the UI can reveal all levels. */
-  mrpt::system::VerbosityLevel console_capture_level_ = mrpt::system::LVL_DEBUG;
+  /** Verbosity threshold used when registering module log callbacks (i.e.
+   *  what gets captured pipeline-wide, as opposed to `console_level_enabled_`
+   *  below, which only filters what the already-captured entries display).
+   *  Default INFO: capturing DEBUG from every module forces every
+   *  MRPT_LOG_DEBUG_STREAM() callsite in the whole pipeline to always format
+   *  its message just to feed the sink, even if the UI ends up hiding it.
+   *  Runtime-adjustable from the Console window's "Capture" combo; atomic
+   *  because it's written from the GUI thread and read from the module's
+   *  own spin thread (see `MolaVizImGui::console_check_new_modules()`). */
+  std::atomic<mrpt::system::VerbosityLevel> console_capture_level_{mrpt::system::LVL_INFO};
 
   /** Sink shared with the per-module logger callbacks; always allocated,
    *  populated only while `console_enabled_` is true. */
@@ -481,6 +494,12 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   std::string console_filter_text_;
   bool        console_level_enabled_[4] = {false, true, true, true};  // D,I,W,E
   bool        console_autoscroll_       = true;
+
+  // Cached copy of the sink's entries, refreshed only when `ConsoleLogSink::
+  // version()` changes -- avoids a full deque-of-strings copy under the
+  // sink's mutex on every rendered frame when nothing new was logged.
+  std::deque<ConsoleLogEntry> console_cached_entries_;
+  uint64_t                    console_cached_version_ = 0;
 
   // Selected source filter, keyed by name (empty == "all"), not by an index
   // into `ConsoleLogSink::sources()` -- that set is sorted and its order
