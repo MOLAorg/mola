@@ -142,6 +142,17 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   (`--decimate-voxel`, view-direction fields carried) to bound the overlap-induced point
   blow-up. On a 1000-KF outdoor map this yields ~5 super-KFs. This is "idea 1" of the
   keyframe-map persistence plan.
+- `KeyframePointCloudMap::TCreationOptions::approximate_cov` (default `false`): for
+  `nn_search_cov2cov()` (used by `mp2p_icp::Matcher_Cov2Cov`, i.e. GICP-style pipelines).
+  When `true`, `icp_get_prepared_as_global()` skips assembling the merged, multi-keyframe
+  submap for the active KF set and instead only warms each active KF's own (already cached)
+  KD-tree and per-point covariances; `nn_search_cov2cov()` then does one KD-tree query per
+  active KF ("N" queries instead of 1 on a merged cloud) and keeps the closest, using that
+  KF's own cached covariance. Trades exactness (covariances are estimated only from
+  within-KF neighbors, not the merged multi-KF cloud) for speed (no merge/KD-tree rebuild).
+  Only affects `nn_search_cov2cov()`; the generic `NearestNeighborsCapable` entry points
+  still require the merged submap. Exposed in `mola_lidar_odometry`'s
+  `pipelines/lidar3d-gicp.yaml` as `MOLA_LOCALMAP_APPROXIMATE_COV`.
 - CLI tool `mm-kf-bake-kdtrees` (in `apps/`): "idea 2" of the same plan. Caches each
   keyframe's per-cloud 3D KD-tree index inside the `.mm` so it is not rebuilt on every load
   (faster localization-only startup). Backed by the `serialize_kdtrees` creationOption of
