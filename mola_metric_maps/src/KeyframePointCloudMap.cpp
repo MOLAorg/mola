@@ -326,6 +326,7 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
     case 0:
     case 1:
     case 2:
+    case 3:
     {
       // params:
       creationOptions.readFromStream(in);
@@ -386,7 +387,7 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
             const auto hasCov = in.ReadAs<uint8_t>();
             if (hasCov != 0)
             {
-              const auto                               nCov = in.ReadAs<uint32_t>();
+              const auto                              nCov = in.ReadAs<uint32_t>();
               std::vector<mrpt::math::CMatrixFloat33> covs(nCov);
               for (uint32_t c = 0; c < nCov; c++)
               {
@@ -1272,7 +1273,7 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
         p.local_idx = static_cast<uint32_t>(local_idx);
         p.local     = {xs[local_idx], ys[local_idx], zs[local_idx]};
         p.global    = {
-            static_cast<float>(g_pt.x), static_cast<float>(g_pt.y), static_cast<float>(g_pt.z)};
+               static_cast<float>(g_pt.x), static_cast<float>(g_pt.y), static_cast<float>(g_pt.z)};
 
         /* Following GICP \cite segal2009gicp this should be:
          *  `(COV_{global} + R*COV_{local}*R^T)^{-1}`

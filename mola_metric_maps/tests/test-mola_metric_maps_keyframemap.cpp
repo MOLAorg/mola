@@ -1044,13 +1044,13 @@ void test_covariance_serialization_roundtrip()
   auto local_pts  = makeGridPts(kDz, 0.f, 0.f, 1.f, 10, 10);
 
   // Reference map: covariances computed at runtime.
-  auto ref_m                                      = makeMapFromCloud(makeCloudWithViews(global_pts));
-  ref_m.creationOptions.approximate_cov           = true;
+  auto ref_m                            = makeMapFromCloud(makeCloudWithViews(global_pts));
+  ref_m.creationOptions.approximate_cov = true;
   ref_m.creationOptions.use_view_direction_filter = false;
 
   // Baked map: same points, covariances serialized into the stream.
-  auto bake_m                                      = makeMapFromCloud(makeCloudWithViews(global_pts));
-  bake_m.creationOptions.approximate_cov           = true;
+  auto bake_m                            = makeMapFromCloud(makeCloudWithViews(global_pts));
+  bake_m.creationOptions.approximate_cov = true;
   bake_m.creationOptions.use_view_direction_filter = false;
   bake_m.creationOptions.serialize_covariances     = true;
 
