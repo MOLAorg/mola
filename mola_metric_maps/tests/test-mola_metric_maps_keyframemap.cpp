@@ -788,6 +788,180 @@ void test_kf_pose_plumbing()
   ASSERT_EQUAL_(m.nextFreeKeyFrameID_public(), KFID{0});
 }
 
+// ── 21. Regroup: builds a multi-KF map along a line ───────────────────────
+/// Inserts `nkf` keyframes of large overlapping grid clouds, spaced `spacing`
+/// metres apart along +x. Returns the assembled map.
+mola::KeyframePointCloudMap makeLinearMap(size_t nkf, double spacing, bool withViews = false)
+{
+  using mrpt::literals::      operator""_deg;
+  mola::KeyframePointCloudMap m;
+  m.creationOptions.k_correspondences_for_cov = 5;
+  m.creationOptions.max_search_keyframes      = 3;
+
+  for (size_t i = 0; i < nkf; ++i)
+  {
+    // Large grid (21x21, ~20 m span) so consecutive KFs overlap heavily.
+    auto                        pts = makeGridPts(0.f, 0.f, 0.f, 1.f, 21, 21);
+    mrpt::maps::CPointsMap::Ptr pc;
+    if (withViews)
+    {
+      pc = makeCloudWithViews(pts);
+    }
+    else
+    {
+      auto simple = mrpt::maps::CSimplePointsMap::Create();
+      for (const auto& p : pts)
+      {
+        simple->insertPoint(p[0], p[1], p[2]);
+      }
+      pc = simple;
+    }
+    auto obs        = mrpt::obs::CObservationPointCloud::Create();
+    obs->pointcloud = pc;
+    m.insertObservation(
+        *obs, mrpt::poses::CPose3D::FromXYZYawPitchRoll(
+                  static_cast<double>(i) * spacing, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg));
+  }
+  return m;
+}
+
+// ── 21. Regroup reduces KF count and stays deterministic ──────────────────
+void test_regroup_reduces_keyframes()
+{
+  auto m = makeLinearMap(/*nkf=*/15, /*spacing=*/3.0);
+  ASSERT_EQUAL_(m.keyframePoses().size(), 15UL);
+
+  mola::KeyframePointCloudMap::RegroupParams params;  // defaults
+  auto                                       g1 = m.regroupKeyframes(params);
+  ASSERT_(g1);
+  ASSERT_(!g1->isEmpty());
+
+  // Heavy overlap along the line must collapse 15 KFs into strictly fewer
+  // super-keyframes.
+  ASSERT_LT_(g1->keyframePoses().size(), 15UL);
+  ASSERT_GT_(g1->keyframePoses().size(), 0UL);
+
+  // Options are carried over from the source map.
+  ASSERT_EQUAL_(g1->creationOptions.max_search_keyframes, m.creationOptions.max_search_keyframes);
+
+  // Deterministic: same input + params -> same number of super-keyframes.
+  auto g2 = m.regroupKeyframes(params);
+  ASSERT_EQUAL_(g1->keyframePoses().size(), g2->keyframePoses().size());
+
+  // Global bounding box is approximately preserved (points are not lost).
+  const auto bbIn  = m.boundingBox();
+  const auto bbOut = g1->boundingBox();
+  ASSERT_NEAR_(bbIn.min.x, bbOut.min.x, 1.0f);
+  ASSERT_NEAR_(bbIn.max.x, bbOut.max.x, 1.0f);
+  ASSERT_NEAR_(bbIn.min.y, bbOut.min.y, 1.0f);
+  ASSERT_NEAR_(bbIn.max.y, bbOut.max.y, 1.0f);
+}
+
+// ── 22. Regroup: every original pose is covered by ONE super-keyframe ──────
+void test_regroup_single_kf_coverage()
+{
+  auto       m         = makeLinearMap(/*nkf=*/15, /*spacing=*/3.0);
+  const auto origPoses = m.keyframePoses();
+
+  mola::KeyframePointCloudMap::RegroupParams params;
+  auto                                       g = m.regroupKeyframes(params);
+
+  // Force single-active-KF localization behavior.
+  g->creationOptions.max_search_keyframes = 1;
+
+  for (const auto& [id, pose] : origPoses)
+  {
+    g->icp_get_prepared_as_global(pose);
+
+    // With only ONE active super-keyframe selected, a point at the robot
+    // location must still find a close neighbor: the group covers this pose.
+    mrpt::math::TPoint3Df query{static_cast<float>(pose.x()), static_cast<float>(pose.y()), 0.f};
+    mrpt::math::TPoint3Df result;
+    float                 dsqr = 0;
+    uint64_t              idx  = 0;
+    const bool            ok   = g->nn_single_search(query, result, dsqr, idx);
+    ASSERT_(ok);
+    // The grids are 1 m spaced and centered on each KF, so the nearest point
+    // to the robot location is well under 2 m if the pose is truly covered.
+    ASSERT_LT_(dsqr, 4.0f);
+  }
+}
+
+// ── 23. Regroup: empty input yields an empty (but valid) map ───────────────
+void test_regroup_empty()
+{
+  mola::KeyframePointCloudMap                m;
+  mola::KeyframePointCloudMap::RegroupParams params;
+  auto                                       g = m.regroupKeyframes(params);
+  ASSERT_(g);
+  ASSERT_(g->isEmpty());
+}
+
+// ── 24. Regroup: output survives serialization round-trip ──────────────────
+void test_regroup_serialization_roundtrip()
+{
+  auto m = makeLinearMap(/*nkf=*/12, /*spacing=*/3.0, /*withViews=*/true);
+
+  mola::KeyframePointCloudMap::RegroupParams params;
+  auto                                       g = m.regroupKeyframes(params);
+  ASSERT_(!g->isEmpty());
+
+  const auto nKF  = g->keyframePoses().size();
+  const auto nPts = g->point_count();
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar << *g;
+  }
+  buf.Seek(0);
+
+  mola::KeyframePointCloudMap g2;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar >> g2;
+  }
+
+  ASSERT_EQUAL_(g2.keyframePoses().size(), nKF);
+  ASSERT_EQUAL_(g2.point_count(), nPts);
+}
+
+// ── 25. serialize_kdtrees round-trips the stream correctly ─────────────────
+// Whether or not the MRPT build provides the KD-tree save/load API, the map
+// serialization must stay stream-aligned with serialize_kdtrees enabled, and
+// the loaded map must remain fully functional (points + NN queries).
+void test_kdtree_serialization_roundtrip()
+{
+  auto m = makeMapFromCloud(makeCloudWithViews(makeGridPts(0.f, 0.f, 0.f, 1.f, 10, 10)));
+  m.creationOptions.serialize_kdtrees = true;
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar << m;
+  }
+  buf.Seek(0);
+
+  mola::KeyframePointCloudMap m2;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar >> m2;
+  }
+
+  ASSERT_EQUAL_(m2.point_count(), m.point_count());
+  ASSERT_(m2.creationOptions.serialize_kdtrees == true);
+
+  // Functional: prepare a single-KF submap and run a NN query on the loaded map.
+  m2.creationOptions.max_search_keyframes = 1;
+  m2.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+  mrpt::math::TPoint3Df query{0.f, 0.f, 0.f};
+  mrpt::math::TPoint3Df result;
+  float                 dsqr = 0;
+  uint64_t              idx  = 0;
+  ASSERT_(m2.nn_single_search(query, result, dsqr, idx));
+  ASSERT_LT_(dsqr, 4.0f);
+}
+
 // ── 20. Default filter parameters are sane ────────────────────────────────
 void test_default_creation_options()
 {
@@ -859,6 +1033,21 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_default_creation_options ...\n";
     test_default_creation_options();
+
+    std::cout << "test_regroup_reduces_keyframes ...\n";
+    test_regroup_reduces_keyframes();
+
+    std::cout << "test_regroup_single_kf_coverage ...\n";
+    test_regroup_single_kf_coverage();
+
+    std::cout << "test_regroup_empty ...\n";
+    test_regroup_empty();
+
+    std::cout << "test_regroup_serialization_roundtrip ...\n";
+    test_regroup_serialization_roundtrip();
+
+    std::cout << "test_kdtree_serialization_roundtrip ...\n";
+    test_kdtree_serialization_roundtrip();
 
     std::cout << "\nAll tests passed.\n";
   }

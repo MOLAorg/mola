@@ -39,7 +39,11 @@
 #include <mrpt/system/string_utils.h>  // unitsFormat()
 #include <mrpt/version.h>  // For MRPT_VERSION
 
+#include <cmath>
+#include <cstdint>
 #include <numeric>  // std::accumulate
+#include <sstream>
+#include <unordered_set>
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
 #include <tbb/enumerable_thread_specific.h>
@@ -231,7 +235,7 @@ IMPLEMENTS_SERIALIZABLE(KeyframePointCloudMap, CMetricMap, mola)
 // Serialization
 // =====================================
 
-uint8_t KeyframePointCloudMap::serializeGetVersion() const { return 1; }
+uint8_t KeyframePointCloudMap::serializeGetVersion() const { return 2; }
 void    KeyframePointCloudMap::serializeTo(mrpt::serialization::CArchive& out) const
 {
   auto lck = mrpt::lockHelper(*state_mtx_);
@@ -254,6 +258,28 @@ void    KeyframePointCloudMap::serializeTo(mrpt::serialization::CArchive& out) c
     {
       out.WriteAs<uint8_t>(1);  // has point cloud
       out << *kf.pointcloud();
+
+      // v2: optionally cache the per-cloud 3D KD-tree index so it does not have
+      // to be rebuilt on load. Self-describing (a flag byte precedes any blob),
+      // so readers can skip it regardless of the write-time option or MRPT build.
+      uint8_t     hasKdTree = 0;
+      std::string kdBlob;
+#if defined(MRPT_HAS_KDTREE_SAVE_LOAD_INDEX)
+      if (creationOptions.serialize_kdtrees)
+      {
+        std::ostringstream ss(std::ios::binary);
+        if (kf.pointcloud()->kdtree_save_index_3D(ss))
+        {
+          kdBlob    = ss.str();
+          hasKdTree = 1;
+        }
+      }
+#endif
+      out.WriteAs<uint8_t>(hasKdTree);
+      if (hasKdTree != 0)
+      {
+        out << kdBlob;
+      }
     }
     else
     {
@@ -276,6 +302,7 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
   {
     case 0:
     case 1:
+    case 2:
     {
       // params:
       creationOptions.readFromStream(in);
@@ -306,6 +333,26 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
           auto pc  = std::dynamic_pointer_cast<mrpt::maps::CPointsMap>(obj);
           ASSERT_(pc);
           kf.pointcloud(pc);
+
+          // v2: optional cached KD-tree index (see serializeTo). Always consume
+          // the flag byte + blob so the stream stays aligned even when this
+          // build cannot install the index.
+          if (version >= 2)
+          {
+            const auto hasKdTree = in.ReadAs<uint8_t>();
+            if (hasKdTree != 0)
+            {
+              std::string kdBlob;
+              in >> kdBlob;
+#if defined(MRPT_HAS_KDTREE_SAVE_LOAD_INDEX)
+              std::istringstream ss(kdBlob, std::ios::binary);
+              // Install the precomputed index so the first query does not rebuild
+              // it. Points were just deserialized above (which marks the tree
+              // outdated), so this must come after kf.pointcloud(pc).
+              pc->kdtree_load_index_3D(ss);
+#endif
+            }
+          }
         }
       }
 
@@ -1139,6 +1186,414 @@ const mrpt::maps::CSimplePointsMap* KeyframePointCloudMap::getAsSimplePointsMap(
 }
 
 // ==========================
+//   Keyframe regrouping
+// ==========================
+
+namespace
+{
+/// Packs a voxel coordinate triplet into a single 64-bit key. Uses 21 bits per
+/// axis with a large centering offset, covering ~ +/-1e6 voxels per axis.
+inline int64_t voxelKey(float x, float y, float z, double inv_voxel)
+{
+  constexpr int64_t kOffset = 1 << 20;  // center the range around 0
+  const auto        q       = [inv_voxel](float c)
+  { return static_cast<int64_t>(std::floor(static_cast<double>(c) * inv_voxel)) + kOffset; };
+  const int64_t ix = q(x);
+  const int64_t iy = q(y);
+  const int64_t iz = q(z);
+  return (ix << 42) | (iy << 21) | iz;
+}
+
+using VoxelSet = std::unordered_set<int64_t>;
+
+VoxelSet cloudToVoxelSet(const mrpt::maps::CPointsMap& pc, double inv_voxel)
+{
+  VoxelSet    s;
+  const auto& xs = pc.getPointsBufferRef_x();
+  const auto& ys = pc.getPointsBufferRef_y();
+  const auto& zs = pc.getPointsBufferRef_z();
+  s.reserve(xs.size());
+  for (size_t i = 0; i < xs.size(); i++)
+  {
+    s.insert(voxelKey(xs[i], ys[i], zs[i], inv_voxel));
+  }
+  return s;
+}
+
+/// Jaccard-min overlap: |A ∩ B| / min(|A|,|B|), in [0,1].
+double voxelOverlap(const VoxelSet& a, const VoxelSet& b)
+{
+  if (a.empty() || b.empty())
+  {
+    return 0;
+  }
+  const VoxelSet& small = a.size() <= b.size() ? a : b;
+  const VoxelSet& large = a.size() <= b.size() ? b : a;
+  size_t          inter = 0;
+  for (const auto k : small)
+  {
+    if (large.count(k) != 0)
+    {
+      inter++;
+    }
+  }
+  return static_cast<double>(inter) / static_cast<double>(small.size());
+}
+
+/// Builds one super-keyframe's cloud, expressed in the anchor (seed) LOCAL
+/// frame, by merging the GLOBAL clouds of all `members` (indices into
+/// `globals`), optionally voxel-decimating to bound the overlap-induced point
+/// blow-up, and finally rotating into the anchor frame. View-direction fields
+/// are carried and re-rotated when present in the seed cloud.
+mrpt::maps::CPointsMap::Ptr buildSuperKeyframeCloud(
+    const std::vector<size_t>& members, const std::vector<mrpt::maps::CPointsMap::Ptr>& globals,
+    const mrpt::poses::CPose3D& anchorPose, double decimateVoxel)
+{
+  const auto& seedGlobal = globals[members.front()];
+  const bool  hasView    = (seedGlobal->getPointsBufferRef_float_field("view_x") != nullptr) &&
+                       (seedGlobal->getPointsBufferRef_float_field("view_y") != nullptr) &&
+                       (seedGlobal->getPointsBufferRef_float_field("view_z") != nullptr);
+
+  const auto makeCloud = [hasView]() -> mrpt::maps::CPointsMap::Ptr
+  {
+    if (hasView)
+    {
+      auto gpc = mrpt::maps::CGenericPointsMap::Create();
+      gpc->registerField_float("view_x");
+      gpc->registerField_float("view_y");
+      gpc->registerField_float("view_z");
+      return gpc;
+    }
+    return mrpt::maps::CSimplePointsMap::Create();
+  };
+
+  // Merge all member clouds in the GLOBAL frame (view fields already global).
+  // When decimation is requested and the clouds carry no custom fields, fold the
+  // voxel-dedup INTO the merge, so we never materialize the (potentially
+  // enormous) fully-overlapped intermediate cloud. This is what keeps the tool
+  // tractable on large maps where each super-keyframe absorbs hundreds of
+  // heavily-overlapping keyframes.
+  mrpt::maps::CPointsMap::Ptr mergedGlobal = makeCloud();
+
+  const bool decimate = decimateVoxel > 0;
+  if (decimate)
+  {
+    // Voxel-dedup folded into the merge, carrying view_{x,y,z} (global frame)
+    // for the first point kept in each voxel when present.
+    const double                dinv = 1.0 / decimateVoxel;
+    std::unordered_set<int64_t> seen;
+    for (const size_t mIdx : members)
+    {
+      const auto& g  = globals[mIdx];
+      const auto& xs = g->getPointsBufferRef_x();
+      const auto& ys = g->getPointsBufferRef_y();
+      const auto& zs = g->getPointsBufferRef_z();
+
+      const mrpt::aligned_std_vector<float>* vx = nullptr;
+      const mrpt::aligned_std_vector<float>* vy = nullptr;
+      const mrpt::aligned_std_vector<float>* vz = nullptr;
+      if (hasView)
+      {
+        vx = g->getPointsBufferRef_float_field("view_x");
+        vy = g->getPointsBufferRef_float_field("view_y");
+        vz = g->getPointsBufferRef_float_field("view_z");
+      }
+
+      for (size_t i = 0; i < xs.size(); i++)
+      {
+        if (!seen.insert(voxelKey(xs[i], ys[i], zs[i], dinv)).second)
+        {
+          continue;
+        }
+        mergedGlobal->insertPointFast(xs[i], ys[i], zs[i]);
+        if (hasView && vx != nullptr && vy != nullptr && vz != nullptr)
+        {
+          mergedGlobal->insertPointField_float("view_x", (*vx)[i]);
+          mergedGlobal->insertPointField_float("view_y", (*vy)[i]);
+          mergedGlobal->insertPointField_float("view_z", (*vz)[i]);
+        }
+      }
+    }
+    mergedGlobal->mark_as_modified();
+  }
+  else
+  {
+    for (const size_t mIdx : members)
+    {
+      const auto& g = globals[mIdx];
+#if MRPT_VERSION >= 0x020f0b  // 2.15.11
+      mergedGlobal->insertAnotherMap(
+          g.get(), mrpt::poses::CPose3D::Identity(), false /*filterOutPointsAtZero*/,
+          false /*autoRegisterAllSourceFields*/);
+#else
+      mergedGlobal->insertAnotherMap(g.get(), mrpt::poses::CPose3D::Identity());
+#endif
+    }
+  }
+
+  // Express the merged cloud in the anchor (seed) local frame.
+  // (Identity - anchorPose) == anchorPose^{-1}.
+  const mrpt::poses::CPose3D anchorInv = mrpt::poses::CPose3D::Identity() - anchorPose;
+
+  mrpt::maps::CPointsMap::Ptr localCloud = makeCloud();
+#if MRPT_VERSION >= 0x020f0b  // 2.15.11
+  localCloud->insertAnotherMap(
+      mergedGlobal.get(), anchorInv, false /*filterOutPointsAtZero*/,
+      false /*autoRegisterAllSourceFields*/);
+#else
+  localCloud->insertAnotherMap(mergedGlobal.get(), anchorInv);
+#endif
+  // insertAnotherMap copies the (still global-frame) view vectors verbatim;
+  // rotate them into the anchor-local frame to satisfy the KF contract.
+  if (hasView)
+  {
+#if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
+    rotateViewDirectionFieldsOrFallback(*localCloud, anchorInv);
+#else
+    rotateViewDirectionFieldsLegacy(*localCloud, anchorInv);
+#endif
+  }
+
+  return localCloud;
+}
+}  // namespace
+
+std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
+    const RegroupParams& params, const std::function<void(const std::string&)>& logCb) const
+{
+  auto lck = mrpt::lockHelper(*state_mtx_);
+
+  const auto log = [&](const std::string& s)
+  {
+    if (logCb)
+    {
+      logCb(s);
+    }
+  };
+
+  // ---- 1) Collect keyframes that actually hold a (non-empty) cloud ----
+  struct KFInfo
+  {
+    KeyFrameID              id = 0;
+    mrpt::math::TPoint3D    center;  // global sensing-sphere center
+    double                  radius = 0;  // global sensing radius (half bbox diagonal)
+    mrpt::poses::CPose3D    pose;  // keyframe pose in the map frame
+    mrpt::Clock::time_point timestamp;
+  };
+  std::vector<KFInfo>                      kfs;
+  std::vector<mrpt::maps::CPointsMap::Ptr> globals;  // parallel to kfs: global-frame clouds
+
+  for (const auto& [id, kf] : keyframes_)
+  {
+    if (!kf.pointcloud() || kf.pointcloud()->empty())
+    {
+      continue;
+    }
+    const auto&                g    = kf.pointcloud_global();
+    const auto                 bbox = g->boundingBox();
+    const mrpt::math::TPoint3D center{
+        0.5 * (bbox.min.x + bbox.max.x), 0.5 * (bbox.min.y + bbox.max.y),
+        0.5 * (bbox.min.z + bbox.max.z)};
+    const double diag = std::sqrt(
+        mrpt::square(bbox.max.x - bbox.min.x) + mrpt::square(bbox.max.y - bbox.min.y) +
+        mrpt::square(bbox.max.z - bbox.min.z));
+    kfs.push_back({id, center, 0.5 * diag, kf.pose(), kf.timestamp});
+    globals.push_back(g);
+  }
+
+  const size_t n = kfs.size();
+
+  auto out               = KeyframePointCloudMap::Create();
+  out->creationOptions   = creationOptions;
+  out->insertionOptions  = insertionOptions;
+  out->likelihoodOptions = likelihoodOptions;
+  out->renderOptions     = renderOptions;
+
+  if (n == 0)
+  {
+    log("[regroup] Input map has no keyframes with clouds; returning empty map.");
+    return out;
+  }
+
+  // ---- 2) Determine the overlap voxel size ----
+  double voxelSize = params.voxel_size;
+  if (voxelSize <= 0)
+  {
+    std::vector<double> radii;
+    radii.reserve(n);
+    for (const auto& k : kfs)
+    {
+      radii.push_back(k.radius);
+    }
+    const auto mid = static_cast<std::ptrdiff_t>(radii.size() / 2);
+    std::nth_element(radii.begin(), radii.begin() + mid, radii.end());
+    const double medianR = radii[radii.size() / 2];
+    voxelSize            = std::clamp(medianR * 0.02, 0.1, 2.0);
+  }
+  const double invVoxel = 1.0 / voxelSize;
+  log(mrpt::format(
+      "[regroup] %zu keyframes with clouds, overlap voxel size = %.3f m", n, voxelSize));
+
+  // ---- 3) Voxelize all clouds (global frame) ----
+  std::vector<VoxelSet> voxels(n);
+  for (size_t i = 0; i < n; i++)
+  {
+    voxels[i] = cloudToVoxelSet(*globals[i], invVoxel);
+  }
+
+  // ---- 4) Build the keyframe adjacency graph (overlap edges) ----
+  // Nodes = keyframes; edge weight = voxel Jaccard-min overlap. Only pairs whose
+  // sensing spheres intersect are considered (broad phase); edges are kept when
+  // their overlap is >= edge_overlap.
+  std::vector<std::vector<std::pair<size_t, double>>> adj(n);
+  size_t                                              numEdges = 0;
+  for (size_t i = 0; i < n; i++)
+  {
+    for (size_t j = i + 1; j < n; j++)
+    {
+      const double d = (kfs[i].center - kfs[j].center).norm();
+      if (d > kfs[i].radius + kfs[j].radius)
+      {
+        continue;  // spheres do not intersect: no possible overlap
+      }
+      const double ov = voxelOverlap(voxels[i], voxels[j]);
+      if (ov < params.edge_overlap)
+      {
+        continue;
+      }
+      adj[i].emplace_back(j, ov);
+      adj[j].emplace_back(i, ov);
+      numEdges++;
+    }
+  }
+  log(mrpt::format(
+      "[regroup] adjacency graph: %zu edges (avg degree %.1f)", numEdges,
+      2.0 * static_cast<double>(numEdges) / static_cast<double>(n)));
+
+  // ---- 5) Greedy overlapping set-cover clustering ----
+  // Seeds are chosen from the densest / most-connected keyframes first. Each
+  // super-keyframe grows by absorbing graph neighbors (highest overlap first)
+  // while staying within the seed's spatial extent cap. A member is marked
+  // "covered" only if it lies within the inner core; boundary members remain
+  // uncovered and thus seed/join neighboring groups -> deliberate overlap.
+  std::vector<bool> covered(n, false);
+
+  std::vector<size_t> order(n);
+  std::iota(order.begin(), order.end(), size_t(0));
+  std::sort(
+      order.begin(), order.end(),
+      [&](size_t a, size_t b)
+      {
+        const double sa =
+            static_cast<double>(voxels[a].size()) * (1.0 + static_cast<double>(adj[a].size()));
+        const double sb =
+            static_cast<double>(voxels[b].size()) * (1.0 + static_cast<double>(adj[b].size()));
+        if (sa != sb)
+        {
+          return sa > sb;
+        }
+        return kfs[a].id < kfs[b].id;
+      });
+
+  std::vector<std::vector<size_t>> clusters;  // each: member indices, seed first
+
+  for (const size_t seed : order)
+  {
+    if (covered[seed])
+    {
+      continue;
+    }
+
+    const double extentCap = std::max(params.extent_factor * kfs[seed].radius, voxelSize);
+
+    std::vector<size_t>        members   = {seed};
+    std::unordered_set<size_t> memberSet = {seed};
+    VoxelSet                   Vc        = voxels[seed];
+
+    // Grow: repeatedly add the best eligible neighbor of any current member.
+    for (;;)
+    {
+      double bestOv = -1.0;
+      size_t bestN  = 0;
+      bool   found  = false;
+      for (const size_t m : members)
+      {
+        for (const auto& [nb, w] : adj[m])
+        {
+          if (memberSet.count(nb) != 0)
+          {
+            continue;
+          }
+          if ((kfs[nb].center - kfs[seed].center).norm() > extentCap)
+          {
+            continue;
+          }
+          const double ov = voxelOverlap(voxels[nb], Vc);
+          if (ov < params.edge_overlap)
+          {
+            continue;
+          }
+          if (ov > bestOv)
+          {
+            bestOv = ov;
+            bestN  = nb;
+            found  = true;
+          }
+        }
+      }
+      if (!found)
+      {
+        break;
+      }
+      members.push_back(bestN);
+      memberSet.insert(bestN);
+      Vc.insert(voxels[bestN].begin(), voxels[bestN].end());
+    }
+
+    // Mark inner-core members as covered (boundary members stay available).
+    const double coreRadius = params.core_fraction * extentCap;
+    for (const size_t m : members)
+    {
+      if ((kfs[m].center - kfs[seed].center).norm() <= coreRadius)
+      {
+        covered[m] = true;
+      }
+    }
+    covered[seed] = true;  // always: guarantees the loop makes progress
+
+    clusters.push_back(std::move(members));
+  }
+
+  log(mrpt::format(
+      "[regroup] %zu keyframes -> %zu super-keyframes (%.2fx reduction)", n, clusters.size(),
+      clusters.empty() ? 0.0 : static_cast<double>(n) / static_cast<double>(clusters.size())));
+
+  // ---- 6) Build the output map: one super-keyframe per cluster ----
+  KeyFrameID nextId = 0;
+  for (const auto& members : clusters)
+  {
+    const auto& seed = kfs[members.front()];
+
+    auto localCloud =
+        buildSuperKeyframeCloud(members, globals, seed.pose, params.merge_decimate_voxel);
+
+    // Insert as a new super-keyframe (caches build lazily on first use / load).
+    auto [it, isNew] = out->keyframes_.try_emplace(
+        nextId, creationOptions.k_correspondences_for_cov,
+        creationOptions.min_correspondences_for_cov, creationOptions.max_distance_for_cov);
+    KeyFrame& nkf = it->second;
+    nkf.timestamp = seed.timestamp;
+    nkf.pose(seed.pose);
+    nkf.pointcloud(localCloud);
+    out->last_inserted_kf_id_ = nextId;
+    nextId++;
+  }
+  out->next_free_kf_id_ = nextId;
+
+  return out;
+}
+
+// ==========================
 //   Options
 // ==========================
 
@@ -1320,6 +1775,7 @@ void KeyframePointCloudMap::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR_CS(num_diverse_keyframes, uint64_t);
   MRPT_LOAD_CONFIG_VAR_CS(use_view_direction_filter, bool);
   MRPT_LOAD_CONFIG_VAR_CS(max_view_angle_deg, double);
+  MRPT_LOAD_CONFIG_VAR_CS(serialize_kdtrees, bool);
 }
 
 void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out) const
@@ -1333,16 +1789,18 @@ void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(num_diverse_keyframes, int);
   LOADABLEOPTS_DUMP_VAR(use_view_direction_filter, bool);
   LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
+  LOADABLEOPTS_DUMP_VAR(serialize_kdtrees, bool);
 }
 
 void KeyframePointCloudMap::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  out.WriteAs<uint8_t>(3);  // version
+  out.WriteAs<uint8_t>(4);  // version
   out << max_search_keyframes << k_correspondences_for_cov;
   out << rotation_distance_weight << num_diverse_keyframes;  // v1
   out << use_view_direction_filter << max_view_angle_deg;  // v2
   out << min_correspondences_for_cov << max_distance_for_cov;  // v3
+  out << serialize_kdtrees;  // v4
 }
 
 void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1356,6 +1814,7 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
     case 1:
     case 2:
     case 3:
+    case 4:
     {
       in >> max_search_keyframes >> k_correspondences_for_cov;
       if (version >= 1)
@@ -1370,6 +1829,10 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
       {
         in >> min_correspondences_for_cov;
         in >> max_distance_for_cov;
+      }
+      if (version >= 4)
+      {
+        in >> serialize_kdtrees;
       }
     }
     break;
