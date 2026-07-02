@@ -27,6 +27,7 @@
 #include <mrpt/img/TColor.h>
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/math/TOrientedBox.h>
+#include <mrpt/math/matrix_serialization.h>  // CArchive << CMatrixFloat33 (cov baking)
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/customizable_obs_viz.h>
 #include <mrpt/opengl/CEllipsoid3D.h>
@@ -236,7 +237,7 @@ IMPLEMENTS_SERIALIZABLE(KeyframePointCloudMap, CMetricMap, mola)
 // Serialization
 // =====================================
 
-uint8_t KeyframePointCloudMap::serializeGetVersion() const { return 2; }
+uint8_t KeyframePointCloudMap::serializeGetVersion() const { return 3; }
 void    KeyframePointCloudMap::serializeTo(mrpt::serialization::CArchive& out) const
 {
   auto lck = mrpt::lockHelper(*state_mtx_);
@@ -281,6 +282,27 @@ void    KeyframePointCloudMap::serializeTo(mrpt::serialization::CArchive& out) c
       {
         out << kdBlob;
       }
+
+      // v3: optionally cache the per-point local-frame covariances so they do not
+      // have to be recomputed (K-NN + SVD per point) on load. Self-describing: a
+      // flag byte precedes any data, so readers stay stream-aligned regardless of
+      // the write-time option. See TCreationOptions::serialize_covariances.
+      uint8_t hasCov = 0;
+      if (creationOptions.serialize_covariances)
+      {
+        hasCov = 1;
+      }
+      out.WriteAs<uint8_t>(hasCov);
+      if (hasCov != 0)
+      {
+        // Ensures cached_cov_local_ is populated (computes it if needed).
+        const auto& covs = kf.covariancesLocal();
+        out.WriteAs<uint32_t>(covs.size());
+        for (const auto& c : covs)
+        {
+          out << c;
+        }
+      }
     }
     else
     {
@@ -304,6 +326,7 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
     case 0:
     case 1:
     case 2:
+    case 3:
     {
       // params:
       creationOptions.readFromStream(in);
@@ -352,6 +375,25 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
               // outdated), so this must come after kf.pointcloud(pc).
               pc->kdtree_load_index_3D(ss);
 #endif
+            }
+          }
+
+          // v3: optional cached per-point local-frame covariances (see
+          // serializeTo). Always consume the flag byte + data so the stream stays
+          // aligned. Install them (after kf.pointcloud(pc), which cleared caches)
+          // so computeCovariancesAndDensity() becomes a no-op.
+          if (version >= 3)
+          {
+            const auto hasCov = in.ReadAs<uint8_t>();
+            if (hasCov != 0)
+            {
+              const auto                              nCov = in.ReadAs<uint32_t>();
+              std::vector<mrpt::math::CMatrixFloat33> covs(nCov);
+              for (uint32_t c = 0; c < nCov; c++)
+              {
+                in >> covs[c];
+              }
+              kf.installCovariancesLocal(std::move(covs));
             }
           }
         }
@@ -637,10 +679,22 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
   if (creationOptions.approximate_cov)
   {
     // Approximate mode: skip the merged-cloud submap entirely. nn_search_cov2cov()
-    // will instead query each active KF's own cached KD-tree directly. Here we only
-    // need to warm each active KF's per-KF (local) cache and its *global*-frame
-    // structures, so the first ICP align() does not pay that cost on the caller's
-    // thread. See TCreationOptions::approximate_cov.
+    // will instead query each active KF's own cached, *local*-frame KD-tree
+    // directly. A KD-tree's structure is invariant under the rigid keyframe pose,
+    // so rather than materializing a per-KF global-frame cloud and rebuilding a
+    // KD-tree on it (which the baked, on-disk index cannot accelerate, since the
+    // baked index lives on the local cloud), the matcher transforms the query
+    // point into each KF's local frame and queries the local (baked) index.
+    //
+    // Here we only warm each active KF's per-KF cache so the first ICP align()
+    // does not pay that cost on the caller's thread:
+    //   - buildCache(): local bbox, local KD-tree (installed from disk when
+    //     serialize_kdtrees was baked; otherwise built once), and the per-point
+    //     local covariances (installed from disk when serialize_covariances was
+    //     baked; otherwise computed once).
+    //   - covariancesGlobal(): the cheap per-pose rotation of those covariances.
+    // No global-frame cloud or KD-tree is built at all. See
+    // TCreationOptions::approximate_cov / serialize_covariances.
     cached_.icp_search_submap.reset();
 
     for (const auto kf_id : kfs_to_search_limited)
@@ -651,10 +705,7 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
         continue;
       }
       kf.buildCache();  // local bbox, KD-tree, per-point local covariances
-
-      const auto& globalPoints = kf.pointcloud_global();
-      globalPoints->kdTreeEnsureIndexBuilt3D();
-      kf.covariancesGlobal();
+      kf.covariancesGlobal();  // rotate covariances to the current global pose
     }
     return;
   }
@@ -1071,13 +1122,27 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
       do_view_filter ? static_cast<float>(std::cos(mrpt::DEG2RAD(max_view_angle_deg))) : -2.0f;
 
   // Per-active-KF lookup tables, built once (not per query point).
+  //
+  // Each active KF is queried through its OWN local-frame cloud and KD-tree
+  // (`kf.pointcloud()`), which is the one baked on disk by mm-kf-bake-kdtrees. The
+  // query point (in the global frame) is transformed into the KF's local frame via
+  // `poseInv` before the KD-tree lookup, and the matched local point is composed
+  // back to the global frame via `pose` for the output pairing. This avoids ever
+  // materializing a per-KF global-frame cloud or rebuilding a KD-tree on it.
   struct ActiveKfEntry
   {
-    const mrpt::maps::CPointsMap*                  globalPoints = nullptr;
-    const std::vector<mrpt::math::CMatrixFloat33>* globalCov    = nullptr;
-    const mrpt::aligned_std_vector<float>*         view_x       = nullptr;
-    const mrpt::aligned_std_vector<float>*         view_y       = nullptr;
-    const mrpt::aligned_std_vector<float>*         view_z       = nullptr;
+    const mrpt::maps::CPointsMap*                  localPoints = nullptr;  // baked KD-tree
+    mrpt::poses::CPose3D                           pose;  // KF pose (local->global)
+    mrpt::poses::CPose3D                           poseInv;  // its inverse (global->local)
+    const std::vector<mrpt::math::CMatrixFloat33>* globalCov = nullptr;  // per-pose rotated
+    // Local-frame coordinate buffers, parallel to the KD-tree points:
+    const mrpt::aligned_std_vector<float>* xs = nullptr;
+    const mrpt::aligned_std_vector<float>* ys = nullptr;
+    const mrpt::aligned_std_vector<float>* zs = nullptr;
+    // Local-frame view fields (rotated to global on the fly when filtering):
+    const mrpt::aligned_std_vector<float>* view_x = nullptr;
+    const mrpt::aligned_std_vector<float>* view_y = nullptr;
+    const mrpt::aligned_std_vector<float>* view_z = nullptr;
   };
   std::vector<ActiveKfEntry> entries;
   entries.reserve(activeKfs.size());
@@ -1093,20 +1158,25 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
       continue;
     }
     const auto& kf = it->second;
-    if (!kf.pointcloud() || kf.pointcloud()->empty())
+    const auto& lp = kf.pointcloud();
+    if (!lp || lp->empty())
     {
       continue;
     }
+    lp->kdTreeEnsureIndexBuilt3D();  // baked on disk when serialize_kdtrees was used
     ActiveKfEntry e;
-    const auto&   gp = kf.pointcloud_global();
-    gp->kdTreeEnsureIndexBuilt3D();
-    e.globalPoints = gp.get();
-    e.globalCov    = &kf.covariancesGlobal();
+    e.localPoints = lp.get();
+    e.pose        = kf.pose();
+    e.poseInv     = mrpt::poses::CPose3D::Identity() - kf.pose();  // == pose^{-1}
+    e.globalCov   = &kf.covariancesGlobal();
+    e.xs          = &lp->getPointsBufferRef_x();
+    e.ys          = &lp->getPointsBufferRef_y();
+    e.zs          = &lp->getPointsBufferRef_z();
     if (do_view_filter)
     {
-      e.view_x = gp->getPointsBufferRef_float_field("view_x");
-      e.view_y = gp->getPointsBufferRef_float_field("view_y");
-      e.view_z = gp->getPointsBufferRef_float_field("view_z");
+      e.view_x = lp->getPointsBufferRef_float_field("view_x");
+      e.view_y = lp->getPointsBufferRef_float_field("view_y");
+      e.view_z = lp->getPointsBufferRef_float_field("view_z");
     }
     entries.push_back(e);
   }
@@ -1129,9 +1199,14 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
 
         for (size_t e = 0; e < entries.size(); e++)
         {
+          // Transform the (global-frame) query point into this KF's local frame,
+          // then query its baked local KD-tree. Rigid transforms preserve
+          // distances, so best_dist_sqr remains comparable across keyframes.
+          const auto ql = entries[e].poseInv.composePoint(
+              mrpt::math::TPoint3D(xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx]));
           float      d   = std::numeric_limits<float>::max();
-          const auto idx = entries[e].globalPoints->kdTreeClosestPoint3D(
-              xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx], d);
+          const auto idx = entries[e].localPoints->kdTreeClosestPoint3D(
+              static_cast<float>(ql.x), static_cast<float>(ql.y), static_cast<float>(ql.z), d);
           if (d < best_dist_sqr)
           {
             best_dist_sqr = d;
@@ -1162,9 +1237,15 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
                        (*local_view_z)[local_idx]})
                   .cast<float>();
 
-          const float dot = v_local_global.x * (*entry.view_x)[best_idx] +
-                            v_local_global.y * (*entry.view_y)[best_idx] +
-                            v_local_global.z * (*entry.view_z)[best_idx];
+          // The reference view fields are in the KF's *local* frame; rotate them
+          // to the global frame by the KF pose before comparing (mirrors what the
+          // pre-baked global cloud used to store).
+          const auto ref_view_global = entry.pose.rotateVector(mrpt::math::TVector3D(
+              (*entry.view_x)[best_idx], (*entry.view_y)[best_idx], (*entry.view_z)[best_idx]));
+
+          const float dot = v_local_global.x * static_cast<float>(ref_view_global.x) +
+                            v_local_global.y * static_cast<float>(ref_view_global.y) +
+                            v_local_global.z * static_cast<float>(ref_view_global.z);
 
           if (dot < view_cos_threshold)
           {
@@ -1183,15 +1264,16 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
     auto& p = outPairings.emplace_back();
 #endif
 
-        const auto& g_xs = entry.globalPoints->getPointsBufferRef_x();
-        const auto& g_ys = entry.globalPoints->getPointsBufferRef_y();
-        const auto& g_zs = entry.globalPoints->getPointsBufferRef_z();
+        // Compose the matched local-frame reference point back to the global frame.
+        const auto g_pt = entry.pose.composePoint(mrpt::math::TPoint3D(
+            (*entry.xs)[best_idx], (*entry.ys)[best_idx], (*entry.zs)[best_idx]));
 
         p.global_idx =
             packApproxGlobalIdx(static_cast<uint32_t>(best_entry), static_cast<uint32_t>(best_idx));
         p.local_idx = static_cast<uint32_t>(local_idx);
         p.local     = {xs[local_idx], ys[local_idx], zs[local_idx]};
-        p.global    = {g_xs[best_idx], g_ys[best_idx], g_zs[best_idx]};
+        p.global    = {
+               static_cast<float>(g_pt.x), static_cast<float>(g_pt.y), static_cast<float>(g_pt.z)};
 
         /* Following GICP \cite segal2009gicp this should be:
          *  `(COV_{global} + R*COV_{local}*R^T)^{-1}`
@@ -2053,6 +2135,7 @@ void KeyframePointCloudMap::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR_CS(use_view_direction_filter, bool);
   MRPT_LOAD_CONFIG_VAR_CS(max_view_angle_deg, double);
   MRPT_LOAD_CONFIG_VAR_CS(serialize_kdtrees, bool);
+  MRPT_LOAD_CONFIG_VAR_CS(serialize_covariances, bool);
   MRPT_LOAD_CONFIG_VAR_CS(approximate_cov, bool);
 }
 
@@ -2068,19 +2151,21 @@ void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(use_view_direction_filter, bool);
   LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
   LOADABLEOPTS_DUMP_VAR(serialize_kdtrees, bool);
+  LOADABLEOPTS_DUMP_VAR(serialize_covariances, bool);
   LOADABLEOPTS_DUMP_VAR(approximate_cov, bool);
 }
 
 void KeyframePointCloudMap::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  out.WriteAs<uint8_t>(5);  // version
+  out.WriteAs<uint8_t>(6);  // version
   out << max_search_keyframes << k_correspondences_for_cov;
   out << rotation_distance_weight << num_diverse_keyframes;  // v1
   out << use_view_direction_filter << max_view_angle_deg;  // v2
   out << min_correspondences_for_cov << max_distance_for_cov;  // v3
   out << serialize_kdtrees;  // v4
   out << approximate_cov;  // v5
+  out << serialize_covariances;  // v6
 }
 
 void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -2096,6 +2181,7 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
     case 3:
     case 4:
     case 5:
+    case 6:
     {
       in >> max_search_keyframes >> k_correspondences_for_cov;
       if (version >= 1)
@@ -2118,6 +2204,10 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
       if (version >= 5)
       {
         in >> approximate_cov;
+      }
+      if (version >= 6)
+      {
+        in >> serialize_covariances;
       }
     }
     break;

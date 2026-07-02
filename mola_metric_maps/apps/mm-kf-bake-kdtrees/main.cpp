@@ -36,16 +36,19 @@ struct Args
   std::string output;
   std::string layer;  // empty: process all KeyframePointCloudMap layers
   std::string plugins;
-  bool        disable = false;  // if set, strip cached kd-trees instead of adding them
+  bool        disable     = false;  // if set, strip cached data instead of adding it
+  bool        kdtrees     = true;  // bake per-KF KD-tree indices
+  bool        covariances = true;  // bake per-point covariances
 };
 
 void run_bake(const Args& args)
 {
 #if !defined(MRPT_HAS_KDTREE_SAVE_LOAD_INDEX)
-  if (!args.disable)
+  if (!args.disable && args.kdtrees)
   {
     std::cout << "[mm-kf-bake-kdtrees] WARNING: this MRPT build lacks the KD-tree save/load "
-                 "index API; baking is a no-op and no KD-tree data will be written."
+                 "index API; KD-tree baking is a no-op and no KD-tree data will be written "
+                 "(covariance baking, if enabled, is unaffected)."
               << std::endl;
   }
 #endif
@@ -57,10 +60,14 @@ void run_bake(const Args& args)
       [&](const std::string& layerName, const mola::KeyframePointCloudMap::Ptr& kfMap,
           mrpt::maps::CMetricMap::Ptr& /*layerSlot*/)
       {
-        kfMap->creationOptions.serialize_kdtrees = !args.disable;
+        kfMap->creationOptions.serialize_kdtrees     = !args.disable && args.kdtrees;
+        kfMap->creationOptions.serialize_covariances = !args.disable && args.covariances;
         std::cout << "[mm-kf-bake-kdtrees] Layer '" << layerName << "': serialize_kdtrees -> "
                   << (kfMap->creationOptions.serialize_kdtrees ? "true" : "false")
-                  << " (KD-trees are (re)built on save only if not already current)." << std::endl;
+                  << ", serialize_covariances -> "
+                  << (kfMap->creationOptions.serialize_covariances ? "true" : "false")
+                  << " (cached data is (re)built on save only if not already current)."
+                  << std::endl;
       });
 
   std::cout << "[mm-kf-bake-kdtrees] Writing output map to: '" << args.output << "'..."
@@ -97,7 +104,18 @@ int main(int argc, char** argv)
 
     cli.add_flag(
         "--disable", args.disable,
-        "Instead of baking, strip any cached KD-trees (sets serialize_kdtrees=false).");
+        "Instead of baking, strip any cached data (sets serialize_kdtrees=false and "
+        "serialize_covariances=false).");
+
+    cli.add_flag(
+        "--kdtrees,!--no-kdtrees", args.kdtrees,
+        "Bake per-keyframe KD-tree indices (default: on). Requires an MRPT build with the "
+        "KD-tree save/load API.");
+
+    cli.add_flag(
+        "--covariances,!--no-covariances", args.covariances,
+        "Bake per-point covariances so they are not recomputed on load (default: on). Works on "
+        "any MRPT build.");
 
     cli.add_option(
         "-l,--load-plugins", args.plugins,

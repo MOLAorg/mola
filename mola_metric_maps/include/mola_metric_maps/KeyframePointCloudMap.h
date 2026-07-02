@@ -468,6 +468,23 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      */
     bool serialize_kdtrees = false;
 
+    /** If `true`, each keyframe's per-point covariances (the `cached_cov_local_`
+     *  produced by the plane-regularized SVD in `computeCovariancesAndDensity()`)
+     *  are serialized alongside its points, so they do NOT have to be recomputed
+     *  when the map is loaded. Covariance computation (one K-NN query + 3×3 SVD
+     *  per point) is the single most expensive part of warming a freshly-loaded
+     *  keyframe for ICP, so persisting it removes the multi-second stall paid the
+     *  first time each keyframe becomes active in localization-only operation.
+     *
+     *  Unlike `serialize_kdtrees`, this needs no special MRPT API and works on
+     *  any build. The stored covariances are the *local-frame* ones; the cheap
+     *  per-pose global rotation (`updateCovariancesGlobal()`) is still done at
+     *  runtime. Trades a larger `.mm` file (one 3×3 float matrix per point) for
+     *  faster startup. Default `false`. Typically enabled offline by the
+     *  `mm-kf-bake-kdtrees` tool.
+     */
+    bool serialize_covariances = false;
+
     /** If `true`, `nn_search_cov2cov()` (used by `mp2p_icp::Matcher_Cov2Cov`, i.e.
      *  GICP-style pipelines) skips building the merged, multi-keyframe submap that
      *  `icp_get_prepared_as_global()` otherwise assembles for the active KF set.
@@ -623,6 +640,32 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
       computeCovariancesAndDensity();  // will reuse cached if possible
       updateCovariancesGlobal();  // (idem)
       return cached_cov_global_;
+    }
+
+    /** Ensures the per-point *local-frame* covariances are computed and returns
+     *  them. Used to bake them into the serialized map (see
+     *  `TCreationOptions::serialize_covariances`). */
+    const std::vector<mrpt::math::CMatrixFloat33>& covariancesLocal() const
+    {
+      computeCovariancesAndDensity();
+      return cached_cov_local_;
+    }
+
+    /** Installs precomputed per-point *local-frame* covariances loaded from a
+     *  baked `.mm`, so `computeCovariancesAndDensity()` becomes a no-op (it
+     *  early-returns when `cached_cov_local_.size() == pointcloud size`). The
+     *  global-frame rotation is invalidated so it is recomputed for the current
+     *  pose. No-op (covariances left to be computed lazily) if `covs` does not
+     *  match the current point count. Must be called after `pointcloud()`, which
+     *  clears all caches. */
+    void installCovariancesLocal(std::vector<mrpt::math::CMatrixFloat33>&& covs) const
+    {
+      if (!pointcloud_ || covs.size() != pointcloud_->size())
+      {
+        return;  // size mismatch: fall back to lazy recomputation
+      }
+      cached_cov_local_ = std::move(covs);
+      cached_cov_global_.clear();  // invalidate: rotated lazily for current pose
     }
 
     /** Builds (or get cached) visualization of the cloud in this KF, already transformed to its

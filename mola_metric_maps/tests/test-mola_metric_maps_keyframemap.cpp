@@ -1029,6 +1029,70 @@ void test_kdtree_serialization_roundtrip()
   ASSERT_LT_(dsqr, 4.0f);
 }
 
+// ── 34. serialize_covariances round-trips and yields identical covariances ──
+// A map baked with serialize_covariances must, after load, produce the exact same
+// cov-to-cov pairings (including cov_inv) as one that computed its covariances at
+// runtime. This proves both that the persisted covariances are installed and used
+// (not silently recomputed), and that the approximate_cov path querying each KF's
+// own local (baked) KD-tree yields the same result as before.
+void test_covariance_serialization_roundtrip()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+
+  auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f, 10, 10);
+  auto local_pts  = makeGridPts(kDz, 0.f, 0.f, 1.f, 10, 10);
+
+  // Reference map: covariances computed at runtime.
+  auto ref_m                            = makeMapFromCloud(makeCloudWithViews(global_pts));
+  ref_m.creationOptions.approximate_cov = true;
+  ref_m.creationOptions.use_view_direction_filter = false;
+
+  // Baked map: same points, covariances serialized into the stream.
+  auto bake_m                            = makeMapFromCloud(makeCloudWithViews(global_pts));
+  bake_m.creationOptions.approximate_cov = true;
+  bake_m.creationOptions.use_view_direction_filter = false;
+  bake_m.creationOptions.serialize_covariances     = true;
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar << bake_m;
+  }
+  buf.Seek(0);
+  mola::KeyframePointCloudMap loaded_m;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar >> loaded_m;
+  }
+
+  ASSERT_(loaded_m.creationOptions.serialize_covariances == true);
+  ASSERT_EQUAL_(loaded_m.point_count(), global_pts.size());
+
+  const auto run = [&](mola::KeyframePointCloudMap& m)
+  {
+    auto local_m = makeMapFromCloud(makeCloudWithViews(local_pts));
+    m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+    mp2p_icp::MatchedPointWithCovList ps;
+    m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, ps);
+    const auto byLocalIdx = [](const auto& a, const auto& b) { return a.local_idx < b.local_idx; };
+    std::sort(ps.begin(), ps.end(), byLocalIdx);
+    return ps;
+  };
+
+  auto refPs    = run(ref_m);
+  auto loadedPs = run(loaded_m);
+
+  ASSERT_EQUAL_(refPs.size(), loadedPs.size());
+  ASSERT_GT_(refPs.size(), 0UL);
+  for (size_t i = 0; i < refPs.size(); i++)
+  {
+    ASSERT_EQUAL_(refPs[i].local_idx, loadedPs[i].local_idx);
+    ASSERT_NEAR_((refPs[i].global - loadedPs[i].global).norm(), 0.f, 1e-5f);
+    ASSERT_NEAR_((refPs[i].cov_inv - loadedPs[i].cov_inv).norm(), 0.0f, 1e-4f);
+  }
+}
+
 // ── 22. Debug per-keyframe coloring env var ───────────────────────────────
 /// With MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF=1 every keyframe must be rendered
 /// with a single, uniform color, and different keyframes must get different
@@ -1084,6 +1148,8 @@ void test_default_creation_options()
   ASSERT_GT_(m.creationOptions.k_correspondences_for_cov, 0U);
   ASSERT_GT_(m.creationOptions.max_search_keyframes, 0U);
   ASSERT_(m.creationOptions.approximate_cov == false);
+  ASSERT_(m.creationOptions.serialize_kdtrees == false);
+  ASSERT_(m.creationOptions.serialize_covariances == false);
 }
 
 // ---------------------------------------------------------------------------
@@ -1425,6 +1491,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_kdtree_serialization_roundtrip ...\n";
     test_kdtree_serialization_roundtrip();
+
+    std::cout << "test_covariance_serialization_roundtrip ...\n";
+    test_covariance_serialization_roundtrip();
 
     std::cout << "test_viz_color_by_kf ...\n";
     test_viz_color_by_kf();

@@ -153,16 +153,36 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   Only affects `nn_search_cov2cov()`; the generic `NearestNeighborsCapable` entry points
   still require the merged submap. Exposed in `mola_lidar_odometry`'s
   `pipelines/lidar3d-gicp.yaml` as `MOLA_LOCALMAP_APPROXIMATE_COV`.
-- CLI tool `mm-kf-bake-kdtrees` (in `apps/`): "idea 2" of the same plan. Caches each
-  keyframe's per-cloud 3D KD-tree index inside the `.mm` so it is not rebuilt on every load
-  (faster localization-only startup). Backed by the `serialize_kdtrees` creationOption of
-  `KeyframePointCloudMap` (default false; bumps map serialization to v2, writing a
-  self-describing per-KF flag byte + KD-tree blob). Requires the MRPT KD-tree save/load
-  index API (`mrpt::math::KDTreeCapable::kdtree_save_index_3D()` / `kdtree_load_index_3D()`,
-  feature-detected via the `MRPT_HAS_KDTREE_SAVE_LOAD_INDEX` macro); when absent the option
-  is a no-op on write and the reader skips any stored blob, so `.mm` files stay
-  interoperable across MRPT builds. On the 5-super-KF outdoor map above (9.4M points),
-  baking adds ~58 MB of index data and the load path installs the indices with no rebuild.
+  **Queries the per-KF *local*-frame cloud/KD-tree directly** (`kf.pointcloud()`, which is
+  what `mm-kf-bake-kdtrees` bakes on disk): the query point is transformed into each active
+  KF's local frame (`pose^{-1}`) before the lookup, and the match is composed back to global
+  for the output pairing. A KD-tree's structure is invariant under the rigid KF pose, so this
+  avoids ever materializing a per-KF *global*-frame cloud or rebuilding a KD-tree on it — the
+  reason the baked (local) index previously did not accelerate this path, and why a fresh KF
+  entering the active set used to stall the LiDAR worker for seconds. Also robust to online KF
+  pose nudges (e.g. LIO gravity-tilt correction), which no longer invalidate a global cloud.
+- CLI tool `mm-kf-bake-kdtrees` (in `apps/`): "idea 2" of the same plan. Caches heavy
+  per-keyframe structures inside the `.mm` so they are not rebuilt on every load (faster
+  localization-only startup). Two independent, self-describing caches (each gated by a flag
+  byte, so `.mm` files stay interoperable across MRPT builds):
+  - **KD-trees** (`serialize_kdtrees` creationOption, default false): each keyframe's
+    per-cloud 3D KD-tree index (on the *local*-frame cloud). Requires the MRPT KD-tree
+    save/load index API (`mrpt::math::KDTreeCapable::kdtree_save_index_3D()` /
+    `kdtree_load_index_3D()`, feature-detected via the `MRPT_HAS_KDTREE_SAVE_LOAD_INDEX`
+    macro); when absent the option is a no-op on write and the reader skips any stored blob.
+    On the 5-super-KF outdoor map above (9.4M points), baking adds ~58 MB. This is the same
+    local index the `approximate_cov` path now queries directly (see above), so baking finally
+    accelerates the localization hot path, not just startup.
+  - **Covariances** (`serialize_covariances` creationOption, default false): each keyframe's
+    per-point *local*-frame covariances (the plane-regularized SVD result). Needs **no special
+    MRPT API** (works on any build). Covariance computation (one K-NN + 3×3 SVD per point) is
+    the single most expensive part of warming a keyframe, so persisting it removes the
+    multi-second stall paid the first time each KF becomes active. The cheap per-pose global
+    rotation is still done at runtime.
+
+  Bumps map serialization to v3 (v2 = KD-tree byte/blob after each KF cloud; v3 adds a
+  covariance byte + per-point matrices after that). The tool bakes both by default; use
+  `--no-kdtrees` / `--no-covariances` to select, or `--disable` to strip both.
 
 ---
 
