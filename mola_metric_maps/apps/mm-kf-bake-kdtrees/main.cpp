@@ -21,12 +21,12 @@
 
 #include <mola_metric_maps/KeyframePointCloudMap.h>
 #include <mp2p_icp/metricmap.h>
-#include <mrpt/system/filesystem.h>
-#include <mrpt/system/os.h>
 
 #include <CLI/CLI.hpp>
 #include <iostream>
 #include <stdexcept>
+
+#include "../kf_cli_utils.h"
 
 namespace
 {
@@ -41,60 +41,27 @@ struct Args
 
 void run_bake(const Args& args)
 {
-  if (!args.plugins.empty())
+#if !defined(MRPT_HAS_KDTREE_SAVE_LOAD_INDEX)
+  if (!args.disable)
   {
-    std::string errMsg;
-    std::cout << "Loading plugin(s): " << args.plugins << std::endl;
-    if (!mrpt::system::loadPluginModules(args.plugins, errMsg))
-    {
-      throw std::runtime_error(errMsg);
-    }
+    std::cout << "[mm-kf-bake-kdtrees] WARNING: this MRPT build lacks the KD-tree save/load "
+                 "index API; baking is a no-op and no KD-tree data will be written."
+              << std::endl;
   }
+#endif
 
-  ASSERT_FILE_EXISTS_(args.input);
+  mp2p_icp::metric_map_t mm = mola::kf_cli::loadMap(args.input, args.plugins, "mm-kf-bake-kdtrees");
 
-  std::cout << "[mm-kf-bake-kdtrees] Reading input map from: '" << args.input << "'..."
-            << std::endl;
-
-  mp2p_icp::metric_map_t mm;
-  mm.load_from_file(args.input);
-
-  size_t numProcessed = 0;
-  for (auto& [layerName, layer] : mm.layers)
-  {
-    if (!layer)
-    {
-      continue;
-    }
-    if (!args.layer.empty() && layerName != args.layer)
-    {
-      continue;
-    }
-
-    auto kfMap = std::dynamic_pointer_cast<mola::KeyframePointCloudMap>(layer);
-    if (!kfMap)
-    {
-      if (!args.layer.empty())
+  const size_t numProcessed = mola::kf_cli::forEachKeyframeMapLayer(
+      mm, args.layer,
+      [&](const std::string& layerName, const mola::KeyframePointCloudMap::Ptr& kfMap,
+          mrpt::maps::CMetricMap::Ptr& /*layerSlot*/)
       {
-        throw std::runtime_error(
-            "Layer '" + layerName + "' is not a mola::KeyframePointCloudMap (it is a '" +
-            layer->GetRuntimeClass()->className + "').");
-      }
-      continue;  // silently skip non-matching layers when processing all
-    }
-
-    kfMap->creationOptions.serialize_kdtrees = !args.disable;
-    std::cout << "[mm-kf-bake-kdtrees] Layer '" << layerName << "': serialize_kdtrees -> "
-              << (kfMap->creationOptions.serialize_kdtrees ? "true" : "false")
-              << " (KD-trees are (re)built on save only if not already current)." << std::endl;
-    numProcessed++;
-  }
-
-  if (numProcessed == 0)
-  {
-    throw std::runtime_error(
-        "No mola::KeyframePointCloudMap layer was found/processed in the input map.");
-  }
+        kfMap->creationOptions.serialize_kdtrees = !args.disable;
+        std::cout << "[mm-kf-bake-kdtrees] Layer '" << layerName << "': serialize_kdtrees -> "
+                  << (kfMap->creationOptions.serialize_kdtrees ? "true" : "false")
+                  << " (KD-trees are (re)built on save only if not already current)." << std::endl;
+      });
 
   std::cout << "[mm-kf-bake-kdtrees] Writing output map to: '" << args.output << "'..."
             << std::endl;

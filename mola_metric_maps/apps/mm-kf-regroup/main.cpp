@@ -21,12 +21,12 @@
 
 #include <mola_metric_maps/KeyframePointCloudMap.h>
 #include <mp2p_icp/metricmap.h>
-#include <mrpt/system/filesystem.h>
-#include <mrpt/system/os.h>
 
 #include <CLI/CLI.hpp>
 #include <iostream>
 #include <stdexcept>
+
+#include "../kf_cli_utils.h"
 
 namespace
 {
@@ -49,60 +49,18 @@ struct Args
 
 void run_regroup(const Args& args)
 {
-  if (!args.plugins.empty())
-  {
-    std::string errMsg;
-    std::cout << "Loading plugin(s): " << args.plugins << std::endl;
-    if (!mrpt::system::loadPluginModules(args.plugins, errMsg))
-    {
-      throw std::runtime_error(errMsg);
-    }
-  }
-
-  ASSERT_FILE_EXISTS_(args.input);
-
-  std::cout << "[mm-kf-regroup] Reading input map from: '" << args.input << "'..." << std::endl;
-
-  mp2p_icp::metric_map_t mm;
-  mm.load_from_file(args.input);
+  mp2p_icp::metric_map_t mm = mola::kf_cli::loadMap(args.input, args.plugins, "mm-kf-regroup");
 
   const auto logCb = [](const std::string& s) { std::cout << s << std::endl; };
 
-  size_t numProcessed = 0;
-  for (auto& [layerName, layer] : mm.layers)
-  {
-    if (!layer)
-    {
-      continue;
-    }
-    if (!args.layer.empty() && layerName != args.layer)
-    {
-      continue;
-    }
-
-    auto kfMap = std::dynamic_pointer_cast<mola::KeyframePointCloudMap>(layer);
-    if (!kfMap)
-    {
-      if (!args.layer.empty())
+  const size_t numProcessed = mola::kf_cli::forEachKeyframeMapLayer(
+      mm, args.layer,
+      [&](const std::string& layerName, const mola::KeyframePointCloudMap::Ptr& kfMap,
+          mrpt::maps::CMetricMap::Ptr& layerSlot)
       {
-        throw std::runtime_error(
-            "Layer '" + layerName + "' is not a mola::KeyframePointCloudMap (it is a '" +
-            layer->GetRuntimeClass()->className + "').");
-      }
-      continue;  // silently skip non-matching layers when processing all
-    }
-
-    std::cout << "[mm-kf-regroup] Regrouping layer '" << layerName << "'..." << std::endl;
-    auto regrouped = kfMap->regroupKeyframes(args.params, logCb);
-    layer          = regrouped;  // replace the layer in-place
-    numProcessed++;
-  }
-
-  if (numProcessed == 0)
-  {
-    throw std::runtime_error(
-        "No mola::KeyframePointCloudMap layer was found/processed in the input map.");
-  }
+        std::cout << "[mm-kf-regroup] Regrouping layer '" << layerName << "'..." << std::endl;
+        layerSlot = kfMap->regroupKeyframes(args.params, logCb);  // replace the layer in-place
+      });
 
   std::cout << "[mm-kf-regroup] Writing output map to: '" << args.output << "'..." << std::endl;
   if (!mm.save_to_file(args.output))

@@ -926,6 +926,69 @@ void test_regroup_serialization_roundtrip()
   ASSERT_EQUAL_(g2.point_count(), nPts);
 }
 
+// ── 26. Regroup: voxel decimation shrinks the cloud and keeps view fields ──
+// Two identical, fully-overlapping keyframes are merged into one super-keyframe
+// with merge_decimate_voxel>0. The duplicated points must collapse (fewer points
+// than the 2x input), and the per-point view-direction fields must survive the
+// decimation - verified functionally: with the view filter ON, an opposite-view
+// pair is rejected ONLY if the regrouped+decimated global cloud still carries
+// view fields, so ON must yield fewer pairings than OFF.
+void test_regroup_decimation_preserves_views()
+{
+  using mrpt::poses::CPose3D;
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+  constexpr float kBackX   = 20.0f;  // outside the grid, so it is an isolated NN
+
+  const auto makeKfPts = []
+  {
+    auto pts = makeGridPts(0.f, 0.f, 0.f, 1.f, 10, 10);  // 100 pts, view=(0,0,+1)
+    appendPt(pts, kBackX, 0.f, 0.f, 0.f, 0.f, -1.f);  // back-face pt, view=(0,0,-1)
+    return pts;
+  };
+
+  mola::KeyframePointCloudMap m;
+  m.creationOptions.k_correspondences_for_cov = 5;
+  m.creationOptions.max_search_keyframes      = 1;
+  for (int k = 0; k < 2; ++k)
+  {
+    auto obs        = mrpt::obs::CObservationPointCloud::Create();
+    obs->pointcloud = makeCloudWithViews(makeKfPts());
+    m.insertObservation(*obs, CPose3D::Identity());  // identical -> full overlap
+  }
+  const auto inPts = m.point_count();  // 2 * 101 = 202
+
+  mola::KeyframePointCloudMap::RegroupParams params;
+  params.merge_decimate_voxel = 0.5;  // dedup the co-located duplicate points
+  auto g                      = m.regroupKeyframes(params);
+  ASSERT_(!g->isEmpty());
+
+  // Decimation must collapse the two identical clouds.
+  ASSERT_LT_(g->point_count(), inPts);
+  ASSERT_LT_(g->point_count(), inPts * 3 / 4);
+
+  // Local query cloud: grid (for covariances) + a FRONT-face point whose nearest
+  // neighbor in the global cloud is the back-face point.
+  auto localPts = makeGridPts(kDz, 0.f, 0.f, 1.f, 10, 10);
+  appendPt(localPts, kBackX, 0.f, kDz, 0.f, 0.f, 1.f);  // front-face, view=(0,0,+1)
+  auto local_m = makeMapFromCloud(makeCloudWithViews(localPts));
+
+  g->creationOptions.max_search_keyframes = 1;
+  g->icp_get_prepared_as_global(CPose3D::Identity());
+
+  g->creationOptions.use_view_direction_filter = true;
+  g->creationOptions.max_view_angle_deg        = 120.0;
+  mp2p_icp::MatchedPointWithCovList pairingsOn;
+  g->nn_search_cov2cov(local_m, CPose3D::Identity(), kMaxDist, pairingsOn);
+
+  g->creationOptions.use_view_direction_filter = false;
+  mp2p_icp::MatchedPointWithCovList pairingsOff;
+  g->nn_search_cov2cov(local_m, CPose3D::Identity(), kMaxDist, pairingsOff);
+
+  // View fields survived decimation -> the opposite-view pair was rejected.
+  ASSERT_LT_(pairingsOn.size(), pairingsOff.size());
+}
+
 // ── 25. serialize_kdtrees round-trips the stream correctly ─────────────────
 // Whether or not the MRPT build provides the KD-tree save/load API, the map
 // serialization must stay stream-aligned with serialize_kdtrees enabled, and
@@ -1045,6 +1108,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_regroup_serialization_roundtrip ...\n";
     test_regroup_serialization_roundtrip();
+
+    std::cout << "test_regroup_decimation_preserves_views ...\n";
+    test_regroup_decimation_preserves_views();
 
     std::cout << "test_kdtree_serialization_roundtrip ...\n";
     test_kdtree_serialization_roundtrip();
