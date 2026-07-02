@@ -79,6 +79,12 @@ inline size_t forEachKeyframeMapLayer(
         const std::string&, const mola::KeyframePointCloudMap::Ptr&, mrpt::maps::CMetricMap::Ptr&)>&
         fn)
 {
+  // Distinguish "requested layer absent" from "no keyframe layers at all".
+  if (!layerName.empty() && mm.layers.find(layerName) == mm.layers.end())
+  {
+    throw std::runtime_error("Layer '" + layerName + "' not found in the input map.");
+  }
+
   size_t numProcessed = 0;
   for (auto& [name, layer] : mm.layers)
   {
