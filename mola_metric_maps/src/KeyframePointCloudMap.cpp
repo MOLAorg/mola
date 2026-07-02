@@ -1083,7 +1083,16 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
   entries.reserve(activeKfs.size());
   for (const auto kf_id : activeKfs)
   {
-    const auto& kf = keyframes_.at(kf_id);
+    // activeKfs was snapshotted by an earlier icp_get_prepared_as_global() call, under its
+    // own lock acquisition. A concurrent insertObservation() may have evicted this id in the
+    // meantime (see insertionOptions.remove_frames_farther_than), so look it up defensively
+    // instead of keyframes_.at(), which would throw.
+    const auto it = keyframes_.find(kf_id);
+    if (it == keyframes_.end())
+    {
+      continue;
+    }
+    const auto& kf = it->second;
     if (!kf.pointcloud() || kf.pointcloud()->empty())
     {
       continue;
