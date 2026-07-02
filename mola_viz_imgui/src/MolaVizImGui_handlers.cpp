@@ -88,21 +88,29 @@ std::string state_key_for(const MolaVizImGuiCore* instance, const std::string& w
 // mutex-protected; thread safety relies on all callers running on the GUI thread.
 void show_common_sensor_info(const mrpt::obs::CObservation& obs, const std::string& key)
 {
-  // Rate estimation — one low-pass filter per key:
+  // Rate estimation: one low-pass filter per key.
+  // This function is invoked once per GUI frame (i.e. much faster than most
+  // sensor rates), so a new observation may still be the same one shown on
+  // the previous frame. Only feed the filter when the timestamp actually
+  // advanced, otherwise the estimate gets dragged toward zero by spurious
+  // "0 Hz" samples between real sensor updates.
   static std::map<std::string, double> lastTimestamp;
   static std::map<std::string, double> estimatedHz;
 
   const double     curTim = mrpt::Clock::toDouble(obs.timestamp);
   constexpr double alpha  = 0.9;
 
-  double showHz = 0.0;
+  double showHz = estimatedHz.count(key) ? estimatedHz[key] : 0.0;
   if (lastTimestamp.count(key))
   {
-    const double At    = curTim - lastTimestamp[key];
-    const double curHz = At > 0.0 ? 1.0 / At : 0.0;
-    auto&        est   = estimatedHz[key];
-    est                = alpha * est + (1.0 - alpha) * curHz;
-    showHz             = est;
+    const double At = curTim - lastTimestamp[key];
+    if (At > 0.0)
+    {
+      const double curHz = 1.0 / At;
+      auto&        est   = estimatedHz[key];
+      est                = alpha * est + (1.0 - alpha) * curHz;
+      showHz             = est;
+    }
   }
   lastTimestamp[key] = curTim;
 
