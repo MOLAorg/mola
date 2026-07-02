@@ -1049,15 +1049,15 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
   auto lck = mrpt::lockHelper(*state_mtx_);
 
   // Create one visualization object per KF:
-  size_t kf_ordinal = 0;
   for (const auto& [kf_id, kf] : keyframes_)
   {
     std::optional<mrpt::img::TColor> overrideColor;
     if (ENV_KEYFRAMES_COLOR_BY_KF)
     {
-      overrideColor = distinctKfColor(kf_ordinal);
+      // Use the stable kf_id (not iteration order) so a given KF keeps the
+      // same color across frames, regardless of evictions elsewhere in the map.
+      overrideColor = distinctKfColor(kf_id);
     }
-    ++kf_ordinal;
 
     auto obj = kf.getViz(renderOptions, overrideColor);
 
