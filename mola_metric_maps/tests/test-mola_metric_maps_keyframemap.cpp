@@ -23,10 +23,13 @@
 #include <mrpt/io/CMemoryStream.h>
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/opengl/CPointCloudColoured.h>
+#include <mrpt/opengl/CSetOfObjects.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
 
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <set>
 
@@ -1025,6 +1028,52 @@ void test_kdtree_serialization_roundtrip()
   ASSERT_LT_(dsqr, 4.0f);
 }
 
+// ── 22. Debug per-keyframe coloring env var ───────────────────────────────
+/// With MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF=1 every keyframe must be rendered
+/// with a single, uniform color, and different keyframes must get different
+/// colors (so regrouped clusters are visually distinguishable).
+void test_viz_color_by_kf()
+{
+  constexpr size_t nkf = 3;
+  auto             m   = makeLinearMap(nkf, 5.0);
+
+  // Note: getVisualizationInto() caches the env var value in a thread_local,
+  // so this test must be the only one that reads it (it is).
+  setenv("MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF", "1", 1);
+  auto glObj = m.getVisualization();
+  unsetenv("MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF");
+
+  ASSERT_(glObj);
+
+  // Collect the (uniform) color of each point-cloud child object.
+  std::set<uint32_t> distinctColors;
+  size_t             cloudObjs = 0;
+  for (const auto& child : *glObj)
+  {
+    auto pc = std::dynamic_pointer_cast<mrpt::opengl::CPointCloudColoured>(child);
+    if (!pc || pc->size() == 0)
+    {
+      continue;
+    }
+    ++cloudObjs;
+
+    const auto c0 = pc->getPointColor(0);
+    for (size_t i = 1; i < pc->size(); ++i)
+    {
+      const auto ci = pc->getPointColor(i);
+      ASSERT_EQUAL_(ci.R, c0.R);
+      ASSERT_EQUAL_(ci.G, c0.G);
+      ASSERT_EQUAL_(ci.B, c0.B);
+    }
+    distinctColors.insert(
+        (static_cast<uint32_t>(c0.R) << 16) | (static_cast<uint32_t>(c0.G) << 8) |
+        static_cast<uint32_t>(c0.B));
+  }
+
+  ASSERT_EQUAL_(cloudObjs, nkf);
+  ASSERT_EQUAL_(distinctColors.size(), nkf);
+}
+
 // ── 20. Default filter parameters are sane ────────────────────────────────
 void test_default_creation_options()
 {
@@ -1114,6 +1163,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_kdtree_serialization_roundtrip ...\n";
     test_kdtree_serialization_roundtrip();
+
+    std::cout << "test_viz_color_by_kf ...\n";
+    test_viz_color_by_kf();
 
     std::cout << "\nAll tests passed.\n";
   }

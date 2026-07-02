@@ -24,6 +24,7 @@
 #endif
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/core/get_env.h>
+#include <mrpt/img/TColor.h>
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/math/TOrientedBox.h>
 #include <mrpt/obs/CObservationPointCloud.h>
@@ -1001,6 +1002,29 @@ std::string KeyframePointCloudMap::asString() const
   return o.str();
 }
 
+namespace
+{
+/// Maps HSV (h,s,v all in [0,1]) to an 8-bit RGB color (switch-free formulation).
+mrpt::img::TColor hsvToColor(double h, double s, double v)
+{
+  const auto chan = [&](double n)
+  {
+    const double k = std::fmod(n + h * 6.0, 6.0);
+    return v - v * s * std::max(0.0, std::min({k, 4.0 - k, 1.0}));
+  };
+  const auto u8 = [](double x) { return static_cast<uint8_t>(std::clamp(x, 0.0, 1.0) * 255.0); };
+  return mrpt::img::TColor(u8(chan(5.0)), u8(chan(3.0)), u8(chan(1.0)));
+}
+
+/// Deterministic, well-separated color for the i-th key-frame (golden-ratio hue
+/// spacing keeps consecutive key-frames visually distinct).
+mrpt::img::TColor distinctKfColor(size_t i)
+{
+  const double hue = std::fmod(static_cast<double>(i) * 0.618033988749895, 1.0);
+  return hsvToColor(hue, 0.75, 0.98);
+}
+}  // namespace
+
 void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
 {
   MRPT_START
@@ -1017,12 +1041,25 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
   const thread_local auto ENV_KEYFRAMES_SHOW_COV =
       mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_VIZ_SHOW_COV", false);
 
+  // Debug aid: paint each key-frame a distinct color so regrouped
+  // super-keyframes / clusters are easy to tell apart visually.
+  const thread_local auto ENV_KEYFRAMES_COLOR_BY_KF =
+      mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF", false);
+
   auto lck = mrpt::lockHelper(*state_mtx_);
 
   // Create one visualization object per KF:
+  size_t kf_ordinal = 0;
   for (const auto& [kf_id, kf] : keyframes_)
   {
-    auto obj = kf.getViz(renderOptions);
+    std::optional<mrpt::img::TColor> overrideColor;
+    if (ENV_KEYFRAMES_COLOR_BY_KF)
+    {
+      overrideColor = distinctKfColor(kf_ordinal);
+    }
+    ++kf_ordinal;
+
+    auto obj = kf.getViz(renderOptions, overrideColor);
 
     float      pointSize  = renderOptions.point_size;
     const bool isActiveKF = (cached_.icp_search_kfs && cached_.icp_search_kfs->count(kf_id) != 0);
@@ -2320,9 +2357,10 @@ void KeyframePointCloudMap::KeyFrame::updateCovariancesGlobal() const
 }
 
 std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFrame::getViz(
-    const TRenderOptions& ro) const
+    const TRenderOptions& ro, const std::optional<mrpt::img::TColor>& overrideColor) const
 {
-  if (cached_viz_)
+  // The cache only holds the normal (non-overridden) visualization.
+  if (!overrideColor && cached_viz_)
   {
     return cached_viz_;
   }
@@ -2333,6 +2371,20 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
   obj->loadFromPointsMap(pointcloud().get());
 
   obj->setPose(pose());
+
+  // Debug path: paint the whole key-frame a single, uniform color so different
+  // key-frames (e.g. regrouped super-keyframes / clusters) are easy to tell
+  // apart. Not cached, so toggling the env var takes effect on the next render.
+  if (overrideColor)
+  {
+    const auto&  c = *overrideColor;
+    const size_t n = obj->size();
+    for (size_t i = 0; i < n; i++)
+    {
+      obj->setPointColor_u8_fast(i, c.R, c.G, c.B, alpha_u8);
+    }
+    return obj;
+  }
 
   if (ro.color.A != 1.0f)
   {
