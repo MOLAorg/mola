@@ -26,6 +26,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <map>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -97,6 +98,25 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
 
   /** Returns the current list of loaded module dynamic libraries. */
   std::vector<std::string> getLoadedModules();
+
+  /** Returns all currently-running modules whose implementation is (or
+   * derives from) T, e.g. `findModulesOfType<mola::LidarOdometry>()`.
+   * Useful for callers that need to reach a specific module instance to
+   * invoke type-specific methods beyond the generic ExecutableBase API.
+   */
+  template <typename T>
+  std::vector<std::shared_ptr<T>> findModulesOfType() const
+  {
+    std::vector<std::shared_ptr<T>> ret;
+    for (const auto& th : running_threads_)
+    {
+      if (auto p = std::dynamic_pointer_cast<T>(th.second.impl); p)
+      {
+        ret.push_back(p);
+      }
+    }
+    return ret;
+  }
 
   /** Returns the absolute path of the root directory where the given module
    * shared files can be found. For BUILD_INTERFACE, this should be the root
