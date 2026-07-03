@@ -37,13 +37,19 @@
 #include <string>
 #include <vector>
 
-// Forward declaration: only GLFWwindow* pointers appear in this header, so the
-// GLFW/OpenGL backend headers are pulled in by the .cpp implementation files
-// instead of being forced on every consumer of the public API.
+// Forward declarations: only pointers to these types appear in this header,
+// so the GLFW/OpenGL/ImPlot headers are pulled in by the .cpp implementation
+// files instead of being forced on every consumer of the public API.
 struct GLFWwindow;
+struct ImPlotContext;
 
 namespace mola
 {
+
+// Defined in MetricsRegistry.h (kept out of the public include dir; only
+// this Core uses the concrete type). The public handle modules interact
+// with is the kernel's mola::MetricChannel.
+class MetricsRegistry;
 
 /** One captured log line, tagged with its originating module and severity. */
 struct ConsoleLogEntry
@@ -228,6 +234,11 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
       const mola::gui::MenuBar& bar,
       const std::string&        parentWindow = DEFAULT_WINDOW_NAME) override;
 
+  MetricChannel::Ptr register_metric(
+      const std::string& name, const std::string& unit = "") override;
+
+  void push_metric(const std::string& name, double t, double value) override;
+
   /** @} */
   // =========================================================================
   /** @name VizInterface — 3-D scene API
@@ -376,6 +387,21 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    *  populated only while `console_enabled_` is true. */
   std::shared_ptr<ConsoleLogSink> console_sink_ = std::make_shared<ConsoleLogSink>();
 
+  /** Plot windows: master enable for the "Plots" menu and metric registration.
+   *  When false, register_metric()/push_metric() still return valid (no-op)
+   *  channels so callers never need to guard the call. */
+  bool plots_enabled_ = true;
+
+  /** Default rolling-history cap (seconds) for a newly-registered channel. */
+  double plots_default_retention_seconds_ = 10.0;
+
+  /** Default horizontal span (seconds) of a newly-created plot window. */
+  double plots_default_span_seconds_ = 5.0;
+
+  /** Registry of metric channels shared with the per-module producer handles;
+   *  always allocated, like `console_sink_`. See MetricsRegistry.h. */
+  std::shared_ptr<MetricsRegistry> metrics_;
+
   /** @} */
 
   // =========================================================================
@@ -407,6 +433,26 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
     std::shared_ptr<mrpt::opengl::CPointCloudColoured> cloud;
     mrpt::opengl::CSetOfObjects::Ptr container;  // owning container at insert time
     float                            initial_alpha = 1.0f;
+  };
+
+  /** One live plot window: which channels it overlays and its display options.
+   *  Opened from the built-in "Plots" menu; independently closable/reopenable
+   *  via its native `[x]` button and the same menu, mirroring how the Console
+   *  window's visibility is toggled. */
+  struct PlotWindowState
+  {
+    std::string title;  // e.g. "Plot 1"; unique within a PerWindowData
+    bool        open = true;  // drives ImGui::Begin(title, &open) -> [x] button
+
+    std::vector<std::string> channels;  // subscribed channel names (overlaid)
+
+    float span_seconds = 5.0f;  // horizontal window shown, one of {1,2,5,10}
+    bool  show_grid_x  = true;
+    bool  show_grid_y  = true;
+    bool  show_legend  = true;
+    bool  lines        = true;  // true=solid lines, false=ticks/markers only
+    bool  y_autoscale  = true;
+    bool  paused       = false;  // freeze the view for inspection
   };
 
   struct PerWindowData
@@ -441,6 +487,15 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
     size_t                    max_decaying_clouds = 100;
 
     mola::gui::MenuBar menu_bar;
+
+    /** Drives the Console window's native `[x]` button; the "Plots" menu's
+     *  checklist re-opens it, same mechanism as the plot windows below. */
+    bool console_open = true;
+
+    /** Open plot windows for this parent window; created via the "Plots"
+     *  menu, each independently closable/reopenable. */
+    std::vector<PlotWindowState> plot_windows;
+    int                          next_plot_id = 1;
   };
 
   std::map<window_name_t, PerWindowData> windows_;
@@ -458,6 +513,12 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   // destructor to warn the caller if they forgot to release GL resources.
   bool embed_active_ = false;
 
+  // Embed mode only: the host owns the ImGui context but has no reason to
+  // know about ImPlot, so the Core creates/destroys its own ImPlot context
+  // here. Host mode (MolaVizImGui) instead owns an ImPlot context alongside
+  // its ImGui context (see MolaVizImGui::gui_thread()).
+  ImPlotContext* embed_implot_ctx_ = nullptr;
+
   // Per-frame rendering helpers
   void render_menu_bar(PerWindowData& win);
   void render_background_scene(PerWindowData& win);
@@ -465,6 +526,9 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   void render_sensor_windows(const window_name_t& parentName, PerWindowData& win);
   void render_console_overlay(PerWindowData& win);
   void render_console_window(PerWindowData& win);
+  void render_plots_menu(PerWindowData& win);
+  void render_plot_windows(PerWindowData& win);
+  void render_plot_toolbar(PlotWindowState& st);
   void render_widget_description(const mola::gui::WindowDescription& desc, SubWindowState& sw);
   void render_tab(const mola::gui::Tab& tab, const std::string& ctx);
   void render_any_widget(const mola::gui::AnyWidget& w, const std::string& ctx);
@@ -506,6 +570,11 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   // shifts as new modules register mid-session, so an index alone would
   // silently start pointing at a different source.
   std::string console_selected_source_name_;
+
+  // Plot windows: buffers reused across channels/frames to avoid a
+  // heap allocation per PlotLine() call.
+  std::vector<double> plot_scratch_xs_;
+  std::vector<double> plot_scratch_ys_;
 };
 
 }  // namespace mola

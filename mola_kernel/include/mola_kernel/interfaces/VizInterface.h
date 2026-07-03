@@ -23,10 +23,13 @@
  *       nanogui-specific create_subwindow() / enqueue_custom_nanogui_code()
  *       APIs.  The old methods are retained but deprecated so that existing
  *       callers continue to compile; they will be removed in a future release.
+ * 2026: Added register_metric() / push_metric() for streaming time-series
+ *       metrics to live plot windows (ImGui backend only; no-op on nanogui).
  */
 #pragma once
 
 #include <mola_kernel/GuiWidgetDescription.h>
+#include <mola_kernel/interfaces/MetricChannel.h>
 #include <mrpt/containers/yaml_frwd.h>
 #include <mrpt/math/TPoint2D.h>
 #include <mrpt/math/TPoint3D.h>
@@ -400,6 +403,44 @@ class VizInterface
       const std::string& title, bool save,
       const std::vector<std::pair<std::string, std::string>>& filters = {},
       const std::string& default_path = "", const std::string& parentWindow = "main") = 0;
+
+  /** @} */
+
+  // =========================================================================
+  /** @name Metrics / time-series plotting
+   *
+   * Generic mechanism for any module to stream timestamped scalar values
+   * ("metrics": CPU %, per-frame delay, ICP uncertainties, residuals, queue
+   * depth, temperatures, ...) to the visualizer for display in live,
+   * autoscrolling plot windows.
+   *
+   * This is an ImGui-backend feature (rendered via ImPlot). The nanogui
+   * `MolaViz` backend implements both methods as no-ops: `register_metric()`
+   * returns a live handle whose `push()` is a no-op, so callers can use the
+   * API unconditionally without checking `gui_backend()`.
+   * @{ */
+
+  /**
+   * \brief Registers (or returns the existing) metric channel by unique name.
+   *
+   * Idempotent: repeated calls with the same name return the same channel.
+   *
+   * \param name Unique id, also the default legend label. Use a namespaced
+   *             form like "lidar_odom/icp_delay_ms" to avoid collisions.
+   * \param unit Optional unit string shown on axis/legend (e.g. "ms", "%").
+   * \return     A channel handle; never null (no-op handle on backends
+   *             without plotting).
+   */
+  virtual MetricChannel::Ptr register_metric(
+      const std::string& name, const std::string& unit = "") = 0;
+
+  /**
+   * \brief One-shot convenience: register-if-needed then push.
+   *
+   * For rarely-updated metrics; prefer holding the handle returned by
+   * register_metric() on hot paths to avoid a name lookup per sample.
+   */
+  virtual void push_metric(const std::string& name, double t, double value) = 0;
 
   /** @} */
 

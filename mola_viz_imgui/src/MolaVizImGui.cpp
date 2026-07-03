@@ -24,6 +24,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <implot.h>
 #include <mola_kernel/assets/mola_icon_64x64.h>
 #include <mola_viz_imgui/MolaVizImGui.h>
 #include <mola_yaml/yaml_helpers.h>
@@ -261,6 +262,7 @@ void MolaVizImGui::gui_thread()
 
   imgui_ctx_ = ImGui::CreateContext();
   ImGui::SetCurrentContext(imgui_ctx_);
+  implot_ctx_ = ImPlot::CreateContext();
 
   create_and_add_window(DEFAULT_WINDOW_NAME);
 
@@ -307,6 +309,9 @@ void MolaVizImGui::gui_thread()
     wd.glfw_window = nullptr;
   }
   core_ptr_->windows_.clear();
+
+  ImPlot::DestroyContext(implot_ctx_);
+  implot_ctx_ = nullptr;
 
   ImGui::DestroyContext(imgui_ctx_);
   imgui_ctx_ = nullptr;

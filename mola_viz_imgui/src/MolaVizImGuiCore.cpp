@@ -21,6 +21,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui_stdlib.h>
+#include <implot.h>
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/lock_helper.h>
@@ -36,6 +37,8 @@
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+
+#include "MetricsRegistry.h"
 
 using namespace mola;
 
@@ -107,7 +110,10 @@ const std::string& MolaVizImGuiCore::gui_backend() const noexcept
 // Constructor / destructor
 // ---------------------------------------------------------------------------
 
-MolaVizImGuiCore::MolaVizImGuiCore() { setLoggerName("MolaVizImGuiCore"); }
+MolaVizImGuiCore::MolaVizImGuiCore() : metrics_(std::make_shared<MetricsRegistry>())
+{
+  setLoggerName("MolaVizImGuiCore");
+}
 
 MolaVizImGuiCore::~MolaVizImGuiCore()
 {
@@ -141,6 +147,10 @@ void MolaVizImGuiCore::init_for_embed(const window_name_t& name)
   wd.background_scene = mrpt::opengl::COpenGLScene::Create();
   // No background_scene_view — the embed host renders via its own CImGuiSceneView.
   embed_active_ = true;
+
+  // The embed host owns the ImGui context but not ImPlot's; create our own,
+  // once per Core instance, matching MolaVizImGui::gui_thread() in host mode.
+  if (!embed_implot_ctx_) embed_implot_ctx_ = ImPlot::CreateContext();
 }
 
 void MolaVizImGuiCore::shutdown_for_embed()
@@ -168,6 +178,12 @@ void MolaVizImGuiCore::shutdown_for_embed()
     wd.background_scene_view.reset();
   }
   windows_.clear();
+
+  if (embed_implot_ctx_)
+  {
+    ImPlot::DestroyContext(embed_implot_ctx_);
+    embed_implot_ctx_ = nullptr;
+  }
 
   embed_active_ = false;
 }
@@ -255,6 +271,10 @@ void MolaVizImGuiCore::spin_one_frame(const window_name_t& name)
   {
     render_console_window(wd);
   }
+  if (plots_enabled_)
+  {
+    render_plot_windows(wd);
+  }
   render_console_overlay(wd);
   internal_handle_decaying_clouds(wd);
 }
@@ -312,6 +332,10 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   {
     render_console_window(wd);
   }
+  if (plots_enabled_)
+  {
+    render_plot_windows(wd);
+  }
   render_console_overlay(wd);
   internal_handle_decaying_clouds(wd);
 
@@ -362,10 +386,15 @@ void MolaVizImGuiCore::internal_drain_task_queue()
 
 void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
 {
-  if (wd.menu_bar.menus.empty()) return;
-
+  // The built-in "Plots" menu is always available, even if no module has
+  // installed a custom menu bar via set_menu_bar().
   if (ImGui::BeginMenuBar())
   {
+    if (plots_enabled_)
+    {
+      render_plots_menu(wd);
+    }
+
     for (const auto& menu : wd.menu_bar.menus)
     {
       if (ImGui::BeginMenu(menu.label.c_str()))
@@ -386,6 +415,39 @@ void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
     }
     ImGui::EndMenuBar();
   }
+}
+
+void MolaVizImGuiCore::render_plots_menu(PerWindowData& wd)
+{
+  if (!ImGui::BeginMenu("Plots"))
+  {
+    return;
+  }
+
+  if (ImGui::MenuItem("New plot window"))
+  {
+    PlotWindowState st;
+    st.title        = "Plot " + std::to_string(wd.next_plot_id++);
+    st.span_seconds = static_cast<float>(plots_default_span_seconds_);
+    wd.plot_windows.push_back(std::move(st));
+  }
+
+  if (!wd.plot_windows.empty() || console_enabled_)
+  {
+    ImGui::Separator();
+  }
+
+  if (console_enabled_)
+  {
+    ImGui::MenuItem("Console", nullptr, &wd.console_open);
+  }
+
+  for (auto& st : wd.plot_windows)
+  {
+    ImGui::MenuItem(st.title.c_str(), nullptr, &st.open);
+  }
+
+  ImGui::EndMenu();
 }
 
 void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
@@ -544,12 +606,15 @@ void MolaVizImGuiCore::console_save_to_file()
   MRPT_LOG_INFO_STREAM("Console: saved log to '" << fname << "'.");
 }
 
-void MolaVizImGuiCore::render_console_window(PerWindowData& /*wd*/)
+void MolaVizImGuiCore::render_console_window(PerWindowData& wd)
 {
-  if (!console_sink_) return;
+  if (!console_sink_ || !wd.console_open)
+  {
+    return;
+  }
 
   ImGui::SetNextWindowSize(ImVec2(700, 300), ImGuiCond_FirstUseEver);
-  if (!ImGui::Begin("Console"))
+  if (!ImGui::Begin("Console", &wd.console_open))
   {
     ImGui::End();
     return;
@@ -652,6 +717,141 @@ void MolaVizImGuiCore::render_console_window(PerWindowData& /*wd*/)
   ImGui::End();
 
   if (wantSave) console_save_to_file();
+}
+
+void MolaVizImGuiCore::render_plot_toolbar(PlotWindowState& st)
+{
+  static constexpr float       kSpans[]      = {1.0f, 2.0f, 5.0f, 10.0f};
+  static constexpr const char* kSpanLabels[] = {"1s", "2s", "5s", "10s"};
+
+  int spanIdx = 2;  // fall back to 5s if span_seconds doesn't match a preset
+  for (size_t i = 0; i < IM_ARRAYSIZE(kSpans); i++)
+  {
+    if (std::abs(kSpans[i] - st.span_seconds) < 1e-3f) spanIdx = static_cast<int>(i);
+  }
+  ImGui::SetNextItemWidth(70);
+  if (ImGui::Combo("Span", &spanIdx, kSpanLabels, IM_ARRAYSIZE(kSpanLabels)))
+  {
+    st.span_seconds = kSpans[spanIdx];
+  }
+  ImGui::SameLine();
+
+  // "Add channel" combo, populated with channels not already shown here.
+  const std::vector<std::string> allNames = metrics_->channel_names();
+  std::vector<std::string>       avail;
+  for (const auto& n : allNames)
+  {
+    if (std::find(st.channels.begin(), st.channels.end(), n) == st.channels.end())
+    {
+      avail.push_back(n);
+    }
+  }
+  std::vector<const char*> availLabels;
+  availLabels.reserve(avail.size());
+  for (const auto& n : avail) availLabels.push_back(n.c_str());
+
+  int addIdx = -1;
+  ImGui::SetNextItemWidth(200);
+  if (ImGui::Combo(
+          "Add channel", &addIdx, availLabels.data(), static_cast<int>(availLabels.size())) &&
+      addIdx >= 0)
+  {
+    st.channels.push_back(avail[static_cast<size_t>(addIdx)]);
+  }
+
+  ImGui::Checkbox("Grid X", &st.show_grid_x);
+  ImGui::SameLine();
+  ImGui::Checkbox("Grid Y", &st.show_grid_y);
+  ImGui::SameLine();
+  ImGui::Checkbox("Legend", &st.show_legend);
+  ImGui::SameLine();
+  ImGui::Checkbox("Lines", &st.lines);
+  ImGui::SameLine();
+  ImGui::Checkbox("Y autoscale", &st.y_autoscale);
+  ImGui::SameLine();
+  ImGui::Checkbox("Pause", &st.paused);
+
+  // One removable "chip" per subscribed channel.
+  for (size_t i = 0; i < st.channels.size();)
+  {
+    ImGui::SameLine();
+    const std::string label = st.channels[i] + " x##rm_" + st.channels[i];
+    if (ImGui::SmallButton(label.c_str()))
+    {
+      st.channels.erase(st.channels.begin() + static_cast<long>(i));
+      continue;
+    }
+    ++i;
+  }
+}
+
+void MolaVizImGuiCore::render_plot_windows(PerWindowData& wd)
+{
+  bool anyOpenWithChannels = false;
+
+  for (auto& st : wd.plot_windows)
+  {
+    if (!st.open) continue;
+
+    ImGui::SetNextWindowSize(ImVec2(480, 320), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin(st.title.c_str(), &st.open))
+    {
+      render_plot_toolbar(st);
+      if (!st.channels.empty()) anyOpenWithChannels = true;
+
+      const double now  = mrpt::Clock::nowDouble();
+      const double tmin = now - static_cast<double>(st.span_seconds);
+
+      // Widen (never shrink) each shown channel's retention to cover this
+      // window's span, so copy_span() below always finds the full history.
+      const double wantRetention =
+          std::max(plots_default_retention_seconds_, static_cast<double>(st.span_seconds));
+      for (const auto& chName : st.channels)
+      {
+        auto ch = metrics_->find(chName);
+        if (!ch) continue;
+        if (wantRetention > ch->retention_seconds.load(std::memory_order_relaxed))
+          ch->retention_seconds.store(wantRetention, std::memory_order_relaxed);
+      }
+
+      const ImPlotFlags plotFlags = st.show_legend ? ImPlotFlags_None : ImPlotFlags_NoLegend;
+      if (ImPlot::BeginPlot(("##" + st.title).c_str(), ImVec2(-1, -1), plotFlags))
+      {
+        const ImPlotAxisFlags xFlags =
+            st.show_grid_x ? ImPlotAxisFlags_None : ImPlotAxisFlags_NoGridLines;
+        const ImPlotAxisFlags yFlags =
+            (st.show_grid_y ? ImPlotAxisFlags_None : ImPlotAxisFlags_NoGridLines) |
+            (st.y_autoscale ? ImPlotAxisFlags_AutoFit : ImPlotAxisFlags_None);
+        ImPlot::SetupAxes("t [s]", nullptr, xFlags, yFlags);
+        if (!st.paused) ImPlot::SetupAxisLimits(ImAxis_X1, tmin, now, ImPlotCond_Always);
+
+        for (const auto& chName : st.channels)
+        {
+          auto ch = metrics_->find(chName);
+          if (!ch) continue;
+
+          ch->copy_span(tmin, plot_scratch_xs_, plot_scratch_ys_);
+          if (plot_scratch_xs_.empty()) continue;
+
+          ImPlotSpec spec;
+          spec.LineColor      = ch->color;
+          const auto        n = static_cast<int>(plot_scratch_xs_.size());
+          const std::string label =
+              ch->unit.empty() ? ch->name : (ch->name + " [" + ch->unit + "]");
+          if (st.lines)
+            ImPlot::PlotLine(
+                label.c_str(), plot_scratch_xs_.data(), plot_scratch_ys_.data(), n, spec);
+          else
+            ImPlot::PlotScatter(
+                label.c_str(), plot_scratch_xs_.data(), plot_scratch_ys_.data(), n, spec);
+        }
+        ImPlot::EndPlot();
+      }
+    }
+    ImGui::End();
+  }
+
+  metrics_->any_window_open()->store(anyOpenWithChannels, std::memory_order_relaxed);
 }
 
 void MolaVizImGuiCore::render_subwindow(SubWindowState& sw)
@@ -801,6 +1001,19 @@ std::future<void> MolaVizImGuiCore::set_menu_bar(
         }
         it->second.menu_bar = bar;
       });
+}
+
+MetricChannel::Ptr MolaVizImGuiCore::register_metric(
+    const std::string& name, const std::string& unit)
+{
+  auto ch = metrics_->get_or_create(name, unit);
+  ch->retention_seconds.store(plots_default_retention_seconds_, std::memory_order_relaxed);
+  return ch;
+}
+
+void MolaVizImGuiCore::push_metric(const std::string& name, double t, double value)
+{
+  metrics_->get_or_create(name, "")->push(t, value);
 }
 
 std::future<std::optional<std::string>> MolaVizImGuiCore::open_file_dialog(

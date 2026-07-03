@@ -31,6 +31,10 @@
 #include <string>
 #include <thread>
 
+// Forward declaration: implot.h is only pulled in by the .cpp files that
+// need it, so it is not forced on every consumer of this public header.
+struct ImPlotContext;
+
 namespace mola
 {
 
@@ -136,6 +140,16 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
       const mola::gui::MenuBar& bar, const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
   {
     return core_ptr_->set_menu_bar(bar, parentWindow);
+  }
+
+  MetricChannel::Ptr register_metric(const std::string& name, const std::string& unit = "") override
+  {
+    return core_ptr_->register_metric(name, unit);
+  }
+
+  void push_metric(const std::string& name, double t, double value) override
+  {
+    core_ptr_->push_metric(name, t, value);
   }
 
   /** @} */
@@ -315,7 +329,8 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   // ---------------------------------------------------------------------------
   std::thread       guiThread_;
   std::atomic<bool> guiThreadShutdown_{false};
-  ImGuiContext*     imgui_ctx_ = nullptr;
+  ImGuiContext*     imgui_ctx_  = nullptr;
+  ImPlotContext*    implot_ctx_ = nullptr;
 
   void                             gui_thread();
   MolaVizImGuiCore::PerWindowData& create_and_add_window(const window_name_t& name);
