@@ -387,6 +387,12 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    *  populated only while `console_enabled_` is true. */
   std::shared_ptr<ConsoleLogSink> console_sink_ = std::make_shared<ConsoleLogSink>();
 
+  /** Top main menu bar (host mode only): master enable. When false, no menu
+   *  bar is created at all (including the built-in "Plots" menu and any
+   *  module-installed menu via `set_menu_bar()`). Existing plot/console
+   *  windows are unaffected; only the top strip and its menus disappear. */
+  bool menu_bar_enabled_ = true;
+
   /** Plot windows: master enable for the "Plots" menu and metric registration.
    *  When false, register_metric()/push_metric() still return valid (no-op)
    *  channels so callers never need to guard the call. */

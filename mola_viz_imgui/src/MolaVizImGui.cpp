@@ -147,6 +147,14 @@ void MolaVizImGui::initialize(const Yaml& c)
   core_ptr_->console_window_seconds_ =
       cfg.getOrDefault("console_window_seconds", core_ptr_->console_window_seconds_);
 
+  core_ptr_->plots_enabled_ = cfg.getOrDefault("plots_enabled", core_ptr_->plots_enabled_);
+  core_ptr_->plots_default_retention_seconds_ = cfg.getOrDefault(
+      "plots_default_retention_seconds", core_ptr_->plots_default_retention_seconds_);
+  core_ptr_->plots_default_span_seconds_ =
+      cfg.getOrDefault("plots_default_span_seconds", core_ptr_->plots_default_span_seconds_);
+
+  core_ptr_->menu_bar_enabled_ = cfg.getOrDefault("menu_bar_enabled", core_ptr_->menu_bar_enabled_);
+
   core_ptr_->console_sink_->max_entries    = core_ptr_->console_max_entries_;
   core_ptr_->console_sink_->window_seconds = core_ptr_->console_window_seconds_;
 

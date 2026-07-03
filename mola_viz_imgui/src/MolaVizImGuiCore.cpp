@@ -303,15 +303,22 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-  constexpr ImGuiWindowFlags dockspace_flags =
-      ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar |
-      ImGuiWindowFlags_NoBackground;
+  ImGuiWindowFlags dockspace_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                                     ImGuiWindowFlags_NoBringToFrontOnFocus |
+                                     ImGuiWindowFlags_NoBackground;
+  if (menu_bar_enabled_)
+  {
+    dockspace_flags |= ImGuiWindowFlags_MenuBar;
+  }
 
   ImGui::Begin("##DockSpaceRoot", nullptr, dockspace_flags);
   ImGui::PopStyleVar(3);
 
-  render_menu_bar(wd);
+  if (menu_bar_enabled_)
+  {
+    render_menu_bar(wd);
+  }
 
   ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
   ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);

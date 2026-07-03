@@ -88,8 +88,12 @@ All plugin modules derive from these virtual base classes:
   `register_metric()`/`push_metric()` (feature macro
   `MOLA_KERNEL_VIZ_HAS_METRICS`) so any module can stream timestamped scalar
   values ("metrics") to live, autoscrolling plot windows opened from the
-  built-in "Plots" menu; rendered via ImPlot on the `mola_viz_imgui` backend
-  only, no-op on the nanogui `MolaViz` backend.
+  built-in "Plots" menu (gated by the `plots_enabled` param); rendered via
+  ImPlot on the `mola_viz_imgui` backend only, no-op on the nanogui `MolaViz`
+  backend. The top main menu bar itself (host mode only; hosts the "Plots"
+  menu plus any module-installed `set_menu_bar()` menus) can be turned off
+  entirely via `menu_bar_enabled` (default `true`); existing plot/console
+  windows keep working when it is disabled.
 - `Relocalization` — global localization / loop closure
 - `OfflineDatasetSource` — offline dataset handling
 - `KeyframeMapCapable` — mixin for keyframe-based metric maps needing per-KF
