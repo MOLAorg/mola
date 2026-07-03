@@ -303,26 +303,6 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
 
   /** @} */
   // =========================================================================
-  /** @name VizInterface — deprecated nanogui stubs
-   * @{ */
-
-  [[deprecated]] std::future<nanogui::Window*> create_subwindow(
-      const std::string& title, const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
-
-  [[deprecated]] std::future<void> enqueue_custom_nanogui_code(
-      const std::function<void()>& userCode) override;
-
-  [[deprecated]] std::future<void> subwindow_grid_layout(
-      const std::string& subWindowTitle, bool orientationVertical, int resolution,
-      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
-
-  [[deprecated]] std::future<void> subwindow_move_resize(
-      const std::string& subWindowTitle, const mrpt::math::TPoint2D_<int>& location,
-      const mrpt::math::TPoint2D_<int>& size,
-      const std::string&                parentWindow = DEFAULT_WINDOW_NAME) override;
-
-  /** @} */
-  // =========================================================================
   /** @name GUI update handler registry
    * @{ */
 
