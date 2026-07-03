@@ -253,40 +253,6 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   /** @} */
 
   // =========================================================================
-  /** @name VizInterface — deprecated nanogui-specific stubs
-   * @{ */
-
-  [[deprecated]] std::future<nanogui::Window*> create_subwindow(
-      const std::string& title, const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
-  {
-    return core_ptr_->create_subwindow(title, parentWindow);
-  }
-
-  [[deprecated]] std::future<void> enqueue_custom_nanogui_code(
-      const std::function<void()>& userCode) override
-  {
-    return core_ptr_->enqueue_custom_nanogui_code(userCode);
-  }
-
-  [[deprecated]] std::future<void> subwindow_grid_layout(
-      const std::string& subWindowTitle, bool orientationVertical, int resolution,
-      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
-  {
-    return core_ptr_->subwindow_grid_layout(
-        subWindowTitle, orientationVertical, resolution, parentWindow);
-  }
-
-  [[deprecated]] std::future<void> subwindow_move_resize(
-      const std::string& subWindowTitle, const mrpt::math::TPoint2D_<int>& location,
-      const mrpt::math::TPoint2D_<int>& size,
-      const std::string&                parentWindow = DEFAULT_WINDOW_NAME) override
-  {
-    return core_ptr_->subwindow_move_resize(subWindowTitle, location, size, parentWindow);
-  }
-
-  /** @} */
-
-  // =========================================================================
   /** @name Handler registry (forwarded to MolaVizImGuiCore statics)
    * @{ */
 

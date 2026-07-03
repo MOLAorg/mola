@@ -20,9 +20,8 @@
  * ---------
  * 2026: Added create_subwindow_from_description() and
  *       enqueue_custom_gui_code() as backend-agnostic replacements for the
- *       nanogui-specific create_subwindow() / enqueue_custom_nanogui_code()
- *       APIs.  The old methods are retained but deprecated so that existing
- *       callers continue to compile; they will be removed in a future release.
+ *       old nanogui-specific create_subwindow() / enqueue_custom_nanogui_code()
+ *       APIs (removed).
  * 2026: Added register_metric() / push_metric() for streaming time-series
  *       metrics to live plot windows (ImGui backend only; no-op on nanogui).
  */
@@ -40,14 +39,6 @@
 #include <future>
 #include <memory>
 #include <optional>
-
-// ---------------------------------------------------------------------------
-// Forward declaration kept ONLY for the deprecated create_subwindow() API.
-// New code must not depend on nanogui::Window* through this interface.
-// clang-format off
-namespace nanogui { class Window; }
-// clang-format on
-// ---------------------------------------------------------------------------
 
 /** Feature macro: when defined, VizInterface offers update_3d_object_frame()
  *  and the `parentFrame` argument of update_3d_object(),
@@ -441,66 +432,6 @@ class VizInterface
    * register_metric() on hot paths to avoid a name lookup per sample.
    */
   virtual void push_metric(const std::string& name, double t, double value) = 0;
-
-  /** @} */
-
-  // =========================================================================
-  /** @name Deprecated nanogui-specific API
-   *
-   * These methods are kept so that existing callers continue to compile
-   * against either backend.  They will be removed in a future release.
-   *
-   * Migration guide
-   * ---------------
-   * | Old call                          | New call                              |
-   * |-----------------------------------|---------------------------------------|
-   * | create_subwindow(title)           | create_subwindow_from_description()   |
-   * | enqueue_custom_nanogui_code(fn)   | enqueue_custom_gui_code(fn)           |
-   * | subwindow_grid_layout(...)        | encode layout in WindowDescription    |
-   * | subwindow_move_resize(...)        | encode position/size in WindowDescription |
-   *
-   * @{ */
-
-  /**
-   * \deprecated Use create_subwindow_from_description() instead.
-   *
-   * Returns a nanogui::Window* through a future.  On non-nanogui backends
-   * this returns a future containing nullptr; callers must guard against this.
-   * The returned pointer must not be deleted by the caller.
-   */
-  [[deprecated(
-      "Use create_subwindow_from_description() instead")]] virtual std::future<nanogui::Window*>
-      create_subwindow(const std::string& title, const std::string& parentWindow = "main") = 0;
-
-  /**
-   * \deprecated Use enqueue_custom_gui_code() instead.
-   *
-   * Retained for source compatibility; both names dispatch to the same
-   * internal queue.
-   */
-  [[deprecated("Use enqueue_custom_gui_code() instead")]] virtual std::future<void>
-      enqueue_custom_nanogui_code(const std::function<void()>& userCode) = 0;
-
-  /**
-   * \deprecated Encode layout in WindowDescription::tabs instead.
-   *
-   * On ImGui backends this is a no-op (ImGui manages layout automatically).
-   */
-  [[deprecated("Encode layout in WindowDescription instead")]] virtual std::future<void>
-      subwindow_grid_layout(
-          const std::string& subWindowTitle, bool orientationVertical, int resolution,
-          const std::string& parentWindow = "main") = 0;
-
-  /**
-   * \deprecated Encode position and size in WindowDescription instead.
-   *
-   * On ImGui backends position/size are first-use hints only; the dock
-   * manager overrides them freely.
-   */
-  [[deprecated("Encode position/size in WindowDescription instead")]] virtual std::future<void>
-      subwindow_move_resize(
-          const std::string& subWindowTitle, const mrpt::math::TPoint2D_<int>& location,
-          const mrpt::math::TPoint2D_<int>& size, const std::string& parentWindow = "main") = 0;
 
   /** @} */
 };
