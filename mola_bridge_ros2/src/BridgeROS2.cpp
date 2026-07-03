@@ -70,6 +70,7 @@
 #include <geographic_msgs/msg/geo_pose_stamped.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp/node.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/string.hpp>
@@ -370,10 +371,16 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     }
 
     // Spin:
+    // Note: the free function rclcpp::spin_some(node) was removed upstream in
+    // favor of an explicit executor, since it used to build a brand new
+    // executor on every single call.
+    rclcpp::executors::SingleThreadedExecutor executor;
+    executor.add_node(rosNode_);
+
     isSpinning_ = true;
     while (rclcpp::ok() && !shouldExit_)
     {
-      rclcpp::spin_some(rosNode_);
+      executor.spin_some();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     if (owned_rclcpp_ && rclcpp::ok())
