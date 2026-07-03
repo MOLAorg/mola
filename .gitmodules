@@ -5,3 +5,6 @@
 	path = mola_viz_imgui/3rdparty/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
+[submodule "mola_viz_imgui/3rdparty/implot"]
+	path = mola_viz_imgui/3rdparty/implot
+	url = https://github.com/epezent/implot.git

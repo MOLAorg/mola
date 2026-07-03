@@ -103,6 +103,14 @@ class MolaViz : public ExecutableBase, public VizInterface
       const mola::gui::MenuBar& bar,
       const std::string&        parentWindow = DEFAULT_WINDOW_NAME) override;
 
+  /** Metrics plotting is an ImGui-backend feature. Returns a no-op handle
+   *  whose push() does nothing. */
+  MetricChannel::Ptr register_metric(
+      const std::string& name, const std::string& unit = "") override;
+
+  /** Does nothing in nanogui backend. */
+  void push_metric(const std::string& name, double t, double value) override;
+
   /** @} */
 
   // =========================================================================

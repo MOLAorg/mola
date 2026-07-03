@@ -2180,3 +2180,27 @@ std::future<void> MolaViz::set_menu_bar(
   p.set_value();
   return p.get_future();
 }
+
+namespace
+{
+/** No-op metric channel handle for the nanogui backend, which does not
+ *  implement metric plotting. */
+class NoOpMetricChannel : public MetricChannel
+{
+ public:
+  void push(double /*t*/, double /*value*/) override {}
+};
+}  // namespace
+
+MetricChannel::Ptr MolaViz::register_metric(
+    const std::string& /*name*/, const std::string& /*unit*/)
+{
+  // Note: nanogui backend does not support metric plotting.
+  static const MetricChannel::Ptr noOpChannel = std::make_shared<NoOpMetricChannel>();
+  return noOpChannel;
+}
+
+void MolaViz::push_metric(const std::string& /*name*/, double /*t*/, double /*value*/)
+{
+  // Note: nanogui backend does not support metric plotting.
+}

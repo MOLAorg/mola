@@ -24,6 +24,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <implot.h>
 #include <mola_kernel/assets/mola_icon_64x64.h>
 #include <mola_viz_imgui/MolaVizImGui.h>
 #include <mola_yaml/yaml_helpers.h>
@@ -146,6 +147,14 @@ void MolaVizImGui::initialize(const Yaml& c)
   core_ptr_->console_window_seconds_ =
       cfg.getOrDefault("console_window_seconds", core_ptr_->console_window_seconds_);
 
+  core_ptr_->plots_enabled_ = cfg.getOrDefault("plots_enabled", core_ptr_->plots_enabled_);
+  core_ptr_->plots_default_retention_seconds_ = cfg.getOrDefault(
+      "plots_default_retention_seconds", core_ptr_->plots_default_retention_seconds_);
+  core_ptr_->plots_default_span_seconds_ =
+      cfg.getOrDefault("plots_default_span_seconds", core_ptr_->plots_default_span_seconds_);
+
+  core_ptr_->menu_bar_enabled_ = cfg.getOrDefault("menu_bar_enabled", core_ptr_->menu_bar_enabled_);
+
   core_ptr_->console_sink_->max_entries    = core_ptr_->console_max_entries_;
   core_ptr_->console_sink_->window_seconds = core_ptr_->console_window_seconds_;
 
@@ -261,6 +270,7 @@ void MolaVizImGui::gui_thread()
 
   imgui_ctx_ = ImGui::CreateContext();
   ImGui::SetCurrentContext(imgui_ctx_);
+  implot_ctx_ = ImPlot::CreateContext();
 
   create_and_add_window(DEFAULT_WINDOW_NAME);
 
@@ -307,6 +317,9 @@ void MolaVizImGui::gui_thread()
     wd.glfw_window = nullptr;
   }
   core_ptr_->windows_.clear();
+
+  ImPlot::DestroyContext(implot_ctx_);
+  implot_ctx_ = nullptr;
 
   ImGui::DestroyContext(imgui_ctx_);
   imgui_ctx_ = nullptr;

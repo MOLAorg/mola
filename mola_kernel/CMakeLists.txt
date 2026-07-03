@@ -26,6 +26,7 @@ set(LIB_SRCS
   src/interfaces/FilterBase.cpp
   src/interfaces/FrontEndBase.cpp
   src/interfaces/KeyframeMapCapable.cpp
+  src/interfaces/MetricChannel.cpp
   src/interfaces/NavStateFilter.cpp
   src/interfaces/RawDataSourceBase.cpp
   src/interfaces/SharedKeyframeMap.cpp
@@ -49,6 +50,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/interfaces/LocalizationSourceBase.h
   include/mola_kernel/interfaces/MapServer.h
   include/mola_kernel/interfaces/MapSourceBase.h
+  include/mola_kernel/interfaces/MetricChannel.h
   include/mola_kernel/interfaces/NavStateFilter.h
   include/mola_kernel/interfaces/OfflineDatasetSource.h
   include/mola_kernel/interfaces/RawDataConsumer.h

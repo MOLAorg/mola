@@ -1,23 +1,34 @@
 # ------------------------------------------------------------------------------
-# Static library target wrapping Dear ImGui (docking branch).
+# Static library target wrapping Dear ImGui (docking branch) + ImPlot.
 #
 # Expected layout:
-#   <this file's parent>/../../3rdparty/imgui/   ← git submodule
+#   <this file's parent>/../../3rdparty/imgui/    ← git submodule
+#   <this file's parent>/../../3rdparty/implot/   ← git submodule
 #
-# The submodule must be the "docking" branch of
+# The imgui submodule must be the "docking" branch of
 # https://github.com/ocornut/imgui
+# The implot submodule is https://github.com/epezent/implot (master; a tagged
+# release predates the imgui 1.92 texture-API changes).
 # ------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.5)
 project(imgui_static LANGUAGES CXX)
 
-# Locate the submodule root relative to this file
+# Locate the submodule roots relative to this file
 get_filename_component(_IMGUI_ROOT
     "${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty/imgui" ABSOLUTE)
+get_filename_component(_IMPLOT_ROOT
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty/implot" ABSOLUTE)
 
 if(NOT EXISTS "${_IMGUI_ROOT}/imgui.h")
   message(FATAL_ERROR
     "Dear ImGui submodule not found at ${_IMGUI_ROOT}.\n"
+    "Run:  git submodule update --init --recursive")
+endif()
+
+if(NOT EXISTS "${_IMPLOT_ROOT}/implot.h")
+  message(FATAL_ERROR
+    "ImPlot submodule not found at ${_IMPLOT_ROOT}.\n"
     "Run:  git submodule update --init --recursive")
 endif()
 
@@ -34,6 +45,8 @@ set(_IMGUI_SRCS
   ${_IMGUI_ROOT}/misc/cpp/imgui_stdlib.cpp   # std::string InputText support
   ${_IMGUI_ROOT}/backends/imgui_impl_glfw.cpp
   ${_IMGUI_ROOT}/backends/imgui_impl_opengl3.cpp
+  ${_IMPLOT_ROOT}/implot.cpp
+  ${_IMPLOT_ROOT}/implot_items.cpp
 )
 
 add_library(imgui_static STATIC ${_IMGUI_SRCS})
@@ -44,6 +57,7 @@ target_include_directories(imgui_static
     ${_IMGUI_ROOT}
     ${_IMGUI_ROOT}/backends
     ${_IMGUI_ROOT}/misc/cpp
+    ${_IMPLOT_ROOT}
 )
 
 # Enable the docking branch feature set.
