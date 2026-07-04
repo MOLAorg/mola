@@ -20,6 +20,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <implot.h>
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
@@ -321,6 +322,26 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   }
 
   ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
+
+  // On a fresh profile (no saved imgui.ini layout yet), dock the Console
+  // window at the bottom instead of leaving it floating, so first-run users
+  // see log output without manual docking. Runs once; a pre-existing layout
+  // is left untouched.
+  if (!wd.imgui_ini_existed && !wd.default_dock_layout_applied && console_enabled_)
+  {
+    ImGui::DockBuilderRemoveNode(dockspace_id);
+    ImGui::DockBuilderAddNode(
+        dockspace_id, ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+
+    ImGuiID dock_id_bottom =
+        ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Down, 0.25f, nullptr, &dockspace_id);
+    ImGui::DockBuilderDockWindow("Console", dock_id_bottom);
+
+    ImGui::DockBuilderFinish(dockspace_id);
+  }
+  wd.default_dock_layout_applied = true;
+
   ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
   ImGui::End();
 
@@ -391,15 +412,32 @@ void MolaVizImGuiCore::internal_drain_task_queue()
 // Rendering helpers
 // ---------------------------------------------------------------------------
 
+void MolaVizImGuiCore::render_app_menu()
+{
+  if (!ImGui::BeginMenu("MOLA"))
+  {
+    return;
+  }
+
+  if (ImGui::MenuItem("Quit") && quit_callback_)
+  {
+    quit_callback_();
+  }
+
+  ImGui::EndMenu();
+}
+
 void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
 {
-  // The built-in "Plots" menu is always available, even if no module has
-  // installed a custom menu bar via set_menu_bar().
+  // The "MOLA" and built-in "View" menus are always available, even if no
+  // module has installed a custom menu bar via set_menu_bar().
   if (ImGui::BeginMenuBar())
   {
+    render_app_menu();
+
     if (plots_enabled_)
     {
-      render_plots_menu(wd);
+      render_view_menu(wd);
     }
 
     for (const auto& menu : wd.menu_bar.menus)
@@ -424,9 +462,9 @@ void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
   }
 }
 
-void MolaVizImGuiCore::render_plots_menu(PerWindowData& wd)
+void MolaVizImGuiCore::render_view_menu(PerWindowData& wd)
 {
-  if (!ImGui::BeginMenu("Plots"))
+  if (!ImGui::BeginMenu("View"))
   {
     return;
   }

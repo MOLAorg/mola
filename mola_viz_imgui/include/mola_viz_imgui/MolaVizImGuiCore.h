@@ -368,14 +368,22 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   std::shared_ptr<ConsoleLogSink> console_sink_ = std::make_shared<ConsoleLogSink>();
 
   /** Top main menu bar (host mode only): master enable. When false, no menu
-   *  bar is created at all (including the built-in "Plots" menu and any
-   *  module-installed menu via `set_menu_bar()`). Existing plot/console
-   *  windows are unaffected; only the top strip and its menus disappear. */
+   *  bar is created at all (including the "MOLA" and built-in "View" menus,
+   *  and any module-installed menu via `set_menu_bar()`). Existing
+   *  plot/console windows are unaffected; only the top strip and its menus
+   *  disappear. */
   bool menu_bar_enabled_ = true;
 
-  /** Plot windows: master enable for the "Plots" menu and metric registration.
-   *  When false, register_metric()/push_metric() still return valid (no-op)
-   *  channels so callers never need to guard the call. */
+  /** Invoked when the user clicks "Quit" in the "MOLA" menu (host mode only).
+   *  Set by `MolaVizImGui::initialize()` to request shutdown of the whole
+   *  MOLA application. Left unset (no-op) outside of that context, e.g. when
+   *  the Core is driven directly in embed mode. */
+  std::function<void()> quit_callback_;
+
+  /** Plot windows: master enable for the plot-window items in the "View" menu
+   *  and metric registration. When false, register_metric()/push_metric()
+   *  still return valid (no-op) channels so callers never need to guard the
+   *  call. */
   bool plots_enabled_ = true;
 
   /** Default rolling-history cap (seconds) for a newly-registered channel. */
@@ -422,7 +430,7 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   };
 
   /** One live plot window: which channels it overlays and its display options.
-   *  Opened from the built-in "Plots" menu; independently closable/reopenable
+   *  Opened from the built-in "View" menu; independently closable/reopenable
    *  via its native `[x]` button and the same menu, mirroring how the Console
    *  window's visibility is toggled. */
   struct PlotWindowState
@@ -474,14 +482,25 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
 
     mola::gui::MenuBar menu_bar;
 
-    /** Drives the Console window's native `[x]` button; the "Plots" menu's
+    /** Drives the Console window's native `[x]` button; the "View" menu's
      *  checklist re-opens it, same mechanism as the plot windows below. */
     bool console_open = true;
 
-    /** Open plot windows for this parent window; created via the "Plots"
+    /** Open plot windows for this parent window; created via the "View"
      *  menu, each independently closable/reopenable. */
     std::vector<PlotWindowState> plot_windows;
     int                          next_plot_id = 1;
+
+    /** True if an imgui .ini layout file already existed for this window
+     *  before ImGui had a chance to load/write it (checked at window
+     *  creation). When false, `render_frame()` applies a default dock
+     *  layout once (Console docked at the bottom) instead of leaving
+     *  windows floating on a fresh profile. */
+    bool imgui_ini_existed = true;
+
+    /** Set once the default dock layout has been applied (or skipped
+     *  because a saved layout already existed), so it only runs once. */
+    bool default_dock_layout_applied = false;
   };
 
   std::map<window_name_t, PerWindowData> windows_;
@@ -512,7 +531,8 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   void render_sensor_windows(const window_name_t& parentName, PerWindowData& win);
   void render_console_overlay(PerWindowData& win);
   void render_console_window(PerWindowData& win);
-  void render_plots_menu(PerWindowData& win);
+  void render_app_menu();
+  void render_view_menu(PerWindowData& win);
   void render_plot_windows(PerWindowData& win);
   void render_plot_toolbar(PlotWindowState& st);
   void render_widget_description(const mola::gui::WindowDescription& desc, SubWindowState& sw);

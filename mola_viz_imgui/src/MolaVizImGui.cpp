@@ -33,6 +33,7 @@
 #include <mrpt/system/string_utils.h>
 #include <mrpt/system/thread_name.h>
 
+#include <filesystem>
 #include <stdexcept>
 #include <vector>
 
@@ -163,6 +164,8 @@ void MolaVizImGui::initialize(const Yaml& c)
     instance_ = this;
   }
 
+  core_ptr_->quit_callback_ = [this]() { this->requestShutdown(); };
+
   if (!embed_mode_)
   {
     guiThread_ = std::thread(&MolaVizImGui::gui_thread, this);
@@ -256,6 +259,8 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const windo
   const std::string resolvedIni = core_ptr_->resolve_imgui_ini_path(name);
   if (!resolvedIni.empty())
   {
+    wd.imgui_ini_existed = std::filesystem::exists(resolvedIni);
+
     auto [it, inserted] = core_ptr_->imgui_ini_paths_.emplace(name, resolvedIni);
     io.IniFilename      = it->second.c_str();
     MRPT_LOG_INFO_STREAM("ImGui layout .ini file: " << it->second);
