@@ -1928,13 +1928,33 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
       clusters.empty() ? 0.0 : static_cast<double>(n) / static_cast<double>(clusters.size())));
 
   // ---- 6) Build the output map: one super-keyframe per cluster ----
-  KeyFrameID nextId = 0;
-  for (const auto& members : clusters)
-  {
-    const auto& seed = kfs[members.front()];
+  // Building each super-keyframe cloud (merge + voxel-decimate) is by far the
+  // most expensive part of this function and fully independent across
+  // clusters, so it is parallelized; the actual insertion into `out` (which
+  // assigns sequential KF ids) is kept single-threaded below.
+  std::vector<mrpt::maps::CPointsMap::Ptr> superKfClouds(clusters.size());
 
-    auto localCloud =
-        buildSuperKeyframeCloud(members, globals, seed.pose, params.merge_decimate_voxel);
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+  tbb::parallel_for(
+      static_cast<size_t>(0), clusters.size(),
+      [&](size_t i)
+#else
+  for (size_t i = 0; i < clusters.size(); i++)
+#endif
+      {
+        const auto& members = clusters[i];
+        const auto& seed    = kfs[members.front()];
+        superKfClouds[i] =
+            buildSuperKeyframeCloud(members, globals, seed.pose, params.merge_decimate_voxel);
+      }
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+  );
+#endif
+
+  KeyFrameID nextId = 0;
+  for (size_t i = 0; i < clusters.size(); i++)
+  {
+    const auto& seed = kfs[clusters[i].front()];
 
     // Insert as a new super-keyframe (caches build lazily on first use / load).
     auto [it, isNew] = out->keyframes_.try_emplace(
@@ -1943,7 +1963,7 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
     KeyFrame& nkf = it->second;
     nkf.timestamp = seed.timestamp;
     nkf.pose(seed.pose);
-    nkf.pointcloud(localCloud);
+    nkf.pointcloud(superKfClouds[i]);
     out->last_inserted_kf_id_ = nextId;
     nextId++;
   }

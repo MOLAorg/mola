@@ -150,7 +150,10 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   bounding box (large outdoors, small indoors). Merged clouds are voxel-decimated
   (`--decimate-voxel`, view-direction fields carried) to bound the overlap-induced point
   blow-up. On a 1000-KF outdoor map this yields ~5 super-KFs. This is "idea 1" of the
-  keyframe-map persistence plan.
+  keyframe-map persistence plan. Building each super-KF cloud (the merge +
+  voxel-decimate step) is the most expensive part of `regroupKeyframes()` and is
+  parallelized across clusters with TBB (`tbb::parallel_for`, gated by
+  `MOLA_METRIC_MAPS_USE_TBB`, falling back to a serial loop when TBB is absent).
 - `KeyframePointCloudMap::TCreationOptions::approximate_cov` (default `false`): for
   `nn_search_cov2cov()` (used by `mp2p_icp::Matcher_Cov2Cov`, i.e. GICP-style pipelines).
   When `true`, `icp_get_prepared_as_global()` skips assembling the merged, multi-keyframe
