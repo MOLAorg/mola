@@ -450,11 +450,27 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     // This one has a different signature has to be handled apart:
     if (sensorType == "CObservationOdometry")
     {
-      auto callback = [this, sensorLabel, fixedSensorPose](const SerializedBagMessage& m) -> Obs
+      auto callback = [this, sensorLabel, fixedSensorPose,
+                       useBagRecvTimeAsTimestamp](const SerializedBagMessage& m) -> Obs
       {
         return catchExceptions(
-            [sensorLabel, fixedSensorPose, m]() -> Obs
-            { return mrpt::ros2bridge::rosbag2ToOdometry(sensorLabel, m); });
+            [sensorLabel, fixedSensorPose, useBagRecvTimeAsTimestamp, m]() -> Obs
+            {
+              Obs obs = mrpt::ros2bridge::rosbag2ToOdometry(sensorLabel, m);
+              if (useBagRecvTimeAsTimestamp)
+              {
+                const auto recvTimestamp =
+                    mrpt::Clock::fromDouble(1e-9 * static_cast<double>(m.time_stamp));
+                for (auto& o : obs)
+                {
+                  if (o)
+                  {
+                    o->timestamp = recvTimestamp;
+                  }
+                }
+              }
+              return obs;
+            });
       };
       MRPT_LOG_INFO_STREAM("Installing callback for topic '" << topic << "'");
       lookup_[topic].emplace_back(callback);
