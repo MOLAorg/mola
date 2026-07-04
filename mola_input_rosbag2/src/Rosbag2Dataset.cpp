@@ -27,6 +27,7 @@
 #include <mola_input_rosbag2/Rosbag2Dataset.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
+#include <mrpt/core/Clock.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/obs/CActionRobotMovement3D.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
@@ -349,6 +350,15 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
           "["s + sensor.at("fixed_sensor_pose").as<std::string>() + "]"s);
     }
 
+    // Optional: override this observation's timestamp with the bag's own
+    // recv/storage time instead of the ROS message header stamp. Default
+    // false. Useful for drivers that stamp messages with a monotonic/uptime
+    // clock instead of wall-clock epoch time (seen in the wild for some IMU
+    // drivers), which otherwise trips the "mis-timestamped sensors" time
+    // reference reset (huge jump between this sensor and others).
+    const bool useBagRecvTimeAsTimestamp = sensor.count("use_bag_recv_time_as_timestamp") != 0 &&
+                                           sensor.at("use_bag_recv_time_as_timestamp").as<bool>();
+
 #if 0  // TODO ?
 			else if (sensorType == "CObservation3DRangeScan")
 			{
@@ -411,12 +421,27 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     if (auto it = converters.find(sensorType); it != converters.end())
     {
       auto convFn   = it->second;
-      auto callback = [this, sensorLabel, fixedSensorPose,
+      auto callback = [this, sensorLabel, fixedSensorPose, useBagRecvTimeAsTimestamp,
                        convFn](const SerializedBagMessage& m) -> Obs
       {
         return catchExceptions(
-            [this, sensorLabel, fixedSensorPose, convFn, m]() -> Obs
-            { return convFn(sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose); });
+            [this, sensorLabel, fixedSensorPose, useBagRecvTimeAsTimestamp, convFn, m]() -> Obs
+            {
+              Obs obs = convFn(sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
+              if (useBagRecvTimeAsTimestamp)
+              {
+                const auto recvTimestamp =
+                    mrpt::Clock::fromDouble(1e-9 * static_cast<double>(m.time_stamp));
+                for (auto& o : obs)
+                {
+                  if (o)
+                  {
+                    o->timestamp = recvTimestamp;
+                  }
+                }
+              }
+              return obs;
+            });
       };
       MRPT_LOG_INFO_STREAM("Installing callback for topic '" << topic << "'");
       lookup_[topic].emplace_back(callback);
