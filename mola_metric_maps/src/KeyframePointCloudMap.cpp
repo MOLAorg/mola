@@ -655,36 +655,52 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
       double             bestDiversityScore = -1.0;
       const KFCandidate* bestCandidate      = nullptr;
 
-      for (const auto& c : candidates)
+      // Two passes: first restricted to diverseDistLimit (the common case, when
+      // enough nearby candidates exist); if that finds nothing (e.g. only a
+      // handful of widely-spaced super-keyframes cover the map, as produced by
+      // regroupKeyframes()), fall back to the best-diversity candidate regardless
+      // of distance rather than leaving this slot -- and thus the submap -- short
+      // a keyframe. An unfilled diverse slot means ICP runs against a single
+      // keyframe only, which can permanently starve it of correspondences at the
+      // edge of that keyframe's own coverage.
+      for (const bool enforceDistLimit : {true, false})
       {
-        if (selectedIds.count(c.kfId) != 0)
+        if (bestCandidate != nullptr)
         {
-          continue;
-        }
-        if (c.dist > diverseDistLimit)
-        {
-          continue;
+          break;
         }
 
-        // Diversity score: minimum angular difference to any
-        // already-selected frame's angle_to_kf.  We actually
-        // want the frame whose *orientation* (kf.pose()) differs
-        // most from the selected set, so compute pairwise SO(3)
-        // differences would be ideal but expensive; as a cheaper
-        // proxy, use the absolute angle_to_kf difference, which
-        // works well because frames at similar positions but
-        // different orientations will have very different
-        // angle_to_kf values.
-        double minAngDiff = std::numeric_limits<double>::max();
-        for (const double selAngle : selectedAngles)
+        for (const auto& c : candidates)
         {
-          minAngDiff = std::min(minAngDiff, std::abs(c.angle - selAngle));
-        }
+          if (selectedIds.count(c.kfId) != 0)
+          {
+            continue;
+          }
+          if (enforceDistLimit && c.dist > diverseDistLimit)
+          {
+            continue;
+          }
 
-        if (minAngDiff > bestDiversityScore)
-        {
-          bestDiversityScore = minAngDiff;
-          bestCandidate      = &c;
+          // Diversity score: minimum angular difference to any
+          // already-selected frame's angle_to_kf.  We actually
+          // want the frame whose *orientation* (kf.pose()) differs
+          // most from the selected set, so compute pairwise SO(3)
+          // differences would be ideal but expensive; as a cheaper
+          // proxy, use the absolute angle_to_kf difference, which
+          // works well because frames at similar positions but
+          // different orientations will have very different
+          // angle_to_kf values.
+          double minAngDiff = std::numeric_limits<double>::max();
+          for (const double selAngle : selectedAngles)
+          {
+            minAngDiff = std::min(minAngDiff, std::abs(c.angle - selAngle));
+          }
+
+          if (minAngDiff > bestDiversityScore)
+          {
+            bestDiversityScore = minAngDiff;
+            bestCandidate      = &c;
+          }
         }
       }
 
@@ -2009,6 +2025,11 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
     const auto clusterCenter = [&](const std::vector<size_t>& members)
     { return kfs[members.front()].center; };
 
+    // Clusters whose nearest neighbor turns out to be farther than a reasonable bound (see
+    // below) are left standalone rather than glued to a spatially disjoint cluster; track
+    // them by their (stable) seed index so the smallest-first search does not retry them.
+    std::unordered_set<size_t> unmergeableSeeds;
+
     size_t numIslandsAbsorbed = 0;
     for (;;)
     {
@@ -2030,6 +2051,10 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
       size_t smallestPts = 0;
       for (size_t i = 0; i < clusters.size(); i++)
       {
+        if (unmergeableSeeds.count(clusters[i].front()) != 0)
+        {
+          continue;
+        }
         const size_t pts = clusterPoints(clusters[i]);
         if (static_cast<double>(pts) < minPoints &&
             (smallestIdx == clusters.size() || pts < smallestPts))
@@ -2040,7 +2065,7 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
       }
       if (smallestIdx == clusters.size())
       {
-        break;  // no island left
+        break;  // no (mergeable) island left
       }
 
       // Find the nearest other cluster by center distance:
@@ -2061,6 +2086,18 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
         }
       }
       ASSERT_(nearestIdx != clusters.size());
+
+      // Reject absorption into a spatially disjoint neighbor: cap the merge distance at
+      // extent_factor times the sum of both clusters' (seed) sensing radii, the same
+      // scale used to cap a super-keyframe's own extent during growth (step 5 above).
+      const double mergeDistCap =
+          params.extent_factor *
+          (kfs[clusters[smallestIdx].front()].radius + kfs[clusters[nearestIdx].front()].radius);
+      if (nearestDist > mergeDistCap)
+      {
+        unmergeableSeeds.insert(clusters[smallestIdx].front());
+        continue;
+      }
 
       // Absorb: append the island's members into its nearest neighbor, then drop it.
       clusters[nearestIdx].insert(
