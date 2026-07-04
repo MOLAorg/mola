@@ -279,6 +279,33 @@ Do not use direct MRPT GUI calls in modules — use the `VizInterface` abstracti
 
 ---
 
+## Environment Variables (Debug/Tracing Flags)
+
+All debug/tracing flags use `mrpt::get_env<T>(name, default)` (from
+`<mrpt/core/get_env.h>`), never plain `::getenv`/`std::getenv`. The one
+exception is `mola_yaml`'s `${VAR}` expansion (`yaml_helpers.cpp`), which
+needs tri-state unset-vs-empty semantics that `mrpt::get_env` cannot express,
+so it keeps `::getenv` by design.
+
+| Variable | Type | Default | Location | Purpose |
+|----------|------|---------|----------|---------|
+| `MOLA_MODULES_LIB_PATH` | path list | (unset) | `mola_launcher/src/MolaLauncherApp.cpp` | Extra directories to search for module shared libraries |
+| `MOLA_MODULES_SHARED_PATH` | path list | (unset) | `mola_launcher/src/MolaLauncherApp.cpp` | Extra directories to search for module shared (data) files |
+| `MOLA_KEYFRAME_MAP_PROFILE_COV` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Print profiling stats for per-KF covariance computation |
+| `MOLA_KEYFRAME_MAP_DEBUG_ACTIVE_KFS` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Trace which keyframes are in the active ICP set |
+| `MOLA_KEYFRAME_MAP_DEBUG_DUMP_KFS_ON_LOAD` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Dump per-keyframe debug info right after loading a `.mm` map |
+| `MOLA_KEYFRAME_MAP_DEBUG_MATCH_STATS` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Trace nearest-keyframe selection / point-density match statistics |
+| `MOLA_KEYFRAME_MAP_VIZ_SHOW_ACTIVE_SUBMAP` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Render the merged active-KF submap used for ICP |
+| `MOLA_KEYFRAME_MAP_VIZ_OVERRIDE_AXES_LENGTH` | float | 0 | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Override the length of per-KF pose axes in the 3D view |
+| `MOLA_KEYFRAME_MAP_VIZ_SHOW_COV` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Render per-point covariance ellipsoids |
+| `MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Color rendered points by owning keyframe instead of by intensity/height |
+| `MOLA_KEYFRAME_MAP_VIZ_SHOW_COV_DECIMATION` | uint32 | 0 | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Decimation factor when rendering covariance ellipsoids |
+| `MOLA_LOCALMAP_APPROXIMATE_COV` | bool | (module default) | consumed via YAML, see `KeyframePointCloudMap::TCreationOptions::approximate_cov` | Configures the live local map's approximate-cov2cov path (does not affect a loaded `.mm`, whose flag is read from the file) |
+| `TEST_GENERATE_3D_SCENES` | bool | false | `mola_metric_maps/tests/test-mola_metric_maps_ndt.cpp` | Regenerate reference 3D scene files instead of comparing against them |
+| `MOLA_YAML_VERBOSE` | bool | false | `mola_yaml/src/yaml_helpers.cpp` | Print each external YAML file loaded via `@include`/`@import` |
+
+---
+
 ## Documentation Build (Multi-Repo)
 
 The MOLA documentation website is built from **all MOLAorg repos cloned together**

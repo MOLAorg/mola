@@ -20,6 +20,7 @@
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/exceptions.h>
+#include <mrpt/core/get_env.h>
 #include <mrpt/system/filesystem.h>
 #include <mrpt/system/os.h>
 #include <mrpt/system/string_utils.h>
@@ -436,7 +437,7 @@ void deepMergeNode(yaml::node_t& base, const yaml::node_t& overlay)
   }
   IncludeGuard includeGuard(canonicalExpr);
 
-  if (::getenv("VERBOSE") != nullptr)
+  if (mrpt::get_env<bool>("MOLA_YAML_VERBOSE", false))
   {
     std::cout << "[mola::parse_yaml] loading external YAML: \"" << expr << "\"\n";
   }
