@@ -52,6 +52,7 @@
 #include <tbb/parallel_for.h>
 #endif
 
+#include <atomic>
 #include <type_traits>
 
 #if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
@@ -1221,6 +1222,11 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
     const mrpt::aligned_std_vector<float>* view_y = nullptr;
     const mrpt::aligned_std_vector<float>* view_z = nullptr;
   };
+  const bool debugMatchStats = mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_DEBUG_MATCH_STATS", false);
+  std::atomic<size_t> statsNoCandidateInRange{0};
+  std::atomic<size_t> statsRejectedByViewFilter{0};
+  std::atomic<size_t> statsAccepted{0};
+
   std::vector<ActiveKfEntry> entries;
   entries.reserve(activeKfs.size());
   for (const auto kf_id : activeKfs)
@@ -1295,6 +1301,10 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
 
         if (!found || best_dist_sqr > max_sqr_dist)
         {
+          if (debugMatchStats)
+          {
+            statsNoCandidateInRange++;
+          }
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
           return;  // exit TBB lambda for this index
 #else
@@ -1326,12 +1336,21 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
 
           if (dot < view_cos_threshold)
           {
+            if (debugMatchStats)
+            {
+              statsRejectedByViewFilter++;
+            }
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
             return;  // exit TBB lambda for this index
 #else
         continue;  // skip to next iteration of the for loop
 #endif
           }
+        }
+
+        if (debugMatchStats)
+        {
+          statsAccepted++;
         }
 
     // Add pairing:
@@ -1368,6 +1387,16 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
         std::make_move_iterator(localVec.end()));
   }
 #endif
+
+  if (debugMatchStats)
+  {
+    printf(
+        "[KeyframePointCloudMap] nn_search_cov2cov_approximate: query_points=%zu "
+        "active_kfs=%zu accepted=%zu no_candidate_in_range=%zu rejected_by_view_filter=%zu "
+        "max_search_distance=%.3f\n",
+        localPointCount, entries.size(), statsAccepted.load(), statsNoCandidateInRange.load(),
+        statsRejectedByViewFilter.load(), static_cast<double>(max_search_distance));
+  }
 }
 
 std::size_t KeyframePointCloudMap::point_count() const
