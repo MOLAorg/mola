@@ -32,6 +32,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <numeric>
 #include <set>
 
 // ---------------------------------------------------------------------------
@@ -1075,9 +1076,20 @@ void test_covariance_serialization_roundtrip()
     m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
     mp2p_icp::MatchedPointWithCovList ps;
     m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, ps);
-    const auto byLocalIdx = [](const auto& a, const auto& b) { return a.local_idx < b.local_idx; };
-    std::sort(ps.begin(), ps.end(), byLocalIdx);
-    return ps;
+    // Sort indices, not the pairings themselves, to avoid heapsort/std::sort
+    // passing the (over-aligned) point_with_cov_pair_t by value.
+    std::vector<size_t> order(ps.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::sort(
+        order.begin(), order.end(),
+        [&ps](size_t i, size_t j) { return ps[i].local_idx < ps[j].local_idx; });
+    mp2p_icp::MatchedPointWithCovList sorted;
+    sorted.reserve(ps.size());
+    for (size_t idx : order)
+    {
+      sorted.push_back(ps[idx]);
+    }
+    return sorted;
   };
 
   auto refPs    = run(ref_m);
@@ -1233,15 +1245,22 @@ void test_approximate_cov_matches_exact_single_kf()
   ASSERT_EQUAL_(exactPairings.size(), approxPairings.size());
   ASSERT_EQUAL_(exactPairings.size(), global_pts.size());
 
-  // Sort both lists by local_idx so entries line up (TBB may reorder them).
-  const auto byLocalIdx = [](const auto& a, const auto& b) { return a.local_idx < b.local_idx; };
-  std::sort(exactPairings.begin(), exactPairings.end(), byLocalIdx);
-  std::sort(approxPairings.begin(), approxPairings.end(), byLocalIdx);
+  // Sort indices by local_idx so entries line up (TBB may reorder them),
+  // rather than sorting the pairings themselves.
+  std::vector<size_t> exactOrder(exactPairings.size());
+  std::vector<size_t> approxOrder(approxPairings.size());
+  std::iota(exactOrder.begin(), exactOrder.end(), 0);
+  std::iota(approxOrder.begin(), approxOrder.end(), 0);
+
+  const auto byLocalIdx = [](const auto& list)
+  { return [&list](size_t i, size_t j) { return list[i].local_idx < list[j].local_idx; }; };
+  std::sort(exactOrder.begin(), exactOrder.end(), byLocalIdx(exactPairings));
+  std::sort(approxOrder.begin(), approxOrder.end(), byLocalIdx(approxPairings));
 
   for (size_t i = 0; i < exactPairings.size(); i++)
   {
-    const auto& e = exactPairings[i];
-    const auto& a = approxPairings[i];
+    const auto& e = exactPairings[exactOrder[i]];
+    const auto& a = approxPairings[approxOrder[i]];
     ASSERT_EQUAL_(e.local_idx, a.local_idx);
     ASSERT_NEAR_((e.local - a.local).norm(), 0.f, 1e-5f);
     ASSERT_NEAR_((e.global - a.global).norm(), 0.f, 1e-5f);
