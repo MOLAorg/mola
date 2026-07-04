@@ -117,6 +117,13 @@ int main(int argc, char** argv)
         "If >0, voxel-downsample [m] each merged super-keyframe cloud to bound its size.");
 
     cli.add_option(
+           "--island-merge-fraction", args.params.island_merge_fraction,
+           "Clusters whose point count falls below this fraction of the largest cluster's are "
+           "absorbed into their nearest neighbor instead of being left as standalone, "
+           "under-populated super-keyframes. 0 disables this (default: 0.10).")
+        ->check(CLI::Range(0.0, 1.0));
+
+    cli.add_option(
         "-l,--load-plugins", args.plugins,
         "One or more (comma separated) *.so files to load as plugins");
 

@@ -294,6 +294,17 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  strongly recommended for large maps. Per-point view-direction fields, when
      *  present, are carried over (first point kept per voxel). */
     double merge_decimate_voxel = 0;
+
+    /** Any cluster whose total point count falls below this fraction of the
+     *  largest cluster's point count is treated as an "island": too small to
+     *  usefully stand on its own as a super-keyframe (it would mislead
+     *  proximity-based nearest-keyframe search at runtime -- see
+     *  `TCreationOptions::density_penalty_min_points` -- while contributing
+     *  little real geometry). Islands are absorbed into their nearest
+     *  neighboring cluster (by center distance) instead of being emitted as
+     *  their own super-keyframe. Set to 0 to disable (old behavior: every
+     *  cluster becomes its own super-keyframe, however small). Default 0.10. */
+    double island_merge_fraction = 0.10;
   };
 
   /** Builds a NEW map whose keyframes are "super-keyframes": spatially coherent
@@ -511,6 +522,20 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  `false` (exact, merged-cloud behavior, unchanged).
      */
     bool approximate_cov = false;
+
+    /** Below this point count, a keyframe candidate is considered "sparse" for
+     *  proximity ranking in `icp_get_prepared_as_global()`, and gets a distance
+     *  penalty (see `density_penalty_max_m`) linearly scaled by how far below
+     *  this floor its point count is (0 penalty at/above this count, maximum
+     *  penalty at 0 points). Guards against small/leftover keyframes (e.g. an
+     *  under-merged cluster from `regroupKeyframes()`) outranking a much
+     *  better-populated keyframe merely because their pose happens to be
+     *  closer to the query. Default 200000; set to 0 to disable. */
+    uint32_t density_penalty_min_points = 200000;
+
+    /** Maximum proximity-ranking penalty [m] added for a keyframe with (close
+     *  to) zero points; see `density_penalty_min_points`. Default 20.0. */
+    double density_penalty_max_m = 20.0;
   };
   TCreationOptions creationOptions;
 

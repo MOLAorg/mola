@@ -157,6 +157,9 @@ void rotateViewDirectionFieldsOrFallback(Pts& pts, const Pose& tf)
 const thread_local auto ENV_DO_PROFILE_COV =
     mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_PROFILE_COV", false);
 
+const thread_local auto ENV_DEBUG_ACTIVE_KFS =
+    mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_DEBUG_ACTIVE_KFS", false);
+
 // #define DO_VIZ_DEBUG 1
 
 #if DO_VIZ_DEBUG
@@ -412,6 +415,24 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
   // Restore the monotonic id counter so future insertions don't collide
   // with already-loaded ids.
   next_free_kf_id_ = keyframes_.empty() ? 0 : (keyframes_.rbegin()->first + 1);
+
+  if (mrpt::get_env<bool>("MOLA_KEYFRAME_MAP_DEBUG_DUMP_KFS_ON_LOAD", false))
+  {
+    for (const auto& [kf_id, kf] : keyframes_)
+    {
+      const auto& p    = kf.pose();
+      const auto  bbox = kf.localBoundingBox();
+      const auto  diag = (bbox.max - bbox.min).norm();
+      printf(
+          "[KeyframePointCloudMap] loaded KF id=%llu pose=[x=%.3f y=%.3f z=%.3f yaw=%.2f "
+          "pitch=%.2f roll=%.2f] points=%zu local_bbox_diag=%.2f local_bbox=[%.2f,%.2f,%.2f]-["
+          "%.2f,%.2f,%.2f]\n",
+          static_cast<unsigned long long>(kf_id), p.x(), p.y(), p.z(), mrpt::RAD2DEG(p.yaw()),
+          mrpt::RAD2DEG(p.pitch()), mrpt::RAD2DEG(p.roll()),
+          kf.pointcloud() ? kf.pointcloud()->size() : 0, diag, bbox.min.x, bbox.min.y, bbox.min.z,
+          bbox.max.x, bbox.max.y, bbox.max.z);
+    }
+  }
 }
 
 ///  === KeyframePointCloudMap ===
@@ -556,9 +577,27 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
     const double dist_to_kf  = query_local.norm();
     const double angle_to_kf = mrpt::poses::Lie::SO<3>::log(query_local.getRotationMatrix()).norm();
 
+    // Density penalty: a keyframe with few points (e.g. an under-merged, leftover
+    // cluster from regroupKeyframes()) can sit geometrically closer to the query
+    // than a much better-populated keyframe, yet contribute almost no usable
+    // geometry for ICP correspondences. Without this term, pure pose-distance
+    // ranking can pick that sparse keyframe over one that would actually match,
+    // starving the ICP submap of real points. Penalty ramps linearly from 0 (at
+    // or above density_penalty_min_points) to density_penalty_max_m (at 0 points).
+    double densityPenalty = 0.0;
+    if (creationOptions.density_penalty_min_points > 0)
+    {
+      const auto minPts = static_cast<double>(creationOptions.density_penalty_min_points);
+      const auto nPts   = static_cast<double>(kf.pointcloud()->size());
+      if (nPts < minPts)
+      {
+        densityPenalty = (1.0 - nPts / minPts) * creationOptions.density_penalty_max_m;
+      }
+    }
+
     // Additive metric: prevents the zero-distance degeneracy of multiplicative forms,
     // and gives a clean meters-equivalent score that is easy to reason about.
-    const double m = dist_to_kf + rotW * angle_to_kf;
+    const double m = dist_to_kf + rotW * angle_to_kf + densityPenalty;
 
     candidates.push_back({kf_id, dist_to_kf, angle_to_kf, m});
   }
@@ -658,6 +697,28 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
   }
 
   kfs_to_search_limited = selectedIds;
+
+  if (ENV_DEBUG_ACTIVE_KFS)
+  {
+    std::string s;
+    for (const auto kf_id : kfs_to_search_limited)
+    {
+      s += std::to_string(kf_id) + " ";
+    }
+    printf(
+        "[KeyframePointCloudMap] ICP active KFs (%zu): %s | query_pose=[x=%.3f y=%.3f z=%.3f "
+        "yaw=%.2f]\n",
+        kfs_to_search_limited.size(), s.c_str(), icp_ref_point.x(), icp_ref_point.y(),
+        icp_ref_point.z(), mrpt::RAD2DEG(icp_ref_point.yaw()));
+    for (const auto& c : candidates)
+    {
+      printf(
+          "[KeyframePointCloudMap]   candidate KF id=%llu dist=%.2f angle_deg=%.2f metric=%.2f "
+          "%s\n",
+          static_cast<unsigned long long>(c.kfId), c.dist, mrpt::RAD2DEG(c.angle), c.metric,
+          kfs_to_search_limited.count(c.kfId) ? "[SELECTED]" : "");
+    }
+  }
 
   // ---------------------------------------------------------------
   // 4) Rebuild merged submap if the selection (or the exact/approximate mode) changed
@@ -1927,6 +1988,97 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
       "[regroup] %zu keyframes -> %zu super-keyframes (%.2fx reduction)", n, clusters.size(),
       clusters.empty() ? 0.0 : static_cast<double>(n) / static_cast<double>(clusters.size())));
 
+  // ---- 5.5) Absorb tiny "island" clusters into their nearest neighbor ----
+  // A cluster whose total point count is a small fraction of the largest cluster's
+  // is too sparse to usefully stand on its own: at runtime, its pose can still win
+  // proximity-based nearest-keyframe search (see TCreationOptions::density_penalty_*)
+  // over a much better-populated neighbor, starving ICP of real geometry. Rather than
+  // leave it as a standalone super-keyframe, fold it into its nearest neighbor cluster.
+  if (params.island_merge_fraction > 0 && clusters.size() > 1)
+  {
+    const auto clusterPoints = [&](const std::vector<size_t>& members) -> size_t
+    {
+      size_t total = 0;
+      for (const size_t m : members)
+      {
+        total += globals[m]->size();
+      }
+      return total;
+    };
+    // The seed (first member) center is used as the cluster's representative position.
+    const auto clusterCenter = [&](const std::vector<size_t>& members)
+    { return kfs[members.front()].center; };
+
+    size_t numIslandsAbsorbed = 0;
+    for (;;)
+    {
+      if (clusters.size() <= 1)
+      {
+        break;
+      }
+
+      size_t maxPoints = 0;
+      for (const auto& c : clusters)
+      {
+        maxPoints = std::max(maxPoints, clusterPoints(c));
+      }
+      const double minPoints = params.island_merge_fraction * static_cast<double>(maxPoints);
+
+      // Find the smallest cluster below threshold (process smallest-first so a
+      // chain of tiny islands absorbs into progressively larger neighbors).
+      size_t smallestIdx = clusters.size();
+      size_t smallestPts = 0;
+      for (size_t i = 0; i < clusters.size(); i++)
+      {
+        const size_t pts = clusterPoints(clusters[i]);
+        if (static_cast<double>(pts) < minPoints &&
+            (smallestIdx == clusters.size() || pts < smallestPts))
+        {
+          smallestIdx = i;
+          smallestPts = pts;
+        }
+      }
+      if (smallestIdx == clusters.size())
+      {
+        break;  // no island left
+      }
+
+      // Find the nearest other cluster by center distance:
+      const auto islandCenter = clusterCenter(clusters[smallestIdx]);
+      size_t     nearestIdx   = clusters.size();
+      double     nearestDist  = std::numeric_limits<double>::max();
+      for (size_t j = 0; j < clusters.size(); j++)
+      {
+        if (j == smallestIdx)
+        {
+          continue;
+        }
+        const double d = (clusterCenter(clusters[j]) - islandCenter).norm();
+        if (d < nearestDist)
+        {
+          nearestDist = d;
+          nearestIdx  = j;
+        }
+      }
+      ASSERT_(nearestIdx != clusters.size());
+
+      // Absorb: append the island's members into its nearest neighbor, then drop it.
+      clusters[nearestIdx].insert(
+          clusters[nearestIdx].end(), clusters[smallestIdx].begin(), clusters[smallestIdx].end());
+      clusters.erase(clusters.begin() + static_cast<std::ptrdiff_t>(smallestIdx));
+
+      numIslandsAbsorbed++;
+    }
+
+    if (numIslandsAbsorbed > 0)
+    {
+      log(mrpt::format(
+          "[regroup] absorbed %zu isolated/undersized cluster(s) into their nearest neighbor "
+          "(island_merge_fraction=%.2f) -> %zu super-keyframes remain",
+          numIslandsAbsorbed, params.island_merge_fraction, clusters.size()));
+    }
+  }
+
   // ---- 6) Build the output map: one super-keyframe per cluster ----
   // Building each super-keyframe cloud (merge + voxel-decimate) is by far the
   // most expensive part of this function and fully independent across
@@ -2157,6 +2309,8 @@ void KeyframePointCloudMap::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR_CS(serialize_kdtrees, bool);
   MRPT_LOAD_CONFIG_VAR_CS(serialize_covariances, bool);
   MRPT_LOAD_CONFIG_VAR_CS(approximate_cov, bool);
+  MRPT_LOAD_CONFIG_VAR_CS(density_penalty_min_points, uint64_t);
+  MRPT_LOAD_CONFIG_VAR_CS(density_penalty_max_m, double);
 }
 
 void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out) const
@@ -2173,12 +2327,14 @@ void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(serialize_kdtrees, bool);
   LOADABLEOPTS_DUMP_VAR(serialize_covariances, bool);
   LOADABLEOPTS_DUMP_VAR(approximate_cov, bool);
+  LOADABLEOPTS_DUMP_VAR(density_penalty_min_points, int);
+  LOADABLEOPTS_DUMP_VAR(density_penalty_max_m, double);
 }
 
 void KeyframePointCloudMap::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  out.WriteAs<uint8_t>(6);  // version
+  out.WriteAs<uint8_t>(7);  // version
   out << max_search_keyframes << k_correspondences_for_cov;
   out << rotation_distance_weight << num_diverse_keyframes;  // v1
   out << use_view_direction_filter << max_view_angle_deg;  // v2
@@ -2186,6 +2342,7 @@ void KeyframePointCloudMap::TCreationOptions::writeToStream(
   out << serialize_kdtrees;  // v4
   out << approximate_cov;  // v5
   out << serialize_covariances;  // v6
+  out << density_penalty_min_points << density_penalty_max_m;  // v7
 }
 
 void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -2202,6 +2359,7 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
     case 4:
     case 5:
     case 6:
+    case 7:
     {
       in >> max_search_keyframes >> k_correspondences_for_cov;
       if (version >= 1)
@@ -2228,6 +2386,10 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
       if (version >= 6)
       {
         in >> serialize_covariances;
+      }
+      if (version >= 7)
+      {
+        in >> density_penalty_min_points >> density_penalty_max_m;
       }
     }
     break;
