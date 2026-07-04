@@ -41,9 +41,8 @@ struct Args
 
   Args()
   {
-    // Sensible default for the tool: decimate merged super-keyframes so the
-    // heavy inter-keyframe overlap does not blow up the output size. 0 disables.
-    params.merge_decimate_voxel = 0.2;
+    // 0 disables.
+    params.merge_decimate_voxel = 0;
   }
 };
 
@@ -105,7 +104,7 @@ int main(int argc, char** argv)
     cli.add_option(
            "--core-fraction", args.params.core_fraction,
            "Inner-core fraction (0..1] of a super-keyframe extent within which members are marked "
-           "covered. Smaller => more inter-group overlap.")
+           "covered. Smaller => more inter-group overlap (default: 0.85, i.e. ~15% overlap).")
         ->check(CLI::Range(0.0, 1.0));
 
     cli.add_option(

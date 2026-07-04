@@ -273,14 +273,16 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     /** Minimum pairwise voxel-overlap (Jaccard-min, in [0,1]) required to create
      *  an edge in the keyframe adjacency graph, i.e. for two keyframes to be
      *  candidates for merging into the same super-keyframe. */
-    double edge_overlap = 0.15;
+    double edge_overlap = 0.75;
 
     /** Inner-core fraction, in (0,1], of a super-keyframe's spatial extent. A member
      *  keyframe whose center lies within `core_fraction * extent` of the seed is
      *  marked "covered" (deep inside, single-KF localization is reliable there).
      *  Members in the outer band stay available to seed/join neighboring
-     *  super-keyframes, which is what produces the deliberate inter-group overlap. */
-    double core_fraction = 0.6;
+     *  super-keyframes, which is what produces the deliberate inter-group overlap.
+     *  The outer (overlap) band is `(1 - core_fraction)` of the extent, so the
+     *  default of 0.85 yields ~15% overlap between neighboring super-keyframes. */
+    double core_fraction = 0.85;
 
     /** Spatial extent cap of a super-keyframe, as a multiple of the seed keyframe's
      *  own sensing radius (half its cloud bounding-box diagonal). This auto-sizes
