@@ -22,7 +22,7 @@
 #include <GLFW/glfw3.h>
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
 #include <mrpt/imgui/CImGuiSceneView.h>
-#include <mrpt/maps/CColouredPointsMap.h>
+#include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
@@ -363,8 +363,10 @@ void handler_point_cloud(
       {
         mrpt::obs::T3DPointsProjectionParams pp;
         pp.takeIntoAccountSensorPoseOnRobot = true;
-        auto pointMapCol                    = mrpt::maps::CColouredPointsMap::Create();
-        pointMapCol->colorScheme.scheme     = mrpt::maps::CColouredPointsMap::cmFromIntensityImage;
+        auto pointMapCol                    = mrpt::maps::CGenericPointsMap::Create();
+        pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Ru8);
+        pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Gu8);
+        pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Bu8);
         obj3D->unprojectInto(*pointMapCol, pp);
         st.glPc->loadFromPointsMap(pointMapCol.get());
         color_from_z = false;
