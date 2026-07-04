@@ -120,7 +120,7 @@ int main(int argc, char** argv)
            "--island-merge-fraction", args.params.island_merge_fraction,
            "Clusters whose point count falls below this fraction of the largest cluster's are "
            "absorbed into their nearest neighbor instead of being left as standalone, "
-           "under-populated super-keyframes. 0 disables this (default: 0.10).")
+           "under-populated super-keyframes. 0 disables this (default: 0.025=2.5%).")
         ->check(CLI::Range(0.0, 1.0));
 
     cli.add_option(

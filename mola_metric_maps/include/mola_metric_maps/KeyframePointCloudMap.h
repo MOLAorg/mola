@@ -303,8 +303,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  little real geometry). Islands are absorbed into their nearest
      *  neighboring cluster (by center distance) instead of being emitted as
      *  their own super-keyframe. Set to 0 to disable (old behavior: every
-     *  cluster becomes its own super-keyframe, however small). Default 0.10. */
-    double island_merge_fraction = 0.10;
+     *  cluster becomes its own super-keyframe, however small). Default 0.025 = 2.5%. */
+    double island_merge_fraction = 0.025;
   };
 
   /** Builds a NEW map whose keyframes are "super-keyframes": spatially coherent
