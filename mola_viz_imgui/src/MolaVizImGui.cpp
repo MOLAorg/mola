@@ -217,8 +217,17 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const windo
   if (!win) throw std::runtime_error("MolaVizImGui: glfwCreateWindow failed");
 
   {
+    // The GIMP header format used by mola_icon_data has no alpha channel, so
+    // the (0,0) corner pixel color is used as the transparent color key.
     std::vector<unsigned char> rgba(mola_icon_width * mola_icon_height * 4);
     const char*                data = mola_icon_data;
+
+    unsigned char transparentRgb[3];
+    {
+      const char* cornerData = mola_icon_data;
+      HEADER_PIXEL(cornerData, transparentRgb);
+    }
+
     for (unsigned int i = 0; i < mola_icon_width * mola_icon_height; i++)
     {
       unsigned char rgb[3];
@@ -226,7 +235,9 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const windo
       rgba[4 * i + 0] = rgb[0];
       rgba[4 * i + 1] = rgb[1];
       rgba[4 * i + 2] = rgb[2];
-      rgba[4 * i + 3] = 0xff;
+      const bool isTransparent =
+          rgb[0] == transparentRgb[0] && rgb[1] == transparentRgb[1] && rgb[2] == transparentRgb[2];
+      rgba[4 * i + 3] = isTransparent ? 0x00 : 0xff;
     }
     const GLFWimage icon_image{
         static_cast<int>(mola_icon_width), static_cast<int>(mola_icon_height), rgba.data()};
