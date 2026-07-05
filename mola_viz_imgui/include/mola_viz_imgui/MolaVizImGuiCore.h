@@ -491,16 +491,25 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
     std::vector<PlotWindowState> plot_windows;
     int                          next_plot_id = 1;
 
-    /** True if an imgui .ini layout file already existed for this window
-     *  before ImGui had a chance to load/write it (checked at window
-     *  creation). When false, `render_frame()` applies a default dock
-     *  layout once (Console docked at the bottom) instead of leaving
-     *  windows floating on a fresh profile. */
-    bool imgui_ini_existed = true;
+    /** Set once `render_frame()` has attempted the Console's default
+     *  bottom-dock, so it only runs once per session. The attempt itself is
+     *  a no-op if the Console already has a saved imgui.ini entry (its own
+     *  or a user-moved one). */
+    bool console_dock_defaulted = false;
 
-    /** Set once the default dock layout has been applied (or skipped
-     *  because a saved layout already existed), so it only runs once. */
-    bool default_dock_layout_applied = false;
+    /** ID of the dock node currently acting as the "remaining" passthrough
+     *  area available for further default-dock splits (Console, then any
+     *  `dock_top_by_default` window). Splitting off a slice always updates
+     *  this to the new remainder, since after a node is split its own ID
+     *  becomes a non-leaf parent and can no longer be split directly. Zero
+     *  until the dockspace node has been resolved for the first time. */
+    ImGuiID dock_central_id = 0;
+
+    /** Dock node reserved at the top of the main window, lazily created the
+     *  first time a window without a saved imgui.ini entry requests
+     *  `WindowDescription::dock_top_by_default` (e.g. a Dataset_UI panel).
+     *  Zero until then. */
+    ImGuiID default_dock_top_id = 0;
   };
 
   std::map<window_name_t, PerWindowData> windows_;

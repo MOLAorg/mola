@@ -323,24 +323,49 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
 
   ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
 
-  // On a fresh profile (no saved imgui.ini layout yet), dock the Console
-  // window at the bottom instead of leaving it floating, so first-run users
-  // see log output without manual docking. Runs once; a pre-existing layout
-  // is left untouched.
-  if (!wd.imgui_ini_existed && !wd.default_dock_layout_applied && console_enabled_)
+  // The dockspace node normally comes into existence lazily on the first
+  // ImGui::DockSpace() call below, but the DockBuilder calls just after this
+  // need it to already exist. Create it once, without touching a layout
+  // that may already have been loaded from imgui.ini for this same ID. A
+  // freshly-added node has no children yet, so it *is* the sole leaf/
+  // passthrough area so far; track that in `dock_central_id` since, once
+  // this ID is later split (below, or from a Dataset_UI panel), the root ID
+  // itself becomes a non-leaf parent node and can no longer be split
+  // directly. For a layout already loaded from imgui.ini, resolve the
+  // actual passthrough leaf via DockBuilderGetCentralNode() instead (retried
+  // every frame until it resolves, in case it isn't populated yet on the
+  // very first frame).
+  if (!ImGui::DockBuilderGetNode(dockspace_id))
   {
-    ImGui::DockBuilderRemoveNode(dockspace_id);
     ImGui::DockBuilderAddNode(
         dockspace_id, ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
-
-    ImGuiID dock_id_bottom =
-        ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Down, 0.25f, nullptr, &dockspace_id);
-    ImGui::DockBuilderDockWindow("Console", dock_id_bottom);
-
-    ImGui::DockBuilderFinish(dockspace_id);
+    wd.dock_central_id = dockspace_id;
   }
-  wd.default_dock_layout_applied = true;
+  else if (wd.dock_central_id == 0)
+  {
+    if (ImGuiDockNode* central = ImGui::DockBuilderGetCentralNode(dockspace_id))
+    {
+      wd.dock_central_id = central->ID;
+    }
+  }
+
+  // Dock the Console window at the bottom the first time it appears in this
+  // profile: either a genuinely fresh imgui.ini, or an older saved layout
+  // that predates the Console feature and therefore has no saved entry for
+  // it yet. Runs once; if the window already has a saved entry (including
+  // one left floating by the user on purpose), it is left untouched.
+  if (console_enabled_ && !wd.console_dock_defaulted)
+  {
+    wd.console_dock_defaulted = true;
+    if (wd.dock_central_id != 0 && !ImGui::FindWindowSettingsByID(ImHashStr("Console")))
+    {
+      ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(
+          wd.dock_central_id, ImGuiDir_Down, 0.25f, nullptr, &wd.dock_central_id);
+      ImGui::DockBuilderDockWindow("Console", dock_id_bottom);
+      ImGui::DockBuilderFinish(dockspace_id);
+    }
+  }
 
   ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
   ImGui::End();
@@ -1017,9 +1042,40 @@ std::future<void> MolaVizImGuiCore::create_subwindow_from_description(
               "create_subwindow_from_description(): unknown parentWindow '" << parentWindow << "'");
           return;
         }
-        auto& sw      = it->second.sub_windows[desc.title];
+        auto&      wd          = it->second;
+        const bool isNewWindow = wd.sub_windows.count(desc.title) == 0;
+
+        auto& sw      = wd.sub_windows[desc.title];
         sw.desc       = desc;
         sw.active_tab = 0;
+
+        // The first time a window that requests it (e.g. a Dataset_UI
+        // panel) appears without a saved imgui.ini entry of its own, dock
+        // it into a strip reserved at the top of the main window instead of
+        // leaving it floating. Skipped if the window already has a saved
+        // entry (including one the user has since moved elsewhere on
+        // purpose). Must run before the window's first ImGui::Begin(),
+        // which is guaranteed here since this task queue is drained before
+        // sub-windows are rendered each frame.
+        if (isNewWindow && desc.dock_top_by_default &&
+            !ImGui::FindWindowSettingsByID(ImHashStr(desc.title.c_str())))
+        {
+          // Split off the *current* remaining passthrough leaf (tracked in
+          // `dock_central_id`, kept up to date by render_frame() and by
+          // every split below), not the dockspace root: once any split has
+          // happened the root ID becomes a non-leaf parent node and can no
+          // longer be split directly.
+          if (wd.default_dock_top_id == 0 && wd.dock_central_id != 0)
+          {
+            wd.default_dock_top_id = ImGui::DockBuilderSplitNode(
+                wd.dock_central_id, ImGuiDir_Up, 0.12f, nullptr, &wd.dock_central_id);
+            ImGui::DockBuilderFinish(ImGui::GetID("MainDockSpace"));
+          }
+          if (wd.default_dock_top_id != 0)
+          {
+            ImGui::DockBuilderDockWindow(desc.title.c_str(), wd.default_dock_top_id);
+          }
+        }
       });
 }
 

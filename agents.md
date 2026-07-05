@@ -87,6 +87,12 @@ All plugin modules derive from these virtual base classes:
   `console_enabled` param, added subsequently). On a fresh profile (no saved
   `imgui_*.ini` layout yet) the Console is auto-docked at the bottom of the
   main window instead of floating; an existing saved layout is left as-is.
+  The same fresh-profile layout also reserves a strip at the top of the main
+  window (`PerWindowData::default_dock_top_id`) for windows whose title is
+  only known at runtime; any `GuiWidgetDescription::WindowDescription` with
+  `dock_top_by_default = true` (e.g. the per-module `Dataset_UI` playback
+  panel) is docked there the first time it is created. No-op once a saved
+  layout exists, and on the nanogui `MolaViz` backend.
   Also exposes `register_metric()`/`push_metric()` (feature macro
   `MOLA_KERNEL_VIZ_HAS_METRICS`) so any module can stream timestamped scalar
   values ("metrics") to live, autoscrolling plot windows opened from the

@@ -537,6 +537,12 @@ struct WindowDescription
   /// If true, the window starts hidden / collapsed.
   bool starts_hidden = false;
 
+  /// If true, on a fresh profile (no saved imgui.ini layout yet) the ImGui
+  /// backend docks this window at the top of the main window instead of
+  /// leaving it floating. Ignored once a saved layout exists, and a no-op
+  /// on the nanogui backend.
+  bool dock_top_by_default = false;
+
   /// The tabs.  If only one tab is provided the backend may omit the tab
   /// bar and render the widgets directly (saves vertical space).
   std::vector<Tab> tabs;
