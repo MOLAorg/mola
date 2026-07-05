@@ -167,20 +167,27 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
   // thread:
   if (export_to_rawlog_out_.is_open())
   {
-    auto fut = worker_pool_export_rawlog_.enqueue(
-        // NOLINTNEXTLINE(performance-unnecessary-value-param) on purpose
-        [this](mrpt::obs::CObservation::Ptr o)
-        {
-          if (!o)
+    try
+    {
+      auto fut = worker_pool_export_rawlog_.enqueue(
+          // NOLINTNEXTLINE(performance-unnecessary-value-param) on purpose
+          [this](mrpt::obs::CObservation::Ptr o)
           {
-            return;
-          }
-          auto a = mrpt::serialization::archiveFrom(this->export_to_rawlog_out_);
-          a << o;
-        },
-        obs);
+            if (!o)
+            {
+              return;
+            }
+            auto a = mrpt::serialization::archiveFrom(this->export_to_rawlog_out_);
+            a << o;
+          },
+          obs);
 
-    (void)fut;
+      (void)fut;
+    }
+    catch (const std::runtime_error&)
+    {
+      // Pool already stopped (app shutting down): drop this task.
+    }
   }
 
   // Send this observation for GUI preview, if enabled:
@@ -260,8 +267,15 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
       }
     };
 
-    auto fut = gui_updater_threadpool_.enqueue(func);
-    (void)fut;
+    try
+    {
+      auto fut = gui_updater_threadpool_.enqueue(func);
+      (void)fut;
+    }
+    catch (const std::runtime_error&)
+    {
+      // Pool already stopped (app shutting down): drop this task.
+    }
   }
 
   MRPT_TRY_END
