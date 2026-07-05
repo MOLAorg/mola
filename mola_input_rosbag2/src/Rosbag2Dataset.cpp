@@ -48,6 +48,7 @@
 #include <tf2/buffer_core.hpp>
 #include <tf2/convert.hpp>
 #include <tf2/exceptions.hpp>
+#include <type_traits>
 
 #if CV_BRIDGE_VERSION < 0x030400
 #include <cv_bridge/cv_bridge.h>
@@ -74,6 +75,35 @@
 #include <tf2_msgs/msg/tf_message.hpp>
 
 using namespace mola;
+
+namespace
+{
+// The bag message receive-timestamp field was renamed from "time_stamp" to
+// "recv_timestamp" across rosbag2_storage versions. Detect which one is
+// available at compile time so the same source works for all ROS 2 distros.
+template <typename T, typename = void>
+struct HasTimeStampField : std::false_type
+{
+};
+
+template <typename T>
+struct HasTimeStampField<T, std::void_t<decltype(std::declval<T>().time_stamp)>> : std::true_type
+{
+};
+
+template <typename T>
+int64_t bagMessageRecvTimestampNs(const T& m)
+{
+  if constexpr (HasTimeStampField<T>::value)
+  {
+    return m.time_stamp;
+  }
+  else
+  {
+    return m.recv_timestamp;
+  }
+}
+}  // namespace
 
 // arguments: class_name, parent_class, class namespace
 IMPLEMENTS_MRPT_OBJECT(Rosbag2Dataset, RawDataSourceBase, mola)
@@ -430,8 +460,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
               Obs obs = convFn(sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
               if (useBagRecvTimeAsTimestamp)
               {
-                const auto recvTimestamp =
-                    mrpt::Clock::fromDouble(1e-9 * static_cast<double>(m.time_stamp));
+                const auto recvTimestamp = mrpt::Clock::fromDouble(
+                    1e-9 * static_cast<double>(bagMessageRecvTimestampNs(m)));
                 for (auto& o : obs)
                 {
                   if (o)
@@ -459,8 +489,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
               Obs obs = mrpt::ros2bridge::rosbag2ToOdometry(sensorLabel, m);
               if (useBagRecvTimeAsTimestamp)
               {
-                const auto recvTimestamp =
-                    mrpt::Clock::fromDouble(1e-9 * static_cast<double>(m.time_stamp));
+                const auto recvTimestamp = mrpt::Clock::fromDouble(
+                    1e-9 * static_cast<double>(bagMessageRecvTimestampNs(m)));
                 for (auto& o : obs)
                 {
                   if (o)
