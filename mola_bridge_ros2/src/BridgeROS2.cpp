@@ -1754,14 +1754,33 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
     }
     catch (const tf2::TransformException& ex)
     {
-      // Skip publishing entirely: broadcasting a default-constructed
-      // TransformStamped here would inject empty frame_ids into every
-      // subscriber's tf2 buffer (TF_NO_FRAME_ID / TF_SELF_TRANSFORM spam).
-      MRPT_LOG_THROTTLE_ERROR_STREAM(
-          5.0, "publish_localization_following_rep105=true but could not resolve tf '"
-                   << params_.odom_frame << "' -> '" << l.child_frame << "' at scan stamp ("
-                   << ex.what() << "); skipping TF publish.");
-      return;
+      // The exact scan-stamp odom->base_link may not be available (e.g. the
+      // odometry TF lags the scan stamp, common under wall-clock stamping in
+      // simulation). Rather than dropping the localization output entirely,
+      // fall back to the latest available transform: the small temporal bias
+      // is acceptable and far better than never publishing map->odom.
+      try
+      {
+        const auto ref_to_trgFrame_latest =
+            tf_buffer_->lookupTransform(l.child_frame, params_.odom_frame, tf2::TimePointZero);
+        tf2::fromMsg(ref_to_trgFrame_latest.transform, odomOnBase_tf);
+        MRPT_LOG_THROTTLE_WARN_STREAM(
+            5.0, "publish_localization_following_rep105: exact scan-stamp tf '"
+                     << params_.odom_frame << "' -> '" << l.child_frame
+                     << "' unavailable (" << ex.what()
+                     << "); using latest available transform instead.");
+      }
+      catch (const tf2::TransformException& ex2)
+      {
+        // Skip publishing entirely: broadcasting a default-constructed
+        // TransformStamped here would inject empty frame_ids into every
+        // subscriber's tf2 buffer (TF_NO_FRAME_ID / TF_SELF_TRANSFORM spam).
+        MRPT_LOG_THROTTLE_ERROR_STREAM(
+            5.0, "publish_localization_following_rep105=true but could not resolve tf '"
+                     << params_.odom_frame << "' -> '" << l.child_frame << "' ("
+                     << ex2.what() << "); skipping TF publish.");
+        return;
+      }
     }
 
     tf.transform       = tf2::toMsg(transform * odomOnBase_tf);
