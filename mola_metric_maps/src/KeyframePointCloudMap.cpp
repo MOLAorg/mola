@@ -405,7 +405,15 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
 
       if (version >= 1)
       {
-        in >> cached_.icp_search_kfs;
+        // Only kept in the stream for post-mortem debugging of ICP states;
+        // it must not be restored into the live cache. icp_search_submap (the
+        // actual prepared search structure it would otherwise validate) is
+        // never serialized, so leaving this set here would let
+        // icp_get_prepared_as_global()'s "already up to date" fast path
+        // wrongly skip rebuilding it whenever the freshly-computed active-KF
+        // selection happens to match this stale, reloaded set.
+        std::optional<std::set<KeyFrameID>> debugOnlyPriorActiveKfs;
+        in >> debugOnlyPriorActiveKfs;
       }
     }
     break;
