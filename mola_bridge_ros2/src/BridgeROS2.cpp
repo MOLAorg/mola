@@ -1765,10 +1765,9 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
             tf_buffer_->lookupTransform(l.child_frame, params_.odom_frame, tf2::TimePointZero);
         tf2::fromMsg(ref_to_trgFrame_latest.transform, odomOnBase_tf);
         MRPT_LOG_THROTTLE_WARN_STREAM(
-            5.0, "publish_localization_following_rep105: exact scan-stamp tf '"
-                     << params_.odom_frame << "' -> '" << l.child_frame
-                     << "' unavailable (" << ex.what()
-                     << "); using latest available transform instead.");
+            60.0, "publish_localization_following_rep105: exact sensor-stamp tf '"
+                      << params_.odom_frame << "' -> '" << l.child_frame << "' unavailable ("
+                      << ex.what() << "); using latest available transform instead.");
       }
       catch (const tf2::TransformException& ex2)
       {
@@ -1777,8 +1776,8 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
         // subscriber's tf2 buffer (TF_NO_FRAME_ID / TF_SELF_TRANSFORM spam).
         MRPT_LOG_THROTTLE_ERROR_STREAM(
             5.0, "publish_localization_following_rep105=true but could not resolve tf '"
-                     << params_.odom_frame << "' -> '" << l.child_frame << "' ("
-                     << ex2.what() << "); skipping TF publish.");
+                     << params_.odom_frame << "' -> '" << l.child_frame << "' (" << ex2.what()
+                     << "); skipping TF publish.");
         return;
       }
     }
