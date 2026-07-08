@@ -298,6 +298,8 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   /** @name VizInterface — console output
    * @{ */
 
+  /** No-op on this backend: superseded by the dockable Console subwindow,
+   *  which aggregates mrpt-logger output directly. */
   std::future<bool> output_console_message(
       const std::string& message, const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
@@ -331,8 +333,6 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   /** @name Module parameters
    * @{ */
 
-  double       console_text_font_size_   = 13.0;
-  unsigned int max_console_lines_        = 12;
   bool         show_rgbd_as_point_cloud_ = false;
   double       assumed_sensor_rate_hz_   = 10.0;
   int          target_fps_               = 60;
@@ -476,7 +476,6 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
     };
     std::map<subwindow_name_t, PendingSensorObs> sensor_windows;
 
-    std::deque<std::string>   console_messages;
     std::deque<DecayingCloud> decaying_clouds;
     size_t                    max_decaying_clouds = 100;
 
@@ -538,7 +537,6 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   void render_background_scene(PerWindowData& win);
   void render_subwindow(SubWindowState& sw);
   void render_sensor_windows(const window_name_t& parentName, PerWindowData& win);
-  void render_console_overlay(PerWindowData& win);
   void render_console_window(PerWindowData& win);
   void render_app_menu();
   void render_view_menu(PerWindowData& win);

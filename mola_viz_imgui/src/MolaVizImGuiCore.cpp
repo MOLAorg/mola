@@ -276,7 +276,6 @@ void MolaVizImGuiCore::spin_one_frame(const window_name_t& name)
   {
     render_plot_windows(wd);
   }
-  render_console_overlay(wd);
   internal_handle_decaying_clouds(wd);
 }
 
@@ -389,7 +388,6 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   {
     render_plot_windows(wd);
   }
-  render_console_overlay(wd);
   internal_handle_decaying_clouds(wd);
 
   ImGui::Render();
@@ -565,33 +563,6 @@ void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
     wd.cam_look_at[1]    = cam.getPointingAtY();
     wd.cam_look_at[2]    = cam.getPointingAtZ();
   }
-  ImGui::End();
-}
-
-void MolaVizImGuiCore::render_console_overlay(PerWindowData& wd)
-{
-  if (wd.console_messages.empty()) return;
-
-  ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
-                           ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
-                           ImGuiWindowFlags_NoSavedSettings |
-                           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoBackground;
-
-  ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_Always);
-  ImGui::SetNextWindowSize(ImVec2(600.0f, 0.0f), ImGuiCond_Always);
-  ImGui::SetNextWindowBgAlpha(0.0f);
-  ImGui::Begin("##console_overlay", nullptr, flags);
-
-  const size_t N = wd.console_messages.size();
-  for (size_t i = 0; i < N; i++)
-  {
-    const float t     = static_cast<float>(N - 1 - i) / static_cast<float>(std::max<size_t>(1u, N));
-    const float alpha = 1.0f - t * t;
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, alpha));
-    ImGui::TextUnformatted(wd.console_messages.at(i).c_str());
-    ImGui::PopStyleColor();
-  }
-
   ImGui::End();
 }
 
@@ -1537,25 +1508,12 @@ std::future<bool> MolaVizImGuiCore::subwindow_update_visualization(
 // ---------------------------------------------------------------------------
 
 std::future<bool> MolaVizImGuiCore::output_console_message(
-    const std::string& message, const std::string& parentWindow)
+    const std::string& /*message*/, const std::string& /*parentWindow*/)
 {
-  auto task = std::make_shared<std::packaged_task<bool()>>(
-      [this, message, parentWindow]()
-      {
-        auto it = windows_.find(parentWindow);
-        if (it == windows_.end()) return false;
-        auto& wd = it->second;
-
-        std::vector<std::string> lines;
-        mrpt::system::tokenize(message, "\r\n", lines);
-        for (const auto& line : lines)
-        {
-          wd.console_messages.push_back(line);
-          while (wd.console_messages.size() > max_console_lines_) wd.console_messages.pop_front();
-        }
-        return true;
-      });
-  std::lock_guard lk(guiThreadPendingTasksMtx_);
-  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
-  return task->get_future();
+  // No-op: superseded by the dockable Console subwindow (see
+  // render_console_window() / ConsoleLogSink), which aggregates
+  // mrpt-logger output instead of requiring modules to push text here.
+  std::promise<bool> prom;
+  prom.set_value(true);
+  return prom.get_future();
 }

@@ -102,7 +102,10 @@ All plugin modules derive from these virtual base classes:
   menu (with "Quit", which requests full application shutdown), the "View"
   menu, plus any module-installed `set_menu_bar()` menus) can be turned off
   entirely via `menu_bar_enabled` (default `true`); existing plot/console
-  windows keep working when it is disabled.
+  windows keep working when it is disabled. `output_console_message()` (the
+  older fading on-screen text overlay) is a no-op on the `mola_viz_imgui`
+  backend, superseded by the Console subwindow above; still implemented on
+  the nanogui `MolaViz` backend.
 - `Relocalization` — global localization / loop closure
 - `OfflineDatasetSource` — offline dataset handling
 - `KeyframeMapCapable` — mixin for keyframe-based metric maps needing per-KF

@@ -130,10 +130,6 @@ void MolaVizImGui::initialize(const Yaml& c)
   auto cfg = c["params"];
   MRPT_LOG_DEBUG_STREAM("MolaVizImGui: loading params:\n" << cfg);
 
-  core_ptr_->max_console_lines_ =
-      cfg.getOrDefault("max_console_lines", core_ptr_->max_console_lines_);
-  core_ptr_->console_text_font_size_ =
-      cfg.getOrDefault("console_text_font_size", core_ptr_->console_text_font_size_);
   core_ptr_->show_rgbd_as_point_cloud_ =
       cfg.getOrDefault("show_rgbd_as_point_cloud", core_ptr_->show_rgbd_as_point_cloud_);
   core_ptr_->assumed_sensor_rate_hz_ =
