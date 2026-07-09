@@ -333,9 +333,9 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   /** @name Module parameters
    * @{ */
 
-  bool         show_rgbd_as_point_cloud_ = false;
-  double       assumed_sensor_rate_hz_   = 10.0;
-  int          target_fps_               = 60;
+  bool   show_rgbd_as_point_cloud_ = false;
+  double assumed_sensor_rate_hz_   = 10.0;
+  int    target_fps_               = 60;
 
   /** Identifier used to key the imgui .ini persistence file.
    *  Empty string disables persistence.  See `MolaVizImGui` docs.
