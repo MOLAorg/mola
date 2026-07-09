@@ -1888,6 +1888,34 @@ std::shared_ptr<KeyframePointCloudMap> KeyframePointCloudMap::regroupKeyframes(
     return out;
   }
 
+  // ---- 1.5) unify_all: skip clustering, merge everything into one super-keyframe ----
+  if (params.unify_all)
+  {
+    log(mrpt::format(
+        "[regroup] unify_all: merging all %zu keyframes into a single super-keyframe", n));
+
+    const auto& seed = kfs.front();
+
+    std::vector<size_t> allMembers(n);
+    std::iota(allMembers.begin(), allMembers.end(), size_t(0));
+
+    mrpt::maps::CPointsMap::Ptr cloud =
+        buildSuperKeyframeCloud(allMembers, globals, seed.pose, params.merge_decimate_voxel);
+
+    auto [it, isNew] = out->keyframes_.try_emplace(
+        KeyFrameID{0}, creationOptions.k_correspondences_for_cov,
+        creationOptions.min_correspondences_for_cov, creationOptions.max_distance_for_cov);
+    KeyFrame& nkf = it->second;
+    nkf.timestamp = seed.timestamp;
+    nkf.pose(seed.pose);
+    nkf.pointcloud(cloud);
+    out->last_inserted_kf_id_ = 0;
+    out->next_free_kf_id_     = 1;
+
+    log("[regroup] unify_all: done, 1 super-keyframe produced.");
+    return out;
+  }
+
   // ---- 2) Determine the overlap voxel size ----
   double voxelSize = params.voxel_size;
   if (voxelSize <= 0)

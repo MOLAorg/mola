@@ -305,6 +305,17 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  their own super-keyframe. Set to 0 to disable (old behavior: every
      *  cluster becomes its own super-keyframe, however small). Default 0.025 = 2.5%. */
     double island_merge_fraction = 0.025;
+
+    /** If `true`, bypass the overlap-graph clustering entirely and merge ALL
+     *  keyframes into a single super-keyframe, anchored at the pose of the
+     *  first (oldest) keyframe. Useful to turn a whole session's keyframe map
+     *  into one wide, self-contained keyframe -- e.g. so a subsequent
+     *  session's localization always sees the full previous map instead of
+     *  only the `max_search_keyframes` nearest of many small keyframes, which
+     *  under-covers stop-and-rotate scanning patterns. `merge_decimate_voxel`
+     *  still applies to bound the resulting cloud size; all other clustering
+     *  parameters above are ignored. Default `false`. */
+    bool unify_all = false;
   };
 
   /** Builds a NEW map whose keyframes are "super-keyframes": spatially coherent

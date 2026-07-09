@@ -116,6 +116,13 @@ int main(int argc, char** argv)
         "--decimate-voxel", args.params.merge_decimate_voxel,
         "If >0, voxel-downsample [m] each merged super-keyframe cloud to bound its size.");
 
+    cli.add_flag(
+        "--unify-all", args.params.unify_all,
+        "Bypass overlap-graph clustering and merge ALL keyframes of each processed layer into a "
+        "single super-keyframe (anchored at the first/oldest keyframe's pose). "
+        "--decimate-voxel still applies; --edge-overlap/--core-fraction/--extent-factor/"
+        "--island-merge-fraction are ignored.");
+
     cli.add_option(
            "--island-merge-fraction", args.params.island_merge_fraction,
            "Clusters whose point count falls below this fraction of the largest cluster's are "
