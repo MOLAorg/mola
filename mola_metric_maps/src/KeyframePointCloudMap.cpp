@@ -850,6 +850,17 @@ void KeyframePointCloudMap::icp_get_prepared_as_global(  // NOLINT
 #endif
   }
 
+  // If no keyframe contributed any points (the selection was empty, or every
+  // selected keyframe had a null/empty cloud), fall back to a valid empty
+  // cloud. Otherwise buildCache() and the global-frame warm-up below would
+  // dereference a null pointcloud. An empty cloud yields zero ICP
+  // correspondences (the map is simply rejected as a match), which keeps a
+  // single degenerate submap from aborting a whole background loop-closure scan.
+  if (!cached_.icp_search_submap->pointcloud())
+  {
+    cached_.icp_search_submap->pointcloud(mrpt::maps::CSimplePointsMap::Create());
+  }
+
   cached_.icp_search_submap->buildCache();
 
   // Pre-warm the *global-frame* structures used by NearestPointWithCovCapable
