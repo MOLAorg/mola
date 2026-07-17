@@ -3,6 +3,38 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#176 <https://github.com/MOLAorg/mola/issues/176>`_ from MOLAorg/fix/multi-ros-distro-build
+  fix: time header field in different ros distros
+* fix: time header field in different ros distros
+* fix: extend optional wall-clock time source to odometry observations too
+* Merge pull request `#175 <https://github.com/MOLAorg/mola/issues/175>`_ from MOLAorg/feature/rosbag2-imu-bag-recv-timestamp
+  mola_input_rosbag2: opt-in per-sensor bag-recv-time timestamp override
+* mola_input_rosbag2: add opt-in use_bag_recv_time_as_timestamp per-sensor flag
+  Some sensor drivers (observed with an IMU driver) stamp messages using a
+  monotonic/uptime clock instead of wall-clock epoch time, while other
+  sensors in the same bag are correctly stamped. This desyncs the affected
+  sensor from the rest and repeatedly trips the "mis-timestamped sensors"
+  time reference reset in Rosbag2Dataset::next(). When set for a given
+  sensor in the 'sensors' YAML list, its observations are timestamped using
+  the bag's own recv/storage time instead of the message header stamp.
+  Defaults to false (no behavior change).
+* Merge pull request `#164 <https://github.com/MOLAorg/mola/issues/164>`_ from MOLAorg/feat/rosbag2-multifile
+  feat: rosbag2 parser can open several files
+* fix: clang-format brace style in for loop
+  Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+* fix(rosbag2): collect topics from all bags; skip empty intermediate bags
+  - Aggregate topic metadata across all bags during init instead of only
+  reading from bag 0, so sensors in later bags are not silently missed.
+  - Assert type consistency when the same topic appears in multiple bags.
+  - Use a while loop (not if) when advancing to the next bag, so empty
+  intermediate bags are skipped without calling read_next() on an
+  exhausted reader.
+* feat: rosbag2 parser can open several files
+* feat: rosbag2 input new option 'max_duration_sec'
+* Contributors: Jose Luis Blanco-Claraco
+
 2.9.0 (2026-05-11)
 ------------------
 * Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version

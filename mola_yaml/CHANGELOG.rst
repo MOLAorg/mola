@@ -2,6 +2,25 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* docs: list all debug/trace env variables
+* Merge pull request `#161 <https://github.com/MOLAorg/mola/issues/161>`_ from MOLAorg/feat/yaml-import-override
+  feat(mola_yaml): $import map directive for base-file + overrides
+* feat(mola_yaml): add $import map directive for base-file + overrides
+  A map with an `$import` key (a path, or a sequence of paths) is replaced by
+  the deep-merge of the imported file(s) with the map's remaining keys overlaid
+  on top, so sibling entries OVERRIDE the imported base (nested maps merge
+  deeply; scalars/sequences replace). This complements `$include{}` (which
+  replaces a whole node) and lets near-identical launch files share a common
+  params block while tweaking just a few values, instead of duplicating it.
+  - Resolved in the same first pass as `$include{}`, reusing its path
+  pre-processing, relative-path resolution and circular-reference detection.
+  - Unit tests: single import, multi-file sequence (later file wins), sibling
+  override including deep-nested, load_yaml_file path, and missing-file throw.
+  - Docs: new section + processing-order table row in the SLAM config format.
+* Contributors: Jose Luis Blanco-Claraco
+
 2.9.0 (2026-05-11)
 ------------------
 * Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version

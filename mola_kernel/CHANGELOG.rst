@@ -2,6 +2,97 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix: default-dock Dataset_UI panel at top; fix Console dock on old layouts
+  Add WindowDescription::dock_top_by_default so a window without a saved
+  imgui.ini entry gets docked into a strip reserved at the top of the main
+  window instead of floating; enabled for the per-module Dataset_UI panel.
+  Also make the Console's default bottom-dock (and the new top-dock) key off
+  whether that specific window has a saved imgui.ini entry, instead of whether
+  the whole ini file already existed. This fixes both never docking new
+  window kinds added to an already-existing layout, and splitting a stale,
+  no-longer-leaf dock node once more than one default dock has been applied.
+* fix: avoid enque on shutdown
+* Merge branch 'feat/imviz-metric-plots' into develop
+* Remove deprecated nanogui-specific VizInterface API
+  create_subwindow(), enqueue_custom_nanogui_code(), subwindow_grid_layout()
+  and subwindow_move_resize() have no remaining callers now that
+  create_subwindow_from_description() and enqueue_custom_gui_code() cover
+  their use cases on both backends.
+* Merge pull request `#172 <https://github.com/MOLAorg/mola/issues/172>`_ from MOLAorg/feat/imviz-metric-plots
+  feat(mola_viz_imgui): add metric time-series plot windows
+* feat(mola_viz_imgui): add metric time-series plot windows
+  Adds a backend-agnostic register_metric()/push_metric() API to
+  VizInterface (guarded by MOLA_KERNEL_VIZ_HAS_METRICS) so any MOLA
+  module can stream timestamped scalar values to live, autoscrolling
+  plot windows opened from a new "Plots" menu in the mola_viz_imgui
+  (ImGui/ImPlot) backend. The nanogui MolaViz backend implements the
+  API as a no-op, mirroring the set_menu_bar precedent.
+  The Plots menu also gives the Console window its first working
+  close/reopen toggle.
+  Vendors ImPlot as a submodule under mola_viz_imgui/3rdparty/implot.
+* NavStateFilter: introduce optional virtual georef setter/getter
+* Merge pull request `#165 <https://github.com/MOLAorg/mola/issues/165>`_ from MOLAorg/imgui-window-icon
+  feat: mola viz imgui set window icon
+* feat: mola viz imgui set window icon
+* Merge pull request `#163 <https://github.com/MOLAorg/mola/issues/163>`_ from MOLAorg/fix/race-conditions
+  fix(mola_kernel): guard RawDataSourceBase consumer list against concu…
+* fix(mola_kernel): guard RawDataSourceBase consumer list against concurrent attach
+  mola_launcher initializes modules in parallel threads (executor_thread), so when
+  two consumers subscribe to the SAME raw_data_source (e.g. both LidarOdometry and
+  a mapper module use `raw_data_source: dataset_input`), both call
+  attachToDataConsumer() concurrently and race on the unsynchronized
+  std::vector<RawDataConsumer*> push_back. This corrupted the heap and caused an
+  intermittent SIGSEGV at startup (caught via coredump: _M_realloc_insert into a
+  garbage pointer under RawDataSourceBase::attachToDataConsumer <- FrontEndBase::
+  initialize <- MolaLauncherApp::executor_thread).
+  Add a mutex guarding rdc\_: lock the push_back, and snapshot the list under the
+  lock in sendObservationsToFrontEnds() before dispatching (dispatch itself runs
+  without the lock so onNewObservation() is not serialized). Validated: 16/16
+  SharedMapOnly startups on MulRan DCC01 with two consumers, 0 crashes / 0 cores.
+* Merge pull request `#162 <https://github.com/MOLAorg/mola/issues/162>`_ from MOLAorg/feat/viz-decay-lookat-frame-aware
+  feat: frame-aware parentFrame for decay clouds and camera look-at
+* fix: decay eviction uses per-entry container; look-at fails on missing frame
+  Four reviewer findings, all confirmed valid:
+  1. VizInterface.h comment: add update_viewport_look_at() to the list of APIs
+  covered by MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES (it was omitted).
+  2/3. Decay cloud eviction (both backends): the eviction path inside
+  insert_point_cloud_with_decay() was removing the oldest cloud from the
+  *current insertion's* container rather than the container that cloud was
+  originally placed in.  If parentFrame ever changes between calls the wrong
+  container would be used, leaking the cloud in the scene.  Fix: add a
+  `container` member to DecayingCloud and store the owning container at insert
+  time; use it at eviction time.
+  4/5. Look-at frame not found (both backends): when parentFrame is non-empty but
+  the frame node does not yet exist in the scene, the code was silently falling
+  back to treating the raw local-frame coordinates as world-space and moving the
+  camera to the wrong position.  Fix: return false so the camera is not moved
+  until the frame node is present.
+* feat: extend VizInterface for frame-aware decay clouds and camera look-at
+  insert_point_cloud_with_decay() and update_viewport_look_at() now both
+  accept an optional parentFrame argument (same semantics as the existing
+  parentFrame on update_3d_object()): when non-empty, the backend looks up
+  the named movable frame node and composes its current scene pose with the
+  supplied point before inserting the cloud / moving the camera.  This lets
+  callers (e.g. mola_lidar_odometry) pass a local-odom-frame point while
+  the camera and transient clouds still end up at the correct world-space
+  position when a central mapper (mola_mapper_3d) is continuously
+  repositioning the frame node.
+  Both backends (MolaViz / MolaVizImGuiCore) and the MolaVizImGui
+  forwarder are updated.  The MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES feature
+  macro already covers both new parameters; no additional macro is added.
+* Merge pull request `#160 <https://github.com/MOLAorg/mola/issues/160>`_ from MOLAorg/feat/viz-with-movable-frames
+  feat: viz with movable frames
+* feat: viz with movable frames
+* Merge pull request `#159 <https://github.com/MOLAorg/mola/issues/159>`_ from MOLAorg/feat/central-map
+  feat: Add virtual interface for central keyframe map for mapper-3d
+* feat: Add virtual interface for central keyframe map for mapper-3d
+* Merge pull request `#151 <https://github.com/MOLAorg/mola/issues/151>`_ from MOLAorg/fix/imgui-slider
+  fix: imgui slider
+* fix: imgui slider
+* Contributors: Jose Luis Blanco-Claraco
+
 2.9.0 (2026-05-11)
 ------------------
 * Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version

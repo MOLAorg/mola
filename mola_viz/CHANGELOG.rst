@@ -2,6 +2,71 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge branch 'feat/imviz-metric-plots' into develop
+* Remove deprecated nanogui-specific VizInterface API
+  create_subwindow(), enqueue_custom_nanogui_code(), subwindow_grid_layout()
+  and subwindow_move_resize() have no remaining callers now that
+  create_subwindow_from_description() and enqueue_custom_gui_code() cover
+  their use cases on both backends.
+* Merge pull request `#172 <https://github.com/MOLAorg/mola/issues/172>`_ from MOLAorg/feat/imviz-metric-plots
+  feat(mola_viz_imgui): add metric time-series plot windows
+* feat(mola_viz_imgui): add metric time-series plot windows
+  Adds a backend-agnostic register_metric()/push_metric() API to
+  VizInterface (guarded by MOLA_KERNEL_VIZ_HAS_METRICS) so any MOLA
+  module can stream timestamped scalar values to live, autoscrolling
+  plot windows opened from a new "Plots" menu in the mola_viz_imgui
+  (ImGui/ImPlot) backend. The nanogui MolaViz backend implements the
+  API as a no-op, mirroring the set_menu_bar precedent.
+  The Plots menu also gives the Console window its first working
+  close/reopen toggle.
+  Vendors ImPlot as a submodule under mola_viz_imgui/3rdparty/implot.
+* Merge pull request `#165 <https://github.com/MOLAorg/mola/issues/165>`_ from MOLAorg/imgui-window-icon
+  feat: mola viz imgui set window icon
+* feat: mola viz imgui set window icon
+* Merge pull request `#162 <https://github.com/MOLAorg/mola/issues/162>`_ from MOLAorg/feat/viz-decay-lookat-frame-aware
+  feat: frame-aware parentFrame for decay clouds and camera look-at
+* fix: decay eviction uses per-entry container; look-at fails on missing frame
+  Four reviewer findings, all confirmed valid:
+  1. VizInterface.h comment: add update_viewport_look_at() to the list of APIs
+  covered by MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES (it was omitted).
+  2/3. Decay cloud eviction (both backends): the eviction path inside
+  insert_point_cloud_with_decay() was removing the oldest cloud from the
+  *current insertion's* container rather than the container that cloud was
+  originally placed in.  If parentFrame ever changes between calls the wrong
+  container would be used, leaking the cloud in the scene.  Fix: add a
+  `container` member to DecayingCloud and store the owning container at insert
+  time; use it at eviction time.
+  4/5. Look-at frame not found (both backends): when parentFrame is non-empty but
+  the frame node does not yet exist in the scene, the code was silently falling
+  back to treating the raw local-frame coordinates as world-space and moving the
+  camera to the wrong position.  Fix: return false so the camera is not moved
+  until the frame node is present.
+* feat: extend VizInterface for frame-aware decay clouds and camera look-at
+  insert_point_cloud_with_decay() and update_viewport_look_at() now both
+  accept an optional parentFrame argument (same semantics as the existing
+  parentFrame on update_3d_object()): when non-empty, the backend looks up
+  the named movable frame node and composes its current scene pose with the
+  supplied point before inserting the cloud / moving the camera.  This lets
+  callers (e.g. mola_lidar_odometry) pass a local-odom-frame point while
+  the camera and transient clouds still end up at the correct world-space
+  position when a central mapper (mola_mapper_3d) is continuously
+  repositioning the frame node.
+  Both backends (MolaViz / MolaVizImGuiCore) and the MolaVizImGui
+  forwarder are updated.  The MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES feature
+  macro already covers both new parameters; no additional macro is added.
+* Merge pull request `#160 <https://github.com/MOLAorg/mola/issues/160>`_ from MOLAorg/feat/viz-with-movable-frames
+  feat: viz with movable frames
+* feat: viz with movable frames
+* Merge pull request `#151 <https://github.com/MOLAorg/mola/issues/151>`_ from MOLAorg/fix/imgui-slider
+  fix: imgui slider
+* fix: imgui slider
+* Merge pull request `#146 <https://github.com/MOLAorg/mola/issues/146>`_ from MOLAorg/fix-upgrade-points-classes
+  fix: upgrade not to use deprecated mrpt2 point cloud classes
+* fix: upgrade not to use deprecated mrpt2 point cloud classes
+* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+
 2.9.0 (2026-05-11)
 ------------------
 * Merge pull request `#112 <https://github.com/MOLAorg/mola/issues/112>`_ from MOLAorg/feat/dear-imgui-viz

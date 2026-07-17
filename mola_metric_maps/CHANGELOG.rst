@@ -2,6 +2,283 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix: dont crash on empty maps
+* feat: --unify-all flag for mm-kf-regroup
+* fix(mola_metric_maps): don't restore stale icp_search_kfs cache from serialized maps
+  icp_search_kfs was serialized purely for post-mortem debugging, but
+  serializeFrom() restored it straight into the live cache. Since
+  icp_search_submap (the actual prepared search structure it gates) is
+  never serialized, this let icp_get_prepared_as_global()'s already-up-to-date
+  fast path skip rebuilding the submap whenever the freshly computed
+  active-keyframe selection happened to coincide with the stale, reloaded
+  set. The next nn_search_cov2cov() call would then fail its
+  'icp_get_prepared_as_global() first' assertion. Reproduced reliably when
+  chaining multi-session/multi-robot maps (loading a previously saved map
+  as the starting point for a new robot/session).
+* fix: sort by indices to avoid gcc warnings on ABI changes
+* chore: tune default island param
+* debug: add env-gated point-density match-stats trace
+  Adds MOLA_KEYFRAME_MAP_DEBUG_MATCH_STATS (off by default), counting per-call
+  accepted / no-candidate-in-range / rejected-by-view-filter totals in
+  nn_search_cov2cov_approximate(). Used to diagnose a localization stall on a
+  real dataset: distinguishes a genuine point-density gap in the map (points
+  with no nearby candidate) from a view-direction-filter rejection or a
+  keyframe-selection problem, which look identical from the ICP goodness
+  trace alone.
+* fix(mola_metric_maps): bound island-merge distance; never starve the diverse KF slot
+  Address CodeRabbit review on `#174 <https://github.com/MOLAorg/mola/issues/174>`_ plus a second, distinct tracking-loss
+  mode found during full-bag testing:
+  - regroupKeyframes(): cap island absorption distance at
+  extent_factor * (seed radii sum) so a tiny cluster is not glued to a
+  spatially disjoint neighbor merely because it's the "nearest" one
+  left; islands beyond that bound stay standalone.
+  - icp_get_prepared_as_global(): the diverse-keyframe slot's distance
+  limit (3x the nearest primary candidate) could reject every other
+  candidate when a map has only a handful of large super-keyframes,
+  leaving that slot empty and ICP running against a single keyframe.
+  At the edge of that keyframe's own coverage this can permanently
+  stall tracking (quality stuck just under threshold, no fallback).
+  Now falls back to the best-diversity candidate regardless of
+  distance rather than leaving the slot unfilled.
+* fix(mola_metric_maps): density-aware nearest-keyframe selection + island merging in regroup
+  A sparse, under-merged keyframe (e.g. a leftover cluster from
+  regroupKeyframes()) could outrank a much better-populated keyframe in
+  icp_get_prepared_as_global()'s proximity search purely because its pose
+  happened to be closer, starving ICP of real geometry and causing
+  localization to get stuck with zero correspondences.
+  - KeyframePointCloudMap: add a distance penalty for keyframes below
+  density_penalty_min_points, so sparse candidates no longer win over
+  well-populated ones just by pose proximity.
+  - regroupKeyframes(): absorb clusters below island_merge_fraction of the
+  largest cluster's point count into their nearest neighbor instead of
+  emitting them as standalone, near-empty super-keyframes.
+  - mm-kf-regroup: expose --island-merge-fraction.
+  - Adds env-gated debug traces (MOLA_KEYFRAME_MAP_DEBUG_ACTIVE_KFS,
+  MOLA_KEYFRAME_MAP_DEBUG_DUMP_KFS_ON_LOAD) used to diagnose this.
+* Merge pull request `#173 <https://github.com/MOLAorg/mola/issues/173>`_ from MOLAorg/perf/mm-kf-regroup-tbb-parallel-superkf
+  mm-kf-regroup: parallelize super-keyframe cloud building with TBB
+* mm-kf-regroup: parallelize super-keyframe cloud building with TBB
+  Building each super-keyframe's merged/decimated point cloud in
+  regroupKeyframes() was the most expensive step but ran single-threaded.
+  Clusters are independent, so parallelize with tbb::parallel_for
+  (gated by MOLA_METRIC_MAPS_USE_TBB, already a mola_metric_maps
+  dependency), falling back to a serial loop when TBB is unavailable.
+* better defaults for regroup KF algorithm
+* feat: mm-kf-bake-kdtrees sets approximate cov by default
+* Merge pull request `#171 <https://github.com/MOLAorg/mola/issues/171>`_ from MOLAorg/feat/keyframe-map-persist-covariances-local-tree
+  feat(mola_metric_maps): persist per-KF covariances + query baked local KD-tree in approximate cov2cov
+* fix(mola_metric_maps): handle v3 in serializeFrom + clang-format
+  - Add `case 3:` to KeyframePointCloudMap::serializeFrom(): serializeGetVersion()
+  returns 3, so v3 maps (with baked covariances) were hitting
+  MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION on load and never reaching the new
+  covariance-read block. (CodeRabbit)
+  - Apply clang-format-14 to the changed files (CI clang-format-check).
+* feat(mola_metric_maps): persist per-KF covariances and query baked local KD-tree in approximate cov2cov
+  Two changes that make localization-only startup with a baked .mm actually
+  fast, eliminating the occasional multi-second stalls seen when a fresh
+  keyframe first enters the active set:
+  A) approximate_cov now queries each active keyframe's own LOCAL-frame cloud
+  and KD-tree directly (kf.pointcloud(), the one baked by mm-kf-bake-kdtrees).
+  The query point is transformed into each KF's local frame before the lookup
+  and the match composed back to global for the pairing. A KD-tree's structure
+  is invariant under the rigid KF pose, so this avoids ever materializing a
+  per-KF global-frame cloud or rebuilding a KD-tree on it. Previously the baked
+  (local) index never touched this hot path, which used a separate global-frame
+  tree rebuilt from scratch on first activation. Also robust to online KF pose
+  nudges (LIO gravity-tilt correction), which no longer invalidate a global cloud.
+  B) New serialize_covariances creationOption: bakes each keyframe's per-point
+  local covariances into the .mm (map serialization bumped to v3), so the
+  plane-regularized K-NN + SVD pass is not repeated on load. This is the single
+  most expensive part of warming a keyframe and needs no special MRPT API, so it
+  works on any build (unlike serialize_kdtrees). The cheap per-pose global
+  rotation is still done at runtime.
+  mm-kf-bake-kdtrees now bakes both KD-trees and covariances by default
+  (--no-kdtrees / --no-covariances to select, --disable to strip both).
+  Adds a round-trip test asserting a covariance-baked map yields byte-identical
+  cov2cov pairings (points + cov_inv) to a runtime-computed one.
+* Merge pull request `#169 <https://github.com/MOLAorg/mola/issues/169>`_ from MOLAorg/feat/keyframe-map-approximate-cov2cov
+  feat(mola_metric_maps): approximate cov2cov mode for KeyframePointCloudMap
+* fix(mola_metric_maps): tolerate concurrent KF eviction in approximate cov2cov
+  nn_search_cov2cov_approximate() looked up each active KF id via
+  keyframes\_.at(), which throws std::out_of_range if the KF was evicted
+  by a concurrent insertObservation() (remove_frames_farther_than)
+  between the earlier icp_get_prepared_as_global() snapshot and this
+  call. The exact (merged-submap) path is immune since it deep-copies
+  points at prepare time; the approximate path intentionally keeps live
+  references into keyframes\_ instead, so it needs to check existence.
+  Found by CodeRabbit review on `MOLAorg/mola#169 <https://github.com/MOLAorg/mola/issues/169>`_.
+* feat(mola_metric_maps): approximate cov2cov mode for KeyframePointCloudMap
+  Add TCreationOptions::approximate_cov: when enabled, nn_search_cov2cov()
+  skips building the merged, multi-keyframe submap in
+  icp_get_prepared_as_global() and instead queries each active keyframe's
+  own already-cached KD-tree and per-point covariances directly (N
+  per-KF KD-tree lookups instead of one on a merged cloud). This trades
+  covariance exactness (estimated only from within-KF neighbors) for
+  speed (no merge/KD-tree rebuild), and is opt-in (default false,
+  unchanged exact behavior).
+* fix: stable re-coloring
+* Merge pull request `#168 <https://github.com/MOLAorg/mola/issues/168>`_ from MOLAorg/feat/kf-viz-color-by-kf
+  feat(mola_metric_maps): debug env var to color each keyframe distinctly
+* feat(mola_metric_maps): debug env var to color each keyframe distinctly
+  Add MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF: when set, KeyframePointCloudMap
+  renders every keyframe with a single, distinct color (golden-ratio hue
+  spacing) so regrouped super-keyframes / clusters are easy to tell apart
+  visually while debugging.
+  KeyFrame::getViz() gains an optional overrideColor argument; the override
+  path paints all points uniformly and is not cached, so toggling the env
+  var takes effect on the next render.
+* Merge pull request `#167 <https://github.com/MOLAorg/mola/issues/167>`_ from MOLAorg/feat/keyframe-map-regroup-and-kdtree-persist
+  Keyframe map regrouping + optional KD-tree persistence (localization-only speedups)
+* address review: clearer error when --layer is not present in the map
+* address review: shared CLI helper, unsupported-build warning, decimation test
+  - Extract the duplicated plugin-load / map-load / KeyframePointCloudMap-layer
+  iteration logic of the two CLI tools into a shared apps/kf_cli_utils.h.
+  - mm-kf-bake-kdtrees now warns when built against an MRPT lacking the KD-tree
+  save/load index API (baking would silently be a no-op otherwise).
+  - Add a regroup test exercising merge_decimate_voxel > 0: the duplicated points
+  collapse and the per-point view-direction fields survive decimation (verified
+  via the cov-to-cov view filter).
+* feat(mola_metric_maps): keyframe regrouping + optional kd-tree persistence
+  Two offline optimizations of a KeyframePointCloudMap layer for fast
+  localization-only operation:
+  - regroupKeyframes() + mm-kf-regroup CLI: group many small keyframes into
+  fewer, larger, deliberately-overlapping "super-keyframes" so the ICP active
+  set stays size 1 (no per-scan keyframe switching). Graph-theoretic: keyframe
+  adjacency graph with voxel Jaccard-min overlap edge weights, greedy
+  overlapping set-cover clustering auto-sized from each keyframe bounding box,
+  merged clouds voxel-decimated (view-direction fields carried).
+  - serialize_kdtrees creationOption + mm-kf-bake-kdtrees CLI: cache each
+  keyframe's per-cloud 3D KD-tree index inside the .mm so it is not rebuilt on
+  every load. Bumps map serialization to v2 (self-describing per-KF flag byte +
+  KD-tree blob). Requires the MRPT KD-tree save/load index API, feature-detected
+  via MRPT_HAS_KDTREE_SAVE_LOAD_INDEX; when absent the option is a no-op on write
+  and readers skip any stored blob, so .mm files stay interoperable across MRPT
+  builds.
+  Adds unit tests (regroup reduction/coverage/roundtrip, kd-tree serialization
+  roundtrip) and updates agents.md.
+* docs: clarify clouds are deskwed
+* remove not used macros
+* Add mm2ini/ini2mm CLI tools to export/import metric map layer options (`#158 <https://github.com/MOLAorg/mola/issues/158>`_)
+  * Add mm2ini/ini2mm CLI tools to export/import metric map layer options
+  mm2ini exports the CLoadableOptions (creation/insertion/likelihood/render
+  options) of every layer in a .mm file to a human-editable .ini file;
+  ini2mm applies such a file back, overwriting only the options sections
+  present in it while leaving map data untouched. Supported layer classes
+  are identified via dynamic_cast in OptionsIniIO.h, covering this
+  library's own map types plus basic mrpt::maps classes (CPointsMap and
+  derivatives, COccupancyGridMap2D).
+  Also works around a few known dumpToTextStream()/loadFromConfigFile()
+  inconsistencies in upstream MRPT (COccupancyGridMap2D's
+  horizontalTolerance unit mismatch, rayTracing_decimation being write-only,
+  and bare Y/N booleans) without requiring any MRPT changes.
+  Adds test-options-ini-io.cpp, which builds a synthetic in-memory
+  CSimpleMap and round-trips the options of all 7 supported classes.
+  * Add MapOptionsCapable interface for generic, safe creation-options handling
+  Introduces mola::MapOptionsCapable, a mixin interface implemented by all
+  map classes in this library, with two methods:
+  - optionsByName(): lists every CLoadableOptions group by name, so callers
+  (e.g. OptionsIniIO/mm2ini/ini2mm) no longer need per-class knowledge of
+  which option structs a map defines.
+  - trySetCreationOptions(): applies new creation options (e.g. voxel/grid
+  size) only if doing so doesn't require discarding the map's current
+  contents; otherwise returns false and leaves the map untouched.
+  NDT, HashedVoxelPointCloud, SparseVoxelPointCloud and SparseTreesPointCloud
+  gain a real TCreationOptions (their voxel/grid size, previously only a
+  constructor argument), kept in sync with the internal structure via
+  setVoxelProperties()/setGridProperties(). KeyframePointCloudMap's existing
+  TCreationOptions are pure runtime thresholds, so it always accepts changes.
+  OptionsIniIO.cpp's five near-duplicate per-class dynamic_cast blocks
+  collapse into one generic path for any MapOptionsCapable map, keeping a
+  dynamic_cast fallback only for classes outside this library
+  (mrpt::maps::CPointsMap, COccupancyGridMap2D). ini2mm now reports rejected
+  creation-option changes explicitly instead of a generic warning.
+  * Rename MapOptionsCapable to OptionsCapable
+  * Fix critical data-wipe bug and stale-cache issue found by CodeRabbit
+  - NDT/HashedVoxelPointCloud/SparseVoxelPointCloud/SparseTreesPointCloud's
+  trySetCreationOptions() called setVoxelProperties()/setGridProperties()
+  unconditionally, which clears the map -- so re-applying an unchanged
+  voxel/grid size (e.g. a routine ini2mm run that doesn't touch that field)
+  silently wiped all map contents. Now only called when the value actually
+  changes.
+  - KeyframePointCloudMap::trySetCreationOptions() updated the top-level
+  creationOptions but left already-inserted KeyFrames with their own
+  cached k_correspondences_for_cov/min_correspondences_for_cov/
+  max_distance_for_cov (frozen at insertion time for lazy per-point
+  covariance computation), so existing keyframes kept using stale values.
+  Added KeyFrame::updateCovarianceParams() and propagate the new values to
+  every existing keyframe, under state_mtx\_ like other mutators.
+  - Added regression tests for both: re-applying an unchanged voxel_size on
+  a non-empty map must be a no-op (not a wipe), and clarified the
+  agents.md wording on which classes implement OptionsCapable.
+* Merge pull request `#157 <https://github.com/MOLAorg/mola/issues/157>`_ from MOLAorg/fix/keyframemap-view-vector-rotation
+  Fix view-direction vector frame mismatch in KeyframePointCloudMap
+* Fix compat shim: real if constexpr discarding requires a template
+  The previous compat shim used if constexpr inside a non-template member
+  function (updatePointsGlobal). Per the standard, if constexpr only skips
+  type-checking the untaken branch inside a template -- in ordinary code
+  both branches are fully compiled. Against a real old mp2p_icp checkout
+  (2.9.0, lacking rotateViewDirectionFields()), this made the discarded
+  "call the real helper" branch resolve to our own ellipsis fallback and
+  try to pass CPointsMap by value through it, which is ill-formed since
+  CPointsMap's copy constructor is deleted -- a hard build failure caught
+  by CI (x86_64 / humble stable job on PR `#157 <https://github.com/MOLAorg/mola/issues/157>`_).
+  Fix: move the dispatch into a small template function
+  (rotateViewDirectionFieldsOrFallback<Pts, Pose>), and factor the legacy
+  rotation loop into its own function (rotateViewDirectionFieldsLegacy) so
+  it isn't duplicated between the "header missing" and "header present but
+  function missing" cases. With a genuine template parameter, if constexpr
+  now actually discards the untaken branch without instantiating it.
+  Verified: rebuilt and ran mola_metric_maps' full test suite (12/12 pass)
+  against the real (new) mp2p_icp, and syntax-checked the file with
+  -fsyntax-only against a hand-crafted header lacking
+  rotateViewDirectionFields() to confirm the fallback path compiles too.
+* Keep building against older mp2p_icp checkouts lacking rotateViewDirectionFields()
+  Detect the helper's availability purely in C++ via a SFINAE trait (the
+  containing header predates the function, so __has_include() alone can't
+  tell old and new mp2p_icp_map apart) and fall back to the original
+  open-coded rotation loop when it's absent. MRPT_TODO marks the fallback
+  for removal once the minimum required mp2p_icp_map version provides the
+  helper (`MOLAorg/mp2p_icp#70 <https://github.com/MOLAorg/mp2p_icp/issues/70>`_).
+* Fix view-direction vector frame mismatch in KeyframePointCloudMap
+  KeyFrame::updatePointsGlobal() rotated a keyframe's view_x/y/z vectors to
+  the global frame assuming they were stored in the local KF frame, but
+  mp2p_icp_filters::FilterMerge was leaving them in the global frame after
+  inserting into a KeyframePointCloudMap, causing a double rotation that
+  made the cov-to-cov view-angle pairing filter reject valid pairs as the
+  keyframe heading diverged from the map's build-time reference.
+  Replaces the open-coded rotation loop with the new shared
+  mp2p_icp::rotateViewDirectionFields() helper (also used by the FilterMerge
+  fix in `MOLAorg/mp2p_icp#70 <https://github.com/MOLAorg/mp2p_icp/issues/70>`_), documents the local-KF-frame contract in
+  KeyframePointCloudMap.h, and adds a heading-sweep regression test.
+* Merge pull request `#156 <https://github.com/MOLAorg/mola/issues/156>`_ from MOLAorg/feat/cov-viz
+  feat: add debug viz of map covariances
+* feat: add debug viz of map covariances
+* Merge pull request `#155 <https://github.com/MOLAorg/mola/issues/155>`_ from MOLAorg/fix/more-robust-kf-map-covariances
+  fix: more robust KF map convariances
+* fix: more robust KF map convariances
+* docs(mola_metric_maps): expand class-level Doxygen and complete README
+  - HashedVoxelPointCloud: document SSO, robin_map backend, global ID packing
+  - SparseVoxelPointCloud: document two-level hierarchy, voxel-mean ICP option
+  - NDT: document dual-interface design (point-to-point vs. point-to-plane)
+  - KeyframePointCloudMap: full description of keyframe storage, ICP integration,
+  and implemented interfaces
+  - FixedDenseGrid3D: document calloc rationale, cell layout, trivially-copyable
+  requirement
+  - index3d_t / index3d_hash: document coordinate range, hash algorithm reference,
+  dual-role as hash and comparator
+  - OccGrid: mark as experimental/incomplete (likelihood cache not populated)
+  - SparseTreesPointCloud: document per-block KD-tree design; mark as experimental
+  - README: replace two-class stub with full table of all classes, including
+  production vs. experimental status
+* fix KeyframePointCloudMap::boundingBox() using TOrientedBox for correct AABB
+  The previous implementation called TBoundingBox::compose(pose), which only
+  transforms the two diagonal corners (min/max), giving an incorrect result
+  under rotation. Replace with TOrientedBoxf::getAxisAlignedBox(), which
+  transforms all 8 corners before taking the envelope.
+* Contributors: Jose Luis Blanco-Claraco
+
 2.9.0 (2026-05-11)
 ------------------
 * fix: KeyframePointCloudMap viz should honor pointSize

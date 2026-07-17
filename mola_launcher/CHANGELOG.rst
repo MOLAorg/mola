@@ -2,6 +2,22 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge branch 'feat/imviz-metric-plots' into develop
+* add findModulesOfType
+* fix: user run-at-end functor was never called upon mola-cli dtor
+* Merge pull request `#152 <https://github.com/MOLAorg/mola/issues/152>`_ from MOLAorg/feature/mola-cli-multi-yaml-cli11
+  mola-cli: support multiple YAML files, switch to CLI11
+* feat(mola_launcher): support multiple YAML config files in mola-cli, switch CLI parsing to CLI11
+  mola-cli now accepts one or more YAML config files as positional arguments;
+  each file keeps its existing self-contained `modules:` structure and all of
+  them are merged into a single running system, in the order given.
+  Also replaces the TCLAP-based CLI parsing in mola-cli and mola-yaml-parser
+  with CLI11 (libcli11-dev), updating CMakeLists.txt and package.xml
+  accordingly.
+* Contributors: Jose Luis Blanco-Claraco
+
 2.9.0 (2026-05-11)
 ------------------
 * Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version

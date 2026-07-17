@@ -3,6 +3,41 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* chore: less verbose warning
+* fix: rep105 mode made robust against lagging odom frame
+* fix: replace rclcpp deprecated spin_some()
+* Merge pull request `#153 <https://github.com/MOLAorg/mola/issues/153>`_ from Zeal-Robotics/fix/bridge_ros2-relocalize-frame
+  fix(bridge_ros2): transform relocalization pose into reference frame
+* fix(bridge_ros2): transform relocalization pose into reference frame
+  The relocalization topic callback and the relocalize_near_pose service fed
+  the incoming PoseWithCovarianceStamped straight to relocalize_near_pose_pdf(),
+  ignoring its header.frame_id. The pose was therefore interpreted in the
+  localization reference_frame regardless of the frame it was actually
+  expressed in. When a tool publishes it in a different frame (e.g. RViz's
+  "2D Pose Estimate" in the fixed frame) that differs from reference_frame,
+  the relocalization lands in the wrong place.
+  Compose reference_frame <- header.frame_id via the tf buffer before
+  relocalizing, in both the topic callback and the service. The covariance is
+  propagated through the rotation by CPose3DPDFGaussian::changeCoordinatesReference().
+  Requests are skipped (topic) or rejected (service) when the transform is
+  unavailable, instead of silently relocalizing to a wrong pose.
+* fix: safer owned_rclcpp flag
+* Merge pull request `#150 <https://github.com/MOLAorg/mola/issues/150>`_ from MOLAorg/fix/bridge-ros2-rclcpp-shutdown-ownership
+  feat: bridge ros2 now autodetects rclpp shutdown ownership
+* feat: bridge ros2 now autodetects rclpp shutdown ownership
+* Merge pull request `#149 <https://github.com/MOLAorg/mola/issues/149>`_ from MOLAorg/fix/tf-listener-share-ros-node
+  fix(mola_bridge_ros2): share rosNode\_ with TF listener for consistent clock/use_sim_time
+* fix(mola_bridge_ros2): share rosNode\_ with TF listener for consistent clock/use_sim_time handling
+  Pass rosNode\_ to TransformListener so its /tf and /tf_static subscriptions
+  share the bridge's DDS participant, clock, and use_sim_time setting.
+  Without this, the default constructor creates an anonymous node that
+  ignores use_sim_time -- causing subtle inconsistencies when playing bags
+  with --clock. spin_thread=false avoids a redundant second spinner since
+  rosNode\_ is already spun by the bridge's main loop.
+* Contributors: Jose Luis Blanco-Claraco, Robin Van Cauwenbergh
+
 2.9.0 (2026-05-11)
 ------------------
 * Merge pull request `#143 <https://github.com/MOLAorg/mola/issues/143>`_ from MOLAorg/bump-cmake-version

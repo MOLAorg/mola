@@ -2,6 +2,9 @@
 Changelog for package mola
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 2.9.0 (2026-05-11)
 ------------------
 * mola metapackage no longer installs academic dataset modules

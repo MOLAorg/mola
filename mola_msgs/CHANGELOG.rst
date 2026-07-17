@@ -2,6 +2,9 @@
 Changelog for package mola_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 2.9.0 (2026-05-11)
 ------------------
 * fix: rollback min cmake version for local builds in Humble with modern cmake
