@@ -2,8 +2,8 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * Merge branch 'feat/imviz-metric-plots' into develop
 * Remove deprecated nanogui-specific VizInterface API
   create_subwindow(), enqueue_custom_nanogui_code(), subwindow_grid_layout()

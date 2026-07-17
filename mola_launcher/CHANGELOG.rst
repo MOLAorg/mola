@@ -2,8 +2,8 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * Merge branch 'feat/imviz-metric-plots' into develop
 * add findModulesOfType
 * fix: user run-at-end functor was never called upon mola-cli dtor

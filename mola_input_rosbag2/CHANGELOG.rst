@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * Merge pull request `#176 <https://github.com/MOLAorg/mola/issues/176>`_ from MOLAorg/fix/multi-ros-distro-build
   fix: time header field in different ros distros
 * fix: time header field in different ros distros

@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * fix: dont crash on empty maps
 * feat: --unify-all flag for mm-kf-regroup
 * fix(mola_metric_maps): don't restore stale icp_search_kfs cache from serialized maps

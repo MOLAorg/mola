@@ -2,8 +2,8 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * demos: default viz module to MolaVizImGui with per-app imgui_app_name
   Sets a unique imgui_app_name in each launch file so Dear ImGui's
   layout persistence stores a separate UI configuration per demo.

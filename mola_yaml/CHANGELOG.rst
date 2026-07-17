@@ -2,8 +2,8 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * docs: list all debug/trace env variables
 * Merge pull request `#161 <https://github.com/MOLAorg/mola/issues/161>`_ from MOLAorg/feat/yaml-import-override
   feat(mola_yaml): $import map directive for base-file + overrides

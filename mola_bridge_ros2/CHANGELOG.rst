@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * chore: less verbose warning
 * fix: rep105 mode made robust against lagging odom frame
 * fix: replace rclcpp deprecated spin_some()

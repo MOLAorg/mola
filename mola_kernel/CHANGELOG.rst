@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * fix: default-dock Dataset_UI panel at top; fix Console dock on old layouts
   Add WindowDescription::dock_top_by_default so a window without a saved
   imgui.ini entry gets docked into a strip reserved at the top of the main

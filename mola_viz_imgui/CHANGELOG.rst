@@ -2,8 +2,8 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2026-07-17)
+------------------
 * fix format
 * feat: remove the obsolete text messages overlay mechanism in mola_viz_imgui (superseded by console subwindow)
 * fix: default-dock Dataset_UI panel at top; fix Console dock on old layouts
