@@ -1764,10 +1764,38 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
         const auto ref_to_trgFrame_latest =
             tf_buffer_->lookupTransform(l.child_frame, params_.odom_frame, tf2::TimePointZero);
         tf2::fromMsg(ref_to_trgFrame_latest.transform, odomOnBase_tf);
-        MRPT_LOG_THROTTLE_WARN_STREAM(
-            60.0, "publish_localization_following_rep105: exact sensor-stamp tf '"
-                      << params_.odom_frame << "' -> '" << l.child_frame << "' unavailable ("
-                      << ex.what() << "); using latest available transform instead.");
+
+        // This fallback composes map->odom against a STALE odom transform, which
+        // biases the published TF by the robot's motion over the stamp gap
+        // (motion-correlated jitter, worst mid-turn). It used to be warned only
+        // on a 60 s throttle, which hid a persistent timing violation for a long
+        // time. Emit a loud, explanatory warning the first time it happens (with
+        // the recommended fix), then fall back to the throttled steady-state
+        // warning so logs are not flooded.
+        static bool warnedStaleOdomOnce = false;
+        if (!warnedStaleOdomOnce)
+        {
+          warnedStaleOdomOnce = true;
+          MRPT_LOG_WARN_STREAM(
+              "publish_localization_following_rep105: exact sensor-stamp tf '"
+              << params_.odom_frame << "' -> '" << l.child_frame << "' is unavailable ("
+              << ex.what()
+              << "), so map->odom is being composed against the LATEST (stale) odom "
+                 "transform. This injects motion-correlated jitter into the published "
+                 "map->odom and is expected whenever the localizer stamp leads the odom "
+                 "TF (the normal case for an estimate extrapolated to 'now'). To avoid "
+                 "the composition entirely, have the state estimator publish map->odom "
+                 "directly (StateEstimationSmoother param 'publish_map_to_odom_tf') and "
+                 "route the bridge's TF source filter to that '/map_odom' method. "
+                 "Further occurrences are throttled.");
+        }
+        else
+        {
+          MRPT_LOG_THROTTLE_WARN_STREAM(
+              60.0, "publish_localization_following_rep105: exact sensor-stamp tf '"
+                        << params_.odom_frame << "' -> '" << l.child_frame << "' unavailable ("
+                        << ex.what() << "); using latest (stale) odom transform instead.");
+        }
       }
       catch (const tf2::TransformException& ex2)
       {
