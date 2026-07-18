@@ -151,9 +151,8 @@ void handler_images(
     obj->load();
     imgToShow = obj->image.makeShallowCopy();
   }
-  else if (
-      auto obj3D = std::dynamic_pointer_cast<mrpt::obs::CObservation3DRangeScan>(o);
-      obj3D && obj3D->hasIntensityImage)
+  else if (auto obj3D = std::dynamic_pointer_cast<mrpt::obs::CObservation3DRangeScan>(o);
+           obj3D && obj3D->hasIntensityImage)
   {
     imgToShow = obj3D->intensityImage.makeShallowCopy();
   }
