@@ -1244,17 +1244,19 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
   rclcpp::SerializedMessage                                       serMsg(*rosmsg.serialized_data);
   static rclcpp::Serialization<sensor_msgs::msg::CompressedImage> serializer;
 
-  auto image = std::make_shared<sensor_msgs::msg::CompressedImage>();
-  serializer.deserialize_message(&serMsg, image.get());
+  sensor_msgs::msg::CompressedImage image;
+  serializer.deserialize_message(&serMsg, &image);
 
   auto imgObs = mrpt::obs::CObservationImage::Create();
 
   imgObs->sensorLabel = label;
-  imgObs->timestamp   = mrpt::ros2bridge::fromROS(image->header.stamp);
+  imgObs->timestamp   = mrpt::ros2bridge::fromROS(image.header.stamp);
 
-  auto cv_ptr = cv_bridge::toCvCopy(*image, "bgr8");
+  auto cv_ptr = cv_bridge::toCvCopy(image, "bgr8");
 
-  imgObs->image = mrpt::img::CImage(cv_ptr->image, mrpt::img::DEEP_COPY);
+  // cv_ptr (and the cv::Mat it owns) is local to this call, so a shallow
+  // copy (ref-counted, no pixel buffer duplication) is safe here:
+  imgObs->image = mrpt::img::CImage(cv_ptr->image, mrpt::img::SHALLOW_COPY);
 
   if (fixedSensorPose)
   {
@@ -1265,7 +1267,7 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
     try
     {
       geometry_msgs::msg::TransformStamped ref_to_trgFrame =
-          tfBuffer_->lookupTransform(base_link_frame_id_, image->header.frame_id, {});
+          tfBuffer_->lookupTransform(base_link_frame_id_, image.header.frame_id, {});
 
       tf2::Transform tf;
       tf2::fromMsg(ref_to_trgFrame.transform, tf);
@@ -1275,7 +1277,7 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
     {
       THROW_EXCEPTION_FMT(
           "toCompressedImage (label='%s'): could not find sensor pose '%s' -> '%s': %s",
-          std::string(label).c_str(), base_link_frame_id_.c_str(), image->header.frame_id.c_str(),
+          std::string(label).c_str(), base_link_frame_id_.c_str(), image.header.frame_id.c_str(),
           ex.what());
     }
   }
