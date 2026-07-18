@@ -33,6 +33,7 @@
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationIMU.h>
+#include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationOdometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
@@ -66,6 +67,7 @@
 #include <rosbag2_cpp/converter_options.hpp>
 #include <rosbag2_cpp/readers/sequential_reader.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
@@ -126,6 +128,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   const std::map<std::string, std::string> mapTopic2Class = {
       {"sensor_msgs/msg/Imu", "CObservationIMU"},
       {"sensor_msgs/msg/Image", "CObservationImage"},
+      {"sensor_msgs/msg/CompressedImage", "CObservationImage"},
       {"sensor_msgs/msg/PointCloud2", "CObservationPointCloud"},
       {"sensor_msgs/msg/LaserScan", "CObservation2DRangeScan"},
       {"sensor_msgs/msg/NavSatFix", "CObservationGPS_NavSatFix"},
@@ -405,6 +408,43 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     // TODO: Remove the #else branch once mrpt_ros2_bridge > 3.4.0 is generally available
 
     using rosbag2_storage::SerializedBagMessage;
+
+    // Compressed images (sensor_msgs/msg/CompressedImage, e.g. an
+    // "image/compressed" topic) need their own decoder: mrpt_ros_bridge's
+    // rosbag2ToImage() only understands the raw, uncompressed
+    // sensor_msgs/msg/Image wire format. Dispatch on the topic's actual
+    // wire type, independently of the mrpt_ros_bridge version available.
+    const bool isCompressedImageTopic =
+        topic2type.count(topic) != 0 && topic2type.at(topic) == "sensor_msgs/msg/CompressedImage";
+
+    if (sensorType == "CObservationImage" && isCompressedImageTopic)
+    {
+      auto callback = [this, sensorLabel, fixedSensorPose,
+                       useBagRecvTimeAsTimestamp](const SerializedBagMessage& m) -> Obs
+      {
+        return catchExceptions(
+            [this, sensorLabel, fixedSensorPose, useBagRecvTimeAsTimestamp, m]() -> Obs
+            {
+              Obs obs = toCompressedImage(sensorLabel, m, fixedSensorPose);
+              if (useBagRecvTimeAsTimestamp)
+              {
+                const auto recvTimestamp = mrpt::Clock::fromDouble(
+                    1e-9 * static_cast<double>(bagMessageRecvTimestampNs(m)));
+                for (auto& o : obs)
+                {
+                  if (o)
+                  {
+                    o->timestamp = recvTimestamp;
+                  }
+                }
+              }
+              return obs;
+            });
+      };
+      MRPT_LOG_INFO_STREAM("Installing callback for topic '" << topic << "' (compressed image)");
+      lookup_[topic].emplace_back(callback);
+      continue;
+    }
 
 #if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
     // Map sensor type → rosbag2 conversion function
@@ -1196,6 +1236,54 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toImage(
   return {imgObs};
 }
 #endif
+
+Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
+    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+  rclcpp::SerializedMessage                                       serMsg(*rosmsg.serialized_data);
+  static rclcpp::Serialization<sensor_msgs::msg::CompressedImage> serializer;
+
+  sensor_msgs::msg::CompressedImage image;
+  serializer.deserialize_message(&serMsg, &image);
+
+  auto imgObs = mrpt::obs::CObservationImage::Create();
+
+  imgObs->sensorLabel = label;
+  imgObs->timestamp   = mrpt::ros2bridge::fromROS(image.header.stamp);
+
+  auto cv_ptr = cv_bridge::toCvCopy(image, "bgr8");
+
+  // cv_ptr (and the cv::Mat it owns) is local to this call, so a shallow
+  // copy (ref-counted, no pixel buffer duplication) is safe here:
+  imgObs->image = mrpt::img::CImage(cv_ptr->image, mrpt::img::SHALLOW_COPY);
+
+  if (fixedSensorPose)
+  {
+    imgObs->cameraPose = *fixedSensorPose;
+  }
+  else
+  {
+    try
+    {
+      geometry_msgs::msg::TransformStamped ref_to_trgFrame =
+          tfBuffer_->lookupTransform(base_link_frame_id_, image.header.frame_id, {});
+
+      tf2::Transform tf;
+      tf2::fromMsg(ref_to_trgFrame.transform, tf);
+      imgObs->cameraPose = mrpt::ros2bridge::fromROS(tf);
+    }
+    catch (const tf2::TransformException& ex)
+    {
+      THROW_EXCEPTION_FMT(
+          "toCompressedImage (label='%s'): could not find sensor pose '%s' -> '%s': %s",
+          std::string(label).c_str(), base_link_frame_id_.c_str(), image.header.frame_id.c_str(),
+          ex.what());
+    }
+  }
+
+  return {imgObs};
+}
 
 // TODO: When removed the code above, port this one too:
 

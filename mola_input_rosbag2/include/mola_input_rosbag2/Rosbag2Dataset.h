@@ -200,6 +200,13 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
   template <bool isStatic>
   Obs toTf(const rosbag2_storage::SerializedBagMessage& rosmsg);
 
+  /// sensor_msgs/msg/CompressedImage -> CObservationImage. Handled locally
+  /// (not via mrpt::ros2bridge::rosbag2ToImage()) since that helper only
+  /// understands the raw, uncompressed sensor_msgs/msg/Image wire format.
+  Obs toCompressedImage(
+      std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
+      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
+
 #if MRPT_ROS2_BRIDGE_VERSION < 0x030400
 
   Obs toPointCloud2(
