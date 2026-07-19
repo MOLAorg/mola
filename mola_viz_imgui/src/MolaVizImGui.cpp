@@ -215,7 +215,7 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const windo
   {
     title += " [" + core_ptr_->imgui_app_name_ + "]";
   }
-  GLFWwindow*       win   = glfwCreateWindow(1280, 800, title.c_str(), nullptr, nullptr);
+  GLFWwindow* win = glfwCreateWindow(1280, 800, title.c_str(), nullptr, nullptr);
   if (!win) throw std::runtime_error("MolaVizImGui: glfwCreateWindow failed");
 
   {
