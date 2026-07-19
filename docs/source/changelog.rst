@@ -37,6 +37,10 @@ This page aggregates the changelogs from the most relevant MOLA repositories:
 
       .. include:: _generated_changelogs/mola_viz.rst
 
-   .. tab-item:: mp2p_icp
+   .. tab-item:: mp2p_icp (core)
 
-      .. include:: _generated_changelogs/mp2p_icp.rst
+      .. include:: _generated_changelogs/mp2p_icp_core.rst
+
+   .. tab-item:: mp2p_icp (viz)
+
+      .. include:: _generated_changelogs/mp2p_icp_viz.rst

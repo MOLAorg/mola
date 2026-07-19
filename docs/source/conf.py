@@ -227,7 +227,8 @@ PROJECT_CHANGELOGS = {
     "mola_state_estimation_simple": "../../../mola_state_estimation/mola_state_estimation_simple/CHANGELOG.rst",
     "mola_state_estimation_smoother": "../../../mola_state_estimation/mola_state_estimation_smoother/CHANGELOG.rst",
     "mola_viz": "../../mola_viz/CHANGELOG.rst",
-    "mp2p_icp": "../../../mp2p_icp/CHANGELOG.rst",
+    "mp2p_icp_core": "../../../mp2p_icp/mp2p_icp_core/CHANGELOG.rst",
+    "mp2p_icp_viz": "../../../mp2p_icp/mp2p_icp_viz/CHANGELOG.rst",
 }
 
 
