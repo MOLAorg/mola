@@ -439,8 +439,10 @@ struct SliderInt
  * `initial_index` - zero-based index of the initially selected item.
  * `on_change`     - called with the new index from the GUI thread.
  *
- * nanogui : nanogui::ComboBox.
- * ImGui   : ImGui::Combo.
+ * nanogui : nanogui::ComboBox; `fixed_width` (if > 0) via setFixedWidth().
+ * ImGui   : ImGui::Combo; `fixed_width` (if > 0) via SetNextItemWidth(),
+ *           otherwise defaults to ImGui's item width (which scales with the
+ *           window, so long option labels grow the widget on resize).
  */
 struct ComboBox
 {
@@ -448,6 +450,7 @@ struct ComboBox
   std::vector<std::string> items;
   int                      initial_index = 0;
   std::function<void(int)> on_change;
+  int                      fixed_width = 0;  ///< 0 = auto (toolkit default)
 };
 
 /**

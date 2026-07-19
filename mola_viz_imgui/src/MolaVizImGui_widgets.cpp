@@ -199,6 +199,8 @@ void MolaVizImGuiCore::render_leaf_widget(const mola::gui::LeafWidget& w, const 
           }
           items_str += '\0';
           const std::string id = widget.label.empty() ? ("##combo_" + key) : widget.label;
+          if (widget.fixed_width > 0)
+            ImGui::SetNextItemWidth(static_cast<float>(widget.fixed_width));
           if (ImGui::Combo(id.c_str(), &it->second, items_str.c_str()) && widget.on_change)
             widget.on_change(it->second);
         }

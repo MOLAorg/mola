@@ -879,6 +879,10 @@ void build_leaf_widget(
           auto* cb = parent->add<nanogui::ComboBox>();
           cb->setItems(widget.items);
           cb->setSelectedIndex(widget.initial_index);
+          if (widget.fixed_width > 0)
+          {
+            cb->setFixedWidth(widget.fixed_width);
+          }
           if (widget.on_change)
           {
             cb->setCallback(widget.on_change);
