@@ -729,7 +729,9 @@ void test_parseDefine()
     ASSERT_EQUAL_(y["params"]["v"].as<std::string>(), "composed-suffix");
   }
 
-  // --- nested scopes: an inner $define shadows the outer one ---
+  // --- nested scopes: an OUTER $define wins over a more deeply imported
+  //     file's own $define for the SAME name; a name the outer scope never
+  //     touches still gets set by the inner file's own $define ---
   {
     const std::string input =
         "$define:\n"
@@ -737,10 +739,40 @@ void test_parseDefine()
         "top:\n"
         "  $import: test_define_nested.yaml\n";
     const auto y = mola::parse_yaml(yaml::FromText(input), opts);
-    // test_define_nested.yaml re-defines the variable for its `inner` subtree
-    // only; `outer` inherits the top-level definition.
-    ASSERT_EQUAL_(y["top"]["inner"]["method"].as<std::string>(), "from_inner_file");
+    // test_define_nested.yaml's `inner` subtree tries to re-define the SAME
+    // variable; the outer (root) definition wins for both `inner` and `outer`:
+    ASSERT_EQUAL_(y["top"]["inner"]["method"].as<std::string>(), "from_outer");
     ASSERT_EQUAL_(y["top"]["outer"]["method"].as<std::string>(), "from_outer");
+    // A name the outer scope never touches still gets set by the more deeply
+    // imported file's own $define:
+    ASSERT_EQUAL_(y["top"]["inner"]["gain"].as<std::string>(), "from_inner_file_gain");
+    // ... and, absent any $define for it anywhere, falls back to the inline
+    // default, same as always:
+    ASSERT_EQUAL_(y["top"]["outer"]["gain"].as<std::string>(), "1.0");
+  }
+
+  // --- outer-wins holds across a genuine multi-level $import CHAIN too, not
+  //     just nested same-document scopes: a reusable fragment that $define's
+  //     one of its own hooks (test_define_chain_middle.yaml, itself imported
+  //     via a plain, un-$define'd $import here) must not permanently shadow
+  //     that hook from every file that imports it ---
+  {
+    const std::string input =
+        "$define:\n"
+        "  MOLA_TEST_DEFINE_METHOD: from_outer_chain\n"
+        "$import: test_define_chain_middle.yaml\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["method"].as<std::string>(), "from_outer_chain");
+    // Untouched by either layer's $define: still the inline default.
+    ASSERT_EQUAL_(y["gain"].as<std::string>(), "1.0");
+  }
+
+  // --- without an outer override, the middle file's own $define still
+  //     applies (it is not merely inert) ---
+  {
+    const std::string input = "$import: test_define_chain_middle.yaml\n";
+    const auto        y     = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["method"].as<std::string>(), "from_middle_file");
   }
 
   // --- a non-map $define value is an error ---

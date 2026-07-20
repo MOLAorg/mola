@@ -1,0 +1,9 @@
+# A reusable fragment that $define's one of the base file's hooks itself, to
+# retune ITS OWN inline default -- mirroring a real "mola_mapper's shared
+# loop-closure pipeline retunes one of mola_sm_loop_closure's hooks" file. A
+# file further up an $import chain must still be able to override
+# MOLA_TEST_DEFINE_METHOD (see the "outer-wins" tests in test-yaml-parser.cpp).
+---
+$define:
+  MOLA_TEST_DEFINE_METHOD: from_middle_file
+$import: test_define_base.yaml

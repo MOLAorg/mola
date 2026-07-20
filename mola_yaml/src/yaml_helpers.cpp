@@ -550,6 +550,18 @@ void processMapDirectives(yaml::node_t& n, const mola::YAMLParseOptions& opts)
  * The values may themselves contain `${}` / `$()` expressions; they are resolved
  * against the OUTER scope, so the result never depends on the order in which the
  * map entries happen to be visited.
+ *
+ * OUTER-WINS ACROSS NESTING: a name already present in `opts.variables` -
+ * whether set by an ancestor `$define` (however many `$import` levels up) or
+ * supplied by the caller before parsing started - is left untouched; this
+ * block's own entry for that name is skipped. This mirrors, one level up,
+ * "environment > $define > inline default" for a single `${VAR|default}`
+ * token: the scope closer to the document root / the caller has final say,
+ * not the file it happens to import. Without this, a reusable imported
+ * fragment that `$define`s one of its own hooks (to change ONLY its inline
+ * default) would silently and permanently shadow that same hook for every
+ * file that imports it, with no way for an importer to override it short of
+ * restating the whole target key as a literal sibling value.
  */
 [[nodiscard]] std::optional<mola::YAMLParseOptions> consumeDefineBlock(
     yaml::map_t& m, const mola::YAMLParseOptions& opts)
@@ -579,8 +591,16 @@ void processMapDirectives(yaml::node_t& n, const mola::YAMLParseOptions& opts)
     {
       THROW_EXCEPTION("`$define` entries must be scalar `NAME: VALUE` pairs.");
     }
-    scopedOpts.variables[key.as<std::string>()] =
-        trimWSNL(mola::parse_yaml(value.as<std::string>(), valueOpts));
+    const std::string varName = key.as<std::string>();
+
+    // Already set by an outer scope: that definition wins (see OUTER-WINS
+    // note above), so this file's own entry for the same name is a no-op.
+    if (opts.variables.count(varName) != 0)
+    {
+      continue;
+    }
+
+    scopedOpts.variables[varName] = trimWSNL(mola::parse_yaml(value.as<std::string>(), valueOpts));
   }
 
   m.erase(itDefine);
@@ -629,6 +649,11 @@ void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opt
     // The resolution order in parseVars() is unchanged, so the effective
     // priority is: real environment > `$define` > inline `|default`. A variable
     // exported on the command line therefore still overrides the YAML file.
+    // Across NESTED `$define` scopes for the SAME name (e.g. an imported file
+    // `$define`s one of its own hooks), the OUTER one wins: consumeDefineBlock
+    // skips re-defining a name already present in the incoming `opts`, so the
+    // scope closest to the document root - not the file it imports - has
+    // final say (see its doc comment).
     const auto  defineOpts = consumeDefineBlock(n.asMap(), opts);
     const auto& scopedOpts = defineOpts.has_value() ? *defineOpts : opts;
 
