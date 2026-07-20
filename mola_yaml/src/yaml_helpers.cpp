@@ -600,8 +600,7 @@ void processMapDirectives(yaml::node_t& n, const mola::YAMLParseOptions& opts)
       continue;
     }
 
-    scopedOpts.variables[varName] =
-        trimWSNL(mola::parse_yaml(value.as<std::string>(), valueOpts));
+    scopedOpts.variables[varName] = trimWSNL(mola::parse_yaml(value.as<std::string>(), valueOpts));
   }
 
   m.erase(itDefine);
