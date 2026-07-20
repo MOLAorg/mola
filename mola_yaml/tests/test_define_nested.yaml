@@ -1,9 +1,11 @@
-# $define in an imported file: shadows the outer scope for its own subtree, and
-# still lets its own $import see the value.
+# $define in an imported file: for a name the OUTER scope already defines, the
+# outer definition wins (does NOT get shadowed here); for a name the outer
+# scope never touches, this file's own $define still applies normally.
 ---
 inner:
   $define:
-    MOLA_TEST_DEFINE_METHOD: "from_inner_file"
+    MOLA_TEST_DEFINE_METHOD: "from_inner_file"    # outer also defines this: outer wins
+    MOLA_TEST_DEFINE_GAIN: "from_inner_file_gain" # outer does not touch this: this wins
   $import: test_define_base.yaml
 outer:
   $import: test_define_base.yaml
