@@ -121,7 +121,10 @@ Other key types:
 - `MinimalModuleContainer` — module loading and lifecycle
 
 ### `mola_yaml` — YAML Parser
-Features: variable substitution (`$var`), file includes (`@include`), C++17 filesystem.
+Features: variable substitution (`$var`), file includes (`@include`), deep-merge
+`$import`, and the `$define` map directive (binds `${NAME}` variables for the subtree
+it appears in, including sibling `$import`ed files; priority `env > $define > |default`),
+C++17 filesystem.
 Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 
 ### `mola_launcher` — CLI Entry Point

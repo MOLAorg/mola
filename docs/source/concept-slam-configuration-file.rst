@@ -235,7 +235,9 @@ Key properties:
   imported files and the plain sibling keys.  A nested ``$define`` (in this file
   or in an imported one) **shadows** an outer one for its own subtree.
 - ``$define`` **values are themselves expanded**, so they may be built from
-  ``${}`` / ``$()`` expressions.
+  ``${}`` / ``$()`` expressions.  They are expanded against the **outer** scope
+  only: entries of the same ``$define`` block cannot reference each other (this
+  keeps the result independent of the order in which they are written).
 - The ``$define`` key is stripped from the resulting configuration.
 
 .. tip::

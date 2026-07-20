@@ -69,7 +69,9 @@ namespace mola
  *     $import: lidar3d-default.yaml
  *     ```
  *     Priority is `real environment > $define > inline |default`, so a variable
- *     exported on the command line still overrides the YAML file.
+ *     exported on the command line still overrides the YAML file. Values are
+ *     expanded against the OUTER scope only, so entries of the same `$define`
+ *     block cannot reference each other (order-independent by design).
  *  2. **`$(cmd)`** - replaced with the trimmed stdout of the shell command
  *     `cmd` (exit code ≠ 0 throws).
  *  3. **`${VAR}`** or **`${VAR|default}`** - replaced with the value of
