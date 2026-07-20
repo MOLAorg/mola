@@ -40,8 +40,8 @@
   :hidden:
   :caption: Full 3D SLAM
 
-  mola_mapper_3d
-  mola_mapper3d_ros2_node
+  mola_mapper
+  mola_mapper_ros2_node
 
 .. toctree::
   :maxdepth: 2
