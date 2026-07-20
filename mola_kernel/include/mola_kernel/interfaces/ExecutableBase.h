@@ -31,6 +31,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace mola
@@ -115,6 +116,27 @@ class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
 
   void        setModuleInstanceName(const std::string& s);
   std::string getModuleInstanceName() const;
+
+  /** A short name identifying a child logger, as returned by
+   * child_loggers(). \sa child_loggers() */
+  using ChildLoggerName = std::string;
+
+  /** Additional loggers owned by this module that are not this
+   * ExecutableBase itself, e.g. a library engine run on a background
+   * thread with its own mrpt::system::COutputLogger. Overriding this
+   * lets generic log consumers (like a GUI console window) capture their
+   * output the same way they already do for the module itself, without
+   * the module having to relay each message through its own logger.
+   * Each entry pairs a short name identifying the sub-logger with a
+   * pointer to it; the pointer must stay valid for as long as it may be
+   * returned here.
+   * \sa findService()
+   */
+  virtual std::vector<std::pair<ChildLoggerName, mrpt::system::COutputLogger*>> child_loggers()
+      const
+  {
+    return {};
+  }
   /** @} */
 
   /** @name Module parameter handling

@@ -324,6 +324,10 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   // ---------------------------------------------------------------------------
   double                lastTimeCheckForConsoleModules_ = 0;
   std::set<std::string> consoleHookedModules_;  // instance names already hooked
+  // child_loggers() entries already hooked, keyed by logger identity (a
+  // module may create/destroy these, e.g. a background-thread engine, so
+  // they cannot be tracked by instance name alone).
+  std::set<const mrpt::system::COutputLogger*> consoleHookedChildLoggers_;
 
   void console_check_new_modules();
 };
