@@ -58,6 +58,20 @@ namespace mola
  *       $import: shared-params.yaml   # base (a path, or a sequence of paths)
  *       max_rate_hz: 10.0             # override one entry of the imported base
  *     ```
+ *     Also resolved in this pass: the **`$define`** map directive, which binds
+ *     `${NAME}` variables for the subtree of the map it appears in, INCLUDING
+ *     the files pulled in by a sibling `$import` / `$include{}`. This lets a
+ *     launcher drive the `${VAR|default}` hooks an imported file already
+ *     exposes, instead of duplicating a block just to change one nested value:
+ *     ```
+ *     $define:
+ *       MOLA_DESKEW_METHOD: "MotionCompensationMethod::IMU"
+ *     $import: lidar3d-default.yaml
+ *     ```
+ *     Priority is `real environment > $define > inline |default`, so a variable
+ *     exported on the command line still overrides the YAML file. Values are
+ *     expanded against the OUTER scope only, so entries of the same `$define`
+ *     block cannot reference each other (order-independent by design).
  *  2. **`$(cmd)`** - replaced with the trimmed stdout of the shell command
  *     `cmd` (exit code ≠ 0 throws).
  *  3. **`${VAR}`** or **`${VAR|default}`** - replaced with the value of
@@ -86,6 +100,9 @@ struct YAMLParseOptions
    * Entries in this map are checked *after* the real environment variables
    * and the built-in `CURRENT_YAML_FILE_PATH` token, but *before* the
    * `|default` fallback syntax.
+   *
+   * A `$define` block in a YAML file binds variables into this same slot for
+   * the subtree it appears in.
    */
   std::map<std::string, std::string> variables;
 

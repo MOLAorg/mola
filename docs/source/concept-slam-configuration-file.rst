@@ -70,7 +70,8 @@ is run through a lightweight pre-processor that expands special ``$``\ -prefixed
 expressions.  The three expansion passes are always applied in the following
 fixed order:
 
-1. :ref:`yaml_include` - ``$include{path}``
+1. :ref:`yaml_include` - ``$include{path}``, plus the :ref:`yaml_import` and
+   :ref:`yaml_define` map directives
 2. :ref:`yaml_cmd` - ``$(command)``
 3. :ref:`yaml_vars` - ``${VAR}`` / ``${VAR|default}``
 
@@ -196,6 +197,59 @@ Equivalent multi-file base, where ``overrides.yaml`` wins over ``base.yaml``:
    file as a base **plus** local overrides.
 
 
+.. _yaml_define:
+
+Set variables for a subtree: ``$define``
+------------------------------------------
+
+Most shared MOLA parameter files already expose their tunable settings as
+``${VAR|default}`` hooks (see :ref:`yaml_vars`).  The ``$define`` **map key**
+lets a file **bind those variables** for the subtree of the map it appears in --
+**including the files pulled in by a sibling** ``$import`` **or**
+``$include{}``.
+
+Its value is a map of ``NAME: VALUE`` pairs:
+
+.. code-block:: yaml
+
+    modules:
+      - type: mola::LidarOdometry
+        name: lidar_odom
+
+        $define:
+          MOLA_DESKEW_METHOD: "MotionCompensationMethod::IMU"
+          MOLA_LO_INITIAL_LOCALIZATION_METHOD: "InitLocalization::PitchAndRollFromIMU"
+
+        $import: lidar3d-default.yaml
+
+Key properties:
+
+- **Priority is** ``environment > $define > inline |default``.  ``$define`` acts
+  as a *file-level default*: a variable exported on the command line still
+  overrides it, so ``MOLA_DESKEW_METHOD=... mola-cli my-system.yaml`` keeps
+  working as before.
+- **It is not** ``setenv``.  The bindings are scoped to the YAML subtree and
+  never leak into the real process environment, into ``$()`` sub-processes, or
+  into a sibling module's ``$import``.
+- **Scope is the map it appears in, and everything below it** -- both the
+  imported files and the plain sibling keys.  A nested ``$define`` (in this file
+  or in an imported one) **shadows** an outer one for its own subtree.
+- ``$define`` **values are themselves expanded**, so they may be built from
+  ``${}`` / ``$()`` expressions.  They are expanded against the **outer** scope
+  only: entries of the same ``$define`` block cannot reference each other (this
+  keeps the result independent of the order in which they are written).
+- The ``$define`` key is stripped from the resulting configuration.
+
+.. tip::
+
+   ``$define`` is the way to patch a value that lives **inside a YAML sequence**
+   of an imported file.  ``$import``'s deep-merge replaces sequences *wholesale*
+   (see :ref:`yaml_import`), so overriding one field of one list item otherwise
+   forces you to duplicate the entire sequence verbatim.  If the imported file
+   exposes that field as a ``${VAR|default}`` hook, a one-line ``$define``
+   replaces the whole copy-paste.
+
+
 .. _yaml_cmd:
 
 Run an external command: ``$(command)``
@@ -243,7 +297,8 @@ order (first match wins):
    ``YAMLParseOptions::includesBasePath`` when called programmatically).
 3. **Caller-supplied variables** - entries in the
    ``YAMLParseOptions::variables`` map, which allows C++ code to inject
-   arbitrary name/value pairs at load time.
+   arbitrary name/value pairs at load time.  A :ref:`yaml_define` block binds
+   variables into this same slot, from the YAML file itself.
 4. **Inline default** - if the token has the form ``${NAME|default_value}``,
    the literal text after ``|`` is used as a fallback.  The default may be
    empty (``${NAME|}`` resolves to an empty string).
@@ -323,6 +378,10 @@ when a token falls inside a comment:
      - Left verbatim
    * - ``$import`` (map key)
      - Imported file(s), with sibling keys overriding
+     - 1st
+     - n/a (a map key, not a scalar token)
+   * - ``$define`` (map key)
+     - Nothing (binds ``${NAME}`` vars for its subtree)
      - 1st
      - n/a (a map key, not a scalar token)
    * - ``$(command)``

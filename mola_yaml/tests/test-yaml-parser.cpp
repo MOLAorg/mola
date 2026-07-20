@@ -630,6 +630,135 @@ void test_parseImportMissingFile()
   ASSERT_(did_throw);
 }
 
+// ---------------------------------------------------------------------------
+// 13. `$define` directive: bind ${VAR} variables for a subtree
+//
+// A `$define` map key binds `${NAME}` variables for the whole subtree of the
+// map it appears in, INCLUDING the files pulled in by a sibling `$import` /
+// `$include{}`. Priority: real environment > $define > inline `|default`.
+// ---------------------------------------------------------------------------
+void test_parseDefine()
+{
+  using mrpt::containers::yaml;
+
+  mola::YAMLParseOptions opts;
+  opts.includesBasePath = MOLA_MODULE_SOURCE_DIR;
+
+  // --- the imported file's ${VAR|default} hooks are driven by $define ---
+  {
+    const std::string input =
+        "params:\n"
+        "  $define:\n"
+        "    MOLA_TEST_DEFINE_METHOD: from_define\n"
+        "    MOLA_TEST_DEFINE_DEEP: deep_from_define\n"
+        "  $import: test_define_base.yaml\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+
+    ASSERT_EQUAL_(y["params"]["method"].as<std::string>(), "from_define");
+    ASSERT_EQUAL_(y["params"]["nested"]["deep"].as<std::string>(), "deep_from_define");
+    // Untouched hooks keep their inline default:
+    ASSERT_EQUAL_(y["params"]["gain"].as<std::string>(), "1.0");
+    // Reaches inside sequences too - which plain $import overrides cannot patch:
+    ASSERT_EQUAL_(y["params"]["steps"](0)["mode"].as<std::string>(), "from_define");
+    ASSERT_EQUAL_(y["params"]["steps"](1)["mode"].as<std::string>(), "fixed");
+    // The directive itself must not survive into the output:
+    ASSERT_(!y["params"].has("$define"));
+  }
+
+  // --- without $define, the imported file falls back to its inline defaults ---
+  {
+    const std::string input = "params:\n  $import: test_define_base.yaml\n";
+    const auto        y     = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["params"]["method"].as<std::string>(), "default_method");
+  }
+
+  // --- a real environment variable still wins over $define ---
+  {
+    MOLA_TEST_SETENV("MOLA_TEST_DEFINE_METHOD", "from_env");
+
+    const std::string input =
+        "params:\n"
+        "  $define:\n"
+        "    MOLA_TEST_DEFINE_METHOD: from_define\n"
+        "  $import: test_define_base.yaml\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["params"]["method"].as<std::string>(), "from_env");
+
+    MOLA_TEST_UNSETENV("MOLA_TEST_DEFINE_METHOD");
+  }
+
+  // --- $define also reaches SIBLING keys of the same map, not just imports ---
+  {
+    const std::string input =
+        "params:\n"
+        "  $define:\n"
+        "    MY_VAR: sibling_value\n"
+        "  local: '${MY_VAR}'\n"
+        "  deeper:\n"
+        "    also: '${MY_VAR}'\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["params"]["local"].as<std::string>(), "sibling_value");
+    ASSERT_EQUAL_(y["params"]["deeper"]["also"].as<std::string>(), "sibling_value");
+  }
+
+  // --- scope is limited to the subtree: a sibling map does NOT see it ---
+  {
+    const std::string input =
+        "a:\n"
+        "  $define:\n"
+        "    SCOPED_VAR: inside\n"
+        "  v: '${SCOPED_VAR}'\n"
+        "b:\n"
+        "  v: '${SCOPED_VAR|outside}'\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["a"]["v"].as<std::string>(), "inside");
+    ASSERT_EQUAL_(y["b"]["v"].as<std::string>(), "outside");
+  }
+
+  // --- $define values may themselves use ${} / $() expressions ---
+  {
+    mola::YAMLParseOptions o2 = opts;
+    o2.variables["OUTER"]     = "composed";
+
+    const std::string input =
+        "params:\n"
+        "  $define:\n"
+        "    INNER: '${OUTER}-suffix'\n"
+        "  v: '${INNER}'\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), o2);
+    ASSERT_EQUAL_(y["params"]["v"].as<std::string>(), "composed-suffix");
+  }
+
+  // --- nested scopes: an inner $define shadows the outer one ---
+  {
+    const std::string input =
+        "$define:\n"
+        "  MOLA_TEST_DEFINE_METHOD: from_outer\n"
+        "top:\n"
+        "  $import: test_define_nested.yaml\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    // test_define_nested.yaml re-defines the variable for its `inner` subtree
+    // only; `outer` inherits the top-level definition.
+    ASSERT_EQUAL_(y["top"]["inner"]["method"].as<std::string>(), "from_inner_file");
+    ASSERT_EQUAL_(y["top"]["outer"]["method"].as<std::string>(), "from_outer");
+  }
+
+  // --- a non-map $define value is an error ---
+  {
+    bool did_throw = false;
+    try
+    {
+      const auto y = mola::parse_yaml(yaml::FromText("p:\n  $define: not_a_map\n"), opts);
+      (void)y;
+    }
+    catch (const std::exception&)
+    {
+      did_throw = true;
+    }
+    ASSERT_(did_throw);
+  }
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -652,6 +781,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_yaml2stringAdditional();
     test_parseImportOverride();
     test_parseImportMissingFile();
+    test_parseDefine();
 
     std::cout << "Test successful.\n";
   }

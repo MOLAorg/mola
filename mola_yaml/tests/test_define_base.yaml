@@ -1,0 +1,12 @@
+# base file exercising $define: every value is driven by a ${VAR|default} hook,
+# as the real MOLA pipeline files are.
+---
+method: "${MOLA_TEST_DEFINE_METHOD|default_method}"
+gain: "${MOLA_TEST_DEFINE_GAIN|1.0}"
+nested:
+  deep: "${MOLA_TEST_DEFINE_DEEP|deep_default}"
+steps:
+  - name: step1
+    mode: "${MOLA_TEST_DEFINE_METHOD|default_method}"
+  - name: step2
+    mode: fixed

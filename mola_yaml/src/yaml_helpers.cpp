@@ -467,6 +467,127 @@ void deepMergeNode(yaml::node_t& base, const yaml::node_t& overlay)
  * @note  Recursion here is over the YAML node tree (depth bounded by the
  *        document structure), not over the string - safe in practice.
  */
+void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opts);
+
+/**
+ * Handle the directives of a MAP node: the `$import` merge, or plain recursion
+ * into the children. Split out of `recursiveProcessIncludes()` so that the
+ * `$define` scope handling can wrap it (the `$import` branch returns early).
+ */
+void processMapDirectives(yaml::node_t& n, const mola::YAMLParseOptions& opts)
+{
+  auto& m = n.asMap();
+
+  // `$import` directive: a map whose `$import` key names one (scalar) or
+  // several (sequence) external YAML files is REPLACED by the deep-merge of
+  // those files (in listed order) with the map's REMAINING keys overlaid on
+  // top. So the imported file(s) act as a base, and the sibling entries
+  // OVERRIDE particular entries (nested maps merge deeply; scalars/sequences
+  // replace). This is what lets `params:` reference a shared file and then
+  // tweak just a few keys, instead of duplicating the whole block.
+  // NOTE: parens-init (NOT braces): `node_t{std::string}` would bind to the
+  // initializer_list<node_t> constructor and build a 1-element SEQUENCE node
+  // instead of a scalar, which then throws in operator<'s internalAsStr().
+  const yaml::node_t importKey(std::string("$import"));
+  if (const auto itImport = m.find(importKey); itImport != m.end())
+  {
+    std::vector<std::string> importPaths;
+    const auto&              importVal = itImport->second;
+    if (importVal.isScalar())
+    {
+      importPaths.push_back(importVal.as<std::string>());
+    }
+    else if (importVal.isSequence())
+    {
+      for (const auto& element : importVal.asSequence())
+      {
+        importPaths.push_back(element.as<std::string>());
+      }
+    }
+    else
+    {
+      THROW_EXCEPTION("`$import` value must be a file path string or a sequence of paths.");
+    }
+
+    // Base: deep-merge of the imported file(s), in the order listed.
+    yaml::node_t merged = yaml::Map();
+    for (const auto& path : importPaths)
+    {
+      const yaml::node_t loaded = loadExternalYaml(path, opts);
+      deepMergeNode(merged, loaded);
+    }
+
+    // Overlay: the remaining sibling keys (recursively pre-processed first),
+    // which override the imported base.
+    for (auto& [key, value] : m)
+    {
+      if (key.isScalar() && key.as<std::string>() == "$import")
+      {
+        continue;
+      }
+      recursiveProcessIncludes(value, opts);
+      yaml::node_t single = yaml::Map();
+      single.asMap()[key] = value;
+      deepMergeNode(merged, single);
+    }
+
+    n = merged;
+    return;
+  }
+
+  for (auto& [key, value] : m)
+  {
+    recursiveProcessIncludes(value, opts);
+  }
+}
+
+/**
+ * Consume a `$define` key from map `m`, returning a copy of `opts` augmented
+ * with its `NAME: VALUE` pairs as `${NAME}` variables, and erasing the key from
+ * `m` so it does not reach the output. Returns `std::nullopt` when the map has
+ * no `$define` key.
+ *
+ * The values may themselves contain `${}` / `$()` expressions; they are resolved
+ * against the OUTER scope, so the result never depends on the order in which the
+ * map entries happen to be visited.
+ */
+[[nodiscard]] std::optional<mola::YAMLParseOptions> consumeDefineBlock(
+    yaml::map_t& m, const mola::YAMLParseOptions& opts)
+{
+  const yaml::node_t defineKey(std::string("$define"));
+  const auto         itDefine = m.find(defineKey);
+  if (itDefine == m.end())
+  {
+    return std::nullopt;
+  }
+
+  auto scopedOpts = opts;
+
+  if (!itDefine->second.isMap())
+  {
+    THROW_EXCEPTION("`$define` value must be a map of `NAME: VALUE` entries.");
+  }
+
+  // Expand the values with the outer scope, but without the include pass: the
+  // values are plain scalars, not YAML documents.
+  auto valueOpts       = opts;
+  valueOpts.doIncludes = false;
+
+  for (const auto& [key, value] : itDefine->second.asMap())
+  {
+    if (!key.isScalar() || !value.isScalar())
+    {
+      THROW_EXCEPTION("`$define` entries must be scalar `NAME: VALUE` pairs.");
+    }
+    scopedOpts.variables[key.as<std::string>()] =
+        trimWSNL(mola::parse_yaml(value.as<std::string>(), valueOpts));
+  }
+
+  m.erase(itDefine);
+
+  return scopedOpts;
+}
+
 void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opts)
 {
   if (n.isScalar())
@@ -499,68 +620,29 @@ void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opt
   }
   else if (n.isMap())
   {
-    auto& m = n.asMap();
+    // `$define` directive: a sibling map of `NAME: VALUE` pairs that become
+    // `${NAME}` variables for this map's whole subtree, including the files
+    // pulled in by a sibling `$import` / `$include{}`. This lets a launcher
+    // select a variant of an imported pipeline through the `${VAR|default}`
+    // hooks that file already exposes, instead of duplicating a whole block
+    // just to change one nested value.
+    // The resolution order in parseVars() is unchanged, so the effective
+    // priority is: real environment > `$define` > inline `|default`. A variable
+    // exported on the command line therefore still overrides the YAML file.
+    const auto  defineOpts = consumeDefineBlock(n.asMap(), opts);
+    const auto& scopedOpts = defineOpts.has_value() ? *defineOpts : opts;
 
-    // `$import` directive: a map whose `$import` key names one (scalar) or
-    // several (sequence) external YAML files is REPLACED by the deep-merge of
-    // those files (in listed order) with the map's REMAINING keys overlaid on
-    // top. So the imported file(s) act as a base, and the sibling entries
-    // OVERRIDE particular entries (nested maps merge deeply; scalars/sequences
-    // replace). This is what lets `params:` reference a shared file and then
-    // tweak just a few keys, instead of duplicating the whole block.
-    // NOTE: parens-init (NOT braces): `node_t{std::string}` would bind to the
-    // initializer_list<node_t> constructor and build a 1-element SEQUENCE node
-    // instead of a scalar, which then throws in operator<'s internalAsStr().
-    const yaml::node_t importKey(std::string("$import"));
-    if (const auto itImport = m.find(importKey); itImport != m.end())
+    processMapDirectives(n, scopedOpts);
+
+    if (defineOpts.has_value())
     {
-      std::vector<std::string> importPaths;
-      const auto&              importVal = itImport->second;
-      if (importVal.isScalar())
-      {
-        importPaths.push_back(importVal.as<std::string>());
-      }
-      else if (importVal.isSequence())
-      {
-        for (const auto& element : importVal.asSequence())
-        {
-          importPaths.push_back(element.as<std::string>());
-        }
-      }
-      else
-      {
-        THROW_EXCEPTION("`$import` value must be a file path string or a sequence of paths.");
-      }
-
-      // Base: deep-merge of the imported file(s), in the order listed.
-      yaml::node_t merged = yaml::Map();
-      for (const auto& path : importPaths)
-      {
-        const yaml::node_t loaded = loadExternalYaml(path, opts);
-        deepMergeNode(merged, loaded);
-      }
-
-      // Overlay: the remaining sibling keys (recursively pre-processed first),
-      // which override the imported base.
-      for (auto& [key, value] : m)
-      {
-        if (key.isScalar() && key.as<std::string>() == "$import")
-        {
-          continue;
-        }
-        recursiveProcessIncludes(value, opts);
-        yaml::node_t single = yaml::Map();
-        single.asMap()[key] = value;
-        deepMergeNode(merged, single);
-      }
-
-      n = merged;
-      return;
-    }
-
-    for (auto& [key, value] : m)
-    {
-      recursiveProcessIncludes(value, opts);
+      // The variable pass runs later over the whole document with the OUTER
+      // options, so it would not see these definitions: expand them now, over
+      // this subtree only. Includes/commands were already resolved above.
+      auto varOpts       = scopedOpts;
+      varOpts.doIncludes = false;
+      varOpts.doCmdRuns  = false;
+      n = yaml::FromText(mola::parse_yaml(mola::yaml_to_string(yaml(n)), varOpts)).node();
     }
   }
 }
