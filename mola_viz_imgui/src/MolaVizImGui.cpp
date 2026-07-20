@@ -416,13 +416,19 @@ void MolaVizImGui::dataset_ui_check_new_modules()
     row.widgets.emplace_back(
         mola::gui::Label{std::make_shared<mola::gui::LiveString>("Playback rate:")});
 
-    row.widgets.emplace_back(mola::gui::ComboBox{
-        "", labels, selIdx,
-        [weakMod, rates](int idx)
-        {
-          if (auto m = weakMod.lock())
-            m->datasetUI_playback_speed(static_cast<double>(rates.at(idx)));
-        }});
+    {
+      mola::gui::ComboBox cb;
+      cb.label         = "";
+      cb.items         = labels;
+      cb.initial_index = selIdx;
+      cb.on_change     = [weakMod, rates](int idx)
+      {
+        if (auto m = weakMod.lock())
+          m->datasetUI_playback_speed(static_cast<double>(rates.at(idx)));
+      };
+      cb.fixed_width = 80;
+      row.widgets.emplace_back(std::move(cb));
+    }
 
     tab.widgets.emplace_back(std::move(row));
     desc.tabs.emplace_back(std::move(tab));
