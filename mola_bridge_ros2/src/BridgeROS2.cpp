@@ -57,8 +57,7 @@
 #include <mrpt/ros2bridge/ros_to_mrpt_obs.h>
 #endif
 
-#if MRPT_VERSION < 0x030000  // Support deprecated classes for mrpt < 3.0.0
-#include <mrpt/maps/CPointsMapXYZI.h>
+#if MRPT_VERSION < 0x020f03  // needed by the POINT_FIELD_TIMESTAMP fallback below (mrpt < 2.15.3)
 #include <mrpt/maps/CPointsMapXYZIRT.h>
 #endif
 
@@ -1115,20 +1114,6 @@ void BridgeROS2::internalOn(
     {
       mrpt::ros2bridge::toROS(*xyzgen, msg_header, msg_pts);
     }
-#if MRPT_VERSION < 0x030000  // older than v3.0.0, support deprecated classes
-    else if (const auto* xyzIRT =
-                 dynamic_cast<const mrpt::maps::CPointsMapXYZIRT*>(obs.pointcloud.get());
-             xyzIRT)
-    {
-      mrpt::ros2bridge::toROS(*xyzIRT, msg_header, msg_pts);
-    }
-    else if (const auto* xyzi =
-                 dynamic_cast<const mrpt::maps::CPointsMapXYZI*>(obs.pointcloud.get());
-             xyzi)
-    {
-      mrpt::ros2bridge::toROS(*xyzi, msg_header, msg_pts);
-    }
-#endif
     else if (const auto* sPts =
                  dynamic_cast<const mrpt::maps::CSimplePointsMap*>(obs.pointcloud.get());
              sPts)
