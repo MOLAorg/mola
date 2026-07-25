@@ -113,9 +113,9 @@ void test_queries_against_brute_force(bool async)
     // 1) single NN
     {
       mrpt::math::TPoint3Df p;
-      float                 d    = 0;
-      uint64_t              id   = 0;
-      const bool            ok   = map.nn_single_search(q, p, d, id);
+      float                 d  = 0;
+      uint64_t              id = 0;
+      const bool            ok = map.nn_single_search(q, p, d, id);
       mrpt::math::TPoint3Df gt_p;
       float                 gt_d  = 0;
       uint64_t              gt_id = 0;
@@ -232,8 +232,8 @@ void test_bounded_memory_under_churn()
     mola::IncrementalPointCloud rawCopy;
     rawCopy.insertAnotherMap(&map, mrpt::poses::CPose3D::Identity());
 
-    std::cout << "[churn] raw insertAnotherMap copy=" << rawCopy.size()
-              << " (live was " << map.livePointCount() << ")\n";
+    std::cout << "[churn] raw insertAnotherMap copy=" << rawCopy.size() << " (live was "
+              << map.livePointCount() << ")\n";
 
     ASSERT_GE_(rawCopy.size(), map.livePointCount());
     // Anything much beyond the live set would be stale geometry showing up in
@@ -353,8 +353,7 @@ void test_cov2cov()
     float z = 0;
     surface->getPointFast(i, x, y, z);
     const auto pl = localPoseInv.composePoint(mrpt::math::TPoint3D(x, y, z));
-    local.insertPoint(
-        static_cast<float>(pl.x), static_cast<float>(pl.y), static_cast<float>(pl.z));
+    local.insertPoint(static_cast<float>(pl.x), static_cast<float>(pl.y), static_cast<float>(pl.z));
   }
 
   ASSERT_EQUAL_(global.point_count(), surface->size());

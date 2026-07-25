@@ -37,8 +37,7 @@ namespace mola::internal
 {
 IncrementalKDTree::~IncrementalKDTree() = default;
 
-std::unique_ptr<IncrementalKDTree> IncrementalKDTree::Create(
-    [[maybe_unused]] const Params& p)
+std::unique_ptr<IncrementalKDTree> IncrementalKDTree::Create([[maybe_unused]] const Params& p)
 {
   throw std::runtime_error(
       "mola::IncrementalPointCloud is not available in this build: it requires "

@@ -447,9 +447,8 @@ bool IncrementalPointCloud::internal_insertObservation(
         "[IncrementalPointCloud] insert_ms=%.1f live=%zu storage=%zu free_slots=%zu "
         "bbox=[%.1f %.1f %.1f]-[%.1f %.1f %.1f]\n",
         ms, index_->size(), m_x.size(), free_slots_.size(), static_cast<double>(bb.min.x),
-        static_cast<double>(bb.min.y), static_cast<double>(bb.min.z),
-        static_cast<double>(bb.max.x), static_cast<double>(bb.max.y),
-        static_cast<double>(bb.max.z));
+        static_cast<double>(bb.min.y), static_cast<double>(bb.min.z), static_cast<double>(bb.max.x),
+        static_cast<double>(bb.max.y), static_cast<double>(bb.max.z));
   }
 
   return ok;
@@ -505,7 +504,7 @@ void IncrementalPointCloud::compact()
     // Copies points and all per-point fields back onto ourselves, dropping the
     // tombstoned slots on the way (it clears us first, which already resets
     // the index):
-    const auto live = liveCompactedCopy();
+    const auto  live = liveCompactedCopy();
     CPointsMap::operator=(*live);
   }
 

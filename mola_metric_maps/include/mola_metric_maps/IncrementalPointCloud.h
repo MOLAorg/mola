@@ -30,8 +30,8 @@
  */
 
 #include <mola_metric_maps/OptionsCapable.h>
-#include <mrpt/config/CLoadableOptions.h>
 #include <mp2p_icp/NearestPointWithCovCapable.h>
+#include <mrpt/config/CLoadableOptions.h>
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/CMatrixFixed.h>
@@ -201,8 +201,8 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    */
   void nn_search_cov2cov(
       const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
-      const float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings)
-      const override;
+      const float                        max_search_distance,
+      mp2p_icp::MatchedPointWithCovList& outPairings) const override;
 
   [[nodiscard]] std::size_t point_count() const override;
 
@@ -292,8 +292,8 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
   // mola::OptionsCapable interface:
   [[nodiscard]] std::map<std::string, mrpt::config::CLoadableOptions*> optionsByName() override;
-  bool                                                                trySetCreationOptions(
-                                                                     const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;
+  bool                                                                 trySetCreationOptions(
+                                                                      const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;
 
  public:
   // Interface for use within a mrpt::maps::CMultiMetricMap:

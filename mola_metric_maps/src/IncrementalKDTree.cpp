@@ -184,7 +184,8 @@ class IncrementalKDTreeImpl : public mola::internal::IncrementalKDTree
     return index_->rknnSearch(query, k, outIndices, outDistsSqr, maxDistSqr);
   }
 
-  void radiusSearch(const float query[3], float radiusSqr, std::vector<Neighbor>& out) const override
+  void radiusSearch(
+      const float query[3], float radiusSqr, std::vector<Neighbor>& out) const override
   {
     std::vector<mola_nanoflann::ResultItem<uint32_t, float>> matches;
     index_->radiusSearch(query, radiusSqr, matches);

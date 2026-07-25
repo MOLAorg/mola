@@ -88,9 +88,9 @@ class IncrementalKDTree
   /// Drops the whole tree (and any pending background rebuild).
   virtual void clear() = 0;
 
-  virtual void addPoint(uint32_t index)                          = 0;
+  virtual void addPoint(uint32_t index)                           = 0;
   virtual void addPoints(uint32_t firstIndex, uint32_t lastIndex) = 0;
-  virtual void removePoint(uint32_t index)                       = 0;
+  virtual void removePoint(uint32_t index)                        = 0;
 
   /** Removes every point outside the given axis-aligned box: the sliding
    *  window map-trimming primitive.
