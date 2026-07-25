@@ -23,6 +23,7 @@
  */
 
 #include <mola_metric_maps/HashedVoxelPointCloud.h>
+#include <mola_metric_maps/IncrementalPointCloud.h>
 #include <mola_metric_maps/KeyframePointCloudMap.h>
 #include <mola_metric_maps/NDT.h>
 #include <mola_metric_maps/OccGrid.h>
@@ -39,6 +40,9 @@ MRPT_INITIALIZER(do_register_mola_metric_maps)  // NOLINT(misc-use-anonymous-nam
 
   // and register RTTI info:
   registerClass(CLASS_ID(mola::HashedVoxelPointCloud));
+#if defined(MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD)
+  registerClass(CLASS_ID(mola::IncrementalPointCloud));
+#endif
   registerClass(CLASS_ID(mola::KeyframePointCloudMap));
   registerClass(CLASS_ID(mola::NDT));
   registerClass(CLASS_ID(mola::OccGrid));
