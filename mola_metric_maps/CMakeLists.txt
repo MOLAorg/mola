@@ -31,6 +31,28 @@ if(TBB_FOUND)
   option(MOLA_METRIC_MAPS_USE_TBB "If found TBB, this option controls whether to use it or not" ON)
 endif()
 
+# mola::IncrementalPointCloud needs nanoflann's incremental (self-balancing)
+# k-d tree index, added in nanoflann 1.10.0. On ROS distributions shipping an
+# older nanoflann the build still succeeds: the class is compiled and registered
+# as usual, but its k-d tree factory is replaced by a stub that throws an
+# explanatory error if anything actually tries to instantiate the map.
+find_package(nanoflann QUIET)
+if(nanoflann_FOUND AND nanoflann_VERSION VERSION_GREATER_EQUAL 1.10)
+  set(MOLA_HAS_INCREMENTAL_POINT_CLOUD ON)
+  message(STATUS "mola_metric_maps: nanoflann ${nanoflann_VERSION} found, building mola::IncrementalPointCloud")
+else()
+  set(MOLA_HAS_INCREMENTAL_POINT_CLOUD OFF)
+  if(nanoflann_FOUND)
+    set(MOLA_NANOFLANN_FOUND_VERSION "${nanoflann_VERSION}")
+  else()
+    set(MOLA_NANOFLANN_FOUND_VERSION "not found")
+  endif()
+  message(WARNING
+    "mola_metric_maps: nanoflann >=1.10 is required by mola::IncrementalPointCloud, "
+    "but the available version is '${MOLA_NANOFLANN_FOUND_VERSION}'. The class will be "
+    "built as a stub that throws at runtime; everything else is unaffected.")
+endif()
+
 
 # 3rdparty deps:
 add_subdirectory(3rdparty)
@@ -60,6 +82,17 @@ set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/SparseVoxelPointCloud.h
 )
 
+# The map class is always built; only the k-d tree backend is conditional (see
+# the nanoflann version check above).
+list(APPEND LIB_SRCS src/IncrementalPointCloud.cpp)
+list(APPEND LIB_PUBLIC_HDRS include/mola_metric_maps/IncrementalPointCloud.h)
+
+if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
+  list(APPEND LIB_SRCS src/IncrementalKDTree.cpp)
+else()
+  list(APPEND LIB_SRCS src/IncrementalKDTree_stub.cpp)
+endif()
+
 mola_add_library(
   TARGET ${PROJECT_NAME}
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
@@ -78,6 +111,38 @@ mola_add_library(
 if (TBB_FOUND AND MOLA_METRIC_MAPS_USE_TBB)
   target_compile_definitions(${PROJECT_NAME} PRIVATE MOLA_METRIC_MAPS_USE_TBB)
   target_link_libraries(${PROJECT_NAME} PRIVATE TBB::tbb)
+endif()
+
+if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
+  target_compile_definitions(${PROJECT_NAME}
+    PUBLIC MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD)
+
+  # nanoflann is deliberately NOT linked as a target, and its header is NOT
+  # reached through the include path at all: src/IncrementalKDTree.cpp includes
+  # it by ABSOLUTE path via the macro below.
+  #
+  # The reason is that MRPT ships (and its binaries are built against) its own,
+  # usually older, bundled copy of the very same "nanoflann.hpp", exported as an
+  # -isystem directory. Adding the right directory as "-I" does not help: when a
+  # directory appears both as -I and as -isystem, GCC drops the -I entry and
+  # keeps the system one, so MRPT's copy would still win. An absolute path
+  # removes the ambiguity entirely, and keeps the header out of every other
+  # translation unit of this library.
+  get_target_property(MOLA_NANOFLANN_INCLUDE_DIRS nanoflann::nanoflann INTERFACE_INCLUDE_DIRECTORIES)
+  find_file(MOLA_NANOFLANN_HEADER nanoflann.hpp
+    PATHS ${MOLA_NANOFLANN_INCLUDE_DIRS}
+    NO_DEFAULT_PATH
+  )
+  if(NOT MOLA_NANOFLANN_HEADER)
+    message(FATAL_ERROR "nanoflann >=1.10 was found, but its nanoflann.hpp could not be located in '${MOLA_NANOFLANN_INCLUDE_DIRS}'")
+  endif()
+
+  set_source_files_properties(src/IncrementalKDTree.cpp
+    PROPERTIES COMPILE_DEFINITIONS "MOLA_NANOFLANN_HEADER=\"${MOLA_NANOFLANN_HEADER}\"")
+else()
+  # So the stub can name the version actually found in its error message:
+  set_source_files_properties(src/IncrementalKDTree_stub.cpp
+    PROPERTIES COMPILE_DEFINITIONS "MOLA_NANOFLANN_FOUND_VERSION=\"${MOLA_NANOFLANN_FOUND_VERSION}\"")
 endif()
 
 # -----------------------

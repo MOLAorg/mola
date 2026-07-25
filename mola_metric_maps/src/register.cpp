@@ -23,6 +23,7 @@
  */
 
 #include <mola_metric_maps/HashedVoxelPointCloud.h>
+#include <mola_metric_maps/IncrementalPointCloud.h>
 #include <mola_metric_maps/KeyframePointCloudMap.h>
 #include <mola_metric_maps/NDT.h>
 #include <mola_metric_maps/OccGrid.h>
@@ -39,6 +40,9 @@ MRPT_INITIALIZER(do_register_mola_metric_maps)  // NOLINT(misc-use-anonymous-nam
 
   // and register RTTI info:
   registerClass(CLASS_ID(mola::HashedVoxelPointCloud));
+  // Registered even when built without a suitable nanoflann: instantiating it
+  // then throws an explanatory error, which beats "no such registered class".
+  registerClass(CLASS_ID(mola::IncrementalPointCloud));
   registerClass(CLASS_ID(mola::KeyframePointCloudMap));
   registerClass(CLASS_ID(mola::NDT));
   registerClass(CLASS_ID(mola::OccGrid));

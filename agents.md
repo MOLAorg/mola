@@ -142,6 +142,58 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - `SparseVoxelPointCloud`
 - `NDTMap` (Normal Distribution Transform)
 - `KeyframeMap`
+- `IncrementalPointCloud` (new 2026): sliding-window LIO local map derived from
+  `mrpt::maps::CGenericPointsMap`, backed by **one** incremental self-balancing
+  nanoflann k-d tree (`KDTreeSingleIndexIncrementalAdaptor`, or the `…MT`
+  variant with background rebuilds) instead of rebuilding a static tree on every
+  scan. Insertion goes through the inherited `CPointsMap` entry points (the
+  index picks up appended points lazily); `creationOptions.remove_points_farther_than`
+  trims a cube around the robot on each `insertObservation()`, and the slots
+  freed by the index are recycled, keeping storage bounded under churn.
+  `remove_points_farther_than` is a **cube half-side** (Chebyshev distance, as in
+  `HashedVoxelPointCloud::remove_voxels_farther_than`), NOT a radius on keyframe
+  centres like KFM's `remove_frames_farther_than`: every point inside it is kept
+  in a single tree and rendered, so it needs a far tighter budget than KFM's
+  equivalent -- around the sensor range, not several times it.
+  `async_rebuild` (the `…MT` index) moves the balancing rebuilds off the mapping
+  thread and is what keeps insertion latency flat -- on Oxford Spires it takes
+  local-map insertion from mean 28 ms / max 371 ms to mean 10 ms / max 38 ms with
+  no spike over 100 ms -- so `lidar3d-gicp.yaml` enables it by default. Its
+  worker reads the inherited coordinate buffers, so those must not be
+  reallocated while it runs: `reserve()`/`resize()`/`setSize()` are overridden to
+  wait for it first (which covers `insertObservation()`/`insertAnotherMap()`),
+  and insertion keeps spare capacity for one batch so a raw `insertPointFast()`
+  loop cannot realloc either. Don't add a growth path that bypasses those.
+  Reclaimed-but-not-yet-reused slots are blanked to NaN so that generic
+  `CPointsMap` walkers (notably `insertAnotherMap()`, used by
+  `LidarOdometry_Publish.cpp` to copy layers out for visualization) cannot
+  resurrect evicted geometry. The storage array itself never shrinks on its own:
+  it settles at its high-water mark and slots are recycled; `compact()` releases
+  it on demand.
+  Implements `mp2p_icp::NearestPointWithCovCapable` with lazily computed,
+  cached, plane-regularized per-point covariances (the "option A" of the plan;
+  voxel/NDT-style and dirty-propagation covariances remain future work). Not for
+  loop closure (a global SE(3) re-map would force a full rebuild) -- use
+  `KeyframePointCloudMap` there. Caveats: point removal is lazy, so the
+  inherited `size()` counts live + not-yet-reclaimed slots (use
+  `livePointCount()`, or `compact()` to drop them); `nn_*` indices are storage
+  slots; 2D `nn_*` queries throw.
+  Requires nanoflann >= 1.10.0. On distributions shipping an older one the build
+  still succeeds, with a CMake warning: the class is compiled and registered as
+  usual, but `src/IncrementalKDTree_stub.cpp` replaces the k-d tree factory with
+  one that throws an explanatory `std::runtime_error` naming the version found,
+  so a YAML asking for the class fails with that instead of MRPT's generic "no
+  such registered CMetricMap class". `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD`
+  is defined (PUBLIC) only when the feature is functional; the header is always
+  usable either way.
+  **nanoflann is included by `src/IncrementalKDTree.cpp` alone, by absolute path
+  (`MOLA_NANOFLANN_HEADER`, set by CMake) and with its namespace renamed**,
+  because MRPT bundles its own, usually older, copy of the same header and
+  mixing both would be an ODR violation (their pooled allocators differ while
+  sharing mangled names). An `-I` cannot select ours: MRPT exports its copy's
+  directory as `-isystem`, and a directory listed both ways is deduplicated by
+  GCC in favor of the system entry. Keep that file free of MRPT headers, and
+  keep nanoflann out of the public headers.
 - All support MRPT serialization
 - `mola::OptionsCapable` (`include/mola_metric_maps/OptionsCapable.h`): mixin interface
   implemented by `NDT`, `HashedVoxelPointCloud`, `SparseVoxelPointCloud`, `SparseTreesPointCloud`,
@@ -306,6 +358,7 @@ so it keeps `::getenv` by design.
 |----------|------|---------|----------|---------|
 | `MOLA_MODULES_LIB_PATH` | path list | (unset) | `mola_launcher/src/MolaLauncherApp.cpp` | Extra directories to search for module shared libraries |
 | `MOLA_MODULES_SHARED_PATH` | path list | (unset) | `mola_launcher/src/MolaLauncherApp.cpp` | Extra directories to search for module shared (data) files |
+| `MOLA_INCREMENTAL_MAP_DEBUG_STATS` | bool | false | `mola_metric_maps/src/IncrementalPointCloud.cpp` | Trace live/storage/free-slot counts and the map bbox on every insertion |
 | `MOLA_KEYFRAME_MAP_PROFILE_COV` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Print profiling stats for per-KF covariance computation |
 | `MOLA_KEYFRAME_MAP_DEBUG_ACTIVE_KFS` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Trace which keyframes are in the active ICP set |
 | `MOLA_KEYFRAME_MAP_DEBUG_DUMP_KFS_ON_LOAD` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Dump per-keyframe debug info right after loading a `.mm` map |
