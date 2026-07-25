@@ -16,7 +16,7 @@ registration library.
 | `mola::HashedVoxelPointCloud` | `HashedVoxelPointCloud.h` | Flat sparse hash map of cubic voxels. Up to 32 points per voxel stored without heap allocation (fixed array SSO). Backend: `tsl::robin_map`. Implements `NearestNeighborsCapable`. |
 | `mola::SparseVoxelPointCloud` | `SparseVoxelPointCloud.h` | Two-level voxel map: sparse outer blocks + 32³ inner `FixedDenseGrid3D`. Tracks per-voxel point means; supports voxel-mean ICP matching. Implements `NearestNeighborsCapable`. The primary workhorse map in MOLA LO/SLAM. |
 | `mola::NDT` | `NDT.h` | Normal Distributions Transform map (Magnusson 2007). Fits a Gaussian per voxel; planar voxels expose `NearestPlaneCapable`, non-planar ones expose `NearestNeighborsCapable`. Enables automatic point-to-point vs. point-to-plane pairing selection. |
-| `mola::KeyframePointCloudMap` | `KeyframePointCloudMap.h` | Keyframe-based map: each keyframe holds a local point cloud plus a SE(3) pose. Supports map corrections without re-inserting points (just update poses). Implements `IcpPrepareCapable`, `NearestPointWithCovCapable`, `MetricMapMergeCapable`, and `KeyframeMapCapable`. |
+| `mola::KeyframePointCloudMap` | `KeyframePointCloudMap.h` | Keyframe-based map: each keyframe holds a local point cloud plus a SE(3) pose. Supports map corrections without re-inserting points (just update poses). Implements `IcpPrepareCapable`, `NearestPointWithCovCapable`, and `MetricMapMergeCapable`. |
 
 ### Experimental / work-in-progress maps
 

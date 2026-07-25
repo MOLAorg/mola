@@ -108,8 +108,6 @@ All plugin modules derive from these virtual base classes:
   the nanogui `MolaViz` backend.
 - `Relocalization` — global localization / loop closure
 - `OfflineDatasetSource` — offline dataset handling
-- `KeyframeMapCapable` — mixin for keyframe-based metric maps needing per-KF
-  pose plumbing (e.g. LIO's online gravity-tilt correction)
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
   `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
   `requestInsertKeyframe()`, decoupled from their own local map/odometry
