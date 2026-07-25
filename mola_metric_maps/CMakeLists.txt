@@ -32,15 +32,25 @@ if(TBB_FOUND)
 endif()
 
 # mola::IncrementalPointCloud needs nanoflann's incremental (self-balancing)
-# k-d tree index, added in nanoflann 1.10.0. Older versions are still fine for
-# everything else in this library, the class is just not built.
-find_package(nanoflann 1.10 QUIET)
-if(nanoflann_FOUND)
+# k-d tree index, added in nanoflann 1.10.0. On ROS distributions shipping an
+# older nanoflann the build still succeeds: the class is compiled and registered
+# as usual, but its k-d tree factory is replaced by a stub that throws an
+# explanatory error if anything actually tries to instantiate the map.
+find_package(nanoflann QUIET)
+if(nanoflann_FOUND AND nanoflann_VERSION VERSION_GREATER_EQUAL 1.10)
   set(MOLA_HAS_INCREMENTAL_POINT_CLOUD ON)
   message(STATUS "mola_metric_maps: nanoflann ${nanoflann_VERSION} found, building mola::IncrementalPointCloud")
 else()
   set(MOLA_HAS_INCREMENTAL_POINT_CLOUD OFF)
-  message(STATUS "mola_metric_maps: nanoflann >=1.10 not found, skipping mola::IncrementalPointCloud")
+  if(nanoflann_FOUND)
+    set(MOLA_NANOFLANN_FOUND_VERSION "${nanoflann_VERSION}")
+  else()
+    set(MOLA_NANOFLANN_FOUND_VERSION "not found")
+  endif()
+  message(WARNING
+    "mola_metric_maps: nanoflann >=1.10 is required by mola::IncrementalPointCloud, "
+    "but the available version is '${MOLA_NANOFLANN_FOUND_VERSION}'. The class will be "
+    "built as a stub that throws at runtime; everything else is unaffected.")
 endif()
 
 
@@ -72,14 +82,15 @@ set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/SparseVoxelPointCloud.h
 )
 
+# The map class is always built; only the k-d tree backend is conditional (see
+# the nanoflann version check above).
+list(APPEND LIB_SRCS src/IncrementalPointCloud.cpp)
+list(APPEND LIB_PUBLIC_HDRS include/mola_metric_maps/IncrementalPointCloud.h)
+
 if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
-  list(APPEND LIB_SRCS
-    src/IncrementalKDTree.cpp
-    src/IncrementalPointCloud.cpp
-  )
-  list(APPEND LIB_PUBLIC_HDRS
-    include/mola_metric_maps/IncrementalPointCloud.h
-  )
+  list(APPEND LIB_SRCS src/IncrementalKDTree.cpp)
+else()
+  list(APPEND LIB_SRCS src/IncrementalKDTree_stub.cpp)
 endif()
 
 mola_add_library(
@@ -128,6 +139,10 @@ if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
 
   set_source_files_properties(src/IncrementalKDTree.cpp
     PROPERTIES COMPILE_DEFINITIONS "MOLA_NANOFLANN_HEADER=\"${MOLA_NANOFLANN_HEADER}\"")
+else()
+  # So the stub can name the version actually found in its error message:
+  set_source_files_properties(src/IncrementalKDTree_stub.cpp
+    PROPERTIES COMPILE_DEFINITIONS "MOLA_NANOFLANN_FOUND_VERSION=\"${MOLA_NANOFLANN_FOUND_VERSION}\"")
 endif()
 
 # -----------------------

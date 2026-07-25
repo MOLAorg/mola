@@ -178,8 +178,14 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   inherited `size()` counts live + not-yet-reclaimed slots (use
   `livePointCount()`, or `compact()` to drop them); `nn_*` indices are storage
   slots; 2D `nn_*` queries throw.
-  Gated by the CMake-set `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD`
-  (requires nanoflann >= 1.10.0; the class is simply not built otherwise).
+  Requires nanoflann >= 1.10.0. On distributions shipping an older one the build
+  still succeeds, with a CMake warning: the class is compiled and registered as
+  usual, but `src/IncrementalKDTree_stub.cpp` replaces the k-d tree factory with
+  one that throws an explanatory `std::runtime_error` naming the version found,
+  so a YAML asking for the class fails with that instead of MRPT's generic "no
+  such registered CMetricMap class". `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD`
+  is defined (PUBLIC) only when the feature is functional; the header is always
+  usable either way.
   **nanoflann is included by `src/IncrementalKDTree.cpp` alone, by absolute path
   (`MOLA_NANOFLANN_HEADER`, set by CMake) and with its namespace renamed**,
   because MRPT bundles its own, usually older, copy of the same header and

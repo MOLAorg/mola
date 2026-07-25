@@ -40,9 +40,9 @@ MRPT_INITIALIZER(do_register_mola_metric_maps)  // NOLINT(misc-use-anonymous-nam
 
   // and register RTTI info:
   registerClass(CLASS_ID(mola::HashedVoxelPointCloud));
-#if defined(MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD)
+  // Registered even when built without a suitable nanoflann: instantiating it
+  // then throws an explanatory error, which beats "no such registered class".
   registerClass(CLASS_ID(mola::IncrementalPointCloud));
-#endif
   registerClass(CLASS_ID(mola::KeyframePointCloudMap));
   registerClass(CLASS_ID(mola::NDT));
   registerClass(CLASS_ID(mola::OccGrid));

@@ -20,11 +20,14 @@
 
 /** \def MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD
  *  Defined by the build system when nanoflann >= 1.10.0 (the version that
- *  introduced the incremental k-d tree index) was available, which is what
- *  mola::IncrementalPointCloud is built upon. Everything below is compiled out
- *  otherwise.
+ *  introduced the incremental k-d tree index) was available, i.e. when
+ *  mola::IncrementalPointCloud is actually functional.
+ *
+ *  The class is declared, compiled and registered in the class factory either
+ *  way, so this header is always usable; without a suitable nanoflann,
+ *  *constructing* the map throws an explanatory std::runtime_error instead of
+ *  failing earlier with a confusing "no such registered CMetricMap class".
  */
-#if defined(MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD)
 
 #include <mola_metric_maps/OptionsCapable.h>
 #include <mrpt/config/CLoadableOptions.h>
@@ -371,5 +374,3 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 };
 
 }  // namespace mola
-
-#endif  // MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD
