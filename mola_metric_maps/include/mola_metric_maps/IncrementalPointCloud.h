@@ -221,9 +221,11 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    *  `likelihoodOptions` and `renderOptions` groups inherited from
    *  `mrpt::maps::CPointsMap` apply as usual.
    *
-   *  Changing any of the k-d tree parameters (`async_rebuild`, `alpha_*`)
-   *  requires an empty map; `trySetCreationOptions()` returns false instead of
-   *  silently discarding points.
+   *  Changing any of the k-d tree parameters (`async_rebuild`, `alpha_*`,
+   *  `reserve_points`) on an already-populated map is fine:
+   *  `trySetCreationOptions()` compacts and rebuilds the index with the new
+   *  values, so no point is lost, but the point indices previously returned by
+   *  the `nn_*` methods are invalidated. \sa compact()
    */
   struct TCreationOptions : public mrpt::config::CLoadableOptions
   {
