@@ -690,10 +690,10 @@ void test_view_filter_heading_sweep_pairing_accepted()
   }
 }
 
-// ── 19. Per-KF pose plumbing for online gravity rebake ────────────────────
+// ── 19. Per-KF pose plumbing ──────────────────────────────────────────────
 //
-// Covers the additions used by mola_lidar_odometry's TrajectoryRebaker:
-//   - cloneKFPoses
+// Covers:
+//   - keyframePoses
 //   - setKeyframePose (existing id, missing id is a no-op)
 //   - lastInsertedKeyFrameID (none / after insert / after clear)
 //   - drainEvictedKeyFrameIDs (returns then clears)
@@ -712,7 +712,7 @@ void test_kf_pose_plumbing()
   // Fresh map: no last id, next id is 0.
   ASSERT_(!m.lastInsertedKeyFrameID().has_value());
   ASSERT_EQUAL_(m.nextFreeKeyFrameID_public(), KFID{0});
-  ASSERT_(m.cloneKFPoses().empty());
+  ASSERT_(m.keyframePoses().empty());
   ASSERT_(m.drainEvictedKeyFrameIDs().empty());
 
   // Insert 3 KFs at distinct positions.
@@ -732,8 +732,8 @@ void test_kf_pose_plumbing()
     ASSERT_EQUAL_(*m.lastInsertedKeyFrameID(), static_cast<KFID>(i));
   }
 
-  // cloneKFPoses returns a snapshot keyed by id.
-  auto snap = m.cloneKFPoses();
+  // keyframePoses returns a snapshot keyed by id.
+  auto snap = m.keyframePoses();
   ASSERT_EQUAL_(snap.size(), seedPoses.size());
   for (size_t i = 0; i < seedPoses.size(); ++i)
   {
@@ -742,12 +742,12 @@ void test_kf_pose_plumbing()
 
   // Mutating the snapshot does not affect the map.
   snap.at(KFID{0}) = CPose3D::FromXYZYawPitchRoll(99.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg);
-  ASSERT_NEAR_(m.cloneKFPoses().at(KFID{0}).x(), 0.0, 1e-9);
+  ASSERT_NEAR_(m.keyframePoses().at(KFID{0}).x(), 0.0, 1e-9);
 
   // setKeyframePose updates the stored pose.
   const auto newPose1 = CPose3D::FromXYZYawPitchRoll(2.0, 0.0, 1.5, 0.0_deg, 5.0_deg, 0.0_deg);
   m.setKeyframePose(KFID{1}, newPose1);
-  const auto poseAfter = m.cloneKFPoses().at(KFID{1});
+  const auto poseAfter = m.keyframePoses().at(KFID{1});
   ASSERT_NEAR_(poseAfter.x(), newPose1.x(), 1e-9);
   ASSERT_NEAR_(poseAfter.z(), newPose1.z(), 1e-9);
   double y, p, r;
@@ -756,7 +756,7 @@ void test_kf_pose_plumbing()
 
   // setKeyframePose on a missing id is a no-op (does not throw, does not add).
   m.setKeyframePose(KFID{999}, CPose3D::Identity());
-  ASSERT_EQUAL_(m.cloneKFPoses().size(), seedPoses.size());
+  ASSERT_EQUAL_(m.keyframePoses().size(), seedPoses.size());
 
   // No evictions yet.
   ASSERT_(m.drainEvictedKeyFrameIDs().empty());

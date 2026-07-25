@@ -18,7 +18,6 @@
  */
 #pragma once
 
-#include <mola_kernel/interfaces/KeyframeMapCapable.h>
 #include <mola_metric_maps/OptionsCapable.h>
 #include <mp2p_icp/IcpPrepareCapable.h>
 #include <mp2p_icp/MetricMapMergeCapable.h>
@@ -74,7 +73,6 @@ namespace mola
  * - `mp2p_icp::IcpPrepareCapable` — prepare a local submap for ICP.
  * - `mp2p_icp::NearestPointWithCovCapable` — NN with local covariance.
  * - `mp2p_icp::MetricMapMergeCapable` — merge another map into this one.
- * - `mola::KeyframeMapCapable` — keyframe pose management (add, update, query).
  *
  * @note For single-frame global voxel maps, see `mola::SparseVoxelPointCloud`,
  *       `mola::HashedVoxelPointCloud`, or `mola::NDT`.
@@ -84,7 +82,6 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
                               public mp2p_icp::IcpPrepareCapable,
                               public mp2p_icp::NearestPointWithCovCapable,
                               public mp2p_icp::MetricMapMergeCapable,
-                              public mola::KeyframeMapCapable,
                               public mola::OptionsCapable
 {
   DEFINE_SERIALIZABLE(KeyframePointCloudMap, mola)
@@ -110,19 +107,16 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   /** The KF id that will be assigned to the next inserted key-frame. */
   [[nodiscard]] KeyFrameID nextFreeKeyFrameID_public() const;
 
-  /** Snapshot of all key-frame poses, keyed by KF id. Cheap. Thread-safe. */
-  [[nodiscard]] std::map<KeyFrameID, mrpt::poses::CPose3D> cloneKFPoses() const;
+  /** Snapshot of all key-frame poses, keyed by KF id. The returned map is a
+   *  deep copy and is safe to hold across subsequent map mutations.
+   *  Thread-safe.
+   */
+  [[nodiscard]] std::map<KeyFrameID, mrpt::poses::CPose3D> keyframePoses() const;
 
   /** Overwrites the pose of one KF in the map, invalidating its caches.
    *  No-op if `id` is not present. Thread-safe.
    */
-  void setKeyframePose(KeyFrameID id, const mrpt::poses::CPose3D& new_pose) override;
-
-  // mola::KeyframeMapCapable overrides:
-  [[nodiscard]] std::map<KeyFrameID, mrpt::poses::CPose3D> keyframePoses() const override;
-  [[nodiscard]] std::optional<KeyFrameID>                  oldestActiveKeyframeID() const override;
-  void                                                     applyPivotTransform(
-                                                          KeyFrameID pivot_id, const mrpt::poses::CPose3D& delta_at_pivot) override;
+  void setKeyframePose(KeyFrameID id, const mrpt::poses::CPose3D& new_pose);
 
   /** The id of the last key-frame successfully inserted, or nullopt if none
    *  has been inserted since the map was created/cleared.
