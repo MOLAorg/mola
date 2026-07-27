@@ -44,6 +44,7 @@
 #include <atomic>
 #include <nav_msgs/msg/odometry.hpp>
 #include <optional>
+#include <rclcpp/node.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
