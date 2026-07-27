@@ -19,7 +19,6 @@
 
   <depend>mrpt_libobs</depend>
   <depend>mrpt_libmaps</depend>
-  <depend>mrpt_libgui</depend>
 
   <doc_depend>doxygen</doc_depend>
 

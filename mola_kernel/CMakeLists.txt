@@ -18,7 +18,7 @@ find_package(mola_common REQUIRED)
 find_package(mola_yaml REQUIRED)
 
 # find dependencies:
-find_package(MRPT 2.15.0 REQUIRED COMPONENTS gui obs maps topography)
+find_package(MRPT 2.15.0 REQUIRED COMPONENTS obs maps topography)
 
 # define lib:
 set(LIB_SRCS
