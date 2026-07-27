@@ -31,3 +31,4 @@ Testing
 !.vscode/settings.json
 **/.vscode
 .cache
+.claude
