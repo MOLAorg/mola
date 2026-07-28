@@ -79,6 +79,23 @@ using namespace mola;
 
 namespace
 {
+// tf2_ros::TransformListener/TransformBroadcaster/StaticTransformBroadcaster
+// changed their preferred node-argument type across ROS 2 distros: Humble,
+// Jazzy, and Kilted accept a shared_ptr<rclcpp::Node> (dereferenced
+// internally via "->"), while Rolling switched to an aggregated
+// `RequiredInterfaces` object built from an rclcpp::Node& (via "."). The
+// nested `RequiredInterfaces` type alias only exists on the Rolling API, so
+// its presence is used here to pick the right argument form at compile time.
+template <typename, typename = void>
+struct HasRequiredInterfaces : std::false_type
+{
+};
+
+template <typename T>
+struct HasRequiredInterfaces<T, std::void_t<typename T::RequiredInterfaces>> : std::true_type
+{
+};
+
 // Default subscription queue depth for sensor topics. ROS 2's
 // SensorDataQoS defaults to keep_last(5), which is too shallow for
 // high-rate sensors (e.g. 640 Hz IMU) when the executor is under
@@ -270,14 +287,36 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     // /tf_static subscriptions share the same DDS participant, clock, and
     // use_sim_time setting as the bridge.  spin_thread=false: rosNode_ is
     // already spun by the loop below; a second spinner would be redundant.
-    tf_buffer_   = std::make_shared<tf2::BufferCore>();
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, rosNode_, false);
+    tf_buffer_ = std::make_shared<tf2::BufferCore>();
+    if constexpr (HasRequiredInterfaces<tf2_ros::TransformListener>::value)
+    {
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, *rosNode_, false);
+    }
+    else
+    {
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, rosNode_, false);
+    }
 
     // TF broadcaster:
     auto lckTfBc = mrpt::lockHelper(ros_tf_bc_mtx_);
 
-    tf_bc_        = std::make_shared<tf2_ros::TransformBroadcaster>(rosNode_);
-    tf_static_bc_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(rosNode_);
+    if constexpr (HasRequiredInterfaces<tf2_ros::TransformBroadcaster>::value)
+    {
+      tf_bc_ = std::make_shared<tf2_ros::TransformBroadcaster>(*rosNode_);
+    }
+    else
+    {
+      tf_bc_ = std::make_shared<tf2_ros::TransformBroadcaster>(rosNode_);
+    }
+
+    if constexpr (HasRequiredInterfaces<tf2_ros::StaticTransformBroadcaster>::value)
+    {
+      tf_static_bc_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*rosNode_);
+    }
+    else
+    {
+      tf_static_bc_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(rosNode_);
+    }
 
     lckTfBc.unlock();
 

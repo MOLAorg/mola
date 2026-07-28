@@ -249,6 +249,12 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
   // Yaml is NOT a reference on purpose.
   void ros_node_thread_main(Yaml cfg);
 
+  // Declared before the members below that hold a reference to *rosNode_
+  // (TransformListener/TransformBroadcaster take rclcpp::Node&, not a
+  // shared_ptr, see ros_node_thread_main()), so rosNode_ outlives them.
+  std::shared_ptr<rclcpp::Node> rosNode_;
+  std::mutex                    rosNodeMtx_;
+
   // std::shared_ptr<tf2_ros::Buffer>            tf_buffer_;
   std::shared_ptr<tf2::BufferCore>            tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -259,9 +265,6 @@ class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
 
   rclcpp::Clock::SharedPtr ros_clock_;
   std::mutex               ros_clock_mtx_;
-
-  std::shared_ptr<rclcpp::Node> rosNode_;
-  std::mutex                    rosNodeMtx_;
 
   std::atomic<bool> shouldExit_{false};
   std::atomic<bool> isSpinning_{false};
