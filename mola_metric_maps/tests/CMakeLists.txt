@@ -55,5 +55,14 @@ if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
     LINK_LIBRARIES
     mola_metric_maps
   )
+
+  # LiDAR-odometry-like stress test. Meant to be run under a sanitizer or
+  # valgrind too, see tests/README-sanitizers.md
+  mola_add_test(
+    TARGET  test-mola_metric_maps_incrementalpointcloud_stress
+    SOURCES test-mola_metric_maps_incrementalpointcloud-stress.cpp
+    LINK_LIBRARIES
+    mola_metric_maps
+  )
 endif()
 

@@ -357,13 +357,17 @@ void IncrementalPointCloud::harvestRemovedSlots()
 
   for (const uint32_t slot : index_->acquireRemovedPoints())
   {
+    // A slot past the current storage would mean the index and the storage
+    // disagree; recycling it would write out of bounds in relocatePoint(), so
+    // drop it instead (it costs one leaked slot until the next compaction).
+    if (slot >= m_x.size()) continue;
+
     if (slot < cov_valid_.size()) cov_valid_[slot] = 0;
-    if (slot < m_x.size())
-    {
-      m_x[slot] = kNoPoint;
-      m_y[slot] = kNoPoint;
-      m_z[slot] = kNoPoint;
-    }
+
+    m_x[slot] = kNoPoint;
+    m_y[slot] = kNoPoint;
+    m_z[slot] = kNoPoint;
+
     free_slots_.push_back(slot);
   }
 }
@@ -457,6 +461,13 @@ bool IncrementalPointCloud::internal_insertObservation(
 void IncrementalPointCloud::internal_clear()
 {
   auto lck = mrpt::lockHelper(mtx_);
+
+  // A background rebuild reads the coordinate buffers through raw pointers, and
+  // the shrink_to_fit() below frees them. resetIndex() at the end of this method
+  // would join the worker, but only long after the memory is gone.
+  // This is also the path taken by CPointsMap::operator=() (hence by compact()
+  // and by deserialization), which clears before refilling.
+  if (index_) index_->waitForPendingRebuilds();
 
   m_x.clear();
   m_y.clear();

@@ -97,7 +97,16 @@ class IncrementalKDTree;
  * `TCreationOptions::alpha_deleted`.
  *
  * @note Thread-safety: all index access is serialized internally, so a mapping
- *       thread and an ICP thread may use the map concurrently.
+ *       thread and an ICP thread may use the map concurrently through the
+ *       `nn_*` and `insert*` APIs.
+ *       The one exception is the *generic* `mrpt::math::KDTreeCapable` API
+ *       inherited from `CPointsMap` (`kdTreeNClosestPoint3D*()` and friends),
+ *       which builds its own static tree over the raw storage: that tree's
+ *       construction calls back into `boundingBox()`, so it takes MRPT's k-d
+ *       tree mutex and then ours, while insertion takes them the other way
+ *       round. Use those methods only from a single thread, and prefer
+ *       `liveCompactedCopy()` anyway, since the raw storage they see includes
+ *       the tombstoned and blanked slots.
  */
 class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
                               public mp2p_icp::NearestPointWithCovCapable,

@@ -1,0 +1,6 @@
+# oneTBB ships uninstrumented, so ThreadSanitizer cannot see the happens-before
+# edges its task scheduler establishes: every container that parallel_for
+# workers fill and the caller reads afterwards is reported as a race.
+race:tbb::detail
+race:enumerable_thread_specific
+called_from_lib:libtbb.so
