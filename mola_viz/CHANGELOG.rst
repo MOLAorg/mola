@@ -2,6 +2,12 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* feat: ComboBox GUI widget gained an optional fixed_width parameter (both
+  backends).
+* Contributors: Jose Luis Blanco-Claraco
+
 3.0.0 (2026-07-17)
 ------------------
 * Merge branch 'feat/imviz-metric-plots' into develop

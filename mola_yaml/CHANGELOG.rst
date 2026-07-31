@@ -2,6 +2,15 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* feat: new `$define` YAML directive to bind variables for a subtree
+  (including imported files), letting launchers tune shared pipeline
+  settings without duplicating blocks.
+* fix(mola_yaml): an outer file's `$define` now correctly wins over a more
+  deeply imported file's own `$define`.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.0.0 (2026-07-17)
 ------------------
 * docs: list all debug/trace env variables
