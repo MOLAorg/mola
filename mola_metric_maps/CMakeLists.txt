@@ -53,6 +53,17 @@ else()
     "built as a stub that throws at runtime; everything else is unaffected.")
 endif()
 
+# mola::IncrementalPointCloud's k-d tree *baking* (TCreationOptions::serialize_kdtree,
+# the mm-ipc-bake-kdtree CLI tool) additionally needs nanoflann's
+# KDTreeSingleIndexIncrementalAdaptor::saveIndex()/loadIndex(), added in 1.11.0.
+# Without it, everything else in this library works as usual: the option is a
+# no-op on write and a loaded .mm's baked blob (if any) is skipped on read.
+if(MOLA_HAS_INCREMENTAL_POINT_CLOUD AND nanoflann_VERSION VERSION_GREATER_EQUAL 1.11)
+  set(MOLA_HAS_INCREMENTAL_POINT_CLOUD_KDTREE_BAKE ON)
+  message(STATUS "mola_metric_maps: nanoflann ${nanoflann_VERSION} >= 1.11, enabling IncrementalPointCloud k-d tree baking")
+else()
+  set(MOLA_HAS_INCREMENTAL_POINT_CLOUD_KDTREE_BAKE OFF)
+endif()
 
 # 3rdparty deps:
 add_subdirectory(3rdparty)
@@ -116,6 +127,11 @@ endif()
 if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
   target_compile_definitions(${PROJECT_NAME}
     PUBLIC MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD)
+
+  if(MOLA_HAS_INCREMENTAL_POINT_CLOUD_KDTREE_BAKE)
+    target_compile_definitions(${PROJECT_NAME}
+      PUBLIC MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE)
+  endif()
 
   # nanoflann is deliberately NOT linked as a target, and its header is NOT
   # reached through the include path at all: src/IncrementalKDTree.cpp includes

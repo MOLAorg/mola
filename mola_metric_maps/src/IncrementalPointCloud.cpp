@@ -33,6 +33,7 @@
 #include <chrono>
 #include <cmath>
 #include <limits>
+#include <sstream>
 
 #include "IncrementalKDTree.h"
 
@@ -153,10 +154,8 @@ IncrementalPointCloud& IncrementalPointCloud::operator=(const IncrementalPointCl
 // Index maintenance
 // =====================================
 
-void IncrementalPointCloud::resetIndex()
+void IncrementalPointCloud::createEmptyIndex()
 {
-  auto lck = mrpt::lockHelper(mtx_);
-
   internal::IncrementalKDTree::Params p;
   p.async_rebuild = creationOptions.async_rebuild;
   p.alpha_balance = creationOptions.alpha_balance;
@@ -182,7 +181,15 @@ void IncrementalPointCloud::resetIndex()
   }
 
   refreshPointBuffers();
+}
 
+void IncrementalPointCloud::resetIndex()
+{
+  auto lck = mrpt::lockHelper(mtx_);
+
+  createEmptyIndex();
+
+  const std::size_t n = m_x.size();
   if (n != 0)
   {
     index_->addPoints(0, static_cast<uint32_t>(n - 1));
@@ -954,7 +961,7 @@ const mrpt::maps::CSimplePointsMap* IncrementalPointCloud::getAsSimplePointsMap(
 // Serialization
 // =====================================
 
-uint8_t IncrementalPointCloud::serializeGetVersion() const { return 0; }
+uint8_t IncrementalPointCloud::serializeGetVersion() const { return 1; }
 
 void IncrementalPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
 {
@@ -962,21 +969,64 @@ void IncrementalPointCloud::serializeTo(mrpt::serialization::CArchive& out) cons
 
   // Only the live points, compacted, delegating the per-point field encoding
   // to the base class:
-  out << *liveCompactedCopy();
+  const auto compacted = liveCompactedCopy();
+  out << *compacted;
 
   creationOptions.writeToStream(out);
   insertionOptions.writeToStream(out);
   likelihoodOptions.writeToStream(out);
   renderOptions.writeToStream(out);
+
+  // v1: optionally cache the k-d tree index built over the very same
+  // (compacted) point order just written above, so it does not have to be
+  // rebuilt on load. Self-describing (a flag byte precedes any blob), so
+  // readers stay stream-aligned regardless of the write-time option or the
+  // nanoflann version this build was compiled against.
+  uint8_t     hasKdTree = 0;
+  std::string kdBlob;
+#if defined(MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE)
+  if (creationOptions.serialize_kdtree)
+  {
+    // A throwaway index bound to `compacted`'s own buffers: `index_` (the
+    // live one) was built over the possibly-uncompacted storage, whose slot
+    // numbers do not match the renumbered order just serialized.
+    internal::IncrementalKDTree::Params p;
+    p.async_rebuild = false;  // baking is synchronous, one-shot offline work
+    p.alpha_balance = creationOptions.alpha_balance;
+    p.alpha_deleted = creationOptions.alpha_deleted;
+
+    const auto bakeIndex = internal::IncrementalKDTree::Create(p);
+    bakeIndex->setPointBuffers(
+        compacted->getPointsBufferRef_x().data(), compacted->getPointsBufferRef_y().data(),
+        compacted->getPointsBufferRef_z().data(), compacted->size());
+    if (compacted->size() != 0)
+    {
+      bakeIndex->addPoints(0, static_cast<uint32_t>(compacted->size() - 1));
+    }
+
+    std::ostringstream ss(std::ios::binary);
+    bakeIndex->saveIndex(ss);
+    kdBlob    = ss.str();
+    hasKdTree = 1;
+  }
+#endif
+  out.WriteAs<uint8_t>(hasKdTree);
+  if (hasKdTree != 0)
+  {
+    out << kdBlob;
+  }
 }
 
 void IncrementalPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uint8_t version)
 {
   auto lck = mrpt::lockHelper(mtx_);
 
+  bool loadedBakedIndex = false;
+
   switch (version)
   {
     case 0:
+    case 1:
     {
       auto tmp = mrpt::maps::CGenericPointsMap::Create();
       in >> *tmp;
@@ -988,13 +1038,39 @@ void IncrementalPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
       insertionOptions.readFromStream(in);
       likelihoodOptions.readFromStream(in);
       renderOptions.readFromStream(in);
+
+      // v1: optional cached k-d tree index (see serializeTo). Always consume
+      // the flag byte + blob so the stream stays aligned even when this
+      // build cannot install the index.
+      if (version >= 1)
+      {
+        const auto hasKdTree = in.ReadAs<uint8_t>();
+        if (hasKdTree != 0)
+        {
+          std::string kdBlob;
+          in >> kdBlob;
+#if defined(MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE)
+          // Points were just installed above (in the very same, compacted
+          // order the blob was baked over): build an empty index over them
+          // and install the baked topology instead of bulk-rebuilding it.
+          createEmptyIndex();
+          std::istringstream ss(kdBlob, std::ios::binary);
+          index_->loadIndex(ss);
+          indexed_up_to_   = m_x.size();
+          loadedBakedIndex = true;
+#endif
+        }
+      }
     }
     break;
     default:
       MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);
   };
 
-  resetIndex();
+  if (!loadedBakedIndex)
+  {
+    resetIndex();
+  }
 }
 
 // =====================================
@@ -1055,6 +1131,7 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(k_correspondences_for_cov, uint64_t, c, s);
   MRPT_LOAD_CONFIG_VAR(min_correspondences_for_cov, uint64_t, c, s);
   MRPT_LOAD_CONFIG_VAR(max_distance_for_cov, double, c, s);
+  MRPT_LOAD_CONFIG_VAR(serialize_kdtree, bool, c, s);
 }
 
 void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out) const
@@ -1069,16 +1146,18 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(k_correspondences_for_cov, int);
   LOADABLEOPTS_DUMP_VAR(min_correspondences_for_cov, int);
   LOADABLEOPTS_DUMP_VAR(max_distance_for_cov, double);
+  LOADABLEOPTS_DUMP_VAR(serialize_kdtree, bool);
 }
 
 void IncrementalPointCloud::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 0;
+  const int8_t version = 1;
   out << version;
   out << remove_points_farther_than << async_rebuild << alpha_balance << alpha_deleted
       << reserve_points << k_correspondences_for_cov << min_correspondences_for_cov
       << max_distance_for_cov;
+  out << serialize_kdtree;  // v1
 }
 
 void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1088,10 +1167,19 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
   switch (version)
   {
     case 0:
+    case 1:
     {
       in >> remove_points_farther_than >> async_rebuild >> alpha_balance >> alpha_deleted >>
           reserve_points >> k_correspondences_for_cov >> min_correspondences_for_cov >>
           max_distance_for_cov;
+      if (version >= 1)
+      {
+        in >> serialize_kdtree;
+      }
+      else
+      {
+        serialize_kdtree = false;
+      }
     }
     break;
     default:

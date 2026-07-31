@@ -18,12 +18,15 @@
  */
 
 #include <mola_metric_maps/IncrementalPointCloud.h>
+#include <mrpt/io/CFileInputStream.h>
+#include <mrpt/io/CFileOutputStream.h>
 #include <mrpt/io/CMemoryStream.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/random/RandomGenerators.h>
 #include <mrpt/serialization/CArchive.h>
+#include <mrpt/system/filesystem.h>
 
 #include <algorithm>
 #include <cmath>
@@ -384,6 +387,243 @@ void test_cov2cov()
   }
 }
 
+// -------------------------------------------------------------------------
+// Compares NN query results between two maps expected to hold the same set of
+// points (used by the k-d tree baking tests below).
+void assertSameNNResults(
+    const mola::IncrementalPointCloud& a, const mola::IncrementalPointCloud& b, size_t nTrials,
+    double halfRange)
+{
+  ASSERT_EQUAL_(a.livePointCount(), b.livePointCount());
+  for (size_t trial = 0; trial < nTrials; trial++)
+  {
+    const mrpt::math::TPoint3Df q = {
+        static_cast<float>(rng.drawUniform(-halfRange, halfRange)),
+        static_cast<float>(rng.drawUniform(-halfRange, halfRange)),
+        static_cast<float>(rng.drawUniform(-halfRange, halfRange))};
+
+    mrpt::math::TPoint3Df pa;
+    mrpt::math::TPoint3Df pb;
+    float                 da  = 0;
+    float                 db  = 0;
+    uint64_t              ia  = 0;
+    uint64_t              ib  = 0;
+    const bool            oka = a.nn_single_search(q, pa, da, ia);
+    const bool            okb = b.nn_single_search(q, pb, db, ib);
+    ASSERT_EQUAL_(oka, okb);
+    if (!oka) continue;
+    ASSERT_NEAR_(da, db, 1e-4f);
+    ASSERT_NEAR_(pa.x, pb.x, 1e-4f);
+    ASSERT_NEAR_(pa.y, pb.y, 1e-4f);
+    ASSERT_NEAR_(pa.z, pb.z, 1e-4f);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Baking the k-d tree (creationOptions.serialize_kdtree=true) must produce a
+// map that, once (de)serialized through memory, answers NN queries exactly
+// like a map serialized without baking. This must hold whether or not this
+// build was compiled against a nanoflann providing the incremental index's
+// saveIndex()/loadIndex() (MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE): the
+// option is a documented no-op when unavailable, not a correctness hazard.
+void test_kdtree_bake_roundtrip_memory()
+{
+  mola::IncrementalPointCloud map;
+  map.creationOptions.serialize_kdtree = true;
+
+  insertPoints(map, *randomCloud(4000, {0, 0, 0}, 15.0));
+  map.keepOnlyPointsNear({0, 0, 0}, 9.0);  // introduce tombstones before baking
+  ASSERT_(map.livePointCount() > 0);
+  ASSERT_(map.livePointCount() < 4000);
+
+  mrpt::io::CMemoryStream buf;
+  auto                    arch = mrpt::serialization::archiveFrom(buf);
+  arch << map;
+
+  buf.Seek(0);
+  mola::IncrementalPointCloud loaded;
+  arch >> loaded;
+
+  ASSERT_EQUAL_(loaded.livePointCount(), map.livePointCount());
+  ASSERT_EQUAL_(loaded.size(), loaded.livePointCount());  // deserialized: always compacted
+  ASSERT_(loaded.creationOptions.serialize_kdtree);
+
+  assertSameNNResults(map, loaded, 200, 15.0);
+}
+
+// -------------------------------------------------------------------------
+// Same as above, but through a real temporary file on disk (as the
+// mm-ipc-bake-kdtree CLI tool does), and with the k-d tree parameters
+// intentionally different between the baking map and the loaded one
+// (async_rebuild toggled): a baked index must be usable under either live
+// k-d tree configuration.
+void test_kdtree_bake_roundtrip_file()
+{
+  mola::IncrementalPointCloud map;
+  map.creationOptions.serialize_kdtree = true;
+  map.creationOptions.async_rebuild    = false;
+
+  insertPoints(map, *randomCloud(3000, {2, -1, 0}, 12.0));
+
+  const std::string tmpFile = mrpt::system::getTempFileName();
+  {
+    mrpt::io::CFileOutputStream fo(tmpFile);
+    auto                        arch = mrpt::serialization::archiveFrom(fo);
+    arch << map;
+  }
+
+  mola::IncrementalPointCloud loaded;
+  loaded.creationOptions.async_rebuild = true;  // deliberately different from `map`
+  {
+    mrpt::io::CFileInputStream fi(tmpFile);
+    auto                       arch = mrpt::serialization::archiveFrom(fi);
+    arch >> loaded;
+  }
+  mrpt::system::deleteFile(tmpFile);
+
+  ASSERT_EQUAL_(loaded.livePointCount(), map.livePointCount());
+  assertSameNNResults(map, loaded, 200, 12.0);
+}
+
+// -------------------------------------------------------------------------
+// A map loaded from a baked file must behave like any other map afterwards:
+// clear() must reset it to empty and usable, and new insertions must be
+// correctly reflected by subsequent queries (the k-d tree must not be left
+// frozen in the state it was baked in).
+void test_kdtree_bake_then_clear_and_reinsert()
+{
+  mola::IncrementalPointCloud map;
+  map.creationOptions.serialize_kdtree = true;
+  insertPoints(map, *randomCloud(1500, {0, 0, 0}, 10.0));
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto arch = mrpt::serialization::archiveFrom(buf);
+    arch << map;
+  }
+  buf.Seek(0);
+  mola::IncrementalPointCloud loaded;
+  {
+    auto arch = mrpt::serialization::archiveFrom(buf);
+    arch >> loaded;
+  }
+  ASSERT_(loaded.livePointCount() > 0);
+
+  // Clearing a just-loaded (possibly baked-index) map must leave it empty and
+  // in a state where the index can be rebuilt from scratch:
+  loaded.clear();
+  ASSERT_(loaded.isEmpty());
+  ASSERT_EQUAL_(loaded.livePointCount(), 0UL);
+  {
+    mrpt::math::TPoint3Df p;
+    float                 d  = 0;
+    uint64_t              id = 0;
+    ASSERT_(!loaded.nn_single_search({0, 0, 0}, p, d, id));
+  }
+
+  // Re-populating it afterwards must work exactly like a fresh map:
+  insertPoints(loaded, *randomCloud(1200, {3, 3, 3}, 8.0));
+  const auto ref = bruteForceReference(loaded);
+  ASSERT_EQUAL_(loaded.livePointCount(), ref->size());
+
+  for (size_t trial = 0; trial < 100; trial++)
+  {
+    const mrpt::math::TPoint3Df q = {
+        static_cast<float>(rng.drawUniform(-5.0, 11.0)),
+        static_cast<float>(rng.drawUniform(-5.0, 11.0)),
+        static_cast<float>(rng.drawUniform(-5.0, 11.0))};
+    mrpt::math::TPoint3Df p;
+    mrpt::math::TPoint3Df gt_p;
+    float                 d     = 0;
+    float                 gt_d  = 0;
+    uint64_t              id    = 0;
+    uint64_t              gt_id = 0;
+    const bool            ok    = loaded.nn_single_search(q, p, d, id);
+    const bool            gt_ok = ref->nn_single_search(q, gt_p, gt_d, gt_id);
+    ASSERT_EQUAL_(ok, gt_ok);
+    if (ok) ASSERT_NEAR_(d, gt_d, 1e-4f);
+  }
+}
+
+// -------------------------------------------------------------------------
+// A map loaded from a baked file must also correctly absorb further
+// modifications (insertions AND a box trim), not just fresh re-insertion
+// after clear(): the loaded index must be a fully-functional, live index.
+void test_kdtree_bake_then_modify()
+{
+  mola::IncrementalPointCloud map;
+  map.creationOptions.serialize_kdtree = true;
+  insertPoints(map, *randomCloud(2500, {0, 0, 0}, 12.0));
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto arch = mrpt::serialization::archiveFrom(buf);
+    arch << map;
+  }
+  buf.Seek(0);
+  mola::IncrementalPointCloud loaded;
+  {
+    auto arch = mrpt::serialization::archiveFrom(buf);
+    arch >> loaded;
+  }
+  const size_t nBaked = loaded.livePointCount();
+  ASSERT_(nBaked > 0);
+
+  // Insert more points on top of the baked index:
+  insertPoints(loaded, *randomCloud(800, {6, 6, 0}, 5.0));
+  ASSERT_EQUAL_(loaded.livePointCount(), nBaked + 800);
+
+  // ... and trim a region, exercising removal on a baked-then-grown index:
+  loaded.keepOnlyPointsNear({0, 0, 0}, 7.0);
+  ASSERT_(loaded.livePointCount() > 0);
+  ASSERT_(loaded.livePointCount() < nBaked + 800);
+
+  const auto ref = bruteForceReference(loaded);
+  ASSERT_EQUAL_(loaded.livePointCount(), ref->size());
+
+  for (size_t trial = 0; trial < 150; trial++)
+  {
+    const mrpt::math::TPoint3Df q = {
+        static_cast<float>(rng.drawUniform(-10.0, 10.0)),
+        static_cast<float>(rng.drawUniform(-10.0, 10.0)),
+        static_cast<float>(rng.drawUniform(-10.0, 10.0))};
+    mrpt::math::TPoint3Df p;
+    mrpt::math::TPoint3Df gt_p;
+    float                 d     = 0;
+    float                 gt_d  = 0;
+    uint64_t              id    = 0;
+    uint64_t              gt_id = 0;
+    const bool            ok    = loaded.nn_single_search(q, p, d, id);
+    const bool            gt_ok = ref->nn_single_search(q, gt_p, gt_d, gt_id);
+    ASSERT_EQUAL_(ok, gt_ok);
+    if (ok) ASSERT_NEAR_(d, gt_d, 1e-4f);
+  }
+}
+
+// -------------------------------------------------------------------------
+// serialize_kdtree=false (the default) must remain unaffected: no blob is
+// written, and the loaded map is a plain, freshly-rebuilt index.
+void test_kdtree_bake_disabled_by_default()
+{
+  mola::IncrementalPointCloud map;
+  ASSERT_(!map.creationOptions.serialize_kdtree);
+  insertPoints(map, *randomCloud(1000, {0, 0, 0}, 10.0));
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto arch = mrpt::serialization::archiveFrom(buf);
+    arch << map;
+  }
+  buf.Seek(0);
+  mola::IncrementalPointCloud loaded;
+  {
+    auto arch = mrpt::serialization::archiveFrom(buf);
+    arch >> loaded;
+  }
+  ASSERT_(!loaded.creationOptions.serialize_kdtree);
+  assertSameNNResults(map, loaded, 100, 10.0);
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -397,6 +637,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_bounded_memory_under_churn();
     test_serialization_and_copy();
     test_cov2cov();
+    test_kdtree_bake_roundtrip_memory();
+    test_kdtree_bake_roundtrip_file();
+    test_kdtree_bake_then_clear_and_reinsert();
+    test_kdtree_bake_then_modify();
+    test_kdtree_bake_disabled_by_default();
 
     std::cout << "All tests passed.\n";
   }

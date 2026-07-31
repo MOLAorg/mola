@@ -184,6 +184,18 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   such registered CMetricMap class". `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD`
   is defined (PUBLIC) only when the feature is functional; the header is always
   usable either way.
+  `TCreationOptions::serialize_kdtree` (default `false`): bakes the incremental
+  k-d tree index into the `.mm` on save, so it does not have to be rebuilt (an
+  O(N log N) bulk build) on load. Unlike `KeyframePointCloudMap`'s baked static
+  trees, nanoflann's incremental index (`KDTreeSingleIndexIncrementalAdaptor`)
+  had no save/load support at all until `saveIndex()`/`loadIndex()` were added
+  upstream (nanoflann >= 1.11.0); gated via `MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE`
+  (PUBLIC, set by CMake when `nanoflann_VERSION >= 1.11`), a no-op on write and
+  a skipped blob on read otherwise. Serialization always writes/reads the
+  *compacted* (tombstone-free) point order (see `serializeTo()`), so baking
+  builds a throwaway index over that exact order rather than reusing the live
+  `index_` (whose slots may not match after tombstones/recycling). CLI tool
+  `mm-ipc-bake-kdtree` (in `apps/`), analogous to `mm-kf-bake-kdtrees`.
   **nanoflann is included by `src/IncrementalKDTree.cpp` alone, by absolute path
   (`MOLA_NANOFLANN_HEADER`, set by CMake) and with its namespace renamed**,
   because MRPT bundles its own, usually older, copy of the same header and
