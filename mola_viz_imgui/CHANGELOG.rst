@@ -2,6 +2,19 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* gui: limited width of the speed-rate UI control; imgui windows now show the
+  profile name in their title.
+* feat(kernel): console window now captures child-module loggers (e.g.
+  background loop-closure engine) via the new child_loggers() hook.
+* feat: ComboBox GUI widget gained an optional fixed_width parameter (both
+  backends).
+* perf: avoided a redundant image-buffer copy and heap allocation per frame in
+  toCompressedImage(); fixed a pre-existing clang-format violation blocking
+  CI; fixed-width Hz display in the sensor info overlay.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.0.0 (2026-07-17)
 ------------------
 * fix format

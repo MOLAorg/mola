@@ -53,6 +53,9 @@
 #include "IncrementalKDTree.h"
 
 #include <algorithm>
+#include <istream>
+#include <ostream>
+#include <stdexcept>
 #include <type_traits>
 
 namespace
@@ -148,6 +151,33 @@ class IncrementalKDTreeImpl : public mola::internal::IncrementalKDTree
     {
       index_->sync();
     }
+  }
+
+  void saveIndex(std::ostream& stream) override
+  {
+#if NANOFLANN_VERSION >= 0x010B00
+    // A background rebuild may be replacing the tree topology right now:
+    waitForPendingRebuilds();
+    index_->saveIndex(stream);
+#else
+    (void)stream;
+    throw std::runtime_error(
+        "mola::IncrementalPointCloud: baking the k-d tree requires nanoflann >= 1.11.0 "
+        "(saveIndex()/loadIndex() support for the incremental index); this build was "
+        "compiled against an older version.");
+#endif
+  }
+
+  void loadIndex(std::istream& stream) override
+  {
+#if NANOFLANN_VERSION >= 0x010B00
+    index_->loadIndex(stream);
+#else
+    (void)stream;
+    throw std::runtime_error(
+        "mola::IncrementalPointCloud: loading a baked k-d tree requires nanoflann >= 1.11.0; "
+        "this build was compiled against an older version.");
+#endif
   }
 
   std::size_t size() const override { return index_->size(); }

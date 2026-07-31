@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
 #include <vector>
 
@@ -105,6 +106,29 @@ class IncrementalKDTree
 
   /// Blocks until any in-flight background rebuild has been integrated.
   virtual void waitForPendingRebuilds() = 0;
+
+  /** @} */
+
+  /** @name Persistence (index topology only; point coordinates are NOT
+   *  stored, see setPointBuffers())
+   *  @{ */
+
+  /** Serializes the tree topology to a binary stream, so it does not have to
+   *  be rebuilt (an O(N log N) bulk build) the next time this same point set
+   *  is indexed. Requires nanoflann >= 1.11.0 (the release that added
+   *  saveIndex()/loadIndex() to the incremental index); throws
+   *  std::runtime_error on older builds. Blocks on any in-flight background
+   *  rebuild first (see waitForPendingRebuilds()).
+   */
+  virtual void saveIndex(std::ostream& stream) = 0;
+
+  /** Loads a topology previously written by saveIndex(). Must be called right
+   *  after construction (or clear()), on an index already bound (via
+   *  setPointBuffers()) to the same point coordinates that were indexed when
+   *  saveIndex() was called. Requires nanoflann >= 1.11.0; throws
+   *  std::runtime_error on older builds.
+   */
+  virtual void loadIndex(std::istream& stream) = 0;
 
   /** @} */
 

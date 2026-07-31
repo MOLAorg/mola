@@ -298,6 +298,22 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
     /** Maximum distance [m] to search neighbors for the covariance estimate. */
     double max_distance_for_cov = 1.0;
+
+    /** If `true`, the k-d tree index is serialized alongside the points (see
+     *  `IncrementalPointCloud` serialization), so it does NOT have to be
+     *  rebuilt (an O(N log N) bulk build) when the map is loaded. Requires an
+     *  MRPT/nanoflann build providing the incremental index's save/load API
+     *  (feature-detected at compile time via
+     *  `MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE`); when unavailable this
+     *  option is silently a no-op on write, and a reader without the feature
+     *  skips any baked blob found in the file. Default `false`. Typically
+     *  enabled offline by the `mm-ipc-bake-kdtree` tool: the map is always
+     *  serialized compacted (no tombstoned slots, see
+     *  `IncrementalPointCloud::serializeTo()`), so baking rebuilds the index
+     *  once over that compacted point order at save time instead of leaving
+     *  the O(N log N) build for every subsequent load.
+     */
+    bool serialize_kdtree = false;
   };
   TCreationOptions creationOptions;
 
@@ -345,6 +361,15 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
   /// Used for getAsSimplePointsMap() only.
   mutable mrpt::maps::CSimplePointsMap::Ptr cachedPoints_;
+
+  /** Creates a fresh, empty index_ from `creationOptions`, sized/reserved as
+   *  configured, and points it at the current coordinate buffers. Leaves
+   *  indexed_up_to_ at 0: the caller is responsible for indexing the current
+   *  storage afterwards (either the bulk `addPoints()` done by resetIndex(),
+   *  or `internal::IncrementalKDTree::loadIndex()` when reconstructing a
+   *  baked index from a serialized stream).
+   */
+  void createEmptyIndex();
 
   /** (Re)creates the index from `creationOptions` and bulk-loads **every**
    *  storage slot into it. Only valid when no slot is tombstoned, i.e. right

@@ -2,6 +2,16 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix: removed unused mrpt::gui dependency and the unused KeyframeMapCapable
+  interface (dead code from an abandoned trajectory-rebake experiment).
+* feat(kernel): added child_loggers() hook to ExecutableBase so modules can
+  expose background-thread loggers for console capture.
+* feat: ComboBox GUI widget gained an optional fixed_width parameter (both
+  backends).
+* Contributors: Jose Luis Blanco-Claraco
+
 3.0.0 (2026-07-17)
 ------------------
 * fix: default-dock Dataset_UI panel at top; fix Console dock on old layouts

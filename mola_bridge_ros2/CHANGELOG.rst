@@ -3,6 +3,16 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* fix: ros rolling changed arguments of tf2_ros tf listeners; fixed GCC error in
+  Rolling due to missing direct rclcpp/Node.hpp include; dropped MRPT2 point
+  cloud classes.
+* fix(bridge): REP-105 stale-odom TF fallback now logs a loud, explanatory
+  warning the first time it fires (with the recommended fix), instead of only
+  a throttled one.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.0.0 (2026-07-17)
 ------------------
 * chore: less verbose warning

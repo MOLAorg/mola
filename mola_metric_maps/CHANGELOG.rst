@@ -2,6 +2,23 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* chore: documented and fixed some multithreading issues; removed the unused
+  KeyframeMapCapable interface and its stale docs.
+* feat(metric_maps): added mola::IncrementalPointCloud, a nanoflann-based
+  incremental k-d tree local map for LiDAR odometry, with graceful
+  degradation on distros with an old nanoflann. Two different thresholds
+  apply: the incremental k-d tree itself requires nanoflann >= 1.10.0 (with
+  older versions the map falls back to a stub and is unavailable at runtime),
+  while baking (`creationOptions.serialize_kdtree`, `mm-ipc-bake-kdtree`) and
+  loading baked k-d tree indexes additionally require nanoflann >= 1.11.0.
+  Thus, with nanoflann 1.10.x only the incremental functionality works, and
+  baking is a documented no-op.
+* docs: corrected trySetCreationOptions docs to match its new
+  compact-and-rebuild (always-succeeds) behavior.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.0.0 (2026-07-17)
 ------------------
 * fix: dont crash on empty maps

@@ -3,6 +3,13 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* feat: decode sensor_msgs/msg/CompressedImage topics in Rosbag2Dataset.
+* perf: avoid a redundant image-buffer copy and heap allocation per frame in
+  toCompressedImage().
+* Contributors: Jose Luis Blanco-Claraco
+
 3.0.0 (2026-07-17)
 ------------------
 * Merge pull request `#176 <https://github.com/MOLAorg/mola/issues/176>`_ from MOLAorg/fix/multi-ros-distro-build
