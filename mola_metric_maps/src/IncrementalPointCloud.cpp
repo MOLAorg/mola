@@ -1053,11 +1053,20 @@ void IncrementalPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
           // Points were just installed above (in the very same, compacted
           // order the blob was baked over): build an empty index over them
           // and install the baked topology instead of bulk-rebuilding it.
-          createEmptyIndex();
-          std::istringstream ss(kdBlob, std::ios::binary);
-          index_->loadIndex(ss);
-          indexed_up_to_   = m_x.size();
-          loadedBakedIndex = true;
+          try
+          {
+            createEmptyIndex();
+            std::istringstream ss(kdBlob, std::ios::binary);
+            index_->loadIndex(ss);
+            indexed_up_to_   = m_x.size();
+            loadedBakedIndex = true;
+          }
+          catch (const std::exception&)
+          {
+            // A corrupt or incompatible blob must not lose the map: the points
+            // are already installed, so fall back to a normal bulk rebuild
+            // below (loadedBakedIndex stays false).
+          }
 #endif
         }
       }

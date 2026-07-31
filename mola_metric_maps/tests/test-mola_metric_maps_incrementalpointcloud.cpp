@@ -449,6 +449,21 @@ void test_kdtree_bake_roundtrip_memory()
   ASSERT_(loaded.creationOptions.serialize_kdtree);
 
   assertSameNNResults(map, loaded, 200, 15.0);
+
+#if defined(MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE)
+  // Positive check that baking actually wrote something: the same map
+  // serialized without the option must yield a strictly smaller stream.
+  {
+    mola::IncrementalPointCloud noBake      = map;
+    noBake.creationOptions.serialize_kdtree = false;
+
+    mrpt::io::CMemoryStream bufNoBake;
+    auto                    archNoBake = mrpt::serialization::archiveFrom(bufNoBake);
+    archNoBake << noBake;
+
+    ASSERT_GT_(buf.getTotalBytesCount(), bufNoBake.getTotalBytesCount());
+  }
+#endif
 }
 
 // -------------------------------------------------------------------------

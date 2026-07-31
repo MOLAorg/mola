@@ -156,6 +156,8 @@ class IncrementalKDTreeImpl : public mola::internal::IncrementalKDTree
   void saveIndex(std::ostream& stream) override
   {
 #if NANOFLANN_VERSION >= 0x010B00
+    // A background rebuild may be replacing the tree topology right now:
+    waitForPendingRebuilds();
     index_->saveIndex(stream);
 #else
     (void)stream;

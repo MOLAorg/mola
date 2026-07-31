@@ -62,7 +62,8 @@ void run_bake(const Args& args)
         ipcMap->creationOptions.serialize_kdtree = !args.disable && args.kdtree;
         std::cout << "[mm-ipc-bake-kdtree] Layer '" << layerName << "': serialize_kdtree -> "
                   << (ipcMap->creationOptions.serialize_kdtree ? "true" : "false")
-                  << " (cached data is (re)built on save only if not already current)."
+                  << " (when enabled, a throwaway index is built during save over the "
+                     "compacted points that are written)."
                   << std::endl;
       });
 
