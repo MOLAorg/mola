@@ -194,87 +194,108 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
   const auto it_sen_gui = sensor_preview_gui_.find(obs->sensorLabel);
   if (it_sen_gui != sensor_preview_gui_.end())
   {
-    // Create and enqueue the GUI update function, as a lambda:
-    RawDataSourceBase::SensorViewerImpl* sv = &(*it_sen_gui->second);
-
-    auto func = [this, sv, obs]()
+    // A launch YAML can request a sensor preview (`gui_preview_sensors`)
+    // independently of whether a `viz` module is actually instantiated
+    // (e.g. MOLA_WITH_GUI=false with a launch file that forgot to gate
+    // that section too). That is a legitimate headless configuration, not
+    // an error, so check once here rather than enqueueing a task that is
+    // certain to throw-and-catch on every single observation -- which
+    // otherwise floods the log at ERROR level for the whole run.
+    if (this->findService<mola::VizInterface>().empty())
     {
-      try
+      MRPT_LOG_THROTTLE_WARN_STREAM(
+          10.0, "GUI preview requested for sensor '"
+                    << obs->sensorLabel
+                    << "' but no MolaViz module is running -- skipping preview "
+                       "(set MOLA_WITH_GUI=true, or drop this sensor from "
+                       "'gui_preview_sensors' for headless runs).");
+    }
+    else
+    {
+      // Create and enqueue the GUI update function, as a lambda:
+      RawDataSourceBase::SensorViewerImpl* sv = &(*it_sen_gui->second);
+
+      auto func = [this, sv, obs]()
       {
-        ProfilerEntry pe(profiler_, "send to viz lambda");
-
-        using namespace mrpt::opengl;
-
-        // GUI update decimation:
-        if (++sv->decimation_counter < sv->decimation)
+        try
         {
-          return;
-        }
-        sv->decimation_counter = 0;
+          ProfilerEntry pe(profiler_, "send to viz lambda");
 
-        // Create subwindow now:
-        auto vizMods = this->findService<mola::VizInterface>();
-        ASSERTMSG_(!vizMods.empty(), "Could not find a running MolaViz module");
-        auto viz = std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
+          using namespace mrpt::opengl;
 
-        // Create GUI upon first call:
-        if (!sv->gui_created)
-        {
-          mola::gui::WindowDescription desc;
-          desc.title = sv->sensor_label;
-
-          // Apply user-provided position/size if available.
-          // Documented format: "[x,y,width,height]" (brackets and commas).
-          if (!sv->win_pos.empty())
+          // GUI update decimation:
+          if (++sv->decimation_counter < sv->decimation)
           {
-            // Normalize: remove brackets, replace commas with spaces.
-            std::string cleaned = sv->win_pos;
-            for (char& c : cleaned)
+            return;
+          }
+          sv->decimation_counter = 0;
+
+          // Create subwindow now. The availability check above only covers
+          // the common case; still guard here in case the module went away
+          // between enqueueing and running (e.g. app shutdown race).
+          auto vizMods = this->findService<mola::VizInterface>();
+          ASSERTMSG_(!vizMods.empty(), "Could not find a running MolaViz module");
+          auto viz = std::dynamic_pointer_cast<VizInterface>(vizMods.at(0));
+
+          // Create GUI upon first call:
+          if (!sv->gui_created)
+          {
+            mola::gui::WindowDescription desc;
+            desc.title = sv->sensor_label;
+
+            // Apply user-provided position/size if available.
+            // Documented format: "[x,y,width,height]" (brackets and commas).
+            if (!sv->win_pos.empty())
             {
-              if (c == '[' || c == ']' || c == ',')
+              // Normalize: remove brackets, replace commas with spaces.
+              std::string cleaned = sv->win_pos;
+              for (char& c : cleaned)
               {
-                c = ' ';
+                if (c == '[' || c == ']' || c == ',')
+                {
+                  c = ' ';
+                }
+              }
+
+              int x = 0;
+              int y = 0;
+              int w = 0;
+              int h = 0;
+
+              std::istringstream ss(cleaned);
+              if ((ss >> x) && (ss >> y) && (ss >> w) && (ss >> h) && w > 0 && h > 0)
+              {
+                desc.position = {x, y};
+                desc.size     = {w, h};
               }
             }
 
-            int x = 0;
-            int y = 0;
-            int w = 0;
-            int h = 0;
+            auto fut = viz->create_subwindow_from_description(desc);
+            fut.get();
 
-            std::istringstream ss(cleaned);
-            if ((ss >> x) && (ss >> y) && (ss >> w) && (ss >> h) && w > 0 && h > 0)
-            {
-              desc.position = {x, y};
-              desc.size     = {w, h};
-            }
+            sv->gui_created = true;
           }
 
-          auto fut = viz->create_subwindow_from_description(desc);
-          fut.get();
-
-          sv->gui_created = true;
+          // Update the GUI:
+          // (We don't need to wait for the future result, just move on)
+          // auto fut =
+          viz->subwindow_update_visualization(obs, sv->sensor_label, &sv->extra_parameters);
         }
+        catch (const std::exception& e)
+        {
+          MRPT_LOG_ERROR_STREAM("Error in GUI updater worker thread:\n" << mrpt::exception_to_str(e));
+        }
+      };
 
-        // Update the GUI:
-        // (We don't need to wait for the future result, just move on)
-        // auto fut =
-        viz->subwindow_update_visualization(obs, sv->sensor_label, &sv->extra_parameters);
-      }
-      catch (const std::exception& e)
+      try
       {
-        MRPT_LOG_ERROR_STREAM("Error in GUI updater worker thread:\n" << mrpt::exception_to_str(e));
+        auto fut = gui_updater_threadpool_.enqueue(func);
+        (void)fut;
       }
-    };
-
-    try
-    {
-      auto fut = gui_updater_threadpool_.enqueue(func);
-      (void)fut;
-    }
-    catch (const std::runtime_error&)
-    {
-      // Pool already stopped (app shutting down): drop this task.
+      catch (const std::runtime_error&)
+      {
+        // Pool already stopped (app shutting down): drop this task.
+      }
     }
   }
 
