@@ -283,7 +283,9 @@ void RawDataSourceBase::sendObservationsToFrontEnds(const mrpt::obs::CObservatio
         }
         catch (const std::exception& e)
         {
-          MRPT_LOG_ERROR_STREAM("Error in GUI updater worker thread:\n" << mrpt::exception_to_str(e));
+          MRPT_LOG_ERROR_STREAM(
+              "Error in GUI updater worker thread:\n"
+              << mrpt::exception_to_str(e));
         }
       };
 
