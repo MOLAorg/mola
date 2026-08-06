@@ -21,6 +21,12 @@
 #include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
+#if __has_include(<mola_kernel/interfaces/TransformTreeSource.h>)
+#include <mola_kernel/interfaces/TransformTreeSource.h>
+/** Feature macro: mola_kernel provides mola::TransformTreeSource, so this
+ *  dataset exposes its /tf tree to other MOLA modules. */
+#define MOLA_HAS_TRANSFORM_TREE_SOURCE 1
+#endif
 #include <mrpt/obs/CSensoryFrame.h>
 #include <mrpt/serialization/CArchive.h>
 
@@ -57,7 +63,13 @@ namespace mola
  *  robot frame.
  *
  * \ingroup mola_input_rosbag2_grp */
-class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, public Dataset_UI
+class Rosbag2Dataset : public RawDataSourceBase,
+                       public OfflineDatasetSource,
+                       public Dataset_UI
+#if defined(MOLA_HAS_TRANSFORM_TREE_SOURCE)
+    ,
+                       public TransformTreeSource
+#endif
 {
   DEFINE_MRPT_OBJECT(Rosbag2Dataset, mola)
 
@@ -104,6 +116,15 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
     auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
     teleport_here_ = timestep;
   }
+
+#if defined(MOLA_HAS_TRANSFORM_TREE_SOURCE)
+  // Virtual interface of TransformTreeSource (see docs in base class)
+  std::optional<TransformTree> transform_tree(
+      const std::string&                            root,
+      const std::optional<mrpt::Clock::time_point>& timestamp = std::nullopt) const override;
+
+  std::string transform_tree_default_root() const override { return base_link_frame_id_; }
+#endif
 
  protected:
   // See docs in base class

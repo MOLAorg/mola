@@ -340,6 +340,23 @@ Test coverage exists for: `mola_yaml`, `mola_metric_maps`, `mola_pose_list`, `mo
 All MOLA systems are described in YAML. See `mola_demos/` for examples.
 Variable expansion and file includes are supported by `mola_yaml`.
 
+### Exposing a /tf tree: `mola::TransformTreeSource`
+
+`mola_kernel/interfaces/TransformTreeSource.h` lets a module publish its tree
+of coordinate frames (ROS `/tf`) to other MOLA modules without dragging ROS
+types into `mola_kernel`: `transform_tree(root)` returns the subtree below
+`root` with poses already resolved against it, as plain `mrpt::poses::CPose3D`.
+
+- Implemented by `Rosbag1Dataset`, `Rosbag2Dataset` and `BridgeROS2`, all of
+  which already own a `tf2::BufferCore`. **The filtering is done in the
+  source**, since it is what owns the buffer: a consumer never receives, nor
+  walks, the frames of unrelated subtrees.
+- No locking is needed around the walk: `tf2::BufferCore` guards its own
+  internals, so it may run while another thread feeds `/tf`.
+- Consumers detect it with `findService<mola::TransformTreeSource>()`, guarded
+  by `__has_include` (see `MOLA_HAS_TRANSFORM_TREE_SOURCE`) so downstream
+  packages keep building against an older `mola_kernel`.
+
 ### GUI Widget Creation (v2.6+)
 Use `GuiWidgetDescription` for backend-agnostic widget creation in `VizInterface`.
 Do not use direct MRPT GUI calls in modules — use the `VizInterface` abstraction.
