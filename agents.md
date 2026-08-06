@@ -353,9 +353,7 @@ types into `mola_kernel`: `transform_tree(root)` returns the subtree below
   walks, the frames of unrelated subtrees.
 - No locking is needed around the walk: `tf2::BufferCore` guards its own
   internals, so it may run while another thread feeds `/tf`.
-- Consumers detect it with `findService<mola::TransformTreeSource>()`, guarded
-  by `__has_include` (see `MOLA_HAS_TRANSFORM_TREE_SOURCE`) so downstream
-  packages keep building against an older `mola_kernel`.
+- Consumers detect it with `findService<mola::TransformTreeSource>()`.
 
 ### GUI Widget Creation (v2.6+)
 Use `GuiWidgetDescription` for backend-agnostic widget creation in `VizInterface`.

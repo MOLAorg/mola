@@ -27,12 +27,7 @@
 #include <mola_kernel/interfaces/RawDataConsumer.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mola_kernel/interfaces/Relocalization.h>
-#if __has_include(<mola_kernel/interfaces/TransformTreeSource.h>)
 #include <mola_kernel/interfaces/TransformTreeSource.h>
-/** Feature macro: mola_kernel provides mola::TransformTreeSource, so this
- *  bridge exposes the live /tf tree to other MOLA modules. */
-#define MOLA_HAS_TRANSFORM_TREE_SOURCE 1
-#endif
 
 // MRPT:
 #include <mrpt/maps/COccupancyGridMap2D.h>
@@ -112,11 +107,8 @@ namespace mola
  * \ingroup mola_bridge_ros2_grp
  */
 class BridgeROS2 : public RawDataSourceBase,
-                   public mola::RawDataConsumer
-#if defined(MOLA_HAS_TRANSFORM_TREE_SOURCE)
-    ,
+                   public mola::RawDataConsumer,
                    public mola::TransformTreeSource
-#endif
 {
   DEFINE_MRPT_OBJECT(BridgeROS2, mola)
 
@@ -124,14 +116,12 @@ class BridgeROS2 : public RawDataSourceBase,
   BridgeROS2();
   ~BridgeROS2() override;
 
-#if defined(MOLA_HAS_TRANSFORM_TREE_SOURCE)
   // Virtual interface of TransformTreeSource (see docs in base class)
   std::optional<TransformTree> transform_tree(
       const std::string&                            root,
       const std::optional<mrpt::Clock::time_point>& timestamp = std::nullopt) const override;
 
   std::string transform_tree_default_root() const override { return params_.base_link_frame; }
-#endif
 
   // disabled copy & move ctors:
   BridgeROS2(const BridgeROS2&)            = delete;

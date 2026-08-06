@@ -657,7 +657,6 @@ void BridgeROS2::callbackOnPointCloud2(
 }
 #endif
 
-#if defined(MOLA_HAS_TRANSFORM_TREE_SOURCE)
 std::optional<mola::TransformTree> BridgeROS2::transform_tree(
     const std::string& root, const std::optional<mrpt::Clock::time_point>& timestamp) const
 {
@@ -752,7 +751,6 @@ std::optional<mola::TransformTree> BridgeROS2::transform_tree(
 
   return tree;
 }
-#endif
 
 bool BridgeROS2::waitForTransform(
     mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame)

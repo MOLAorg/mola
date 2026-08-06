@@ -958,7 +958,6 @@ mrpt::obs::CSensoryFrame::Ptr Rosbag2Dataset::datasetGetObservations(size_t time
   return read_ahead_.at(timestep)->obs;
 }
 
-#if defined(MOLA_HAS_TRANSFORM_TREE_SOURCE)
 std::optional<mola::TransformTree> Rosbag2Dataset::transform_tree(
     const std::string& root, const std::optional<mrpt::Clock::time_point>& timestamp) const
 {
@@ -1052,7 +1051,6 @@ std::optional<mola::TransformTree> Rosbag2Dataset::transform_tree(
 
   return tree;
 }
-#endif
 
 // TODO: Remove once this package is well available
 #if MRPT_ROS2_BRIDGE_VERSION < 0x030400
