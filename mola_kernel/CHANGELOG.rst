@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.1.0 (2026-08-06)
+------------------
 * Add mola::TransformTreeSource: expose the /tf tree to other MOLA modules (`#188 <https://github.com/MOLAorg/mola/issues/188>`_)
   * Add mola::TransformTreeSource: expose the /tf tree to other modules
   New mola_kernel interface letting a data source publish its tree of

@@ -2,8 +2,8 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.1.0 (2026-08-06)
+------------------
 * mola_demos: drop ament_cmake_uncrustify test_depend
   mola_demos has no C/C++ source files (launch files, YAML configs, and
   one Python script only), so ament_uncrustify always finds zero files
