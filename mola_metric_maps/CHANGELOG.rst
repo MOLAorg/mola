@@ -4,6 +4,113 @@ Changelog for package mola_metric_maps
 
 Forthcoming
 -----------
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* address review comments
+* Add k-d tree baking for IncrementalPointCloud + mm-ipc-bake-kdtree tool
+  Serializes the incremental k-d tree index alongside an IncrementalPointCloud
+  layer's points (TCreationOptions::serialize_kdtree), so it does not have to
+  be rebuilt (an O(N log M) bulk build) on every load. Unlike
+  KeyframePointCloudMap's baked static trees, nanoflann's incremental index had
+  no save/load support at all; this depends on saveIndex()/loadIndex() added
+  upstream (nanoflann >= 1.11.0, see the companion nanoflann PR), gated behind
+  MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE so older builds keep working
+  with the option as a documented no-op.
+  Serialization always writes/reads the compacted (tombstone-free) point
+  order, so baking builds a throwaway index over that exact order rather than
+  reusing the live index (whose slots may not match after tombstones/slot
+  recycling).
+  Adds the mm-ipc-bake-kdtree CLI tool (analogous to mm-kf-bake-kdtrees) and a
+  shared mm_cli_utils.h generic layer-iteration helper for it.
+  Unit tests cover: bake/load round-trip through memory and through a real
+  temporary file, k-d tree parameters differing between bake and load time,
+  clearing and re-inserting into a loaded (baked) map, further
+  insertions/trims on a loaded map, and serialize_kdtree=false remaining a
+  no-op -- all independent of whether this build's nanoflann actually supports
+  baking.
+* changelog
+* chore: document and fix some multithreading issues
+* Merge pull request `#185 <https://github.com/MOLAorg/mola/issues/185>`_ from MOLAorg/chore/remove-keyframe-map-capable
+  Remove the KeyframeMapCapable interface
+* docs: drop the KeyframeMapCapable references left behind
+* chore: remove the KeyframeMapCapable interface
+  This mixin was introduced to expose per-KF pose plumbing to
+  mola_lidar_odometry's trajectory-rebake experiment, which corrected
+  accumulated tilt by re-integrating the keyframe chain. That experiment is
+  being removed: it was never wired in, and rotating map keyframes without
+  transforming the trajectory consistently leaks vertical position.
+  The interface had exactly one implementation and no callers, so it is
+  removed along with the two methods that existed only for the rebake path,
+  `oldestActiveKeyframeID()` and `applyPivotTransform()`.
+  `keyframePoses()` is kept, since the regroup tests already use it as
+  ordinary map API, and the duplicate `cloneKFPoses()` (whose only difference
+  was not being the virtual one) is folded into it.
+* Merge pull request `#184 <https://github.com/MOLAorg/mola/issues/184>`_ from MOLAorg/feat/incremental-pointcloud-map
+  feat(metric_maps): add mola::IncrementalPointCloud (incremental k-d tree local map)
+* docs: correct the trySetCreationOptions contract
+  The k-d tree parameters used to require an empty map, with
+  trySetCreationOptions() returning false rather than discarding points.
+  It now compacts and rebuilds instead, so it always succeeds and keeps the
+  map contents; only the previously returned point indices are invalidated.
+  The TCreationOptions docs still described the old behaviour.
+* style: apply clang-format-14
+* feat(metric_maps): degrade gracefully on distros with an old nanoflann
+  The incremental k-d tree index needs nanoflann >= 1.10.0. Previously the
+  whole class was compiled out below that, so a YAML naming
+  mola::IncrementalPointCloud failed with MRPT's generic "no such registered
+  CMetricMap class", which reads like a typo or a missing plugin rather than
+  a missing feature.
+  Now the class is always declared, compiled and registered; only the k-d
+  tree factory is conditional. Without a suitable nanoflann,
+  IncrementalKDTree_stub.cpp provides a factory that throws an explanatory
+  std::runtime_error naming the version actually found and pointing at
+  mola::KeyframePointCloudMap as the alternative. CMake emits a warning at
+  configure time instead of a silent status message.
+  MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD keeps advertising whether the
+  feature is functional, and the unit test is still only built when it is.
+  Verified by configuring against the nanoflann 1.9.0 shipped by ROS Humble:
+  builds clean, class registers, and construction throws the expected message.
+* feat(metric_maps): add mola::IncrementalPointCloud
+  A single-global-frame, sliding-window local map for LiDAR (inertial)
+  odometry, backed by one incremental self-balancing nanoflann k-d tree
+  instead of a static tree rebuilt on every scan.
+  It derives from mrpt::maps::CGenericPointsMap, so points arrive through
+  the usual insertObservation()/insertAnotherMap() entry points with all
+  per-point channels preserved, and the index picks up appended points
+  lazily. Points far from the robot are evicted on insertion
+  (creationOptions.remove_points_farther_than, a cube half-side), and the
+  slots the index reclaims are recycled so storage stays bounded under
+  churn. GICP matching is supported via mp2p_icp::NearestPointWithCovCapable
+  with lazily computed, cached, plane-regularized per-point covariances.
+  This is an odometry local map only: a single global tree cannot absorb a
+  loop-closure re-map, so KeyframePointCloudMap remains the choice there.
+  Notes:
+  - Requires nanoflann >= 1.10.0 (the release that introduced the
+  incremental index). The class is simply not built otherwise, gated by
+  the CMake-set MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD.
+  - nanoflann is included by src/IncrementalKDTree.cpp alone, by absolute
+  path and with its namespace renamed, and is never exposed through a
+  public header. MRPT bundles its own, usually older, copy of the same
+  header and the two differ in non-template entities that share mangled
+  names, so letting both reach one program is an ODR violation. Include
+  path ordering cannot select ours either: MRPT exports its copy as an
+  -isystem directory, and a directory listed both as -I and -isystem is
+  deduplicated by GCC in favour of the system entry.
+  - Removal is lazy, so the inherited size() counts live plus not-yet-reused
+  slots; livePointCount() and compact() expose the live set. Reclaimed
+  slots are blanked to NaN so that generic CPointsMap walkers (notably
+  insertAnotherMap(), used to copy layers out for visualization) cannot
+  resurrect evicted geometry.
+  - With async_rebuild the balancing rebuilds run on a background thread.
+  Its worker reads the coordinate buffers, so reserve()/resize()/setSize()
+  are overridden to wait for it before those can move, and insertion keeps
+  spare capacity for one batch so a raw insertPointFast() loop cannot
+  reallocate either.
+  Tested against a brute-force nearest-neighbour oracle (both index
+  variants), for bounded memory under churn, cov2cov pairings,
+  serialization round-trip and copy.
+* Contributors: Jose Luis Blanco Claraco, Jose Luis Blanco-Claraco
+
 * chore: documented and fixed some multithreading issues; removed the unused
   KeyframeMapCapable interface and its stale docs.
 * feat(metric_maps): added mola::IncrementalPointCloud, a nanoflann-based

@@ -4,6 +4,56 @@ Changelog for package mola_viz_imgui
 
 Forthcoming
 -----------
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* gui: limit width of the speed rate UI
+* Merge pull request `#183 <https://github.com/MOLAorg/mola/issues/183>`_ from MOLAorg/feat/child-loggers-console-hook
+  Let a module expose child loggers for console capture
+* feat(kernel): let a module expose child loggers for console capture
+  ExecutableBase gains child_loggers(), an optional hook returning
+  additional mrpt::system::COutputLogger instances a module owns but does
+  not log through itself (e.g. a library engine run on its own background
+  thread). mola_viz_imgui's console window now discovers and hooks these
+  the same way it already does for the module itself, tagged with a
+  "module/child" source name, so their output is captured without the
+  owning module having to relay each message through its own logger
+  (which would otherwise re-apply the module's own verbosity gating).
+  Motivated by mola_mapper's background loop-closure engine
+  (mola_sm_loop_closure), which has its own independent logger whose
+  output was previously invisible to the imgui console.
+* Merge pull request `#180 <https://github.com/MOLAorg/mola/issues/180>`_ from MOLAorg/feat/combobox-fixed-width
+  GUI: add optional fixed_width to ComboBox (both backends)
+* Add optional fixed_width to ComboBox, honored by both GUI backends
+  Without it, ImGui::Combo defaults to an item width that scales with
+  the window, so short option lists visibly balloon in wide sub-windows
+  (seen when packing a ComboBox next to a checkbox in a Row). 0 keeps
+  each backend's current auto-sizing behavior.
+* imgui windows: append profile name to window title
+* Merge pull request `#179 <https://github.com/MOLAorg/mola/issues/179>`_ from MOLAorg/chore/clang-format-viz-handlers
+  style: clang-format fix in MolaVizImGui_handlers.cpp
+* perf: avoid a redundant image-buffer copy and heap alloc per frame
+  Two per-frame savings in toCompressedImage():
+  - The temporary sensor_msgs::msg::CompressedImage only needs to live for
+  the duration of this call; a stack-local avoids a heap allocation
+  cv_bridge::toCvCopy() doesn't require (it takes the message by const
+  reference, unlike the raw-Image path's toCvShare(), which needs a
+  shared_ptr).
+  - cv_ptr (and the cv::Mat it owns) is likewise local to this call, so
+  copying it into the CObservationImage with mrpt::img::SHALLOW_COPY
+  (ref-counted) instead of DEEP_COPY avoids duplicating the decoded
+  pixel buffer a second time.
+  Re-verified end-to-end against the Oxford Spires dataset: no errors.
+  (CodeRabbit finding on PR `#178 <https://github.com/MOLAorg/mola/issues/178>`_)
+* style: clang-format fix in MolaVizImGui_handlers.cpp
+  Pre-existing violation on develop (introduced by 3de93af2, whose title
+  claims "+ clang-format" but didn't quite match clang-format-14's
+  formatting for the multi-clause "else if (init; cond)" statement),
+  currently failing CI clang-format-check on develop itself and blocking
+  that check from going green on any PR against this repo.
+* chore(viz): fixed-width Hz in sensor info overlay + clang-format
+* Contributors: Jose Luis Blanco-Claraco
+
 * gui: limited width of the speed-rate UI control; imgui windows now show the
   profile name in their title.
 * feat(kernel): console window now captures child-module loggers (e.g.

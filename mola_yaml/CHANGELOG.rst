@@ -4,6 +4,53 @@ Changelog for package mola_yaml
 
 Forthcoming
 -----------
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* Merge pull request `#182 <https://github.com/MOLAorg/mola/issues/182>`_ from MOLAorg/fix/yaml-define-outer-wins
+  fix(mola_yaml): outer $define wins over a more deeply imported file's own $define
+* style: apply clang-format-14 to the outer-wins $define fix
+* fix(mola_yaml): outer $define wins over a more deeply imported file's own $define
+  Nested $define blocks for the same variable name did not compose the way
+  $import sibling overrides do: the more deeply imported file's own $define
+  silently won, discarding an outer file's override for that same name. This
+  made it impossible for a launcher to retune a hook that a reusable imported
+  fragment also $defines its own default for, short of restating the whole
+  target key as a literal sibling value.
+  consumeDefineBlock() now skips a $define entry whose name is already present
+  in the inherited scope, so the scope closest to the document root (or the
+  caller's initial variables) has final say, mirroring "environment > $define >
+  inline default" one level up. Updated the existing nested-$define test to the
+  new (opposite) contract and added a dedicated multi-level $import regression
+  test for the exact reusable-fragment shape that surfaced this.
+* Merge pull request `#181 <https://github.com/MOLAorg/mola/issues/181>`_ from MOLAorg/feat/yaml-define-directive
+  mola_yaml: new `$define` directive to set variables for a subtree
+* docs: clarify outer scope only is used to expand vars
+* mola_yaml: new `$define` directive to set variables for a subtree
+  Shared pipeline files already expose their tunable settings as
+  `${VAR|default}` hooks, but until now a launcher had no way to drive them
+  from the YAML itself: the value had to come from the real environment.
+  Working around that meant duplicating whole blocks after an `$import` just
+  to change one nested field, which is especially painful for values inside a
+  YAML sequence, since `$import`'s deep-merge replaces sequences wholesale.
+  `$define` is a map key holding `NAME: VALUE` pairs that are bound as
+  `${NAME}` variables for the subtree of the map it appears in, including the
+  files pulled in by a sibling `$import` / `$include{}`:
+  $define:
+  MOLA_DESKEW_METHOD: "MotionCompensationMethod::IMU"
+  $import: lidar3d-default.yaml
+  The bindings go into `YAMLParseOptions::variables`, so the resolution order
+  in parseVars() is unchanged and the effective priority is
+  `environment > $define > inline |default`: a variable exported on the
+  command line still overrides the file. This is deliberately not a setenv:
+  the scope is the YAML subtree, so nothing leaks into the process
+  environment, into `$()` sub-processes, or into a sibling module's import.
+  Since the variable pass runs later over the whole document with the outer
+  options, a subtree carrying a `$define` is expanded eagerly so the
+  definitions reach the plain sibling keys too, not only the imported files.
+  Includes unit tests and user documentation.
+* Contributors: Jose Luis Blanco-Claraco
+
 * feat: new `$define` YAML directive to bind variables for a subtree
   (including imported files), letting launchers tune shared pipeline
   settings without duplicating blocks.

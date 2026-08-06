@@ -4,6 +4,18 @@ Changelog for package mola_viz
 
 Forthcoming
 -----------
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* Merge pull request `#180 <https://github.com/MOLAorg/mola/issues/180>`_ from MOLAorg/feat/combobox-fixed-width
+  GUI: add optional fixed_width to ComboBox (both backends)
+* Add optional fixed_width to ComboBox, honored by both GUI backends
+  Without it, ImGui::Combo defaults to an item width that scales with
+  the window, so short option lists visibly balloon in wide sub-windows
+  (seen when packing a ComboBox next to a checkbox in a Row). 0 keeps
+  each backend's current auto-sizing behavior.
+* Contributors: Jose Luis Blanco-Claraco
+
 * feat: ComboBox GUI widget gained an optional fixed_width parameter (both
   backends).
 * Contributors: Jose Luis Blanco-Claraco

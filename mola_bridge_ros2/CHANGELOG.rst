@@ -5,6 +5,45 @@ Changelog for package mola_bridge_ros2
 
 Forthcoming
 -----------
+* Add mola::TransformTreeSource: expose the /tf tree to other MOLA modules (`#188 <https://github.com/MOLAorg/mola/issues/188>`_)
+  * Add mola::TransformTreeSource: expose the /tf tree to other modules
+  New mola_kernel interface letting a data source publish its tree of
+  coordinate frames, so consumers (e.g. a LiDAR-odometry viewer) can draw a
+  robot's joints as it moves. transform_tree(root) returns the subtree below
+  'root' with poses already resolved against it.
+  The filtering is done in the source, which is what owns the transform
+  buffer, so a consumer never receives nor walks unrelated subtrees. The
+  interface carries no ROS/tf2 type, keeping mola_kernel ROS-independent.
+  Implemented by Rosbag1Dataset (separate repo), Rosbag2Dataset and BridgeROS2.
+  No locking is added around the subtree walk: tf2::BufferCore guards its own
+  internals, which is also what lets BridgeROS2's TransformListener feed the
+  buffer from its own thread.
+  * Address review: depth-first comment, cycle guard in the tf walk
+  * No need for include guards inside this same git repo
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* fix: ros rolling changed arguments of tf2_ros tf listeners
+* fix: GCC error in Rolling due to missing direct rclcpp/Node.hpp include
+* totally drop mrpt2 point cloud classes
+* Merge pull request `#177 <https://github.com/MOLAorg/mola/issues/177>`_ from MOLAorg/feat/rep105-loud-stale-odom-warning
+  Make the REP-105 stale-odom fallback loud on first occurrence
+* fix(bridge): make the REP-105 stale-odom fallback loud on first occurrence
+  When publish_localization_following_rep105 is on and the exact sensor-stamp
+  odom->base_link transform is unavailable, the bridge composes map->odom against
+  the latest (stale) odom transform. That biases the published TF by the robot's
+  motion over the stamp gap (motion-correlated jitter, worst mid-turn), and it is
+  the normal path whenever the localizer publishes an estimate extrapolated to
+  "now" while odom only exists in the past. The warning was throttled to 60 s,
+  which hid this persistent timing violation.
+  Emit a loud, explanatory warning the first time the fallback fires, naming the
+  consequence and the recommended fix (have the state estimator publish map->odom
+  directly via StateEstimationSmoother's publish_map_to_odom_tf, and route the
+  bridge TF source filter to that /map_odom method), then continue with the
+  throttled steady-state warning so logs are not flooded. No behavior change to
+  the published transform itself.
+* Contributors: Jose Luis Blanco-Claraco
+
 * fix: ros rolling changed arguments of tf2_ros tf listeners; fixed GCC error in
   Rolling due to missing direct rclcpp/Node.hpp include; dropped MRPT2 point
   cloud classes.

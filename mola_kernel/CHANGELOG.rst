@@ -4,6 +4,75 @@ Changelog for package mola_kernel
 
 Forthcoming
 -----------
+* Add mola::TransformTreeSource: expose the /tf tree to other MOLA modules (`#188 <https://github.com/MOLAorg/mola/issues/188>`_)
+  * Add mola::TransformTreeSource: expose the /tf tree to other modules
+  New mola_kernel interface letting a data source publish its tree of
+  coordinate frames, so consumers (e.g. a LiDAR-odometry viewer) can draw a
+  robot's joints as it moves. transform_tree(root) returns the subtree below
+  'root' with poses already resolved against it.
+  The filtering is done in the source, which is what owns the transform
+  buffer, so a consumer never receives nor walks unrelated subtrees. The
+  interface carries no ROS/tf2 type, keeping mola_kernel ROS-independent.
+  Implemented by Rosbag1Dataset (separate repo), Rosbag2Dataset and BridgeROS2.
+  No locking is added around the subtree walk: tf2::BufferCore guards its own
+  internals, which is also what lets BridgeROS2's TransformListener feed the
+  buffer from its own thread.
+  * Address review: depth-first comment, cycle guard in the tf walk
+  * No need for include guards inside this same git repo
+* fix formatting
+* mola_kernel: don't flood ERROR logs when GUI preview has no viz module
+  A launch YAML can populate gui_preview_sensors for a sensor without
+  gating that entry behind MOLA_WITH_GUI (several mola_lidar_odometry
+  launch files did exactly this). In that case every observation for that
+  sensor label enqueued a task that threw and caught "Could not find a
+  running MolaViz module" -- thousands of ERROR-level log lines per
+  headless run, found via SLAM quality-eval sweeps producing 20k+ of them
+  on a single KITTI sequence.
+  Check once, outside the per-observation lambda, whether a VizInterface
+  is actually running; if not, log a single throttled warning and skip
+  enqueueing entirely instead of relying on every launch file getting its
+  own MOLA_WITH_GUI gate right.
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* fix: mola_kernel listed mrpt::gui as dependency but could be removed
+* Merge pull request `#185 <https://github.com/MOLAorg/mola/issues/185>`_ from MOLAorg/chore/remove-keyframe-map-capable
+  Remove the KeyframeMapCapable interface
+* chore: remove the KeyframeMapCapable interface
+  This mixin was introduced to expose per-KF pose plumbing to
+  mola_lidar_odometry's trajectory-rebake experiment, which corrected
+  accumulated tilt by re-integrating the keyframe chain. That experiment is
+  being removed: it was never wired in, and rotating map keyframes without
+  transforming the trajectory consistently leaks vertical position.
+  The interface had exactly one implementation and no callers, so it is
+  removed along with the two methods that existed only for the rebake path,
+  `oldestActiveKeyframeID()` and `applyPivotTransform()`.
+  `keyframePoses()` is kept, since the regroup tests already use it as
+  ordinary map API, and the duplicate `cloneKFPoses()` (whose only difference
+  was not being the virtual one) is folded into it.
+* Merge pull request `#183 <https://github.com/MOLAorg/mola/issues/183>`_ from MOLAorg/feat/child-loggers-console-hook
+  Let a module expose child loggers for console capture
+* feat(kernel): let a module expose child loggers for console capture
+  ExecutableBase gains child_loggers(), an optional hook returning
+  additional mrpt::system::COutputLogger instances a module owns but does
+  not log through itself (e.g. a library engine run on its own background
+  thread). mola_viz_imgui's console window now discovers and hooks these
+  the same way it already does for the module itself, tagged with a
+  "module/child" source name, so their output is captured without the
+  owning module having to relay each message through its own logger
+  (which would otherwise re-apply the module's own verbosity gating).
+  Motivated by mola_mapper's background loop-closure engine
+  (mola_sm_loop_closure), which has its own independent logger whose
+  output was previously invisible to the imgui console.
+* Merge pull request `#180 <https://github.com/MOLAorg/mola/issues/180>`_ from MOLAorg/feat/combobox-fixed-width
+  GUI: add optional fixed_width to ComboBox (both backends)
+* Add optional fixed_width to ComboBox, honored by both GUI backends
+  Without it, ImGui::Combo defaults to an item width that scales with
+  the window, so short option lists visibly balloon in wide sub-windows
+  (seen when packing a ComboBox next to a checkbox in a Row). 0 keeps
+  each backend's current auto-sizing behavior.
+* Contributors: Jose Luis Blanco-Claraco
+
 * fix: removed unused mrpt::gui dependency and the unused KeyframeMapCapable
   interface (dead code from an abandoned trajectory-rebake experiment).
 * feat(kernel): added child_loggers() hook to ExecutableBase so modules can

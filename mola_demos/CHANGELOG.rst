@@ -4,6 +4,17 @@ Changelog for package mola_demos
 
 Forthcoming
 -----------
+* mola_demos: drop ament_cmake_uncrustify test_depend
+  mola_demos has no C/C++ source files (launch files, YAML configs, and
+  one Python script only), so ament_uncrustify always finds zero files
+  to check. As of ament-uncrustify 0.20.6 that's treated as a failure
+  ("No files found", exit 1) rather than a trivial pass, which broke
+  the weekly CI build on every ROS distro. lint_cmake/pep257/xmllint
+  stay, since those do apply to this package's files.
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* Contributors: Jose Luis Blanco-Claraco
 
 3.0.0 (2026-07-17)
 ------------------

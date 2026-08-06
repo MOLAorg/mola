@@ -5,6 +5,10 @@ Changelog for package mola_relocalization
 
 Forthcoming
 -----------
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* Contributors: Jose Luis Blanco-Claraco
 
 3.0.0 (2026-07-17)
 ------------------

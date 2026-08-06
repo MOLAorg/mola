@@ -5,6 +5,50 @@ Changelog for package mola_input_rosbag2
 
 Forthcoming
 -----------
+* Add mola::TransformTreeSource: expose the /tf tree to other MOLA modules (`#188 <https://github.com/MOLAorg/mola/issues/188>`_)
+  * Add mola::TransformTreeSource: expose the /tf tree to other modules
+  New mola_kernel interface letting a data source publish its tree of
+  coordinate frames, so consumers (e.g. a LiDAR-odometry viewer) can draw a
+  robot's joints as it moves. transform_tree(root) returns the subtree below
+  'root' with poses already resolved against it.
+  The filtering is done in the source, which is what owns the transform
+  buffer, so a consumer never receives nor walks unrelated subtrees. The
+  interface carries no ROS/tf2 type, keeping mola_kernel ROS-independent.
+  Implemented by Rosbag1Dataset (separate repo), Rosbag2Dataset and BridgeROS2.
+  No locking is added around the subtree walk: tf2::BufferCore guards its own
+  internals, which is also what lets BridgeROS2's TransformListener feed the
+  buffer from its own thread.
+  * Address review: depth-first comment, cycle guard in the tf walk
+  * No need for include guards inside this same git repo
+* Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake
+  Bake IncrementalPointCloud's k-d tree index (mm-ipc-bake-kdtree)
+* changelog
+* Merge pull request `#178 <https://github.com/MOLAorg/mola/issues/178>`_ from MOLAorg/feat/rosbag2-compressed-image
+  feat: decode sensor_msgs/msg/CompressedImage topics in Rosbag2Dataset
+* perf: avoid a redundant image-buffer copy and heap alloc per frame
+  Two per-frame savings in toCompressedImage():
+  - The temporary sensor_msgs::msg::CompressedImage only needs to live for
+  the duration of this call; a stack-local avoids a heap allocation
+  cv_bridge::toCvCopy() doesn't require (it takes the message by const
+  reference, unlike the raw-Image path's toCvShare(), which needs a
+  shared_ptr).
+  - cv_ptr (and the cv::Mat it owns) is likewise local to this call, so
+  copying it into the CObservationImage with mrpt::img::SHALLOW_COPY
+  (ref-counted) instead of DEEP_COPY avoids duplicating the decoded
+  pixel buffer a second time.
+  Re-verified end-to-end against the Oxford Spires dataset: no errors.
+  (CodeRabbit finding on PR `#178 <https://github.com/MOLAorg/mola/issues/178>`_)
+* feat: decode sensor_msgs/msg/CompressedImage topics in Rosbag2Dataset
+  mrpt_ros_bridge's rosbag2ToImage() only understands the raw,
+  uncompressed sensor_msgs/msg/Image wire format, so a 'sensors' entry
+  of type CObservationImage pointed at a compressed-image topic (e.g.
+  an "image/compressed" republished stream) previously fell through as
+  unhandled. Added a local decoder (cv_bridge-based, dispatched on the
+  topic's actual wire type) and registered the ROS type for
+  auto-detection, so compressed camera streams can be read the same way
+  as raw ones.
+* Contributors: Jose Luis Blanco-Claraco
+
 * feat: decode sensor_msgs/msg/CompressedImage topics in Rosbag2Dataset.
 * perf: avoid a redundant image-buffer copy and heap allocation per frame in
   toCompressedImage().
