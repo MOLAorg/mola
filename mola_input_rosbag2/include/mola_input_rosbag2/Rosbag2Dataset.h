@@ -21,6 +21,7 @@
 #include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
+#include <mola_kernel/interfaces/TransformTreeSource.h>
 #include <mrpt/obs/CSensoryFrame.h>
 #include <mrpt/serialization/CArchive.h>
 
@@ -57,7 +58,10 @@ namespace mola
  *  robot frame.
  *
  * \ingroup mola_input_rosbag2_grp */
-class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, public Dataset_UI
+class Rosbag2Dataset : public RawDataSourceBase,
+                       public OfflineDatasetSource,
+                       public Dataset_UI,
+                       public TransformTreeSource
 {
   DEFINE_MRPT_OBJECT(Rosbag2Dataset, mola)
 
@@ -104,6 +108,13 @@ class Rosbag2Dataset : public RawDataSourceBase, public OfflineDatasetSource, pu
     auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
     teleport_here_ = timestep;
   }
+
+  // Virtual interface of TransformTreeSource (see docs in base class)
+  std::optional<TransformTree> transform_tree(
+      const std::string&                            root,
+      const std::optional<mrpt::Clock::time_point>& timestamp = std::nullopt) const override;
+
+  std::string transform_tree_default_root() const override { return base_link_frame_id_; }
 
  protected:
   // See docs in base class

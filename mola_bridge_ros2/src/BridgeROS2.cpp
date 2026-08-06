@@ -71,6 +71,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp/node.hpp>
+#include <set>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -655,6 +656,101 @@ void BridgeROS2::callbackOnPointCloud2(
   MRPT_END
 }
 #endif
+
+std::optional<mola::TransformTree> BridgeROS2::transform_tree(
+    const std::string& root, const std::optional<mrpt::Clock::time_point>& timestamp) const
+{
+  // No external locking is needed here: tf2::BufferCore guards its own
+  // internals, so this walk may run concurrently with the TransformListener
+  // thread feeding /tf.
+  if (!tf_buffer_ || !tf_buffer_->_frameExists(root))
+  {
+    return {};
+  }
+
+  // Build the parent -> children adjacency of the whole buffer first, so the
+  // subtree below 'root' can then be walked depth-first. Each node is emitted
+  // before its own children are queued, which is what gives the "parents
+  // before children" order the interface promises.
+  std::vector<std::string> allFrames;
+  tf_buffer_->_getFrameStrings(allFrames);
+
+  const tf2::TimePoint queryTime =
+      timestamp ? tf2::TimePoint(timestamp->time_since_epoch()) : tf2::TimePoint();
+
+  std::map<std::string, std::vector<std::string>> children;
+  for (const auto& f : allFrames)
+  {
+    std::string parent;
+    if (tf_buffer_->_getParent(f, queryTime, parent) ||
+        tf_buffer_->_getParent(f, tf2::TimePoint(), parent))
+    {
+      children[parent].push_back(f);
+    }
+  }
+
+  mola::TransformTree tree;
+  tree.root      = root;
+  tree.timestamp = timestamp.value_or(mrpt::Clock::now());
+  tree.nodes.push_back({root, {}, mrpt::poses::CPose3D::Identity()});
+
+  // 'visited' guards against a cyclic parent chain: tf2 reassigns a frame's
+  // parent on every setTransform(), so malformed input can produce one, and
+  // the walk would otherwise never terminate.
+  std::set<std::string>    visited = {root};
+  std::vector<std::string> pending = {root};
+  while (!pending.empty())
+  {
+    const std::string frame = pending.back();
+    pending.pop_back();
+
+    const auto itChildren = children.find(frame);
+    if (itChildren == children.end())
+    {
+      continue;
+    }
+
+    for (const auto& child : itChildren->second)
+    {
+      mrpt::poses::CPose3D childInRoot;
+      try
+      {
+        // Prefer the requested time, but fall back to the latest available
+        // transform: a consumer asking about "now" can easily be slightly
+        // ahead of what the listener has received so far.
+        geometry_msgs::msg::TransformStamped tfMsg;
+        try
+        {
+          tfMsg = tf_buffer_->lookupTransform(root, child, queryTime);
+        }
+        catch (const tf2::TransformException&)
+        {
+          tfMsg = tf_buffer_->lookupTransform(root, child, tf2::TimePoint());
+        }
+
+        tf2::Transform t;
+        tf2::fromMsg(tfMsg.transform, t);
+        childInRoot = mrpt::ros2bridge::fromROS(t);
+      }
+      catch (const tf2::TransformException&)
+      {
+        // A frame with no usable transform at this time is skipped, together
+        // with its own subtree (it has no resolvable pose to draw it at).
+        continue;
+      }
+
+      if (!visited.insert(child).second)
+      {
+        continue;
+      }
+
+      tree.nodes.push_back({child, frame, childInRoot});
+      pending.push_back(child);
+    }
+  }
+
+  return tree;
+}
 
 bool BridgeROS2::waitForTransform(
     mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame)

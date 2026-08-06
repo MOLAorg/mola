@@ -27,6 +27,7 @@
 #include <mola_kernel/interfaces/RawDataConsumer.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mola_kernel/interfaces/Relocalization.h>
+#include <mola_kernel/interfaces/TransformTreeSource.h>
 
 // MRPT:
 #include <mrpt/maps/COccupancyGridMap2D.h>
@@ -105,13 +106,22 @@ namespace mola
  *
  * \ingroup mola_bridge_ros2_grp
  */
-class BridgeROS2 : public RawDataSourceBase, public mola::RawDataConsumer
+class BridgeROS2 : public RawDataSourceBase,
+                   public mola::RawDataConsumer,
+                   public mola::TransformTreeSource
 {
   DEFINE_MRPT_OBJECT(BridgeROS2, mola)
 
  public:
   BridgeROS2();
   ~BridgeROS2() override;
+
+  // Virtual interface of TransformTreeSource (see docs in base class)
+  std::optional<TransformTree> transform_tree(
+      const std::string&                            root,
+      const std::optional<mrpt::Clock::time_point>& timestamp = std::nullopt) const override;
+
+  std::string transform_tree_default_root() const override { return params_.base_link_frame; }
 
   // disabled copy & move ctors:
   BridgeROS2(const BridgeROS2&)            = delete;
