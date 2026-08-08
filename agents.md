@@ -175,9 +175,10 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   through a `mrpt::maps::CPointsMap*` cannot be intercepted; instead
   `ensureIndexUpToDate()` compares a handful of sampled slot coordinates
   (`coordinates_watch_`, refreshed by every internal mutator) against their
-  last known values and forces the same rebuild when they moved. That guard is
-  what turns *any* inherited in-place coordinate mutator from silent index
-  corruption into a (costly but correct) lazy rebuild.
+  last known values and forces the same rebuild when they moved. Since the
+  sample is bounded, that guard covers a **global** re-map (all points move),
+  not a mutator rewriting a few points or a caller poking the inherited
+  coordinate buffers directly; those stay as stale-index hazards.
   Implements `mp2p_icp::NearestPointWithCovCapable` with lazily computed,
   cached, plane-regularized per-point covariances (the "option A" of the plan;
   voxel/NDT-style and dirty-propagation covariances remain future work). Not for

@@ -54,6 +54,9 @@ const bool ENV_DEBUG_STATS = mrpt::get_env<bool>("MOLA_INCREMENTAL_MAP_DEBUG_STA
 /// How many storage slots are sampled to detect in-place coordinate rewrites.
 constexpr std::size_t COORDINATES_WATCH_SAMPLES = 16;
 
+/// How many slots each of those samples may probe looking for a non-blanked one.
+constexpr std::size_t MAX_COORDINATE_PROBES = 8;
+
 /// Equality that also holds for the NaNs marking blanked (free) storage slots.
 bool sameCoordinate(float a, float b) { return a == b || (std::isnan(a) && std::isnan(b)); }
 
@@ -268,10 +271,14 @@ void IncrementalPointCloud::refreshCoordinatesWatch() const
   for (std::size_t base = 0; base < n; base += stride)
   {
     // Prefer a finite slot: a blanked one is invariant under a rigid transform,
-    // so it could not witness one.
+    // so it could not witness one. The probe is bounded because this runs on
+    // the insertion path, where a mostly-blanked storage would otherwise make
+    // it O(N).
+    const std::size_t last = std::min(n, base + std::min(stride, MAX_COORDINATE_PROBES));
+
     std::size_t i = base;
-    while (i < n && i < base + stride && !std::isfinite(m_x[i])) i++;
-    if (i >= n || !std::isfinite(m_x[i])) continue;
+    while (i < last && !std::isfinite(m_x[i])) i++;
+    if (i >= last) continue;  // all-blanked window: contributes no sample
 
     coordinates_watch_.emplace_back(
         static_cast<uint32_t>(i), mrpt::math::TPoint3Df(m_x[i], m_y[i], m_z[i]));

@@ -183,9 +183,14 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    *  Being non-virtual in the base class, a call made through a
    *  `mrpt::maps::CPointsMap*` cannot be routed here; that case is still
    *  handled, but lazily: the next query notices that the coordinates moved
-   *  and pays the same full rebuild then. Prefer calling these, though: only
-   *  they wait for a pending background rebuild (see `async_rebuild`) before
-   *  the coordinate buffers are rewritten. \sa compact()
+   *  and pays the same full rebuild then. That fallback samples a bounded
+   *  number of points, so it is reliable for a **global** re-map (which moves
+   *  all of them) but not for a mutator rewriting only a few points, nor for a
+   *  caller writing through the inherited coordinate buffer references: those
+   *  can still leave the index stale, exactly as before. Prefer calling the
+   *  methods below, which are also the only ones that wait for a pending
+   *  background rebuild (see `async_rebuild`) before the coordinate buffers
+   *  are rewritten. \sa compact()
    *
    *  @note This is an O(N log N) rebuild plus a full covariance recompute, so
    *  it is meant for one-shot re-mappings (e.g. re-leveling the odometry frame
@@ -431,7 +436,9 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   void refreshCoordinatesWatch() const;
 
   /** Whether any sampled slot no longer holds the coordinates it had when
-   *  refreshCoordinatesWatch() was last called. \sa coordinates_watch_
+   *  refreshCoordinatesWatch() was last called. Only a bounded number of slots
+   *  is sampled, so this detects a global re-map (every point moves), not a
+   *  rewrite touching just a few points. \sa coordinates_watch_
    */
   [[nodiscard]] bool coordinatesChangedExternally() const;
 

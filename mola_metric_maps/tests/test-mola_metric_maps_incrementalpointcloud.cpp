@@ -23,6 +23,7 @@
 #include <mrpt/io/CMemoryStream.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/poses/CPose2D.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/random/RandomGenerators.h>
 #include <mrpt/serialization/CArchive.h>
@@ -723,6 +724,44 @@ void test_change_coordinates_reference(bool viaBasePointer, bool async)
   assertMatchesReference(map, *bruteForceReference(map), 200, {6.0f, -2.0f, 0.0f}, 12.0);
 }
 
+// -------------------------------------------------------------------------
+// The other two changeCoordinatesReference() overloads must leave the map in
+// the same state as the CPose3D one they delegate to.
+void test_change_coordinates_reference_overloads()
+{
+  const auto cloud = randomCloud(2000, {0, 0, 0}, 15.0);
+
+  // a) The CPose2D overload:
+  {
+    mola::IncrementalPointCloud map;
+    insertPoints(map, *cloud);
+    map.keepOnlyPointsNear({3.0f, 0.0f, 0.0f}, 9.0);  // leave dead slots behind
+
+    const mrpt::poses::CPose2D p2d(2.0, -1.0, 0.7);
+
+    const auto ref = bruteForceReference(map);
+    ref->changeCoordinatesReference(mrpt::poses::CPose3D(p2d));
+
+    map.changeCoordinatesReference(p2d);
+    assertMatchesReference(map, *ref, 200, {5.0f, -1.0f, 0.0f}, 15.0);
+  }
+
+  // b) The (other, pose) overload: our previous contents must be replaced by
+  //    `other`'s, transformed.
+  {
+    mola::IncrementalPointCloud map;
+    insertPoints(map, *randomCloud(500, {50, 50, 50}, 5.0));  // to be discarded
+
+    const mrpt::poses::CPose3D T(-3.0, 4.0, 1.0, -0.4, 0.2, 0.1);
+
+    const auto ref = mrpt::maps::CSimplePointsMap::Create();
+    ref->changeCoordinatesReference(*cloud, T);
+
+    map.changeCoordinatesReference(*cloud, T);
+    assertMatchesReference(map, *ref, 200, {-3.0f, 4.0f, 1.0f}, 20.0);
+  }
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -743,7 +782,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_kdtree_bake_disabled_by_default();
     test_change_coordinates_reference(false /*concrete type*/, false /*sync index*/);
     test_change_coordinates_reference(false /*concrete type*/, true /*background rebuilds*/);
+    // A base-class call cannot join a pending background rebuild before it
+    // rewrites the coordinate buffers, so that combination is a data race by
+    // construction and is deliberately not exercised here.
     test_change_coordinates_reference(true /*base-class pointer*/, false /*sync index*/);
+    test_change_coordinates_reference_overloads();
 
     std::cout << "All tests passed.\n";
   }
