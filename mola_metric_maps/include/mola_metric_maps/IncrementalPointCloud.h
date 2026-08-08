@@ -35,10 +35,12 @@
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/CMatrixFixed.h>
+#include <mrpt/math/TPoint3D.h>
 
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 namespace mola
@@ -168,6 +170,36 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   void reserve(std::size_t newLength) override;
   void resize(std::size_t newLength) override;
   void setSize(std::size_t newLength) override;
+  /** @} */
+
+  /** @name Global re-map of all points
+   *  These shadow the (non-virtual) `mrpt::maps::CPointsMap` methods of the
+   *  same name: moving every point invalidates the whole incremental k-d tree
+   *  (its split planes and bounding boxes were built from the old
+   *  coordinates), so they apply the transform and then rebuild the index and
+   *  drop the cached per-point covariances. Point indices previously returned
+   *  by the `nn_*` methods are invalidated.
+   *
+   *  Being non-virtual in the base class, a call made through a
+   *  `mrpt::maps::CPointsMap*` cannot be routed here; that case is still
+   *  handled, but lazily: the next query notices that the coordinates moved
+   *  and pays the same full rebuild then. That fallback samples a bounded
+   *  number of points, so it is reliable for a **global** re-map (which moves
+   *  all of them) but not for a mutator rewriting only a few points, nor for a
+   *  caller writing through the inherited coordinate buffer references: those
+   *  can still leave the index stale, exactly as before. Prefer calling the
+   *  methods below, which are also the only ones that wait for a pending
+   *  background rebuild (see `async_rebuild`) before the coordinate buffers
+   *  are rewritten. \sa compact()
+   *
+   *  @note This is an O(N log N) rebuild plus a full covariance recompute, so
+   *  it is meant for one-shot re-mappings (e.g. re-leveling the odometry frame
+   *  against gravity), not for loop closure. \sa KeyframePointCloudMap
+   *  @{ */
+  void changeCoordinatesReference(const mrpt::poses::CPose2D& b);
+  void changeCoordinatesReference(const mrpt::poses::CPose3D& b);
+  void changeCoordinatesReference(
+      const mrpt::maps::CPointsMap& other, const mrpt::poses::CPose3D& b);
   /** @} */
 
   /** @name API of the NearestNeighborsCapable virtual interface
@@ -351,6 +383,10 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   /// Number of leading storage slots already handed to the index.
   mutable std::size_t indexed_up_to_ = 0;
 
+  /// A few (slot, coordinates) samples taken the last time the index was left
+  /// consistent. \sa coordinatesChangedExternally()
+  mutable std::vector<std::pair<uint32_t, mrpt::math::TPoint3Df>> coordinates_watch_;
+
   /// Size of the last appended batch, used to keep spare capacity when the
   /// rebuilds run on a background thread (see internal_insertObservation()).
   std::size_t last_insert_batch_ = 0;
@@ -386,6 +422,25 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
   /// Points the index at the current (possibly reallocated) coordinate buffers.
   void refreshPointBuffers() const;
+
+  /** Rebuilds the index over the current coordinates, keeping the live/dead
+   *  status of every storage slot (unlike resetIndex(), which assumes all of
+   *  them are live). Used after the coordinates were rewritten in place.
+   */
+  void rebuildIndexInPlace() const;
+
+  /** Samples the coordinates of a few storage slots, so that a later in-place
+   *  rewrite made through the inherited (non-virtual) `CPointsMap` mutators
+   *  can be noticed. Called whenever the index is left consistent.
+   */
+  void refreshCoordinatesWatch() const;
+
+  /** Whether any sampled slot no longer holds the coordinates it had when
+   *  refreshCoordinatesWatch() was last called. Only a bounded number of slots
+   *  is sampled, so this detects a global re-map (every point moves), not a
+   *  rewrite touching just a few points. \sa coordinates_watch_
+   */
+  [[nodiscard]] bool coordinatesChangedExternally() const;
 
   /// Moves storage slot `from` (coordinates and every field) onto slot `to`.
   void relocatePoint(std::size_t from, std::size_t to);

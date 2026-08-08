@@ -26,6 +26,8 @@
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/obs/CObservation.h>
 #include <mrpt/opengl/CSetOfObjects.h>
+#include <mrpt/poses/CPose2D.h>
+#include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
 
 #include <Eigen/Dense>
@@ -48,6 +50,18 @@ namespace
 {
 /// Trace live/storage/free-slot counts and the map bbox on every insertion.
 const bool ENV_DEBUG_STATS = mrpt::get_env<bool>("MOLA_INCREMENTAL_MAP_DEBUG_STATS", false);
+
+/// How many storage slots are sampled to detect in-place coordinate rewrites.
+constexpr std::size_t COORDINATES_WATCH_SAMPLES = 16;
+
+/// How many slots each of those samples may probe looking for a non-blanked one.
+constexpr std::size_t MAX_COORDINATE_PROBES = 8;
+
+/// Equality that also holds for the NaNs marking blanked (free) storage slots.
+bool sameCoordinate(float a, float b) { return a == b || (std::isnan(a) && std::isnan(b)); }
+
+/// The value written into blanked (free) storage slots.
+constexpr float NO_POINT = std::numeric_limits<float>::quiet_NaN();
 }  // namespace
 
 //  =========== Begin of Map definition ============
@@ -181,6 +195,7 @@ void IncrementalPointCloud::createEmptyIndex()
   }
 
   refreshPointBuffers();
+  refreshCoordinatesWatch();
 }
 
 void IncrementalPointCloud::resetIndex()
@@ -200,6 +215,91 @@ void IncrementalPointCloud::resetIndex()
 void IncrementalPointCloud::refreshPointBuffers() const
 {
   index_->setPointBuffers(m_x.data(), m_y.data(), m_z.data(), m_x.size());
+}
+
+void IncrementalPointCloud::rebuildIndexInPlace() const
+{
+  auto* me = const_cast<IncrementalPointCloud*>(this);
+
+  std::vector<uint32_t> live;
+  index_->snapshotLiveIndices(live);
+
+  const std::size_t n = m_x.size();
+
+  if (live.size() == n)
+  {
+    // No dead slot to preserve: the cheaper bulk path indexes everything.
+    me->resetIndex();
+    return;
+  }
+
+  std::vector<uint8_t> isLive(n, 0);
+  for (const uint32_t slot : live)
+  {
+    if (slot < n) isLive[slot] = 1;
+  }
+
+  me->createEmptyIndex();
+
+  for (std::size_t i = 0; i < n; i++)
+  {
+    if (isLive[i] != 0)
+    {
+      index_->addPoint(static_cast<uint32_t>(i));
+      continue;
+    }
+    // Dead storage: blank it (see harvestRemovedSlots()) and offer it for reuse.
+    me->m_x[i] = NO_POINT;
+    me->m_y[i] = NO_POINT;
+    me->m_z[i] = NO_POINT;
+    free_slots_.push_back(static_cast<uint32_t>(i));
+  }
+  indexed_up_to_ = n;
+
+  refreshCoordinatesWatch();
+}
+
+void IncrementalPointCloud::refreshCoordinatesWatch() const
+{
+  coordinates_watch_.clear();
+
+  const std::size_t n = m_x.size();
+  if (n == 0) return;
+
+  const std::size_t stride = std::max<std::size_t>(1, n / COORDINATES_WATCH_SAMPLES);
+
+  for (std::size_t base = 0; base < n; base += stride)
+  {
+    // Prefer a finite slot: a blanked one is invariant under a rigid transform,
+    // so it could not witness one. The probe is bounded because this runs on
+    // the insertion path, where a mostly-blanked storage would otherwise make
+    // it O(N).
+    const std::size_t last = std::min(n, base + std::min(stride, MAX_COORDINATE_PROBES));
+
+    std::size_t i = base;
+    while (i < last && !std::isfinite(m_x[i])) i++;
+    if (i >= last) continue;  // all-blanked window: contributes no sample
+
+    coordinates_watch_.emplace_back(
+        static_cast<uint32_t>(i), mrpt::math::TPoint3Df(m_x[i], m_y[i], m_z[i]));
+  }
+}
+
+bool IncrementalPointCloud::coordinatesChangedExternally() const
+{
+  const std::size_t n = m_x.size();
+
+  for (const auto& [slot, p] : coordinates_watch_)
+  {
+    if (slot >= n) return true;
+
+    if (!sameCoordinate(m_x[slot], p.x) || !sameCoordinate(m_y[slot], p.y) ||
+        !sameCoordinate(m_z[slot], p.z))
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 void IncrementalPointCloud::reserve(std::size_t newLength)
@@ -264,6 +364,17 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
 
   if (n == indexed_up_to_)
   {
+    // The point count alone cannot tell an untouched map from one whose
+    // coordinates were rewritten in place by an inherited (non-virtual)
+    // CPointsMap mutator, most notably changeCoordinatesReference() called
+    // through a base-class pointer. Those rewrites leave the tree indexing the
+    // old coordinates, so they must force a rebuild instead of going unnoticed.
+    if (coordinatesChangedExternally())
+    {
+      rebuildIndexInPlace();
+      return;
+    }
+
     refreshPointBuffers();
     return;
   }
@@ -279,6 +390,8 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
   refreshPointBuffers();
   index_->addPoints(static_cast<uint32_t>(indexed_up_to_), static_cast<uint32_t>(n - 1));
   indexed_up_to_ = n;
+
+  refreshCoordinatesWatch();
 }
 
 void IncrementalPointCloud::relocatePoint(std::size_t from, std::size_t to)
@@ -345,6 +458,8 @@ void IncrementalPointCloud::indexAppendedPointsRecycling(std::size_t firstAppend
     index_->addPoints(static_cast<uint32_t>(firstAppended), static_cast<uint32_t>(newN - 1));
   }
   indexed_up_to_ = newN;
+
+  refreshCoordinatesWatch();
 }
 
 void IncrementalPointCloud::harvestRemovedSlots()
@@ -360,8 +475,6 @@ void IncrementalPointCloud::harvestRemovedSlots()
   // Blanking them as NaN is what makes a free slot hold no point at all:
   // `insertAnotherMap()` and the other MRPT copy paths skip non-finite points,
   // and a recycled slot is fully overwritten anyway.
-  constexpr float kNoPoint = std::numeric_limits<float>::quiet_NaN();
-
   for (const uint32_t slot : index_->acquireRemovedPoints())
   {
     // A slot past the current storage would mean the index and the storage
@@ -371,12 +484,14 @@ void IncrementalPointCloud::harvestRemovedSlots()
 
     if (slot < cov_valid_.size()) cov_valid_[slot] = 0;
 
-    m_x[slot] = kNoPoint;
-    m_y[slot] = kNoPoint;
-    m_z[slot] = kNoPoint;
+    m_x[slot] = NO_POINT;
+    m_y[slot] = NO_POINT;
+    m_z[slot] = NO_POINT;
 
     free_slots_.push_back(slot);
   }
+
+  refreshCoordinatesWatch();
 }
 
 void IncrementalPointCloud::keepOnlyPointsNear(
@@ -394,6 +509,47 @@ void IncrementalPointCloud::keepOnlyPointsNear(
   harvestRemovedSlots();
 
   mark_as_modified();
+}
+
+// =====================================
+// Global re-map of all points
+// =====================================
+
+void IncrementalPointCloud::changeCoordinatesReference(const mrpt::poses::CPose3D& b)
+{
+  auto lck = mrpt::lockHelper(mtx_);
+
+  ensureIndexUpToDate();
+
+  // A background rebuild reads the coordinate buffers, which are about to be
+  // rewritten under it:
+  if (creationOptions.async_rebuild) index_->waitForPendingRebuilds();
+
+  // Moves every stored coordinate, blanked free slots included (they stay NaN,
+  // since composePoint() propagates it), and marks the inherited caches dirty:
+  CPointsMap::changeCoordinatesReference(b);
+
+  // The tree's split planes and bounding boxes were built from the previous
+  // coordinates, so none of them survives a global re-map. This also drops the
+  // cached per-point covariances, which are expressed in this map's frame.
+  rebuildIndexInPlace();
+}
+
+void IncrementalPointCloud::changeCoordinatesReference(const mrpt::poses::CPose2D& b)
+{
+  changeCoordinatesReference(mrpt::poses::CPose3D(b));
+}
+
+void IncrementalPointCloud::changeCoordinatesReference(
+    const mrpt::maps::CPointsMap& other, const mrpt::poses::CPose3D& b)
+{
+  auto lck = mrpt::lockHelper(mtx_);
+
+  // Copies points and all per-point fields (clearing us first):
+  CPointsMap::operator=(other);
+  resetIndex();
+
+  changeCoordinatesReference(b);
 }
 
 // =====================================
