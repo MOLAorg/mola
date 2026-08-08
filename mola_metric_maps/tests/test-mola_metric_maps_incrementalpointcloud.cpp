@@ -639,6 +639,90 @@ void test_kdtree_bake_disabled_by_default()
   assertSameNNResults(map, loaded, 100, 10.0);
 }
 
+// -------------------------------------------------------------------------
+/// Compares NN queries of `map` against an independent, static-k-d-tree oracle.
+void assertMatchesReference(
+    const mola::IncrementalPointCloud& map, const mrpt::maps::CSimplePointsMap& ref, size_t nTrials,
+    const mrpt::math::TPoint3Df& center, double halfRange)
+{
+  ASSERT_EQUAL_(map.livePointCount(), ref.size());
+
+  for (size_t trial = 0; trial < nTrials; trial++)
+  {
+    const mrpt::math::TPoint3Df q = {
+        static_cast<float>(center.x + rng.drawUniform(-halfRange, halfRange)),
+        static_cast<float>(center.y + rng.drawUniform(-halfRange, halfRange)),
+        static_cast<float>(center.z + rng.drawUniform(-halfRange, halfRange))};
+
+    mrpt::math::TPoint3Df p;
+    mrpt::math::TPoint3Df gt_p;
+    float                 d     = 0;
+    float                 gt_d  = 0;
+    uint64_t              id    = 0;
+    uint64_t              gt_id = 0;
+
+    const bool ok    = map.nn_single_search(q, p, d, id);
+    const bool gt_ok = ref.nn_single_search(q, gt_p, gt_d, gt_id);
+
+    ASSERT_EQUAL_(ok, gt_ok);
+    if (!ok) continue;
+
+    ASSERT_NEAR_(d, gt_d, 1e-3f);
+    ASSERT_NEAR_(p.x, gt_p.x, 1e-3f);
+    ASSERT_NEAR_(p.y, gt_p.y, 1e-3f);
+    ASSERT_NEAR_(p.z, gt_p.z, 1e-3f);
+  }
+}
+
+// -------------------------------------------------------------------------
+// A global SE(3) re-map must move every point and leave the index consistent
+// with the new coordinates. Since CPointsMap::changeCoordinatesReference() is
+// not virtual, this is checked both on the concrete type (intercepted right
+// away) and through a base-class pointer (only detectable on the next query).
+void test_change_coordinates_reference(bool viaBasePointer, bool async)
+{
+  mola::IncrementalPointCloud map;
+  map.creationOptions.async_rebuild = async;
+  map.compact();  // apply the structural option above
+
+  insertPoints(map, *randomCloud(3000, {0, 0, 0}, 20.0));
+
+  // Leave tombstoned and recycled slots behind, so the rebuild has to preserve
+  // the live set instead of blindly re-indexing the whole storage:
+  map.keepOnlyPointsNear({5.0f, 0.0f, 0.0f}, 10.0);
+  insertPoints(map, *randomCloud(1500, {5, 0, 0}, 8.0));
+
+  const size_t liveBefore = map.livePointCount();
+  ASSERT_(liveBefore > 100);
+
+  const mrpt::poses::CPose3D T(1.0, -2.0, 0.5, 0.3, 0.15, -0.2);
+
+  // Oracle: the very same live points, transformed with plain MRPT:
+  const auto ref = bruteForceReference(map);
+  ref->changeCoordinatesReference(T);
+
+  if (viaBasePointer)
+  {
+    auto* asBase = static_cast<mrpt::maps::CPointsMap*>(&map);
+    asBase->changeCoordinatesReference(T);
+  }
+  else
+  {
+    map.changeCoordinatesReference(T);
+  }
+
+  ASSERT_EQUAL_(map.livePointCount(), liveBefore);
+  assertMatchesReference(map, *ref, 300, {6.0f, -2.0f, 0.5f}, 20.0);
+
+  // The map must stay usable afterwards: insertion, slot recycling and trimming
+  // all have to keep working on the rebuilt index.
+  insertPoints(map, *randomCloud(1000, {6, -2, 0}, 6.0));
+  map.keepOnlyPointsNear({6.0f, -2.0f, 0.0f}, 9.0);
+  ASSERT_(map.livePointCount() > 0);
+
+  assertMatchesReference(map, *bruteForceReference(map), 200, {6.0f, -2.0f, 0.0f}, 12.0);
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -657,6 +741,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_kdtree_bake_then_clear_and_reinsert();
     test_kdtree_bake_then_modify();
     test_kdtree_bake_disabled_by_default();
+    test_change_coordinates_reference(false /*concrete type*/, false /*sync index*/);
+    test_change_coordinates_reference(false /*concrete type*/, true /*background rebuilds*/);
+    test_change_coordinates_reference(true /*base-class pointer*/, false /*sync index*/);
 
     std::cout << "All tests passed.\n";
   }

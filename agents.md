@@ -168,6 +168,16 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   resurrect evicted geometry. The storage array itself never shrinks on its own:
   it settles at its high-water mark and slots are recycled; `compact()` releases
   it on demand.
+  `changeCoordinatesReference()` (all 3 overloads) is shadowed: a global SE(3)
+  re-map moves every coordinate, so it applies the transform and then rebuilds
+  the index over the *live* slot set (`rebuildIndexInPlace()`), dropping the
+  covariance cache. The base-class methods are **not virtual**, so a call
+  through a `mrpt::maps::CPointsMap*` cannot be intercepted; instead
+  `ensureIndexUpToDate()` compares a handful of sampled slot coordinates
+  (`coordinates_watch_`, refreshed by every internal mutator) against their
+  last known values and forces the same rebuild when they moved. That guard is
+  what turns *any* inherited in-place coordinate mutator from silent index
+  corruption into a (costly but correct) lazy rebuild.
   Implements `mp2p_icp::NearestPointWithCovCapable` with lazily computed,
   cached, plane-regularized per-point covariances (the "option A" of the plan;
   voxel/NDT-style and dirty-propagation covariances remain future work). Not for
