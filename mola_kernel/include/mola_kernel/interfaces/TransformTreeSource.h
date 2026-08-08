@@ -27,11 +27,16 @@
 
 namespace mola
 {
-/** One coordinate frame within a TransformTree. */
+/** One coordinate frame within a TransformTree.
+ *
+ *  Declares no constructor, not even a defaulted one: since C++20 any
+ *  user-declared constructor makes a struct a non-aggregate, which breaks the
+ *  brace initialization its producers use. The implicit default constructor is
+ *  equivalent, and leaving it implicit keeps this compiling under both C++17
+ *  and C++20.
+ */
 struct TransformTreeNode
 {
-  TransformTreeNode() = default;
-
   /** This frame's name, e.g. "LF_FOOT". */
   std::string frame;
 
@@ -43,11 +48,12 @@ struct TransformTreeNode
 };
 
 /** A snapshot of all coordinate frames hanging below a given root frame,
- *  with their poses already resolved with respect to that root. */
+ *  with their poses already resolved with respect to that root.
+ *
+ *  Declares no constructor either, for the same reason as TransformTreeNode
+ *  above. */
 struct TransformTree
 {
-  TransformTree() = default;
-
   /** The frame all poses in `nodes` are relative to. */
   std::string root;
 

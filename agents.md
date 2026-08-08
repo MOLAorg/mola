@@ -354,6 +354,10 @@ types into `mola_kernel`: `transform_tree(root)` returns the subtree below
 - No locking is needed around the walk: `tf2::BufferCore` guards its own
   internals, so it may run while another thread feeds `/tf`.
 - Consumers detect it with `findService<mola::TransformTreeSource>()`.
+- `TransformTree`/`TransformTreeNode` must stay **aggregates**: every producer
+  fills them with brace initialization, and since C++20 giving them any
+  constructor — even `= default` — makes that stop compiling. Lyrical builds
+  at C++20 and Humble/Jazzy at C++17, so this breaks on one distro only.
 
 ### GUI Widget Creation (v2.6+)
 Use `GuiWidgetDescription` for backend-agnostic widget creation in `VizInterface`.
