@@ -231,6 +231,15 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   voxel-decimate step) is the most expensive part of `regroupKeyframes()` and is
   parallelized across clusters with TBB (`tbb::parallel_for`, gated by
   `MOLA_METRIC_MAPS_USE_TBB`, falling back to a serial loop when TBB is absent).
+- `KeyframePointCloudMap::TCreationOptions::max_distance_for_cov` bounds the per-point
+  covariance neighborhood, which maps onto nanoflann's radius-limited kNN (RKNN) via the
+  optional max-distance argument of MRPT's `kdTreeNClosestPoint3DIdx()`. That overload
+  throws at runtime on nanoflann < 1.5.1 (still the case on Ubuntu jammy / Humble), so
+  `computeCovariancesAndDensity()` guards it with `MOLA_MM_HAS_RKNN_SEARCH`
+  (`NANOFLANN_VERSION >= 0x151`) and otherwise runs a plain kNN truncated at the same
+  radius, which yields exactly the same neighbor set since results come back sorted.
+  The `NANOFLANN_VERSION` that decides is the one MRPT's own templates were built
+  against, picked up transitively from the MRPT headers: do not include nanoflann there.
 - `KeyframePointCloudMap::TCreationOptions::approximate_cov` (default `false`): for
   `nn_search_cov2cov()` (used by `mp2p_icp::Matcher_Cov2Cov`, i.e. GICP-style pipelines).
   When `true`, `icp_get_prepared_as_global()` skips assembling the merged, multi-keyframe
