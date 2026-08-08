@@ -72,6 +72,10 @@ Lidar-Inertial-Odometry (LIO) demo with Oxford Spires:
 
 ![Peek 2025-10-10 10-29](https://github.com/user-attachments/assets/f3a83a42-a9d7-4007-b0a0-a87c13893c0e)
 
+Lidar-Odometry (LO) demo with GrandTour legged dataset:
+
+<img width="550" height="292" alt="mola-lio-legged-cons" src="https://github.com/user-attachments/assets/9899217b-760a-431d-8b03-2e2e5e681e4b" />
+
 Lidar-Odometry (LO) demo with KITTI:
 
 ![kitti_demo_06](https://github.com/MOLAorg/mola/assets/5497818/76cf07e2-ab20-41a3-abc6-df5c5ba74b97)
