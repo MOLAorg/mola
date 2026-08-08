@@ -22,7 +22,7 @@
   <depend>mp2p_icp</depend>  <!-- actually, just the mp2p_icp_map library -->
 
   <depend>tbb</depend>
-  <depend>nanoflann</depend>  <!-- optional: >=1.10 enables mola::IncrementalPointCloud -->
+  <depend>nanoflann_vendor</depend>  <!-- optional: >=1.10 enables mola::IncrementalPointCloud -->
 
   <doc_depend>doxygen</doc_depend>
 
