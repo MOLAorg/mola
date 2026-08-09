@@ -1091,6 +1091,9 @@ void KeyframePointCloudMap::nn_search_cov2cov(
                      : -2.0f;  // sentinel: never reached when filter is disabled
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
+  // Pairings are appended, so only the ones added below get reordered:
+  const size_t firstNewPairing = outPairings.size();
+
   tbb::enumerable_thread_specific<mp2p_icp::MatchedPointWithCovList> tls;
 
   tbb::parallel_for(
@@ -1170,6 +1173,15 @@ void KeyframePointCloudMap::nn_search_cov2cov(
         outPairings.end(), std::make_move_iterator(localVec.begin()),
         std::make_move_iterator(localVec.end()));
   }
+
+  // Thread-local vectors are visited in an unspecified order, so restore the
+  // order the sequential path produces. Each local point yields at most one
+  // pairing, so its index is a unique key. The pairing list order reaches the
+  // solver's summation order, and from there the optimized pose.
+  std::sort(
+      outPairings.begin() + firstNewPairing, outPairings.end(),
+      [](const mp2p_icp::point_with_cov_pair_t& a, const mp2p_icp::point_with_cov_pair_t& b)
+      { return a.local_idx < b.local_idx; });
 #endif
 
   // Recover original:
@@ -1300,6 +1312,9 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
   }
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
+  // Pairings are appended, so only the ones added below get reordered:
+  const size_t firstNewPairing = outPairings.size();
+
   tbb::enumerable_thread_specific<mp2p_icp::MatchedPointWithCovList> tls;
 
   tbb::parallel_for(
@@ -1421,6 +1436,15 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
         outPairings.end(), std::make_move_iterator(localVec.begin()),
         std::make_move_iterator(localVec.end()));
   }
+
+  // Thread-local vectors are visited in an unspecified order, so restore the
+  // order the sequential path produces. Each local point yields at most one
+  // pairing, so its index is a unique key. The pairing list order reaches the
+  // solver's summation order, and from there the optimized pose.
+  std::sort(
+      outPairings.begin() + firstNewPairing, outPairings.end(),
+      [](const mp2p_icp::point_with_cov_pair_t& a, const mp2p_icp::point_with_cov_pair_t& b)
+      { return a.local_idx < b.local_idx; });
 #endif
 
   if (debugMatchStats)
