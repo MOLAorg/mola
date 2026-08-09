@@ -218,7 +218,8 @@ class IncrementalKDTreeImpl : public mola::internal::IncrementalKDTree
       const float query[3], float radiusSqr, std::vector<Neighbor>& out) const override
   {
     std::vector<mola_nanoflann::ResultItem<uint32_t, float>> matches;
-    index_->radiusSearch(query, radiusSqr, matches);
+    // Explicitly discard the returned match count (nodiscard in newer nanoflann).
+    static_cast<void>(index_->radiusSearch(query, radiusSqr, matches));
 
     out.reserve(out.size() + matches.size());
     for (const auto& m : matches)
