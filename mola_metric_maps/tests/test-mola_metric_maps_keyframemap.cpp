@@ -331,6 +331,71 @@ void test_pairing_indices_consistent()
   }
 }
 
+// ── 9b. Pairings come back in a canonical order, every run ────────────────
+// The parallel path accumulates into thread-local vectors and merges them, and
+// the merge order is unspecified. The resulting permutation reaches the
+// solver's summation order and therefore the optimized pose, so it must not
+// depend on which workers happened to run. Ascending local_idx is the order the
+// sequential path produces, so asserting it also pins the parallel path to the
+// sequential result.
+void test_pairing_order_is_canonical()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+
+  // Big enough that TBB really splits the range across workers: on a small
+  // cloud the defect this guards against does not show up at all.
+  constexpr size_t kNx = 200, kNy = 200;
+
+  const auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f, kNx, kNy);
+  const auto local_pts  = makeGridPts(kDz, 0.f, 0.f, 1.f, kNx, kNy);
+
+  for (const bool approximate : {false, true})
+  {
+    auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts));
+    global_m.creationOptions.use_view_direction_filter = false;
+    global_m.creationOptions.approximate_cov           = approximate;
+    global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+
+    std::vector<std::pair<uint32_t, uint32_t>> reference;
+
+    for (int rep = 0; rep < 5; ++rep)
+    {
+      auto local_m = makeMapFromCloud(makeCloudWithViews(local_pts));
+
+      mp2p_icp::MatchedPointWithCovList pairings;
+      global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, pairings);
+
+      ASSERT_(!pairings.empty());
+
+      // Each local point yields at most one pairing, so the key is unique and
+      // the order is strict:
+      for (size_t i = 1; i < pairings.size(); ++i)
+      {
+        ASSERTMSG_(
+            pairings[i - 1].local_idx < pairings[i].local_idx,
+            "Pairings are not in canonical (ascending local_idx) order");
+      }
+
+      std::vector<std::pair<uint32_t, uint32_t>> idx;
+      idx.reserve(pairings.size());
+      for (const auto& p : pairings)
+      {
+        idx.emplace_back(p.local_idx, p.global_idx);
+      }
+
+      if (rep == 0)
+      {
+        reference = std::move(idx);
+      }
+      else
+      {
+        ASSERTMSG_(idx == reference, "The pairing list changed between identical runs");
+      }
+    }
+  }
+}
+
 // ── 10. Points beyond max_search_distance are never paired ────────────────
 void test_distance_threshold_respected()
 {
@@ -1465,6 +1530,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_pairing_indices_consistent ...\n";
     test_pairing_indices_consistent();
+
+    std::cout << "test_pairing_order_is_canonical ...\n";
+    test_pairing_order_is_canonical();
 
     std::cout << "test_distance_threshold_respected ...\n";
     test_distance_threshold_respected();
