@@ -129,22 +129,6 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
     return {};  // Default: none
   }
 
-  /** (Optional virtual method) Re-expresses the whole estimator state in a new
-   *  reference frame: every stored map-frame pose `p` must become `b + p`.
-   *
-   *  Intended for a one-off gauge change of the map frame (e.g. leveling it
-   *  once gravity is known), NOT for a state update: relative motion, and
-   *  hence every velocity expressed in the vehicle's own frame, is unchanged
-   *  by construction.
-   *
-   *  \return true if applied, false if this estimator cannot do it (the
-   *          default). A caller that gets false must fall back to reset().
-   */
-  virtual bool transform_frame([[maybe_unused]] const mrpt::poses::CPose3D& b)  // NOLINT
-  {
-    return false;  // Default: not implemented.
-  }
-
   /** (Optional virtual method) Returns true if the estimator has converged
    *  to a stable state with uncertainty below reasonable thresholds.
    *  \param[out] pose The current estimated pose with covariance (in the "map" frame_id)
@@ -173,6 +157,26 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
   virtual std::optional<mola::Georeferencing> get_geo_reference() const
   {
     return std::nullopt;  // Default: none
+  }
+
+  /** (Optional virtual method) Re-expresses the whole estimator state in a new
+   *  reference frame: every stored map-frame pose `p` must become `b + p`.
+   *
+   *  Intended for a one-off gauge change of the map frame (e.g. leveling it
+   *  once gravity is known), NOT for a state update: relative motion, and
+   *  hence every velocity expressed in the vehicle's own frame, is unchanged
+   *  by construction.
+   *
+   *  \return true if applied, false if this estimator cannot do it (the
+   *          default). A caller that gets false must fall back to reset().
+   *
+   *  \note Declared last on purpose: appending a virtual only grows the
+   *        vtable, whereas inserting one shifts the slot index of every
+   *        virtual after it. Keep new optional virtuals here, at the end.
+   */
+  virtual bool transform_frame([[maybe_unused]] const mrpt::poses::CPose3D& b)  // NOLINT
+  {
+    return false;  // Default: not implemented.
   }
 
  private:

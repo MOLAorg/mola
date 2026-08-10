@@ -217,6 +217,103 @@ void test_count_nearby_empty()
   ASSERT_EQUAL_(list.countNearby(xyz(0, 0, 0), 100.0, M_PI), 0u);
 }
 
+// ── transform_left_multiply(): kd-tree mode ───────────────────────────────
+// The frame change must move every stored pose by `b` AND keep the spatial
+// index consistent with the new coordinates, so NN queries answer in the new
+// frame. Distances between stored poses are invariant.
+void test_transform_left_multiply_kdtree()
+{
+  mola::SearchablePoseList list(false);
+  populateLine(list);  // 25 KFs at x=0..24, ids 100..124
+
+  const auto b = CPose3D::FromXYZYawPitchRoll(10, -5, 2, 0.5, 0.1, -0.2);
+
+  list.transform_left_multiply(b);
+
+  ASSERT_EQUAL_(list.size(), 25UL);
+
+  // Every stored pose moved: a query at the NEW location of the KF that used
+  // to sit at x=7 must find it exactly, exercising the rebuilt kd-tree.
+  const auto expected7 = b + xyz(7, 0, 0);
+  {
+    auto [isFirst, dist] = list.check(expected7);
+    ASSERT_(!isFirst);
+    ASSERT_NEAR_(dist.translation().norm(), 0.0, 1e-6);
+  }
+
+  // ...and the OLD location is now far away (>= 1 m to the nearest KF), which
+  // would not hold if the kd-tree still held the pre-transform points.
+  {
+    auto [isFirst, dist] = list.check(xyz(7, 0, 0));
+    ASSERT_(!isFirst);
+    ASSERT_GT_(dist.translation().norm(), 1.0);
+  }
+
+  // Relative geometry is preserved: the 1 m KF spacing is unchanged, so a
+  // query 0.25 m away from a KF, in the new frame, still reports 0.25 m.
+  {
+    const auto probe     = expected7 + xyz(0.25, 0, 0);
+    auto [isFirst, dist] = list.check(probe);
+    ASSERT_(!isFirst);
+    ASSERT_NEAR_(dist.translation().norm(), 0.25, 1e-6);
+  }
+
+  // The id-keyed lookup keeps working after the transform.
+  list.setPoseById(107, xyz(1000, 0, 0));
+  {
+    auto [isFirst, dist] = list.check(xyz(1000, 0, 0));
+    ASSERT_(!isFirst);
+    ASSERT_NEAR_(dist.translation().norm(), 0.0, 1e-6);
+  }
+}
+
+// ── transform_left_multiply(): from_last_only mode ────────────────────────
+void test_transform_left_multiply_from_last_only()
+{
+  const auto b = CPose3D::FromXYZYawPitchRoll(1, 2, 3, 0.3, 0, 0);
+
+  // Empty list: must not invent a pose.
+  {
+    mola::SearchablePoseList list(true /*from_last_only*/);
+    list.transform_left_multiply(b);
+    ASSERT_(list.empty());
+    ASSERT_EQUAL_(list.size(), 0UL);
+  }
+
+  mola::SearchablePoseList list(true /*from_last_only*/);
+  list.insert(xyz(4, 0, 0));
+
+  list.transform_left_multiply(b);
+
+  ASSERT_EQUAL_(list.size(), 1UL);
+
+  const auto expected = b + xyz(4, 0, 0);
+  {
+    auto [isFirst, dist] = list.check(expected);
+    ASSERT_(!isFirst);
+    ASSERT_NEAR_(dist.translation().norm(), 0.0, 1e-6);
+  }
+  {
+    auto [isFirst, dist] = list.check(xyz(4, 0, 0));
+    ASSERT_(!isFirst);
+    ASSERT_GT_(dist.translation().norm(), 1.0);
+  }
+}
+
+// ── transform_left_multiply(): identity is a no-op ────────────────────────
+void test_transform_left_multiply_identity()
+{
+  mola::SearchablePoseList list(false);
+  populateLine(list);
+
+  list.transform_left_multiply(CPose3D::Identity());
+
+  ASSERT_EQUAL_(list.size(), 25UL);
+  auto [isFirst, dist] = list.check(xyz(7, 0, 0));
+  ASSERT_(!isFirst);
+  ASSERT_NEAR_(dist.translation().norm(), 0.0, 1e-6);
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -249,6 +346,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_count_nearby_empty ...\n";
     test_count_nearby_empty();
+
+    std::cout << "test_transform_left_multiply_kdtree ...\n";
+    test_transform_left_multiply_kdtree();
+
+    std::cout << "test_transform_left_multiply_from_last_only ...\n";
+    test_transform_left_multiply_from_last_only();
+
+    std::cout << "test_transform_left_multiply_identity ...\n";
+    test_transform_left_multiply_identity();
 
     std::cout << "Test successful."
               << "\n";
