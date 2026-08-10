@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.1.1 (2026-08-10)
+------------------
 * fix build in ros rolling (newer gcc)
 * Contributors: Jose Luis Blanco Claraco
 

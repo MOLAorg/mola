@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.1.1 (2026-08-10)
+------------------
 * mola_metric_maps: fix calloc arg order and nodiscard warnings on newer GCC.
 * Give nn_search_cov2cov() a canonical pairing order. The parallel path merged
   per-thread correspondences in unspecified order, making ICP results

@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.1.1 (2026-08-10)
+------------------
 * Fix C++20 build: keep TransformTree/TransformTreeNode aggregates by
   dropping their defaulted default constructors, which made brace
   initialization stop compiling on ROS 2 Lyrical (C++20).

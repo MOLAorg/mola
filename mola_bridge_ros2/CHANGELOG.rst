@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.1.1 (2026-08-10)
+------------------
 * fix build in ros rolling (newer gcc)
 * fix format
 * mola_bridge_ros2: use tf2_ros .hpp headers instead of deprecated .h
