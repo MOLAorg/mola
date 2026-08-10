@@ -122,6 +122,14 @@ mola_add_library(
 if (TBB_FOUND AND MOLA_METRIC_MAPS_USE_TBB)
   target_compile_definitions(${PROJECT_NAME} PRIVATE MOLA_METRIC_MAPS_USE_TBB)
   target_link_libraries(${PROJECT_NAME} PRIVATE TBB::tbb)
+
+  # Sorting mp2p_icp::point_with_cov_pair_t (which embeds an over-aligned
+  # Eigen-backed covariance matrix) makes GCC emit a -Wpsabi note about an
+  # internal ABI change. The affected comparator never crosses a shared-library
+  # boundary, so the note is safe to silence.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wno-psabi)
+  endif()
 endif()
 
 if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
