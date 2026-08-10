@@ -37,11 +37,6 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 
 // ROS & others
-#include <tf2_ros/buffer.hpp>
-#include <tf2_ros/static_transform_broadcaster.hpp>
-#include <tf2_ros/transform_broadcaster.hpp>
-#include <tf2_ros/transform_listener.hpp>
-
 #include <atomic>
 #include <nav_msgs/msg/odometry.hpp>
 #include <optional>
@@ -51,6 +46,10 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/static_transform_broadcaster.hpp>
+#include <tf2_ros/transform_broadcaster.hpp>
+#include <tf2_ros/transform_listener.hpp>
 
 #if defined(HAS_GPS_MSGS)
 #include <gps_msgs/msg/gps_fix.hpp>

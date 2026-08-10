@@ -2,6 +2,25 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.1.1 (2026-08-10)
+------------------
+* mola_metric_maps: fix calloc arg order and nodiscard warnings on newer GCC.
+* Give nn_search_cov2cov() a canonical pairing order. The parallel path merged
+  per-thread correspondences in unspecified order, making ICP results
+  non-deterministic run to run; now sorted by local_idx to match the
+  sequential path.
+* IncrementalPointCloud: rebuild the k-d tree on a global SE(3) re-map.
+  changeCoordinatesReference() rewrote coordinates in place without resizing,
+  so the k-d tree kept stale split planes and nearest-neighbor queries
+  silently returned wrong results. Fixes `#186 <https://github.com/MOLAorg/mola/issues/186>`_.
+* mola_metric_maps: depend on nanoflann_vendor instead of nanoflann, since the
+  rosdep key otherwise resolves to the distro's older libnanoflann-dev.
+* fix(mola_metric_maps): don't require nanoflann>=1.5.1 for KeyframePointCloudMap
+  covariances. Ubuntu jammy's older nanoflann made every use of
+  mola::KeyframePointCloudMap throw on Humble; now falls back to a plain kNN
+  truncated at the same radius, verified numerically equivalent.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.1.0 (2026-08-06)
 ------------------
 * Merge pull request `#187 <https://github.com/MOLAorg/mola/issues/187>`_ from MOLAorg/feat/incremental-point-cloud-kdtree-bake

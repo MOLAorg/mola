@@ -992,7 +992,7 @@ std::optional<mola::TransformTree> Rosbag2Dataset::transform_tree(
   mola::TransformTree tree;
   tree.root      = root;
   tree.timestamp = timestamp.value_or(mrpt::Clock::now());
-  tree.nodes.push_back({root, {}, mrpt::poses::CPose3D::Identity()});
+  tree.nodes.push_back(mola::TransformTreeNode{root, {}, mrpt::poses::CPose3D::Identity()});
 
   // 'visited' guards against a cyclic parent chain: tf2 reassigns a frame's
   // parent on every setTransform(), so malformed input can produce one, and
@@ -1044,7 +1044,7 @@ std::optional<mola::TransformTree> Rosbag2Dataset::transform_tree(
         continue;
       }
 
-      tree.nodes.push_back({child, frame, childInRoot});
+      tree.nodes.push_back(mola::TransformTreeNode{child, frame, childInRoot});
       pending.push_back(child);
     }
   }

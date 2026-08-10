@@ -54,7 +54,7 @@ class FixedDenseGrid3D
   // The use of "calloc()" for super fast allocation needs this:
   static_assert(std::is_trivially_copyable_v<T>);
 
-  FixedDenseGrid3D() { cells_ = reinterpret_cast<T*>(calloc(sizeof(T), TOTAL_CELL_COUNT)); }
+  FixedDenseGrid3D() { cells_ = reinterpret_cast<T*>(calloc(TOTAL_CELL_COUNT, sizeof(T))); }
   ~FixedDenseGrid3D() { free(cells_); }
 
   // Delete copy and move constructors and assignment operators
