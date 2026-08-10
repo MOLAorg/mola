@@ -378,6 +378,12 @@ types into `mola_kernel`: `transform_tree(root)` returns the subtree below
   fills them with brace initialization, and since C++20 giving them any
   constructor — even `= default` — makes that stop compiling. Lyrical builds
   at C++20 and Humble/Jazzy at C++17, so this breaks on one distro only.
+  `push_back({...})` into a `vector<TransformTreeNode>` must name the type
+  explicitly (`push_back(TransformTreeNode{...})`, not a bare braced list): on
+  GCC 15 (ROS 2 Rolling) the bare form fails to resolve between the
+  `push_back` overloads with "no known conversion from '<brace-enclosed
+  initializer list>'"; naming the type first sidesteps that overload
+  resolution entirely. Older GCC (Humble/Jazzy/Kilted) accepts either form.
 
 ### GUI Widget Creation (v2.6+)
 Use `GuiWidgetDescription` for backend-agnostic widget creation in `VizInterface`.

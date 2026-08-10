@@ -2,6 +2,9 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.1.1 (2026-08-10)
+------------------
+
 3.1.0 (2026-08-06)
 ------------------
 * mola_demos: drop ament_cmake_uncrustify test_depend
