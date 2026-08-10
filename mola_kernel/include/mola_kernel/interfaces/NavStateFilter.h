@@ -159,6 +159,26 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
     return std::nullopt;  // Default: none
   }
 
+  /** (Optional virtual method) Re-expresses the whole estimator state in a new
+   *  reference frame: every stored map-frame pose `p` must become `b + p`.
+   *
+   *  Intended for a one-off gauge change of the map frame (e.g. leveling it
+   *  once gravity is known), NOT for a state update: relative motion, and
+   *  hence every velocity expressed in the vehicle's own frame, is unchanged
+   *  by construction.
+   *
+   *  \return true if applied, false if this estimator cannot do it (the
+   *          default). A caller that gets false must fall back to reset().
+   *
+   *  \note Declared last on purpose: appending a virtual only grows the
+   *        vtable, whereas inserting one shifts the slot index of every
+   *        virtual after it. Keep new optional virtuals here, at the end.
+   */
+  virtual bool transform_frame([[maybe_unused]] const mrpt::poses::CPose3D& b)  // NOLINT
+  {
+    return false;  // Default: not implemented.
+  }
+
  private:
   /// A list of one or multiple MOLA **module names** to which to subscribe
   std::set<std::string> navstate_source_names_;
@@ -167,5 +187,9 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
 /// Can be used to detect the existence of set_geo_reference() / get_geo_reference() methods in a
 /// NavStateFilter implementation.
 #define MOLA_KERNEL_NAVSTATE_FILTER_HAS_GEO_REFERENCE
+
+/// Can be used to detect the existence of the transform_frame() method, which
+/// re-expresses the estimator state in a new reference frame.
+#define MOLA_KERNEL_NAVSTATE_FILTER_HAS_TRANSFORM_FRAME
 
 }  // namespace mola

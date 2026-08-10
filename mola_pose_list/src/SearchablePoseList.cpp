@@ -159,6 +159,28 @@ void SearchablePoseList::removeAllFartherThan(
   ASSERT_EQUAL_(kf_poses_.size(), kf_ids_.size());
 }
 
+void SearchablePoseList::transform_left_multiply(const mrpt::poses::CPose3D& b)
+{
+  if (from_last_only_)
+  {
+    if (has_last_kf_)
+    {
+      last_kf_ = b + last_kf_;
+    }
+    return;
+  }
+
+  ASSERT_EQUAL_(kf_poses_.size(), kf_points_.size());
+
+  for (size_t i = 0; i < kf_poses_.size(); i++)
+  {
+    kf_poses_.at(i) = b + kf_poses_.at(i);
+    const auto t    = kf_poses_.at(i).translation();
+    // setPoint() invalidates the kd-tree, which is rebuilt on the next query.
+    kf_points_.setPoint(i, t.x, t.y, t.z);
+  }
+}
+
 void SearchablePoseList::setPoseById(KFID id, const mrpt::poses::CPose3D& new_pose)
 {
   if (from_last_only_) return;

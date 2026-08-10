@@ -105,6 +105,13 @@ class SearchablePoseList
    */
   void setPoseById(KFID id, const mrpt::poses::CPose3D& new_pose);
 
+  /** Re-expresses every stored pose in a new reference frame, i.e. each
+   *  stored \f$ p_i \f$ becomes \f$ b \oplus p_i \f$. Distances between
+   *  stored poses are preserved, so the "is there a keyframe here already?"
+   *  decisions are unchanged; only the frame they are expressed in moves.
+   */
+  void transform_left_multiply(const mrpt::poses::CPose3D& b);
+
   [[nodiscard]] std::tuple<bool /*isFirst*/, mrpt::poses::CPose3D /*distanceToClosest*/> check(
       const mrpt::poses::CPose3D& p) const;
 
@@ -151,3 +158,8 @@ class SearchablePoseList
  *  buildable against older `mola_pose_list` checkouts.
  */
 #define MOLA_POSE_LIST_HAS_ID_KEYED_API 1
+
+/** Feature macro: SearchablePoseList exposes transform_left_multiply(), used to
+ *  re-express all stored poses after a change of the reference (map) frame.
+ */
+#define MOLA_POSE_LIST_HAS_TRANSFORM_LEFT_MULTIPLY 1
