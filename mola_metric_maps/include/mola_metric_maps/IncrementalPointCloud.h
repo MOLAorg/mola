@@ -242,8 +242,8 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    */
   void nn_search_cov2cov(
       const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
-      const float                        max_search_distance,
-      mp2p_icp::MatchedPointWithCovList& outPairings) const override;
+      const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+      mp2p_icp::MatchedPointWithCovList&       outPairings) const override;
 
   [[nodiscard]] std::size_t point_count() const override;
 

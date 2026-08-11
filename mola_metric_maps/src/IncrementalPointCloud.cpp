@@ -945,7 +945,8 @@ std::size_t IncrementalPointCloud::point_count() const { return livePointCount()
 
 void IncrementalPointCloud::nn_search_cov2cov(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
-    const float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const
+    const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+    mp2p_icp::MatchedPointWithCovList&       outPairings) const
 {
   const auto* localPc = dynamic_cast<const IncrementalPointCloud*>(&localMap);
   ASSERTMSG_(
@@ -977,7 +978,17 @@ void IncrementalPointCloud::nn_search_cov2cov(
   // exactly once in the snapshot:
   localPc->ensureCovariancesFor(localLive);
 
-  const float max_sqr_dist = mrpt::square(max_search_distance);
+  // Fast path: a flat threshold (the common case, and the only one before this
+  // profile existed) needs no per-point range computation.
+  const bool  matchDistIsFlat  = matchingDistance.isFlat();
+  const float matchDistFlatSqr = mrpt::square(matchingDistance.near);
+
+  // Likewise, the ambiguity test is the only reason to ever look up a second
+  // neighbor, so the default configuration keeps a plain k=1 search.
+  const bool  ambiguityGate   = matchingDistance.hasAmbiguityGate();
+  const float ambRatioSqr     = mrpt::square(matchingDistance.firstToSecondDistanceMin);
+  const float ambMinRange     = matchingDistance.firstToSecondMinRange;
+  const bool  needsQueryRange = matchingDistance.needsRange();
 
   const auto& l_xs = localPc->m_x;
   const auto& l_ys = localPc->m_y;
@@ -999,9 +1010,43 @@ void IncrementalPointCloud::nn_search_cov2cov(
     const float q[3] = {
         static_cast<float>(gq.x), static_cast<float>(gq.y), static_cast<float>(gq.z)};
 
+    // Range from the sensor, i.e. in the query's own (untransformed) local frame -
+    // matches how the range-adaptive threshold was measured and validated (see
+    // ~/plans/icp-bench-range-adaptive-matching.md).
+    float range = 0;
+    if (needsQueryRange)
+    {
+      range = std::sqrt(mrpt::square(l_xs[ls]) + mrpt::square(l_ys[ls]) + mrpt::square(l_zs[ls]));
+    }
+
+    const float max_sqr_dist =
+        matchDistIsFlat ? matchDistFlatSqr : mrpt::square(matchingDistance(range));
+
+    const bool gateHere = ambiguityGate && range >= ambMinRange;
+
     uint32_t gIdx = 0;
-    float    d    = 0;
-    if (index_->knnSearchWithinRadius(q, 1, max_sqr_dist, &gIdx, &d) == 0) return;
+
+    if (!gateHere)
+    {
+      float d = 0;
+      if (index_->knnSearchWithinRadius(q, 1, max_sqr_dist, &gIdx, &d) == 0) return;
+    }
+    else
+    {
+      // The search radius is inflated by the ratio so that any runner-up able
+      // to disqualify the winner is guaranteed to be inside it.
+      uint32_t idxs[2] = {0, 0};
+      float    ds[2]   = {0, 0};
+
+      const std::size_t n =
+          index_->knnSearchWithinRadius(q, 2, max_sqr_dist * ambRatioSqr, idxs, ds);
+
+      if (n == 0 || ds[0] > max_sqr_dist) return;
+      // Too close to call: the runner-up is an equally plausible match.
+      if (n >= 2 && ds[1] < ds[0] * ambRatioSqr) return;
+
+      gIdx = idxs[0];
+    }
 
     out.push_back({ls, gIdx});
   };

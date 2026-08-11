@@ -225,7 +225,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
    *  @{ */
   void nn_search_cov2cov(
       const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
-      float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const override;
+      const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+      mp2p_icp::MatchedPointWithCovList&       outPairings) const override;
 
   [[nodiscard]] std::size_t point_count() const override;
 
@@ -845,8 +846,9 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
    *  \sa TCreationOptions::approximate_cov
    */
   void nn_search_cov2cov_approximate(
-      const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs, float max_search_distance,
-      mp2p_icp::MatchedPointWithCovList& outPairings) const;
+      const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs,
+      const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+      mp2p_icp::MatchedPointWithCovList&       outPairings) const;
 };
 
 }  // namespace mola

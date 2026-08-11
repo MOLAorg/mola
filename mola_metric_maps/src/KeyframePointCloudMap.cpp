@@ -958,7 +958,8 @@ void KeyframePointCloudMap::transform_map_left_multiply_impl(const mrpt::poses::
 
 void KeyframePointCloudMap::nn_search_cov2cov(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
-    const float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const
+    const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+    mp2p_icp::MatchedPointWithCovList&       outPairings) const
 {
   auto lck = mrpt::lockHelper(*state_mtx_);
 
@@ -977,8 +978,7 @@ void KeyframePointCloudMap::nn_search_cov2cov(
     ASSERTMSG_(
         cached_.icp_search_kfs,
         "Using this method requires calling icp_get_prepared_as_global() first");
-    nn_search_cov2cov_approximate(
-        localKf, *cached_.icp_search_kfs, max_search_distance, outPairings);
+    nn_search_cov2cov_approximate(localKf, *cached_.icp_search_kfs, matchingDistance, outPairings);
     localKf.pose(originalLocalKfPose);
     return;
   }
@@ -996,7 +996,17 @@ void KeyframePointCloudMap::nn_search_cov2cov(
 
   const auto localPointCount = localPointsTransf->size();
 
-  const float max_sqr_dist = mrpt::square(max_search_distance);
+  // Fast path: a flat threshold (the common case, and the only one before this
+  // profile existed) needs no per-point range computation.
+  const bool  matchDistIsFlat  = matchingDistance.isFlat();
+  const float matchDistFlatSqr = mrpt::square(matchingDistance.near);
+
+  // Likewise, the ambiguity test is the only reason to ever look up a second
+  // neighbor, so the default configuration keeps a plain k=1 search.
+  const bool  ambiguityGate   = matchingDistance.hasAmbiguityGate();
+  const float ambRatioSqr     = mrpt::square(matchingDistance.firstToSecondDistanceMin);
+  const float ambMinRange     = matchingDistance.firstToSecondMinRange;
+  const bool  needsQueryRange = matchingDistance.needsRange();
 
   const auto& xs_tf = localPointsTransf->getPointsBufferRef_x();
   const auto& ys_tf = localPointsTransf->getPointsBufferRef_y();
@@ -1103,12 +1113,52 @@ void KeyframePointCloudMap::nn_search_cov2cov(
   for (size_t local_idx = 0; local_idx < localPointCount; local_idx++)
 #endif
       {
-        float nn_dist_sqr = std::numeric_limits<float>::max();
+        // Range from the sensor, i.e. in the query's own (untransformed) local frame -
+        // matches how the range-adaptive threshold was measured and validated (see
+        // ~/plans/icp-bench-range-adaptive-matching.md).
+        float range = 0;
+        if (needsQueryRange)
+        {
+          range = std::sqrt(
+              mrpt::square(xs[local_idx]) + mrpt::square(ys[local_idx]) +
+              mrpt::square(zs[local_idx]));
+        }
 
-        const auto nn_global_idx = globalPoints->kdTreeClosestPoint3D(
-            xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx], nn_dist_sqr);
+        const float max_sqr_dist =
+            matchDistIsFlat ? matchDistFlatSqr : mrpt::square(matchingDistance(range));
 
-        if (nn_dist_sqr > max_sqr_dist)
+        const bool gateHere = ambiguityGate && range >= ambMinRange;
+
+        float  nn_dist_sqr   = std::numeric_limits<float>::max();
+        size_t nn_global_idx = 0;
+        bool   ambiguous     = false;
+
+        if (!gateHere)
+        {
+          nn_global_idx = globalPoints->kdTreeClosestPoint3D(
+              xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx], nn_dist_sqr);
+        }
+        else
+        {
+          // The search radius is inflated by the ratio so that any runner-up
+          // able to disqualify the winner is guaranteed to be inside it.
+          std::vector<size_t> nnIdxs;
+          std::vector<float>  nnDistsSqr;
+
+          globalPoints->kdTreeNClosestPoint3DIdx(
+              xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx], 2, nnIdxs, nnDistsSqr,
+              max_sqr_dist * ambRatioSqr);
+
+          if (!nnIdxs.empty())
+          {
+            nn_global_idx = nnIdxs[0];
+            nn_dist_sqr   = nnDistsSqr[0];
+            // Too close to call: the runner-up is an equally plausible match.
+            ambiguous = nnIdxs.size() >= 2 && nnDistsSqr[1] < nnDistsSqr[0] * ambRatioSqr;
+          }
+        }
+
+        if (ambiguous || nn_dist_sqr > max_sqr_dist)
         {
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
           return;  // exit TBB lambda for this index
@@ -1205,15 +1255,23 @@ uint32_t packApproxGlobalIdx(uint32_t kf_ordinal, uint32_t local_idx)
 }  // namespace
 
 void KeyframePointCloudMap::nn_search_cov2cov_approximate(
-    const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs, const float max_search_distance,
-    mp2p_icp::MatchedPointWithCovList& outPairings) const
+    const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs,
+    const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+    mp2p_icp::MatchedPointWithCovList&       outPairings) const
 {
   const auto& localKfCov        = localKf.covariancesGlobal();
   const auto& localPointsTransf = localKf.pointcloud_global();
   const auto& localPoints       = localKf.pointcloud();
 
-  const auto  localPointCount = localPointsTransf->size();
-  const float max_sqr_dist    = mrpt::square(max_search_distance);
+  const auto localPointCount = localPointsTransf->size();
+
+  // See the exact-mode nn_search_cov2cov() above for the rationale.
+  const bool  matchDistIsFlat  = matchingDistance.isFlat();
+  const float matchDistFlatSqr = mrpt::square(matchingDistance.near);
+  const bool  ambiguityGate    = matchingDistance.hasAmbiguityGate();
+  const float ambRatioSqr      = mrpt::square(matchingDistance.firstToSecondDistanceMin);
+  const float ambMinRange      = matchingDistance.firstToSecondMinRange;
+  const bool  needsQueryRange  = matchingDistance.needsRange();
 
   const auto& xs_tf = localPointsTransf->getPointsBufferRef_x();
   const auto& ys_tf = localPointsTransf->getPointsBufferRef_y();
@@ -1324,11 +1382,46 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
   for (size_t local_idx = 0; local_idx < localPointCount; local_idx++)
 #endif
       {
+        float range = 0;
+        if (needsQueryRange)
+        {
+          range = std::sqrt(
+              mrpt::square(xs[local_idx]) + mrpt::square(ys[local_idx]) +
+              mrpt::square(zs[local_idx]));
+        }
+
+        const float max_sqr_dist =
+            matchDistIsFlat ? matchDistFlatSqr : mrpt::square(matchingDistance(range));
+
+        const bool gateHere = ambiguityGate && range >= ambMinRange;
+
         // "N" KD-tree queries (one per active KF) instead of one on a merged cloud:
-        float  best_dist_sqr = std::numeric_limits<float>::max();
-        size_t best_entry    = 0;
-        size_t best_idx      = 0;
-        bool   found         = false;
+        float  best_dist_sqr   = std::numeric_limits<float>::max();
+        float  second_dist_sqr = std::numeric_limits<float>::max();
+        size_t best_entry      = 0;
+        size_t best_idx        = 0;
+        bool   found           = false;
+
+        // The runner-up may live in a different keyframe than the winner, so the
+        // best two must be merged across all of them.
+        const auto lambdaFoldCandidate = [&](size_t e, size_t idx, float d)
+        {
+          if (d < best_dist_sqr)
+          {
+            second_dist_sqr = best_dist_sqr;
+            best_dist_sqr   = d;
+            best_entry      = e;
+            best_idx        = idx;
+            found           = true;
+          }
+          else if (d < second_dist_sqr)
+          {
+            second_dist_sqr = d;
+          }
+        };
+
+        std::vector<size_t> nnIdxs;
+        std::vector<float>  nnDistsSqr;
 
         for (size_t e = 0; e < entries.size(); e++)
         {
@@ -1337,19 +1430,31 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
           // distances, so best_dist_sqr remains comparable across keyframes.
           const auto ql = entries[e].poseInv.composePoint(
               mrpt::math::TPoint3D(xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx]));
-          float      d   = std::numeric_limits<float>::max();
-          const auto idx = entries[e].localPoints->kdTreeClosestPoint3D(
-              static_cast<float>(ql.x), static_cast<float>(ql.y), static_cast<float>(ql.z), d);
-          if (d < best_dist_sqr)
+
+          if (!gateHere)
           {
-            best_dist_sqr = d;
-            best_entry    = e;
-            best_idx      = idx;
-            found         = true;
+            float      d   = std::numeric_limits<float>::max();
+            const auto idx = entries[e].localPoints->kdTreeClosestPoint3D(
+                static_cast<float>(ql.x), static_cast<float>(ql.y), static_cast<float>(ql.z), d);
+            lambdaFoldCandidate(e, idx, d);
+          }
+          else
+          {
+            entries[e].localPoints->kdTreeNClosestPoint3DIdx(
+                static_cast<float>(ql.x), static_cast<float>(ql.y), static_cast<float>(ql.z), 2,
+                nnIdxs, nnDistsSqr, max_sqr_dist * ambRatioSqr);
+
+            for (size_t i = 0; i < nnIdxs.size(); i++)
+            {
+              lambdaFoldCandidate(e, nnIdxs[i], nnDistsSqr[i]);
+            }
           }
         }
 
-        if (!found || best_dist_sqr > max_sqr_dist)
+        // Too close to call: the runner-up is an equally plausible match.
+        const bool ambiguous = gateHere && second_dist_sqr < best_dist_sqr * ambRatioSqr;
+
+        if (!found || ambiguous || best_dist_sqr > max_sqr_dist)
         {
           if (debugMatchStats)
           {
@@ -1452,9 +1557,10 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
     printf(
         "[KeyframePointCloudMap] nn_search_cov2cov_approximate: query_points=%zu "
         "active_kfs=%zu accepted=%zu no_candidate_in_range=%zu rejected_by_view_filter=%zu "
-        "max_search_distance=%.3f\n",
+        "matching_distance_near=%.3f matching_distance_far=%.3f\n",
         localPointCount, entries.size(), statsAccepted.load(), statsNoCandidateInRange.load(),
-        statsRejectedByViewFilter.load(), static_cast<double>(max_search_distance));
+        statsRejectedByViewFilter.load(), static_cast<double>(matchingDistance.near),
+        static_cast<double>(matchingDistance.far));
   }
 }
 
