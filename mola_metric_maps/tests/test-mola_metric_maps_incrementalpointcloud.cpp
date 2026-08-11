@@ -392,6 +392,8 @@ void test_cov2cov()
 // The first-to-second nearest-neighbor ambiguity gate: a correspondence whose
 // runner-up candidate is nearly as good as the winner must be rejected, and the
 // whole test must be a no-op when left at its default (disabled) value.
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
+// Exercises the mp2p_icp ambiguity gate, which older mp2p_icp releases lack.
 void test_cov2cov_ambiguity_gate()
 {
   // A deliberately sparse scene, so that the two cases are cleanly separated:
@@ -474,6 +476,7 @@ void test_cov2cov_ambiguity_gate()
     ASSERT_EQUAL_(pairings.size(), 1U);
   }
 }
+#endif  // MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE
 
 // -------------------------------------------------------------------------
 // Compares NN query results between two maps expected to hold the same set of
@@ -862,7 +865,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_bounded_memory_under_churn();
     test_serialization_and_copy();
     test_cov2cov();
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
     test_cov2cov_ambiguity_gate();
+#endif
     test_kdtree_bake_roundtrip_memory();
     test_kdtree_bake_roundtrip_file();
     test_kdtree_bake_then_clear_and_reinsert();

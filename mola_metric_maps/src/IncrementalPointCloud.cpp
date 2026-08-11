@@ -945,8 +945,26 @@ std::size_t IncrementalPointCloud::point_count() const { return livePointCount()
 
 void IncrementalPointCloud::nn_search_cov2cov(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+    const float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const
+{
+  nn_search_cov2cov_impl(
+      localMap, localMapPose, MatchingDistanceProfile(max_search_distance), outPairings);
+}
+
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
+void IncrementalPointCloud::nn_search_cov2cov(
+    const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
     const mp2p_icp::MatchingDistanceProfile& matchingDistance,
     mp2p_icp::MatchedPointWithCovList&       outPairings) const
+{
+  nn_search_cov2cov_impl(localMap, localMapPose, matchingDistance, outPairings);
+}
+#endif
+
+void IncrementalPointCloud::nn_search_cov2cov_impl(
+    const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+    const MatchingDistanceProfile&     matchingDistance,
+    mp2p_icp::MatchedPointWithCovList& outPairings) const
 {
   const auto* localPc = dynamic_cast<const IncrementalPointCloud*>(&localMap);
   ASSERTMSG_(

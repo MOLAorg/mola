@@ -958,8 +958,26 @@ void KeyframePointCloudMap::transform_map_left_multiply_impl(const mrpt::poses::
 
 void KeyframePointCloudMap::nn_search_cov2cov(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+    const float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const
+{
+  nn_search_cov2cov_impl(
+      localMap, localMapPose, MatchingDistanceProfile(max_search_distance), outPairings);
+}
+
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
+void KeyframePointCloudMap::nn_search_cov2cov(
+    const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
     const mp2p_icp::MatchingDistanceProfile& matchingDistance,
     mp2p_icp::MatchedPointWithCovList&       outPairings) const
+{
+  nn_search_cov2cov_impl(localMap, localMapPose, matchingDistance, outPairings);
+}
+#endif
+
+void KeyframePointCloudMap::nn_search_cov2cov_impl(
+    const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+    const MatchingDistanceProfile&     matchingDistance,
+    mp2p_icp::MatchedPointWithCovList& outPairings) const
 {
   auto lck = mrpt::lockHelper(*state_mtx_);
 
@@ -1256,8 +1274,8 @@ uint32_t packApproxGlobalIdx(uint32_t kf_ordinal, uint32_t local_idx)
 
 void KeyframePointCloudMap::nn_search_cov2cov_approximate(
     const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs,
-    const mp2p_icp::MatchingDistanceProfile& matchingDistance,
-    mp2p_icp::MatchedPointWithCovList&       outPairings) const
+    const MatchingDistanceProfile&     matchingDistance,
+    mp2p_icp::MatchedPointWithCovList& outPairings) const
 {
   const auto& localKfCov        = localKf.covariancesGlobal();
   const auto& localPointsTransf = localKf.pointcloud_global();

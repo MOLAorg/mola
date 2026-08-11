@@ -1271,6 +1271,8 @@ size_t countAmbiguityScenePairings(
 }
 
 // ── 26b. The ambiguity gate rejects near-equidistant runner-ups ───────────
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
+// Exercises the mp2p_icp ambiguity gate, which older mp2p_icp releases lack.
 void test_ambiguity_gate()
 {
   for (const bool approx : {false, true})
@@ -1313,6 +1315,7 @@ void test_ambiguity_gate()
     }
   }
 }
+#endif  // MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE
 
 // ---------------------------------------------------------------------------
 // approximate_cov: per-active-KF KD-tree queries instead of a merged submap
@@ -1671,7 +1674,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_viz_color_by_kf();
 
     std::cout << "test_ambiguity_gate ...\n";
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
     test_ambiguity_gate();
+#endif
 
     std::cout << "test_approximate_cov_option_roundtrip ...\n";
     test_approximate_cov_option_roundtrip();
