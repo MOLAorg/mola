@@ -1140,7 +1140,7 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
         const float max_sqr_dist =
             matchDistIsFlat ? matchDistFlatSqr : mrpt::square(matchingDistance(range));
 
-        float nn_dist_sqr = std::numeric_limits<float>::max();
+        float        nn_dist_sqr   = std::numeric_limits<float>::max();
         const size_t nn_global_idx = globalPoints->kdTreeClosestPoint3D(
             xs_tf[local_idx], ys_tf[local_idx], zs_tf[local_idx], nn_dist_sqr);
 

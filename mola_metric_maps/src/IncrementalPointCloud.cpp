@@ -1059,6 +1059,22 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
 
   if (matches.empty()) return;
 
+  // Give the pairing list a canonical order. Pass 3 below emits `outPairings`
+  // in this order, and that order reaches the solver's summation order and
+  // therefore the optimized pose, so it must not depend on which worker threads
+  // happened to take part. Each local point yields at most one match, so its
+  // slot is a unique key and the order is total.
+  //
+  // Unlike the equivalent in KeyframePointCloudMap, this sorts both the
+  // parallel and the sequential path, because neither was canonical here:
+  // `snapshotLiveIndices()` walks the k-d tree depth-first, so `localLive` is
+  // in tree-topology order rather than in slot order. That also makes the two
+  // paths agree by construction, and makes the result independent of the tree
+  // shape a rebuild happened to leave behind.
+  std::sort(
+      matches.begin(), matches.end(),
+      [](const Match& a, const Match& b) { return a.local_slot < b.local_slot; });
+
   // --- Pass 2: covariances of the matched global points -------------------
   // Deduplicated, so no two threads write to the same cache entry.
   std::vector<uint32_t> globalSlots;

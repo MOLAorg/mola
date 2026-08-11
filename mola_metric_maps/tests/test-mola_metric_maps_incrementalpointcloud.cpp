@@ -389,6 +389,63 @@ void test_cov2cov()
 }
 
 // -------------------------------------------------------------------------
+// Pairings must come back in a canonical order, every run. The parallel path
+// accumulates into thread-local vectors and merges them in an unspecified
+// order, and the snapshot of live local points is in k-d tree traversal order
+// rather than in slot order, so neither path was canonical on its own. The
+// resulting permutation reaches the solver's summation order and therefore the
+// optimized pose. Ascending local_idx is asserted because it is a total order
+// on a unique key, which also pins the parallel and sequential paths together.
+void test_pairing_order_is_canonical()
+{
+  // Big enough that TBB really splits the range across workers: on a small
+  // cloud the defect this guards against does not show up at all.
+  auto surface = mrpt::maps::CSimplePointsMap::Create();
+  for (int ix = -100; ix <= 100; ix++)
+  {
+    for (int iy = -100; iy <= 100; iy++)
+    {
+      surface->insertPointFast(
+          static_cast<float>(ix * 0.1), static_cast<float>(iy * 0.1),
+          static_cast<float>(rng.drawGaussian1D(0, 0.005)));
+    }
+  }
+  surface->mark_as_modified();
+
+  mola::IncrementalPointCloud global;
+  insertPoints(global, *surface);
+
+  mola::IncrementalPointCloud local;
+  insertPoints(local, *surface);
+
+  // Tombstones make the tree's traversal order diverge from slot order, which
+  // is the case the sort has to survive:
+  local.keepOnlyPointsNear({0, 0, 0}, 8.0);
+
+  std::vector<uint32_t> reference;
+  for (int pass = 0; pass < 4; pass++)
+  {
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global.nn_search_cov2cov(
+        local, mrpt::poses::CPose3D::Identity(), 0.5f /*max search distance*/, pairings);
+    ASSERT_(!pairings.empty());
+
+    std::vector<uint32_t> order;
+    order.reserve(pairings.size());
+    for (const auto& p : pairings) order.push_back(static_cast<uint32_t>(p.local_idx));
+
+    ASSERTMSG_(
+        std::is_sorted(order.begin(), order.end()),
+        "Pairings are not in canonical (ascending local_idx) order");
+
+    if (pass == 0)
+      reference = order;
+    else
+      ASSERTMSG_(order == reference, "Pairing order differs between identical calls");
+  }
+}
+
+// -------------------------------------------------------------------------
 // Compares NN query results between two maps expected to hold the same set of
 // points (used by the k-d tree baking tests below).
 void assertSameNNResults(
@@ -775,6 +832,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_bounded_memory_under_churn();
     test_serialization_and_copy();
     test_cov2cov();
+    test_pairing_order_is_canonical();
     test_kdtree_bake_roundtrip_memory();
     test_kdtree_bake_roundtrip_file();
     test_kdtree_bake_then_clear_and_reinsert();
