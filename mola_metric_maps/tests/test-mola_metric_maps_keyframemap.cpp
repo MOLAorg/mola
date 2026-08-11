@@ -1230,94 +1230,6 @@ void test_default_creation_options()
 }
 
 // ---------------------------------------------------------------------------
-// First-to-second nearest-neighbor ambiguity gate
-// ---------------------------------------------------------------------------
-
-// A deliberately sparse scene, so the two cases are cleanly separated:
-//  - an isolated map point, with no other candidate anywhere near it;
-//  - a pair of map points straddling the query, equidistant from it.
-// Returned as {global pts, local pts}.
-std::pair<std::vector<std::array<float, 6>>, std::vector<std::array<float, 6>>> makeAmbiguityScene()
-{
-  std::vector<std::array<float, 6>> global_pts;
-  appendPt(global_pts, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);  // the isolated one
-  appendPt(global_pts, 10.f, -0.30f, 0.f, 0.f, 0.f, 1.f);  // the ambiguous pair
-  appendPt(global_pts, 10.f, +0.30f, 0.f, 0.f, 0.f, 1.f);
-
-  std::vector<std::array<float, 6>> local_pts;
-  appendPt(local_pts, 0.f, 0.10f, 0.f, 0.f, 0.f, 1.f);  // unambiguous: d2/d1 ~ 100
-  appendPt(local_pts, 10.f, 0.f, 0.f, 0.f, 0.f, 1.f);  // ambiguous: d2/d1 == 1
-
-  return {global_pts, local_pts};
-}
-
-// Runs the scene above through nn_search_cov2cov() at the given profile.
-size_t countAmbiguityScenePairings(
-    const mp2p_icp::MatchingDistanceProfile& prof, bool approximateCov)
-{
-  const auto [global_pts, local_pts] = makeAmbiguityScene();
-
-  auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts));
-  auto local_m  = makeMapFromCloud(makeCloudWithViews(local_pts));
-
-  global_m.creationOptions.use_view_direction_filter = false;
-  global_m.creationOptions.approximate_cov           = approximateCov;
-
-  global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
-
-  mp2p_icp::MatchedPointWithCovList pairings;
-  global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), prof, pairings);
-  return pairings.size();
-}
-
-// ── 26b. The ambiguity gate rejects near-equidistant runner-ups ───────────
-#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
-// Exercises the mp2p_icp ambiguity gate, which older mp2p_icp releases lack.
-void test_ambiguity_gate()
-{
-  for (const bool approx : {false, true})
-  {
-    // Disabled (the default, and any value <= 1, since the ratio is >= 1 by
-    // construction): both query points get paired.
-    for (const float ratio : {0.0f, 1.0f})
-    {
-      mp2p_icp::MatchingDistanceProfile prof(0.5f);
-      prof.firstToSecondDistanceMin = ratio;
-      ASSERT_EQUAL_(countAmbiguityScenePairings(prof, approx), 2U);
-    }
-
-    // Enabled: only the isolated point survives.
-    {
-      mp2p_icp::MatchingDistanceProfile prof(0.5f);
-      prof.firstToSecondDistanceMin = 1.2f;
-      ASSERT_EQUAL_(countAmbiguityScenePairings(prof, approx), 1U);
-    }
-
-    // The gate must not override the acceptance distance: an unambiguous but
-    // too-far candidate is still rejected.
-    {
-      mp2p_icp::MatchingDistanceProfile prof(0.05f);
-      prof.firstToSecondDistanceMin = 1.2f;
-      ASSERT_EQUAL_(countAmbiguityScenePairings(prof, approx), 0U);
-    }
-
-    // Range-scoped: the ambiguous query sits at range 10, so a minimum range
-    // above that leaves it untested, and one below it restores the rejection.
-    {
-      mp2p_icp::MatchingDistanceProfile prof(0.5f);
-      prof.firstToSecondDistanceMin = 1.2f;
-
-      prof.firstToSecondMinRange = 20.0f;
-      ASSERT_EQUAL_(countAmbiguityScenePairings(prof, approx), 2U);
-
-      prof.firstToSecondMinRange = 5.0f;
-      ASSERT_EQUAL_(countAmbiguityScenePairings(prof, approx), 1U);
-    }
-  }
-}
-#endif  // MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE
-
-// ---------------------------------------------------------------------------
 // approximate_cov: per-active-KF KD-tree queries instead of a merged submap
 // (see TCreationOptions::approximate_cov / nn_search_cov2cov_approximate()).
 // ---------------------------------------------------------------------------
@@ -1672,11 +1584,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_viz_color_by_kf ...\n";
     test_viz_color_by_kf();
-
-    std::cout << "test_ambiguity_gate ...\n";
-#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
-    test_ambiguity_gate();
-#endif
 
     std::cout << "test_approximate_cov_option_roundtrip ...\n";
     test_approximate_cov_option_roundtrip();

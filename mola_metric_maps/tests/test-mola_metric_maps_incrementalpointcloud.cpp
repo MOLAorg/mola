@@ -389,96 +389,6 @@ void test_cov2cov()
 }
 
 // -------------------------------------------------------------------------
-// The first-to-second nearest-neighbor ambiguity gate: a correspondence whose
-// runner-up candidate is nearly as good as the winner must be rejected, and the
-// whole test must be a no-op when left at its default (disabled) value.
-#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
-// Exercises the mp2p_icp ambiguity gate, which older mp2p_icp releases lack.
-void test_cov2cov_ambiguity_gate()
-{
-  // A deliberately sparse scene, so that the two cases are cleanly separated:
-  //  - an isolated map point, with no other candidate anywhere near it;
-  //  - a pair of map points straddling the query, equidistant from it.
-  mola::IncrementalPointCloud global;
-  global.insertPoint(0.0f, 0.0f, 0.0f);  // the isolated one
-  global.insertPoint(10.0f, -0.30f, 0.0f);  // the ambiguous pair
-  global.insertPoint(10.0f, +0.30f, 0.0f);
-
-  mola::IncrementalPointCloud local;
-  local.insertPoint(0.0f, 0.10f, 0.0f);  // unambiguous: d2/d1 ~ 100
-  local.insertPoint(10.0f, 0.0f, 0.0f);  // ambiguous: d2/d1 == 1
-
-  const auto localPose = mrpt::poses::CPose3D::Identity();
-
-  // Disabled (the default): both query points get paired.
-  {
-    mp2p_icp::MatchedPointWithCovList pairings;
-    global.nn_search_cov2cov(local, localPose, 0.5f, pairings);
-    ASSERT_EQUAL_(pairings.size(), 2U);
-  }
-
-  // Explicitly disabled values must behave identically: the ratio is >= 1 by
-  // construction, so anything <= 1 cannot reject anything.
-  for (const float ratio : {0.0f, 1.0f})
-  {
-    mp2p_icp::MatchingDistanceProfile prof(0.5f);
-    prof.firstToSecondDistanceMin = ratio;
-
-    mp2p_icp::MatchedPointWithCovList pairings;
-    global.nn_search_cov2cov(local, localPose, prof, pairings);
-    ASSERT_EQUAL_(pairings.size(), 2U);
-  }
-
-  // Enabled: only the isolated point survives.
-  {
-    mp2p_icp::MatchingDistanceProfile prof(0.5f);
-    prof.firstToSecondDistanceMin = 1.2f;
-
-    mp2p_icp::MatchedPointWithCovList pairings;
-    global.nn_search_cov2cov(local, localPose, prof, pairings);
-
-    ASSERT_EQUAL_(pairings.size(), 1U);
-    ASSERT_NEAR_(pairings.at(0).global.x, 0.0f, 1e-4f);
-    ASSERT_NEAR_(pairings.at(0).local.y, 0.10f, 1e-4f);
-  }
-
-  // The gate must not override the acceptance distance: an unambiguous but
-  // too-far candidate is still rejected.
-  {
-    mp2p_icp::MatchingDistanceProfile prof(0.05f);
-    prof.firstToSecondDistanceMin = 1.2f;
-
-    mp2p_icp::MatchedPointWithCovList pairings;
-    global.nn_search_cov2cov(local, localPose, prof, pairings);
-    ASSERT_(pairings.empty());
-  }
-
-  // Range-scoped: the ambiguous query sits at range 10, so a minimum range
-  // above that leaves it untested and both pairings survive again.
-  {
-    mp2p_icp::MatchingDistanceProfile prof(0.5f);
-    prof.firstToSecondDistanceMin = 1.2f;
-    prof.firstToSecondMinRange    = 20.0f;
-
-    mp2p_icp::MatchedPointWithCovList pairings;
-    global.nn_search_cov2cov(local, localPose, prof, pairings);
-    ASSERT_EQUAL_(pairings.size(), 2U);
-  }
-
-  // ... and a minimum range below it restores the rejection.
-  {
-    mp2p_icp::MatchingDistanceProfile prof(0.5f);
-    prof.firstToSecondDistanceMin = 1.2f;
-    prof.firstToSecondMinRange    = 5.0f;
-
-    mp2p_icp::MatchedPointWithCovList pairings;
-    global.nn_search_cov2cov(local, localPose, prof, pairings);
-    ASSERT_EQUAL_(pairings.size(), 1U);
-  }
-}
-#endif  // MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE
-
-// -------------------------------------------------------------------------
 // Compares NN query results between two maps expected to hold the same set of
 // points (used by the k-d tree baking tests below).
 void assertSameNNResults(
@@ -865,9 +775,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_bounded_memory_under_churn();
     test_serialization_and_copy();
     test_cov2cov();
-#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
-    test_cov2cov_ambiguity_gate();
-#endif
     test_kdtree_bake_roundtrip_memory();
     test_kdtree_bake_roundtrip_file();
     test_kdtree_bake_then_clear_and_reinsert();

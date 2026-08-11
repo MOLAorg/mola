@@ -49,8 +49,8 @@ using MatchingDistanceProfile = mp2p_icp::MatchingDistanceProfile;
  *
  *  It exposes the same (small) surface the map implementations use, and is
  *  constrained to the flat case by construction: there is no way to build a
- *  range-adaptive or gated profile, because the matcher on the other side of
- *  the interface cannot ask for one either. This is what keeps the search
+ *  range-adaptive profile, because the matcher on the other side of the
+ *  interface cannot ask for one either. This is what keeps the search
  *  implementations themselves free of preprocessor branches.
  */
 struct MatchingDistanceProfile
@@ -63,11 +63,7 @@ struct MatchingDistanceProfile
   float near = 0.40f;
   float far  = 0.40f;
 
-  float firstToSecondDistanceMin = 0.0f;
-  float firstToSecondMinRange    = 0.0f;
-
   [[nodiscard]] bool isFlat() const { return true; }
-  [[nodiscard]] bool hasAmbiguityGate() const { return false; }
   [[nodiscard]] bool needsRange() const { return false; }
 
   [[nodiscard]] float operator()(float /*range*/) const { return near; }

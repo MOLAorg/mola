@@ -264,9 +264,8 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   `pipelines/lidar3d-gicp.yaml` as `MOLA_LOCALMAP_APPROXIMATE_COV`.
 - `nn_search_cov2cov()` takes an `mp2p_icp::MatchingDistanceProfile` rather than a flat
   `float` search distance. Both map classes (and the approximate-cov path) keep a fast path
-  for the flat, ungated default: no per-point range is computed and the KD-tree query stays
-  `k=1`. A range-adaptive distance or the ambiguity gate opts into a per-point range and,
-  for the gate, a `k=2` query over a radius inflated by the ratio.
+  for the flat default: no per-point range is computed and the KD-tree query stays `k=1`. A
+  range-adaptive distance opts into a per-point range.
   **Queries the per-KF *local*-frame cloud/KD-tree directly** (`kf.pointcloud()`, which is
   what `mm-kf-bake-kdtrees` bakes on disk): the query point is transformed into each active
   KF's local frame (`pose^{-1}`) before the lookup, and the match is composed back to global

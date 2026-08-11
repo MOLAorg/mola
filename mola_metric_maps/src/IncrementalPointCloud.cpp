@@ -1001,12 +1001,7 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   const bool  matchDistIsFlat  = matchingDistance.isFlat();
   const float matchDistFlatSqr = mrpt::square(matchingDistance.near);
 
-  // Likewise, the ambiguity test is the only reason to ever look up a second
-  // neighbor, so the default configuration keeps a plain k=1 search.
-  const bool  ambiguityGate   = matchingDistance.hasAmbiguityGate();
-  const float ambRatioSqr     = mrpt::square(matchingDistance.firstToSecondDistanceMin);
-  const float ambMinRange     = matchingDistance.firstToSecondMinRange;
-  const bool  needsQueryRange = matchingDistance.needsRange();
+  const bool needsQueryRange = matchingDistance.needsRange();
 
   const auto& l_xs = localPc->m_x;
   const auto& l_ys = localPc->m_y;
@@ -1040,31 +1035,9 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     const float max_sqr_dist =
         matchDistIsFlat ? matchDistFlatSqr : mrpt::square(matchingDistance(range));
 
-    const bool gateHere = ambiguityGate && range >= ambMinRange;
-
     uint32_t gIdx = 0;
-
-    if (!gateHere)
-    {
-      float d = 0;
-      if (index_->knnSearchWithinRadius(q, 1, max_sqr_dist, &gIdx, &d) == 0) return;
-    }
-    else
-    {
-      // The search radius is inflated by the ratio so that any runner-up able
-      // to disqualify the winner is guaranteed to be inside it.
-      uint32_t idxs[2] = {0, 0};
-      float    ds[2]   = {0, 0};
-
-      const std::size_t n =
-          index_->knnSearchWithinRadius(q, 2, max_sqr_dist * ambRatioSqr, idxs, ds);
-
-      if (n == 0 || ds[0] > max_sqr_dist) return;
-      // Too close to call: the runner-up is an equally plausible match.
-      if (n >= 2 && ds[1] < ds[0] * ambRatioSqr) return;
-
-      gIdx = idxs[0];
-    }
+    float    d    = 0;
+    if (index_->knnSearchWithinRadius(q, 1, max_sqr_dist, &gIdx, &d) == 0) return;
 
     out.push_back({ls, gIdx});
   };
