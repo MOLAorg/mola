@@ -18,6 +18,7 @@
  */
 #pragma once
 
+#include <mola_metric_maps/MatchingDistanceProfileCompat.h>
 #include <mola_metric_maps/OptionsCapable.h>
 #include <mp2p_icp/IcpPrepareCapable.h>
 #include <mp2p_icp/MetricMapMergeCapable.h>
@@ -226,6 +227,13 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   void nn_search_cov2cov(
       const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
       float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const override;
+
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
+  void nn_search_cov2cov(
+      const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+      const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+      mp2p_icp::MatchedPointWithCovList&       outPairings) const override;
+#endif
 
   [[nodiscard]] std::size_t point_count() const override;
 
@@ -845,7 +853,15 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
    *  \sa TCreationOptions::approximate_cov
    */
   void nn_search_cov2cov_approximate(
-      const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs, float max_search_distance,
+      const KeyFrame& localKf, const std::set<KeyFrameID>& activeKfs,
+      const MatchingDistanceProfile&     matchingDistance,
+      mp2p_icp::MatchedPointWithCovList& outPairings) const;
+
+  /** The actual cov2cov search. Both public overloads forward here, so the
+   *  implementation stays free of preprocessor branches. */
+  void nn_search_cov2cov_impl(
+      const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+      const MatchingDistanceProfile&     matchingDistance,
       mp2p_icp::MatchedPointWithCovList& outPairings) const;
 };
 

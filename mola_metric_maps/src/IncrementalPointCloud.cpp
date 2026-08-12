@@ -947,6 +947,25 @@ void IncrementalPointCloud::nn_search_cov2cov(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
     const float max_search_distance, mp2p_icp::MatchedPointWithCovList& outPairings) const
 {
+  nn_search_cov2cov_impl(
+      localMap, localMapPose, MatchingDistanceProfile(max_search_distance), outPairings);
+}
+
+#if defined(MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE)
+void IncrementalPointCloud::nn_search_cov2cov(
+    const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+    const mp2p_icp::MatchingDistanceProfile& matchingDistance,
+    mp2p_icp::MatchedPointWithCovList&       outPairings) const
+{
+  nn_search_cov2cov_impl(localMap, localMapPose, matchingDistance, outPairings);
+}
+#endif
+
+void IncrementalPointCloud::nn_search_cov2cov_impl(
+    const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
+    const MatchingDistanceProfile&     matchingDistance,
+    mp2p_icp::MatchedPointWithCovList& outPairings) const
+{
   const auto* localPc = dynamic_cast<const IncrementalPointCloud*>(&localMap);
   ASSERTMSG_(
       localPc,
@@ -977,7 +996,12 @@ void IncrementalPointCloud::nn_search_cov2cov(
   // exactly once in the snapshot:
   localPc->ensureCovariancesFor(localLive);
 
-  const float max_sqr_dist = mrpt::square(max_search_distance);
+  // Fast path: a flat threshold (the common case, and the only one before this
+  // profile existed) needs no per-point range computation.
+  const bool  matchDistIsFlat  = matchingDistance.isFlat();
+  const float matchDistFlatSqr = mrpt::square(matchingDistance.near);
+
+  const bool needsQueryRange = matchingDistance.needsRange();
 
   const auto& l_xs = localPc->m_x;
   const auto& l_ys = localPc->m_y;
@@ -998,6 +1022,18 @@ void IncrementalPointCloud::nn_search_cov2cov(
 
     const float q[3] = {
         static_cast<float>(gq.x), static_cast<float>(gq.y), static_cast<float>(gq.z)};
+
+    // Range from the sensor, i.e. in the query's own (untransformed) local frame -
+    // matches how the range-adaptive threshold was measured and validated (see
+    // ~/plans/icp-bench-range-adaptive-matching.md).
+    float range = 0;
+    if (needsQueryRange)
+    {
+      range = std::sqrt(mrpt::square(l_xs[ls]) + mrpt::square(l_ys[ls]) + mrpt::square(l_zs[ls]));
+    }
+
+    const float max_sqr_dist =
+        matchDistIsFlat ? matchDistFlatSqr : mrpt::square(matchingDistance(range));
 
     uint32_t gIdx = 0;
     float    d    = 0;
