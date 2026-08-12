@@ -262,10 +262,12 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   Only affects `nn_search_cov2cov()`; the generic `NearestNeighborsCapable` entry points
   still require the merged submap. Exposed in `mola_lidar_odometry`'s
   `pipelines/lidar3d-gicp.yaml` as `MOLA_LOCALMAP_APPROXIMATE_COV`.
-- `nn_search_cov2cov()` takes an `mp2p_icp::MatchingDistanceProfile` rather than a flat
-  `float` search distance. Both map classes (and the approximate-cov path) keep a fast path
-  for the flat default: no per-point range is computed and the KD-tree query stays `k=1`. A
-  range-adaptive distance opts into a per-point range.
+- `nn_search_cov2cov()` has two overloads: the original scalar `float` search distance
+  (still supported, unchanged signature) and an additive overload taking an
+  `mp2p_icp::MatchingDistanceProfile`. The scalar overload just wraps its value into a flat
+  `MatchingDistanceProfile` and forwards to the same implementation. Both map classes (and the
+  approximate-cov path) keep a fast path for the flat case: no per-point range is computed and
+  the KD-tree query stays `k=1`. A range-adaptive profile opts into a per-point range.
   **Queries the per-KF *local*-frame cloud/KD-tree directly** (`kf.pointcloud()`, which is
   what `mm-kf-bake-kdtrees` bakes on disk): the query point is transformed into each active
   KF's local frame (`pose^{-1}`) before the lookup, and the match is composed back to global
