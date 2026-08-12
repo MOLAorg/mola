@@ -156,4 +156,4 @@ Contributions require acceptance of the Contributor License Agreement (CLA).
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=MOLAorg/mola&type=Date)](https://star-history.com/#MOLAorg/mola&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=MOLAorg/mola&type=Date)](https://star-history.dera.page/#MOLAorg/mola&Date)
