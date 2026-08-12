@@ -106,6 +106,15 @@ All plugin modules derive from these virtual base classes:
   older fading on-screen text overlay) is a no-op on the `mola_viz_imgui`
   backend, superseded by the Console subwindow above; still implemented on
   the nanogui `MolaViz` backend.
+  Window-name invariant: the host window is registered under
+  `DEFAULT_WINDOW_NAME`, while modules calling `VizInterface` get the literal
+  `"main"` baked in as the default argument from `VizInterface.h`. Both
+  `MolaVizImGui::DEFAULT_WINDOW_NAME` and `MolaVizImGuiCore::DEFAULT_WINDOW_NAME`
+  must therefore be initialized from
+  `MolaVizImGuiCore::DEFAULT_WINDOW_NAME_LITERAL`, never copied from each
+  other: they live in different translation units, so a copy came out empty or
+  not depending on link order, and when empty the GUI silently rendered nothing
+  ("unknown parentWindow 'main'" warnings on every call).
 - `Relocalization` — global localization / loop closure
 - `OfflineDatasetSource` — offline dataset handling
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see

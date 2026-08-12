@@ -120,6 +120,14 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   using window_name_t    = std::string;
   using subwindow_name_t = std::string;
 
+  /** Name of the default (single) host window, as a compile-time literal.
+   *  Every `DEFAULT_WINDOW_NAME` string object must be initialized from THIS,
+   *  never copied from another one of them: those objects live in different
+   *  translation units, whose dynamic-initialization order is unspecified, so
+   *  a copy silently ends up empty depending on the link order.
+   */
+  static constexpr const char* DEFAULT_WINDOW_NAME_LITERAL = "main";
+
   static const window_name_t DEFAULT_WINDOW_NAME;
 
   // =========================================================================

@@ -44,8 +44,11 @@ IMPLEMENTS_MRPT_OBJECT(MolaVizImGui, ExecutableBase, mola)
 // Static constant definitions
 // ---------------------------------------------------------------------------
 
+// NOTE: initialized from the compile-time literal, NOT copied from
+// MolaVizImGuiCore::DEFAULT_WINDOW_NAME: that object lives in another
+// translation unit and the initialization order between them is unspecified.
 const MolaVizImGui::window_name_t MolaVizImGui::DEFAULT_WINDOW_NAME =
-    MolaVizImGuiCore::DEFAULT_WINDOW_NAME;
+    MolaVizImGuiCore::DEFAULT_WINDOW_NAME_LITERAL;
 
 // ---------------------------------------------------------------------------
 // MRPT initializer

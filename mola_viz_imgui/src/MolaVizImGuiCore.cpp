@@ -47,7 +47,8 @@ using namespace mola;
 // Static constant
 // ---------------------------------------------------------------------------
 
-const MolaVizImGuiCore::window_name_t MolaVizImGuiCore::DEFAULT_WINDOW_NAME = "main";
+const MolaVizImGuiCore::window_name_t MolaVizImGuiCore::DEFAULT_WINDOW_NAME =
+    MolaVizImGuiCore::DEFAULT_WINDOW_NAME_LITERAL;
 
 // ---------------------------------------------------------------------------
 // Handler registry
