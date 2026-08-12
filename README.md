@@ -156,4 +156,10 @@ Contributions require acceptance of the Contributor License Agreement (CLA).
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=MOLAorg/mola&type=Date)](https://star-history.com/#MOLAorg/mola&Date)
+<a href="https://www.star-history.com/?repos=MOLAorg%2Fmola&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MOLAorg/mola&type=date&theme=dark&legend=top-left&sealed_token=B0WG_Q5mabH9joqU661v2sFYqTc5YtBdRs3jwjbcti64y-uCcL5-bZSfZSv2XIFPwiS_5k7lDi1UvUai2EUPorPxvtfFHyWUZmVyRZN6fuKx2fqEqOTygk_9HQXqvhuyv3yUUMzFrFZjCUmEgrIIcBU3mGJiMB1501yUrpb-tOiGAxm0_mBvTQKL8Z9B" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MOLAorg/mola&type=date&legend=top-left&sealed_token=B0WG_Q5mabH9joqU661v2sFYqTc5YtBdRs3jwjbcti64y-uCcL5-bZSfZSv2XIFPwiS_5k7lDi1UvUai2EUPorPxvtfFHyWUZmVyRZN6fuKx2fqEqOTygk_9HQXqvhuyv3yUUMzFrFZjCUmEgrIIcBU3mGJiMB1501yUrpb-tOiGAxm0_mBvTQKL8Z9B" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MOLAorg/mola&type=date&legend=top-left&sealed_token=B0WG_Q5mabH9joqU661v2sFYqTc5YtBdRs3jwjbcti64y-uCcL5-bZSfZSv2XIFPwiS_5k7lDi1UvUai2EUPorPxvtfFHyWUZmVyRZN6fuKx2fqEqOTygk_9HQXqvhuyv3yUUMzFrFZjCUmEgrIIcBU3mGJiMB1501yUrpb-tOiGAxm0_mBvTQKL8Z9B" />
+ </picture>
+</a>
