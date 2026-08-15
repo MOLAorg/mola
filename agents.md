@@ -225,6 +225,12 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   GCC in favor of the system entry. Keep that file free of MRPT headers, and
   keep nanoflann out of the public headers.
 - All support MRPT serialization
+- `NDT` implements `mp2p_icp::NearestPlaneCapable` twice over: `nn_search_pt2pl()`
+  returns the single closest cell plane, and `nn_visit_pt2pl_candidates()` reports
+  every cell plane in the same search window, for matchers that combine candidates
+  rather than select one (`mp2p_icp::Matcher_NDT_Blend`). Both walk the voxels
+  through the shared `visitPt2PlSearchCells()` helper, so they can never disagree
+  about which cells a query examines.
 - `mola::OptionsCapable` (`include/mola_metric_maps/OptionsCapable.h`): mixin interface
   implemented by `NDT`, `HashedVoxelPointCloud`, `SparseVoxelPointCloud`, `SparseTreesPointCloud`,
   and `KeyframePointCloudMap` (i.e. all map classes defined in this library; basic `mrpt::maps`
