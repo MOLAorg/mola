@@ -371,8 +371,10 @@ class NDT : public mrpt::maps::CMetricMap,
   {
     const int margin = static_cast<int>(std::ceil(max_search_distance * voxel_size_inv_));
 
-    const global_index3d_t idxs0 = coordToGlobalIdx(point) - global_index3d_t(margin, margin, margin);
-    const global_index3d_t idxs1 = coordToGlobalIdx(point) + global_index3d_t(margin, margin, margin);
+    const global_index3d_t idxs0 =
+        coordToGlobalIdx(point) - global_index3d_t(margin, margin, margin);
+    const global_index3d_t idxs1 =
+        coordToGlobalIdx(point) + global_index3d_t(margin, margin, margin);
 
     for (int32_t cx = idxs0.cx; cx <= idxs1.cx; cx++)
     {
