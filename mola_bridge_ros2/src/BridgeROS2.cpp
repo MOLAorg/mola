@@ -416,11 +416,18 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     rclcpp::executors::SingleThreadedExecutor executor;
     executor.add_node(rosNode_);
 
+    // spin_once() waits for work, bounded so the loop still observes shouldExit_;
+    // spin_all() then drains whatever else is ready. spin_some() would collect the
+    // ready set once and so take a single message per subscription per iteration,
+    // leaving any topic that arrives faster permanently behind by its queue depth.
+    constexpr auto IDLE_WAIT   = std::chrono::milliseconds(10);
+    constexpr auto DRAIN_LIMIT = std::chrono::milliseconds(10);
+
     isSpinning_ = true;
     while (rclcpp::ok() && !shouldExit_)
     {
-      executor.spin_some();
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      executor.spin_once(IDLE_WAIT);
+      executor.spin_all(DRAIN_LIMIT);
     }
     if (owned_rclcpp_ && rclcpp::ok())
     {
