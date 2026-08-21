@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_viz</name>
-  <version>3.1.1</version>
+  <version>3.2.0</version>
   <description>GUI for MOLA</description>
 
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>

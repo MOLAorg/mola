@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_traj_tools</name>
-  <version>3.1.1</version>
+  <version>3.2.0</version>
   <description>CLI tools to manipulate trajectory files as a complement to the evo package</description>
 
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>

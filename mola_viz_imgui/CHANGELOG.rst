@@ -2,8 +2,8 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.2.0 (2026-08-21)
+------------------
 * Fix mola_viz_imgui GUI rendering nothing depending on link order
   MolaVizImGui::DEFAULT_WINDOW_NAME was copy-initialized from
   MolaVizImGuiCore::DEFAULT_WINDOW_NAME, a std::string global in another

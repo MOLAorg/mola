@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.2.0 (2026-08-21)
+------------------
 * Merge pull request `#198 <https://github.com/MOLAorg/mola/issues/198>`_ from Zeal-Robotics/fix/bridge_ros2-tf-buffer-staleness
   fix(bridge_ros2): keep the TF buffer current under bridge executor load
 * fix(bridge_ros2): give the TF listener its own spin thread

@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.2.0 (2026-08-21)
+------------------
 * Merge pull request `#192 <https://github.com/MOLAorg/mola/issues/192>`_ from MOLAorg/feat/map-frame-gauge-change
   Support re-expressing estimator and pose-list state in a new frame
 * Merge remote-tracking branch 'origin/feat/map-frame-gauge-change' into feat/map-frame-gauge-change

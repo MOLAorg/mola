@@ -2,8 +2,8 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.2.0 (2026-08-21)
+------------------
 * Remove stray COLCON_IGNORE from mola_viz, mola_viz_imgui
   Both were accidentally swept into 2c5735f5 ("declare transform_frame()
   last..."), unrelated to that commit's actual content. With colcon no

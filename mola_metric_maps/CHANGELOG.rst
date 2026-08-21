@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.2.0 (2026-08-21)
+------------------
 * Merge pull request `#195 <https://github.com/MOLAorg/mola/issues/195>`_ from MOLAorg/feat/cov2cov-ambiguity-gating
   mola_metric_maps: adopt mp2p_icp::MatchingDistanceProfile in nn_search_cov2cov
 * Merge branch 'develop' into feat/cov2cov-ambiguity-gating
