@@ -286,16 +286,18 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
 
     // TF buffer + listener -- pass rosNode_ so the listener's /tf and
     // /tf_static subscriptions share the same DDS participant, clock, and
-    // use_sim_time setting as the bridge.  spin_thread=false: rosNode_ is
-    // already spun by the loop below; a second spinner would be redundant.
+    // use_sim_time setting as the bridge. spin_thread=true puts those two
+    // subscriptions on their own callback group and thread, so how fresh the
+    // buffer is does not depend on what else the bridge executor is handling;
+    // tf2::BufferCore serialises its readers and writers on its own mutex.
     tf_buffer_ = std::make_shared<tf2::BufferCore>();
     if constexpr (HasRequiredInterfaces<tf2_ros::TransformListener>::value)
     {
-      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, *rosNode_, false);
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, *rosNode_, true);
     }
     else
     {
-      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, rosNode_, false);
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, rosNode_, true);
     }
 
     // TF broadcaster:
@@ -416,11 +418,18 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     rclcpp::executors::SingleThreadedExecutor executor;
     executor.add_node(rosNode_);
 
+    // spin_once() waits for work, bounded so the loop still observes shouldExit_;
+    // spin_all() then drains whatever else is ready. spin_some() would collect the
+    // ready set once and so take a single message per subscription per iteration,
+    // leaving any topic that arrives faster permanently behind by its queue depth.
+    constexpr auto IDLE_WAIT   = std::chrono::milliseconds(10);
+    constexpr auto DRAIN_LIMIT = std::chrono::milliseconds(10);
+
     isSpinning_ = true;
     while (rclcpp::ok() && !shouldExit_)
     {
-      executor.spin_some();
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      executor.spin_once(IDLE_WAIT);
+      executor.spin_all(DRAIN_LIMIT);
     }
     if (owned_rclcpp_ && rclcpp::ok())
     {
