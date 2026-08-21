@@ -2,6 +2,34 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Remove stray COLCON_IGNORE from mola_viz, mola_viz_imgui
+  Both were accidentally swept into 2c5735f5 ("declare transform_frame()
+  last..."), unrelated to that commit's actual content. With colcon no
+  longer building them from source, any package depending on mola_viz
+  (e.g. mola_mapper's exec_depend) falls back to the stale public
+  ros-<distro>-mola-viz release, which pulls in a matching stale
+  ros-<distro>-mola-kernel via apt -- and since /opt/ros/<distro>/include
+  is searched before the workspace install prefix, that stale
+  mola_kernel silently shadows the freshly-built one, breaking any
+  translation unit that needs a recent mola_kernel API
+  (ChildLoggerName/child_loggers()).
+* Merge pull request `#192 <https://github.com/MOLAorg/mola/issues/192>`_ from MOLAorg/feat/map-frame-gauge-change
+  Support re-expressing estimator and pose-list state in a new frame
+* Merge remote-tracking branch 'origin/feat/map-frame-gauge-change' into feat/map-frame-gauge-change
+* mola_kernel: declare transform_frame() last; test SearchablePoseList frame change
+  Appending the new optional virtual only grows the vtable, whereas the
+  previous mid-list position shifted the slot index of the three virtuals
+  after it, breaking any prebuilt NavStateFilter plugin. A note asks that
+  future optional virtuals also go at the end.
+  Adds regression coverage for SearchablePoseList::transform_left_multiply()
+  in both storage modes: that the kd-tree follows the transformed poses
+  (verified to fail if the spatial index is left stale), that the empty and
+  identity cases are no-ops, and that the id-keyed lookup survives.
+* Merge branch 'develop' into feat/map-frame-gauge-change
+* Contributors: Jose Luis Blanco-Claraco
+
 3.1.1 (2026-08-10)
 ------------------
 

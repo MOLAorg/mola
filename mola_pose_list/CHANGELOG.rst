@@ -2,6 +2,34 @@
 Changelog for package mola_pose_list
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#192 <https://github.com/MOLAorg/mola/issues/192>`_ from MOLAorg/feat/map-frame-gauge-change
+  Support re-expressing estimator and pose-list state in a new frame
+* Merge remote-tracking branch 'origin/feat/map-frame-gauge-change' into feat/map-frame-gauge-change
+* mola_kernel: declare transform_frame() last; test SearchablePoseList frame change
+  Appending the new optional virtual only grows the vtable, whereas the
+  previous mid-list position shifted the slot index of the three virtuals
+  after it, breaking any prebuilt NavStateFilter plugin. A note asks that
+  future optional virtuals also go at the end.
+  Adds regression coverage for SearchablePoseList::transform_left_multiply()
+  in both storage modes: that the kd-tree follows the transformed poses
+  (verified to fail if the spatial index is left stale), that the empty and
+  identity cases are no-ops, and that the id-keyed lookup survives.
+* Merge branch 'develop' into feat/map-frame-gauge-change
+* Support re-expressing estimator and pose-list state in a new frame
+  Adds the two pieces a one-off gauge change of the map frame needs, so that
+  leveling the frame once gravity is known does not have to throw state away:
+  - NavStateFilter::transform_frame(), an optional virtual returning false by
+  default, so existing estimators are unaffected and a caller that gets false
+  falls back to reset(). Guarded by a feature macro for downstream detection.
+  - SearchablePoseList::transform_left_multiply(), so keyframe-density
+  bookkeeping moves with the frame instead of being invalidated by it.
+  Both are pure left-multiplications, p -> b + p. Note that relative motion,
+  and hence any velocity expressed in the vehicle's own frame, is invariant
+  under this and must NOT be rotated.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.1.1 (2026-08-10)
 ------------------
 

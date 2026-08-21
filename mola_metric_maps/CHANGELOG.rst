@@ -2,6 +2,80 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#195 <https://github.com/MOLAorg/mola/issues/195>`_ from MOLAorg/feat/cov2cov-ambiguity-gating
+  mola_metric_maps: adopt mp2p_icp::MatchingDistanceProfile in nn_search_cov2cov
+* Merge branch 'develop' into feat/cov2cov-ambiguity-gating
+* mola_metric_maps: remove the ambiguity gate from nn_search_cov2cov()
+  Companion to the removal in mp2p_icp`#89 <https://github.com/MOLAorg/mola/issues/89>`_: firstToSecondDistanceMin/
+  firstToSecondMinRange were not yet justified by results. Drop the
+  gate logic (and the k=2 / radius-inflated query it required) from
+  IncrementalPointCloud and KeyframePointCloudMap's exact and
+  approximate-cov paths, the flat compat stand-in, and the
+  corresponding test coverage, keeping the range-adaptive matching
+  distance.
+* mola_metric_maps: build against mp2p_icp releases without MatchingDistanceProfile
+  rosdep resolves mp2p_icp to the last released binary package in every CI job, so
+  this tree has to compile against an mp2p_icp that predates
+  MatchingDistanceProfile.
+  Adds MatchingDistanceProfileCompat.h, which either aliases the real type or, when
+  the header is absent, supplies a flat-only stand-in with the same small surface.
+  The search implementations are written against that alias and so stay free of
+  preprocessor branches; only the public overload, and the tests that exercise the
+  ambiguity gate, are guarded by MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE.
+  Both map classes now implement the flat-threshold overload (still the pure
+  virtual upstream) as a forwarder into a shared private nn_search_cov2cov_impl(),
+  so the two public entry points cannot drift apart.
+* mola_metric_maps: adopt mp2p_icp::MatchingDistanceProfile in nn_search_cov2cov
+  Follows the mp2p_icp interface change: nn_search_cov2cov() now receives a
+  MatchingDistanceProfile instead of a flat float search distance. Implemented in
+  IncrementalPointCloud and in both KeyframePointCloudMap paths (exact and
+  approximate-cov).
+  The flat, ungated default keeps a dedicated fast path in all three: no
+  per-point range is computed and the KD-tree query stays k=1, so the previous
+  behavior is reproduced exactly and at the same cost.
+  When the ambiguity test is active for a query point, the search radius is
+  inflated by the ratio, so any runner-up able to disqualify the winner is
+  guaranteed to lie inside it, and the best two candidates are kept. In the
+  approximate-cov path the runner-up may live in a different keyframe than the
+  winner, so the best two are folded across all active keyframes rather than per
+  keyframe.
+  Range is measured in the query point's own untransformed (sensor) frame.
+  Tests added for the ambiguity gate in both map classes.
+* Merge pull request `#193 <https://github.com/MOLAorg/mola/issues/193>`_ from MOLAorg/fix/incremental-map-pairing-order
+  Give IncrementalPointCloud::nn_search_cov2cov() a canonical pairing order
+* Give IncrementalPointCloud::nn_search_cov2cov() a canonical pairing order
+  The same defect fixed for KeyframePointCloudMap in bfe6cb2e, which did not
+  cover this map class: the parallel path accumulates correspondences into a
+  tbb::enumerable_thread_specific and merges it by iteration, whose order is
+  unspecified. The permutation is not cosmetic, it reaches the solver, which
+  sums the normal equations over the pairing list in order.
+  This class needs a stronger fix than the keyframe map did, because here the
+  *sequential* path was not canonical either. The live local points come from
+  snapshotLiveIndices(), a depth-first walk of the k-d tree, so they arrive in
+  tree-topology order rather than in slot order. Tombstones and rebuilds change
+  that shape, so with async_rebuild enabled the pairing order varied between
+  runs even single-threaded. The sort is therefore applied to the shared
+  intermediate match list, before the pairings are assembled, which pins both
+  paths to the same order and makes the result independent of the tree shape a
+  rebuild happened to leave behind. Two sibling call sites in this file already
+  sort that snapshot for the same reason.
+  Sorting the intermediate list rather than the output pairings also keeps the
+  comparison on an 8-byte key instead of a full pairing, and gives the assembly
+  pass ascending access into the coordinate and covariance buffers.
+  Each local point yields at most one match, so its slot is a unique key and the
+  resulting order is total.
+  test_pairing_order_is_canonical asserts ascending local_idx and identical order
+  across repeated calls, over a cloud with tombstones so tree order really does
+  diverge from slot order, and large enough that TBB splits the range across
+  workers. It fails without this change with "Pairings are not in canonical
+  (ascending local_idx) order".
+* silent a gcc warning (safe)
+* Merge remote-tracking branch 'origin/feat/map-frame-gauge-change' into feat/map-frame-gauge-change
+* Merge branch 'develop' into feat/map-frame-gauge-change
+* Contributors: Jose Luis Blanco-Claraco
+
 3.1.1 (2026-08-10)
 ------------------
 * mola_metric_maps: fix calloc arg order and nodiscard warnings on newer GCC.

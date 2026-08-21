@@ -3,6 +3,64 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Merge pull request `#198 <https://github.com/MOLAorg/mola/issues/198>`_ from Zeal-Robotics/fix/bridge_ros2-tf-buffer-staleness
+  fix(bridge_ros2): keep the TF buffer current under bridge executor load
+* fix(bridge_ros2): give the TF listener its own spin thread
+  The listener was constructed with spin_thread=false, against tf2's own default,
+  on the grounds that the bridge already spins rosNode\_ and a second spinner would
+  be redundant. That holds only while the bridge executor keeps up with /tf, and
+  makes buffer freshness a function of everything else the node is handling --
+  sensor callbacks, timers, map publishing. When it does not keep up, the failure
+  is silent: lookups still succeed, they just answer from a buffer that is behind,
+  and the resulting poses look plausible.
+  With spin_thread=true the /tf and /tf_static subscriptions move to a callback
+  group and executor the listener owns, so ingestion is independent of the bridge
+  executor's load.
+  No new sharing is introduced. The buffer is already read from other threads --
+  publishLocalizationTf() from the localization source's thread, transform_tree()
+  from whichever module calls it -- and tf2::BufferCore serialises readers and
+  writers on a single mutex. The listener's group is created with
+  automatically_add_to_executor_with_node=false, so add_node() does not adopt it
+  and no second executor can dispatch those subscriptions. Its destructor cancels
+  and joins its thread, and it is declared after tf_buffer\_ and rosNode\_, so that
+  happens while both are still alive.
+* fix(bridge_ros2): drain the ROS queues instead of one message per topic
+  The ROS thread polls `spin_some()` on a 10 ms sleep. That loop replaced a
+  blocking `rclcpp::spin()` so the destructor could stop the thread via
+  `shouldExit\_`, and the sleep was only ever there to keep the flag poll from
+  busy-waiting. But `spin_some()` collects the ready set once and executes each
+  ready entity at most once per call, so the pair caps every subscription at
+  roughly one message per 10 ms and puts a 10 ms floor under handling anything.
+  Any topic arriving faster than ~100 Hz therefore keeps its subscription queue
+  permanently full, and every message the node sees is stale by the whole queue
+  depth. `/tf` is the worst case: it aggregates every broadcaster on the graph,
+  so on a robot publishing a few hundred transforms/s the listener's
+  KeepLast(100) queue leaves the TF buffer several hundred ms behind. The visible
+  symptom is REP-105 composition falling back to the stale odom transform with
+  "extrapolation into the future" while the odom broadcaster is publishing on
+  time and a normally-spun listener on the same graph reads it as current. A
+  200 Hz IMU on the same node loses half its samples the same way.
+  `spin_once(timeout)` blocks until there is work while still bounding how long
+  `shouldExit\_` goes unchecked, and `spin_all()` then drains whatever else is
+  ready. Both are needed: `spin_some()` and `spin_all()` each call
+  `wait_for_work(0ms)`, so `spin_all()` alone returns immediately when idle and
+  would busy-wait. With work pending `spin_once()` returns at once, so no
+  iteration sleeps while a queue is non-empty.
+  Cost is that the two bounds stack: worst case for observing `shouldExit\_` goes
+  from 10 ms to 20 ms.
+  Measured with two TF listeners on the same `/tf`, one per spin strategy:
+  draining fully leaves the buffer 12.6 ms behind the broadcaster, taking one
+  message per 10 ms tick leaves it 358 ms behind.
+  A blocking `spin()` cancelled via `executor.cancel()` would remove the poll
+  loop altogether and is the better end state, but `cancel()` racing the
+  `spinning.exchange(true)` in `spin()` means the destructor has to retry until
+  the thread joins. That is left as a separate change.
+* Merge remote-tracking branch 'origin/feat/map-frame-gauge-change' into feat/map-frame-gauge-change
+* Merge branch 'develop' into feat/map-frame-gauge-change
+* Contributors: Jose Luis Blanco-Claraco, Robin Van Cauwenbergh
+
 3.1.1 (2026-08-10)
 ------------------
 * fix build in ros rolling (newer gcc)
