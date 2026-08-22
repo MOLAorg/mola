@@ -230,7 +230,12 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   every cell plane in the same search window, for matchers that combine candidates
   rather than select one (`mp2p_icp::Matcher_NDT_Blend`). Both walk the voxels
   through the shared `visitPt2PlSearchCells()` helper, so they can never disagree
-  about which cells a query examines.
+  about which cells a query examines. `nn_visit_pt2pl_candidates()`'s declaration
+  and definition are guarded by `#if defined(MP2P_ICP_HAS_NN_VISIT_PT2PL_CANDIDATES)`
+  (a self-describing macro `mp2p_icp` defines in `NearestPlaneCapable.h` once the
+  method exists there): the ROS binary repos still ship an older mp2p_icp without
+  it, and `NearestPlaneCapable`'s default implementation (best-candidate only)
+  keeps `NDT` usable there.
 - `mola::OptionsCapable` (`include/mola_metric_maps/OptionsCapable.h`): mixin interface
   implemented by `NDT`, `HashedVoxelPointCloud`, `SparseVoxelPointCloud`, `SparseTreesPointCloud`,
   and `KeyframePointCloudMap` (i.e. all map classes defined in this library; basic `mrpt::maps`
