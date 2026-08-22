@@ -2963,8 +2963,14 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
           neighbors(2, static_cast<Eigen::Index>(j)) = static_cast<double>(zs[k_indices[j]]);
         }
 
-        // neighbors.colwise() -= neighbors.rowwise().mean().eval();
-        neighbors.colwise() -= Eigen::Vector3d(xs[i], ys[i], zs[i]);
+        if (mola::cov_diag::centerCovarianceOnMean())
+        {
+          neighbors.colwise() -= neighbors.rowwise().mean().eval();
+        }
+        else
+        {
+          neighbors.colwise() -= Eigen::Vector3d(xs[i], ys[i], zs[i]);
+        }
         const Eigen::Matrix3d cov =
             neighbors * neighbors.transpose() / static_cast<double>(k_indices.size());
 

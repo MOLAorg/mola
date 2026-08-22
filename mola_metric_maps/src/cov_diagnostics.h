@@ -37,6 +37,32 @@
 
 namespace mola::cov_diag
 {
+/** Center the per-point covariance on the neighborhood MEAN instead of on the
+ *  query point itself, which is what the reference GICP implementations do
+ *  (see DLIO's nano_gicp.cc, `neighbors.colwise() -= neighbors.rowwise()
+ *  .mean()`). MOLA switched to the query point in 2025-09, incidentally,
+ *  inside a commit about debug viz and a race condition, with no rationale
+ *  recorded and no measurement attached.
+ *
+ *  It matters because the eigenvalues are discarded and replaced by
+ *  (1, 1, 1e-3) immediately afterwards, so only the eigenvECTORS survive, and
+ *  centering on a point that is itself off the surface rotates them. With
+ *  DecimateMethod::FirstPoint the query point is a single raw range return, so
+ *  that offset is a full noise sample on every point.
+ *
+ *  Off by default, so the shipped path is unchanged. Set
+ *  MOLA_MM_COV_CENTER_ON_MEAN=1 to enable.
+ */
+inline bool centerCovarianceOnMean()
+{
+  static const bool s_on = []()
+  {
+    const char* v = ::getenv("MOLA_MM_COV_CENTER_ON_MEAN");
+    return v != nullptr && v[0] == '1';
+  }();
+  return s_on;
+}
+
 /** Shared output stream, or nullptr when the feature is off. */
 inline std::ostream* stream()
 {

@@ -918,7 +918,14 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
     neighbors(1, static_cast<Eigen::Index>(j)) = static_cast<double>(m_y[nIdx]);
     neighbors(2, static_cast<Eigen::Index>(j)) = static_cast<double>(m_z[nIdx]);
   }
-  neighbors.colwise() -= Eigen::Vector3d(m_x[slot], m_y[slot], m_z[slot]);
+  if (mola::cov_diag::centerCovarianceOnMean())
+  {
+    neighbors.colwise() -= neighbors.rowwise().mean().eval();
+  }
+  else
+  {
+    neighbors.colwise() -= Eigen::Vector3d(m_x[slot], m_y[slot], m_z[slot]);
+  }
 
   const Eigen::Matrix3d cov = neighbors * neighbors.transpose() / static_cast<double>(found);
 
