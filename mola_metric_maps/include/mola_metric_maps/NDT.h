@@ -357,9 +357,11 @@ class NDT : public mrpt::maps::CMetricMap,
   NearestPlaneResult nn_search_pt2pl(
       const mrpt::math::TPoint3Df& point, const float max_search_distance) const override;
 
+#if defined(MP2P_ICP_HAS_NN_VISIT_PT2PL_CANDIDATES)
   void nn_visit_pt2pl_candidates(
       const mrpt::math::TPoint3Df& point, float max_search_distance,
       const plane_candidate_visitor_t& visitor) const override;
+#endif
 
   /** Visits every existing voxel that a nearest-plane query at `point` has to
    *  examine. Shared by the two searches above so that they always walk the

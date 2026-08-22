@@ -1199,6 +1199,7 @@ mp2p_icp::NearestPlaneCapable::NearestPlaneResult NDT::nn_search_pt2pl(
   return ret;
 }
 
+#if defined(MP2P_ICP_HAS_NN_VISIT_PT2PL_CANDIDATES)
 void NDT::nn_visit_pt2pl_candidates(
     const mrpt::math::TPoint3Df& query, const float max_search_distance,
     const plane_candidate_visitor_t& visitor) const
@@ -1232,6 +1233,7 @@ void NDT::nn_visit_pt2pl_candidates(
         visitor(c);
       });
 }
+#endif
 
 bool NDT::nn_single_search(
     const mrpt::math::TPoint3Df& query, mrpt::math::TPoint3Df& result, float& out_dist_sqr,
