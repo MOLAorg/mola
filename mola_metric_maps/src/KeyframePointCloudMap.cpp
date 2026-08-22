@@ -41,11 +41,15 @@
 #include <mrpt/system/string_utils.h>  // unitsFormat()
 #include <mrpt/version.h>  // For MRPT_VERSION
 
+#include <Eigen/Eigenvalues>  // SelfAdjointEigenSolver (optional cov diagnostic)
 #include <algorithm>  // std::lower_bound
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iterator>  // std::distance
+#include <memory>
 #include <numeric>  // std::accumulate
+#include <ostream>
 #include <sstream>
 #include <unordered_set>
 
@@ -974,6 +978,96 @@ void KeyframePointCloudMap::nn_search_cov2cov(
 }
 #endif
 
+namespace
+{
+/** Optional diagnostic: how often the scan-side (local) covariance degenerates
+ *  to the isotropic identity fallback, and how anisotropic the resulting
+ *  pairing weight actually is.
+ *
+ *  A pairing whose local covariance fell back to identity is not discarded: it
+ *  stays in the sum as a nearly isotropic point-to-point constraint, because
+ *  the inverse of (U*diag(1,1,1e-3)*U^T + I) is close to a multiple of the
+ *  identity. The plane constraint the GICP form is supposed to provide is then
+ *  absent, so the population of such pairings is worth measuring rather than
+ *  assuming.
+ *
+ *  Enabled only if the environment variable MOLA_MM_COV_DIAG_FILE is set to a
+ *  writable path. Costs nothing when unset.
+ */
+std::ostream* covDiagStream()
+{
+  static std::unique_ptr<std::ofstream> s_file = []() -> std::unique_ptr<std::ofstream>
+  {
+    const char* path = ::getenv("MOLA_MM_COV_DIAG_FILE");
+    if (path == nullptr)
+    {
+      return nullptr;
+    }
+    auto f = std::make_unique<std::ofstream>(path, std::ios::out | std::ios::app);
+    if (!f->is_open())
+    {
+      return nullptr;
+    }
+    *f << "# call\tnPairings\tnLocalIdentity\tfracLocalIdentity\taniso_p10\taniso_p50"
+          "\taniso_p90\tfracAnisoBelow10\n";
+    return f;
+  }();
+  return s_file ? s_file.get() : nullptr;
+}
+
+uint64_t covDiagCallCounter = 0;
+
+/** Ratio of largest to smallest eigenvalue of a symmetric 3x3 weight matrix.
+ *  ~1000 for a well-conditioned plane pairing, ~2 when one side degenerated.
+ */
+double pairingAnisotropy(const mrpt::math::CMatrixFloat33& covInv)
+{
+  Eigen::Matrix3d                                m = covInv.asEigen().cast<double>();
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(m, Eigen::EigenvaluesOnly);
+  const auto                                     ev = es.eigenvalues();
+  const double                                   lo = std::max(ev.minCoeff(), 1e-12);
+  return ev.maxCoeff() / lo;
+}
+
+/** Writes one summary row for the pairings appended by this call. */
+void dumpCovDiagnostic(
+    std::ostream& os, const mp2p_icp::MatchedPointWithCovList& pairings, size_t firstNew,
+    const std::vector<mrpt::math::CMatrixFloat33>& localCov)
+{
+  const size_t n = pairings.size() - firstNew;
+  if (n == 0)
+  {
+    return;
+  }
+
+  size_t              nIdentity = 0;
+  std::vector<double> aniso;
+  aniso.reserve(n);
+
+  for (size_t i = firstNew; i < pairings.size(); i++)
+  {
+    const auto& p = pairings[i];
+    // R*I*R^T == I, so an identity local covariance survives the rotation to
+    // the global frame and can be recognized here.
+    if (localCov.at(p.local_idx).asEigen().isIdentity(1e-6f))
+    {
+      nIdentity++;
+    }
+    aniso.push_back(pairingAnisotropy(p.cov_inv));
+  }
+
+  std::sort(aniso.begin(), aniso.end());
+  const auto   quant = [&](double q) { return aniso[static_cast<size_t>(q * (aniso.size() - 1))]; };
+  const size_t nBelow10 =
+      static_cast<size_t>(std::lower_bound(aniso.begin(), aniso.end(), 10.0) - aniso.begin());
+
+  os << covDiagCallCounter++ << '\t' << n << '\t' << nIdentity << '\t'
+     << static_cast<double>(nIdentity) / static_cast<double>(n) << '\t' << quant(0.10) << '\t'
+     << quant(0.50) << '\t' << quant(0.90) << '\t'
+     << static_cast<double>(nBelow10) / static_cast<double>(n) << '\n';
+}
+}  // namespace
+
 void KeyframePointCloudMap::nn_search_cov2cov_impl(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
     const MatchingDistanceProfile&     matchingDistance,
@@ -1113,10 +1207,11 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
       do_view_filter ? static_cast<float>(std::cos(mrpt::DEG2RAD(max_view_angle_deg)))
                      : -2.0f;  // sentinel: never reached when filter is disabled
 
-#if defined(MOLA_METRIC_MAPS_USE_TBB)
-  // Pairings are appended, so only the ones added below get reordered:
+  // Pairings are appended, so only the ones added below get reordered, and the
+  // optional diagnostic below reads only that range.
   const size_t firstNewPairing = outPairings.size();
 
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
   tbb::enumerable_thread_specific<mp2p_icp::MatchedPointWithCovList> tls;
 
   tbb::parallel_for(
@@ -1219,6 +1314,13 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
       [](const mp2p_icp::point_with_cov_pair_t& a, const mp2p_icp::point_with_cov_pair_t& b)
       { return a.local_idx < b.local_idx; });
 #endif
+
+  // Optional diagnostic, computed serially on the finished pairing list so the
+  // parallel loop above is untouched:
+  if (auto* ds = covDiagStream(); ds)
+  {
+    dumpCovDiagnostic(*ds, outPairings, firstNewPairing, localKfCov);
+  }
 
   // Recover original:
   localKf.pose(originalLocalKfPose);
