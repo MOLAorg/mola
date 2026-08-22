@@ -18,6 +18,8 @@
  */
 
 #include <mola_metric_maps/KeyframePointCloudMap.h>
+
+#include "cov_diagnostics.h"
 #if __has_include(<mp2p_icp/pointcloud_field_utils.h>)
 #include <mp2p_icp/pointcloud_field_utils.h>
 #define MOLA_MM_HAS_ROTATE_VIEW_HEADER 1
@@ -41,11 +43,15 @@
 #include <mrpt/system/string_utils.h>  // unitsFormat()
 #include <mrpt/version.h>  // For MRPT_VERSION
 
+#include <Eigen/Eigenvalues>  // SelfAdjointEigenSolver (optional cov diagnostic)
 #include <algorithm>  // std::lower_bound
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iterator>  // std::distance
+#include <memory>
 #include <numeric>  // std::accumulate
+#include <ostream>
 #include <sstream>
 #include <unordered_set>
 
@@ -1113,10 +1119,11 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
       do_view_filter ? static_cast<float>(std::cos(mrpt::DEG2RAD(max_view_angle_deg)))
                      : -2.0f;  // sentinel: never reached when filter is disabled
 
-#if defined(MOLA_METRIC_MAPS_USE_TBB)
-  // Pairings are appended, so only the ones added below get reordered:
+  // Pairings are appended, so only the ones added below get reordered, and the
+  // optional diagnostic below reads only that range.
   const size_t firstNewPairing = outPairings.size();
 
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
   tbb::enumerable_thread_specific<mp2p_icp::MatchedPointWithCovList> tls;
 
   tbb::parallel_for(
@@ -1219,6 +1226,18 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
       [](const mp2p_icp::point_with_cov_pair_t& a, const mp2p_icp::point_with_cov_pair_t& b)
       { return a.local_idx < b.local_idx; });
 #endif
+
+  // Optional diagnostic, computed serially on the finished pairing list so the
+  // parallel loop above is untouched:
+  if (auto* ds = mola::cov_diag::stream(); ds)
+  {
+    mola::cov_diag::dump(
+        *ds, "kf", outPairings, firstNewPairing,
+        [&](const mp2p_icp::point_with_cov_pair_t& p) -> const mrpt::math::CMatrixFloat33&
+        { return localKfCov.at(p.local_idx); },
+        [&](const mp2p_icp::point_with_cov_pair_t& p) -> const mrpt::math::CMatrixFloat33&
+        { return globalKfCov.at(p.global_idx); });
+  }
 
   // Recover original:
   localKf.pose(originalLocalKfPose);

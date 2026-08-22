@@ -38,6 +38,7 @@
 #include <sstream>
 
 #include "IncrementalKDTree.h"
+#include "cov_diagnostics.h"
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
 #include <tbb/enumerable_thread_specific.h>
@@ -1088,6 +1089,8 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   // --- Pass 3: assemble the pairings --------------------------------------
   const Eigen::Matrix3f R = localMapPose.getRotationMatrix().cast_float().asEigen();
 
+  const std::size_t firstNewPairing = outPairings.size();
+
   outPairings.reserve(outPairings.size() + matches.size());
   for (const auto& m : matches)
   {
@@ -1105,6 +1108,19 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     const Eigen::Matrix3f w = cov_[m.global_slot].asEigen() + covLocalGlobalFrame;
 
     p.cov_inv.asEigen() = w.inverse();
+  }
+
+  // Optional diagnostic; see cov_diagnostics.h. The local covariance is stored
+  // in the query cloud's own frame, and a rotation leaves an isotropic
+  // fallback unchanged, so it is recognizable without rotating it here.
+  if (auto* ds = mola::cov_diag::stream(); ds)
+  {
+    mola::cov_diag::dump(
+        *ds, "inc", outPairings, firstNewPairing,
+        [&](const mp2p_icp::point_with_cov_pair_t& p) -> const mrpt::math::CMatrixFloat33&
+        { return localPc->cov_[p.local_idx]; },
+        [&](const mp2p_icp::point_with_cov_pair_t& p) -> const mrpt::math::CMatrixFloat33&
+        { return cov_[p.global_idx]; });
   }
 }
 
