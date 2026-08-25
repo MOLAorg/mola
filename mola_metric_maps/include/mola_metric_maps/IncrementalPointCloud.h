@@ -338,6 +338,17 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
     /** Maximum distance [m] to search neighbors for the covariance estimate. */
     double max_distance_for_cov = 1.0;
 
+    /** Maximum distance [m] any neighbor may sit from the least-squares plane
+     *  through the neighborhood for that neighborhood to receive the plane
+     *  regularization below. 0 (default) disables the test. Same semantics as
+     *  the option of the same name on KeyframePointCloudMap. */
+    double max_plane_deviation_for_cov = 0;
+
+    /** Variance asserted along the estimated surface normal, the other two
+     *  being 1, i.e. the plane confidence ratio written as its reciprocal. The
+     *  shipped 1e-3 asserts 1000:1. Must be in (0, 1]. */
+    double plane_regularization_lambda = 1e-3;
+
     /** If `true`, the k-d tree index is serialized alongside the points (see
      *  `IncrementalPointCloud` serialization), so it does NOT have to be
      *  rebuilt (an O(N log N) bulk build) when the map is loaded. Requires an
