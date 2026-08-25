@@ -440,6 +440,35 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      */
     double max_distance_for_cov = 1.0;
 
+    /** Maximum distance [meters] any neighbor may sit from the least-squares
+     *  plane through the whole neighborhood for that neighborhood to be given
+     *  the plane regularization below. 0 (default) disables the test, which is
+     *  the historical behavior: every neighborhood with enough neighbors is
+     *  regularized to a 1000:1 plane covariance whether or not it is planar.
+     *
+     *  This is Fast-LIO2's `esti_plane` gate. A neighborhood that fails it
+     *  falls back to an isotropic covariance, the same fallback the
+     *  too-few-neighbors case uses, so the pairing still constrains the
+     *  solution -- it just stops asserting a surface normal it cannot support.
+     *  The local density estimate is deliberately left untouched by a
+     *  rejection, so this knob moves the covariance and nothing else.
+     */
+    double max_plane_deviation_for_cov = 0;
+
+    /** The smallest of the three regularized singular values of a per-point
+     *  covariance, i.e. the variance asserted along the estimated surface
+     *  normal. The other two are 1, so this IS the plane confidence ratio:
+     *  the shipped 1e-3 asserts 1000:1.
+     *
+     *  Exposed because that ratio is not free. Information the whitening puts
+     *  into the normal direction it takes, relatively, from the two directions
+     *  in the surface, and on a ground vehicle the normal of the dominant
+     *  surface is the vertical -- the axis that is already best determined.
+     *  Raising this softens the assertion without changing which direction is
+     *  asserted. Must be in (0, 1].
+     */
+    double plane_regularization_lambda = 1e-3;
+
     /** Weight converting angular distance [rad] to equivalent linear
      *  distance [m] for keyframe proximity ranking. Higher values favor
      *  angularly-close (similar orientation) frames. */
@@ -572,10 +601,13 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
    public:
     KeyFrame(
         std::size_t k_correspondences_for_cov, std::size_t min_correspondences_for_cov,
-        double max_distance_for_cov)
+        double max_distance_for_cov, double max_plane_deviation_for_cov,
+        double plane_regularization_lambda)
         : k_correspondences_for_cov_(k_correspondences_for_cov),
           min_correspondences_for_cov_(min_correspondences_for_cov),
-          max_distance_for_cov_(max_distance_for_cov)
+          max_distance_for_cov_(max_distance_for_cov),
+          max_plane_deviation_for_cov_(max_plane_deviation_for_cov),
+          plane_regularization_lambda_(plane_regularization_lambda)
     {
     }
 
@@ -585,6 +617,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
           k_correspondences_for_cov_(other.k_correspondences_for_cov_),
           min_correspondences_for_cov_(other.min_correspondences_for_cov_),
           max_distance_for_cov_(other.max_distance_for_cov_),
+          max_plane_deviation_for_cov_(other.max_plane_deviation_for_cov_),
+          plane_regularization_lambda_(other.plane_regularization_lambda_),
           pointcloud_(other.pointcloud_),
           pose_(other.pose_)
     {
@@ -600,6 +634,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
         k_correspondences_for_cov_   = other.k_correspondences_for_cov_;
         min_correspondences_for_cov_ = other.min_correspondences_for_cov_;
         max_distance_for_cov_        = other.max_distance_for_cov_;
+        max_plane_deviation_for_cov_ = other.max_plane_deviation_for_cov_;
+        plane_regularization_lambda_ = other.plane_regularization_lambda_;
         pointcloud_                  = other.pointcloud_;
         pose_                        = other.pose_;
         timestamp                    = other.timestamp;
@@ -667,11 +703,14 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      */
     void updateCovarianceParams(
         std::size_t k_correspondences_for_cov, std::size_t min_correspondences_for_cov,
-        double max_distance_for_cov)
+        double max_distance_for_cov, double max_plane_deviation_for_cov,
+        double plane_regularization_lambda)
     {
       k_correspondences_for_cov_   = k_correspondences_for_cov;
       min_correspondences_for_cov_ = min_correspondences_for_cov;
       max_distance_for_cov_        = max_distance_for_cov;
+      max_plane_deviation_for_cov_ = max_plane_deviation_for_cov;
+      plane_regularization_lambda_ = plane_regularization_lambda;
       invalidateCache();
     }
 
@@ -726,6 +765,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
     std::size_t k_correspondences_for_cov_;
     std::size_t min_correspondences_for_cov_;
     double      max_distance_for_cov_;
+    double      max_plane_deviation_for_cov_;
+    double      plane_regularization_lambda_;
 
     void updateBBox() const;
     void computeCovariancesAndDensity() const;
