@@ -370,9 +370,10 @@ colcon build --symlink-install
 - CI/CD: `.github/workflows/build-ros.yml`: Humble and Jazzy, each as a
   `stable` (released debs) and a `testing` (`ros2-testing`) variant, on
   GitHub-hosted x86_64 and self-hosted arm64; Rolling entries exist
-  commented-out. `rosdep install` may report missing keys without failing the
-  job, so an optional dependency not yet published on a channel (e.g.
-  `nanoflann_vendor`) still lets the build run and report its own errors.
+  commented-out. `rosdep install` runs twice when the first pass fails: the
+  retry skips the optional keys (`nanoflann_vendor`, `gps_msgs`), which are not
+  published on every channel yet, so the build still runs there; anything else
+  unresolved stops the job.
 - Style: enforced with `.clang-format` and `.clang-tidy`
 
 Test coverage exists for: `mola_yaml`, `mola_metric_maps`, `mola_pose_list`, `mola_relocalization`

@@ -88,13 +88,17 @@ jobs:
         run: |
           . /opt/ros/*/setup.sh
           for i in 1 2 3; do rosdep update && break || { echo "rosdep update failed (attempt $i/3), retrying..."; sleep 10; }; done
-          # -r: keep installing the rest of the keys instead of stopping at the
-          # first one rosdep can't resolve (e.g. an optional dependency not yet
-          # released on this particular distro/channel). Don't fail the step on
-          # that either, so the build steps below still run and report their own,
-          # more specific errors instead of the job stopping here.
-          rosdep install --from-paths . --ignore-src -r -y || \
-            echo "::warning::rosdep install reported missing dependencies; continuing anyway"
+          # These keys are optional: the tree degrades gracefully without them
+          # (nanoflann_vendor enables mola::IncrementalPointCloud, gps_msgs the
+          # GNSS message conversions), and they are not published on every
+          # distro/channel yet. Resolve the full set first, so they are used
+          # wherever they do exist, and only then retry without them. Any other
+          # unresolved key, apt error or network failure still stops the job.
+          OPTIONAL_KEYS="nanoflann_vendor gps_msgs"
+          rosdep install --from-paths . --ignore-src -r -y || {
+            echo "::warning::rosdep install failed; retrying without the optional keys: $OPTIONAL_KEYS"
+            rosdep install --from-paths . --ignore-src -r -y --skip-keys "$OPTIONAL_KEYS"
+          }
 
       - name: Build with colcon
         run: |
@@ -178,13 +182,17 @@ jobs:
         run: |
           . /opt/ros/*/setup.sh
           for i in 1 2 3; do rosdep update && break || { echo "rosdep update failed (attempt $i/3), retrying..."; sleep 10; }; done
-          # -r: keep installing the rest of the keys instead of stopping at the
-          # first one rosdep can't resolve (e.g. an optional dependency not yet
-          # released on this particular distro/channel). Don't fail the step on
-          # that either, so the build steps below still run and report their own,
-          # more specific errors instead of the job stopping here.
-          rosdep install --from-paths . --ignore-src -r -y || \
-            echo "::warning::rosdep install reported missing dependencies; continuing anyway"
+          # These keys are optional: the tree degrades gracefully without them
+          # (nanoflann_vendor enables mola::IncrementalPointCloud, gps_msgs the
+          # GNSS message conversions), and they are not published on every
+          # distro/channel yet. Resolve the full set first, so they are used
+          # wherever they do exist, and only then retry without them. Any other
+          # unresolved key, apt error or network failure still stops the job.
+          OPTIONAL_KEYS="nanoflann_vendor gps_msgs"
+          rosdep install --from-paths . --ignore-src -r -y || {
+            echo "::warning::rosdep install failed; retrying without the optional keys: $OPTIONAL_KEYS"
+            rosdep install --from-paths . --ignore-src -r -y --skip-keys "$OPTIONAL_KEYS"
+          }
 
       - name: Build with colcon
         run: |
