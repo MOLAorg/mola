@@ -88,7 +88,13 @@ jobs:
         run: |
           . /opt/ros/*/setup.sh
           for i in 1 2 3; do rosdep update && break || { echo "rosdep update failed (attempt $i/3), retrying..."; sleep 10; }; done
-          rosdep install --from-paths . --ignore-src -r -y
+          # -r: keep installing the rest of the keys instead of stopping at the
+          # first one rosdep can't resolve (e.g. an optional dependency not yet
+          # released on this particular distro/channel). Don't fail the step on
+          # that either, so the build steps below still run and report their own,
+          # more specific errors instead of the job stopping here.
+          rosdep install --from-paths . --ignore-src -r -y || \
+            echo "::warning::rosdep install reported missing dependencies; continuing anyway"
 
       - name: Build with colcon
         run: |
@@ -172,7 +178,13 @@ jobs:
         run: |
           . /opt/ros/*/setup.sh
           for i in 1 2 3; do rosdep update && break || { echo "rosdep update failed (attempt $i/3), retrying..."; sleep 10; }; done
-          rosdep install --from-paths . --ignore-src -r -y
+          # -r: keep installing the rest of the keys instead of stopping at the
+          # first one rosdep can't resolve (e.g. an optional dependency not yet
+          # released on this particular distro/channel). Don't fail the step on
+          # that either, so the build steps below still run and report their own,
+          # more specific errors instead of the job stopping here.
+          rosdep install --from-paths . --ignore-src -r -y || \
+            echo "::warning::rosdep install reported missing dependencies; continuing anyway"
 
       - name: Build with colcon
         run: |

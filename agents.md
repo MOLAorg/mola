@@ -367,7 +367,12 @@ colcon build --symlink-install
 
 - **Framework**: CMake + GTest
 - Each package has `tests/` with its own `CMakeLists.txt`
-- CI/CD: `.github/workflows/` — builds on ROS 2 Humble, Jazzy, Kilted, Rolling
+- CI/CD: `.github/workflows/build-ros.yml`: Humble and Jazzy, each as a
+  `stable` (released debs) and a `testing` (`ros2-testing`) variant, on
+  GitHub-hosted x86_64 and self-hosted arm64; Rolling entries exist
+  commented-out. `rosdep install` may report missing keys without failing the
+  job, so an optional dependency not yet published on a channel (e.g.
+  `nanoflann_vendor`) still lets the build run and report its own errors.
 - Style: enforced with `.clang-format` and `.clang-tidy`
 
 Test coverage exists for: `mola_yaml`, `mola_metric_maps`, `mola_pose_list`, `mola_relocalization`
