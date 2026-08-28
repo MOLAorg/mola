@@ -25,6 +25,11 @@ install_manifest.txt
 Makefile
 Testing
 
+# local colcon skip markers: they must not be committed, or CI (and any
+# fresh workspace) would silently skip building those packages.
+# Note: docs/COLCON_IGNORE is tracked on purpose (not a ROS package).
+COLCON_IGNORE
+
 #visual studio
 .vs/*
 .vscode/*

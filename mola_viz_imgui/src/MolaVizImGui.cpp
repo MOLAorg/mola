@@ -478,14 +478,13 @@ void MolaVizImGui::dataset_ui_update()
 
     std::string txt = mrpt::format("%zu / %zu", pos, N);
 
-    // Dataset playback time, if the source can tell it:
+    // Dataset playback time, if the source can tell it. The total duration
+    // may be unknown even if the current time is known:
     if (const auto t = mod->datasetUI_time(); t.has_value())
     {
-      txt += "  |  " + format_playback_time(*t);
-      if (const auto T = mod->datasetUI_total_time(); T.has_value())
-      {
-        txt += " / " + format_playback_time(*T);
-      }
+      const auto T = mod->datasetUI_total_time();
+      txt += "  |  " + format_playback_time(*t) + " / " +
+             (T.has_value() ? format_playback_time(*T) : std::string("???"));
     }
 
     e.lbPlaybackPosition->set(txt);
