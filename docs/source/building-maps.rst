@@ -63,7 +63,7 @@ an estimated trajectory and a **simple-map** (here is the main stuff to build ma
    Role of an "odometry" module (Figure adapted from :cite:`blanco2025mola_lo`).
 
 
-To process an **offline dataset**, use any of the available options in :ref:`MOLA-LO applications <_launching_mola_lo>`:
+To process an **offline dataset**, use any of the available options in :ref:`MOLA-LO applications <launching_mola_lo>`:
 
 - :ref:`mola-lo-gui-rosbag2 <mola_lo_gui_rosbag2>` for a version with GUI, or
 - :ref:`mola-lidar-odometry-cli <mola_lidar_odometry_cli>` for a terminal (CLI) version.

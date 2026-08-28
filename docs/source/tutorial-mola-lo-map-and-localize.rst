@@ -98,7 +98,7 @@ The map saved in the former step comprises two files:
 
 - A **key-frame (view-based) map** (``*.simplemap``): a set of SE(3) poses annotated with metadata and raw sensor observations.
 - The metric **local map** used by the specific LO/LIO pipeline; For the for the ``lidar3d-gicp`` :ref:`pipeline <mola_3d_gicp_pipeline>` (default),
-  it is a key-frame based point cloud based on :ref:`mola_metric_maps/KeyframePointCloudMap <keyframe_point_cloud_map_8h>`.
+  it is a key-frame based point cloud based on :ref:`mola_metric_maps/KeyframePointCloudMap <doxid-classmola_1_1_keyframe_point_cloud_map>`.
   For the ``lidar3d-icp`` :ref:`pipeline <mola_3d_icp_pipeline>`,  it is a voxel-based point cloud of the current area, which may include an area of
   more than 100 meters around the latest robot pose, but if you mapped a larger area, it would be an incomplete representation of the whole map.
 

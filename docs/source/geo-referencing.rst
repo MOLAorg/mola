@@ -3,7 +3,7 @@
 ======================
 Georeferencing
 ======================
-Georeferencing trajectories and metric maps is implemented in the :ref:`mola_state_estimation <mola_licenses>` package.
+Georeferencing trajectories and metric maps is implemented in the :ref:`mola_state_estimation <mola_sta_est_index>` package.
 
 The concept of using simple-maps as intermediary map format together with the layered metric map format (see :cite:`blanco2025mola_lo`)
 enables embedding georeferenced coordinates to any kind of map typically used in robotics: grid maps, voxel maps, point clouds, etc.

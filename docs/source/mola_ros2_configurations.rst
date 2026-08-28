@@ -155,7 +155,7 @@ A MOLA ROS 2 deployment is defined by five independent choices:
    ``imu_qos_reliability:=reliable`` and increase ``imu_qos_depth`` (e.g.
    ``1000``) so the bridge subscription matches the publisher and can
    absorb executor stalls. See the launch arguments documented in
-   :ref:`mola_lo_ros_node` and the per-topic ``qos:`` block accepted by
+   :ref:`the ROS 2 node reference <ros2_node_lo_docs>` and the per-topic ``qos:`` block accepted by
    ``BridgeROS2``'s ``subscribe`` list.
 
 |

@@ -146,7 +146,7 @@ Depending on the parameters, it may take some time for the re-localization to ta
 
 4. Published ``/tf`` frames
 --------------------------------------
-The frames of reference (`frame_id`s) at work when using MOLA depend on
+The frames of reference (``frame_id`` values) at work when using MOLA depend on
 your system configuration:
 
 - Using just ``mola_lidar_odometry``: Two situations here depending on the ROS :ref:`launch argument <ros2_node_lo_docs>` ``publish_localization_following_rep105``:
@@ -175,7 +175,7 @@ for the different situations listed above:
       This is who is responsible of publishing each transformation:
 
       - ``odom → base_link``: Wheel odometry module. High-frequency, relatively accurate in the short term, but drifts in the long term.
-      - ``map → odom``: :ref:`Localization <localization>` module, which corrects the odometry drift.
+      - ``map → odom``: :ref:`Localization <localization-only>` module, which corrects the odometry drift.
       - ``enu → {map, utm}``: Published by ``mrpt_map_server`` (`github <https://github.com/mrpt-ros-pkg/mrpt_navigation/tree/ros2/mrpt_map_server/>`_)
         or ``mola_lidar_odometry`` :ref:`map loading service <map_loading_saving>` if fed with a geo-referenced metric map (``.mm``) file.
 
@@ -197,7 +197,7 @@ for the different situations listed above:
 
       This is who is responsible of publishing each transformation:
 
-      - ``map → base_link``: :ref:`Localization <localization>` module.
+      - ``map → base_link``: :ref:`Localization <localization-only>` module.
       - ``enu → {map, utm}``: Published by ``mrpt_map_server`` (`github <https://github.com/mrpt-ros-pkg/mrpt_navigation/tree/ros2/mrpt_map_server/>`_)
         or ``mola_lidar_odometry`` :ref:`map loading service <map_loading_saving>` if fed with a geo-referenced metric map (``.mm``) file.
 

@@ -268,7 +268,7 @@ geodetic coordinates for point cloud layers).
     If you have a GNSS sensor (GPS), its data recorded in the simplemap will be
     automatically used for full geodetic georeferencing (latitude/longitude/altitude),
     not just gravity alignment. MOLA-LIO must be configured to capture GPS observations;
-    see the :ref:`LIO pipeline sensor inputs <mola-lo-pipelines>` documentation.
+    see the :ref:`LIO pipeline sensor inputs <mola_lo_pipeline_sensor_inputs>` documentation.
 
 |
 

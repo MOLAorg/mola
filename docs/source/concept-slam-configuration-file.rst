@@ -4,7 +4,7 @@
 SLAM system YAML configuration file format
 =============================================
 
-Refer to :ref:`demos` for real examples to launch and run SLAM systems.
+Refer to `the example launch files in mola_demos <https://github.com/MOLAorg/mola/tree/develop/mola_demos/mola-cli-launchs>`_ for real examples to launch and run SLAM systems.
 
 File structure
 ================
