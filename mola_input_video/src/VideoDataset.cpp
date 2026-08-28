@@ -241,4 +241,23 @@ bool   VideoDataset::datasetUI_paused() const { return paused_; }
 void   VideoDataset::datasetUI_paused(bool paused) { paused_ = paused; }
 void   VideoDataset::datasetUI_teleport(size_t timestep) { teleport_here_ = timestep; }
 
+std::optional<double> VideoDataset::datasetUI_time() const
+{
+  if (input_mode_ != InputMode::ImageDirectory)
+  {
+    return {};
+  }
+  std::scoped_lock lck(dataset_ui_mtx_);
+  return last_dataset_time_;
+}
+
+std::optional<double> VideoDataset::datasetUI_total_time() const
+{
+  if (input_mode_ != InputMode::ImageDirectory || image_publish_rate_ <= 0)
+  {
+    return {};
+  }
+  return static_cast<double>(image_files_.size()) / image_publish_rate_;
+}
+
 }  // namespace mola

@@ -51,6 +51,9 @@ class VideoDataset : public RawDataSourceBase, public Dataset_UI
   void   datasetUI_paused(bool paused) override;
   void   datasetUI_teleport(size_t timestep) override;
 
+  std::optional<double> datasetUI_time() const override;
+  std::optional<double> datasetUI_total_time() const override;
+
  protected:
   void initialize_rds(const Yaml& cfg) override;
 

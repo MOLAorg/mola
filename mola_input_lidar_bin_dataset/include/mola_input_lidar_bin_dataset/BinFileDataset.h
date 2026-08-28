@@ -93,6 +93,19 @@ class BinFileDataset : public OfflineDatasetSource, public RawDataSourceBase, pu
     auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
     teleport_here_ = timestep;
   }
+  std::optional<double> datasetUI_time() const override
+  {
+    auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+    return ui_dataset_time_;
+  }
+  std::optional<double> datasetUI_total_time() const override
+  {
+    if (lst_timestamps_.size() < 2)
+    {
+      return {};
+    }
+    return lst_timestamps_.back() - lst_timestamps_.front();
+  }
 
  protected:
   // Internal data access
@@ -119,6 +132,10 @@ class BinFileDataset : public OfflineDatasetSource, public RawDataSourceBase, pu
 
   std::optional<mrpt::Clock::time_point> last_play_wallclock_time_;
   double                                 last_dataset_time_ = 0;
+
+  /// Playback time relative to the first scan, for the GUI. Guarded by
+  /// dataset_ui_mtx_.
+  double ui_dataset_time_ = 0;
 
   // Data cache
   mutable std::map<timestep_t, mrpt::obs::CObservation::Ptr> read_ahead_lidar_obs_;
