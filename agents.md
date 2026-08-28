@@ -120,7 +120,9 @@ All plugin modules derive from these virtual base classes:
 - `Dataset_UI` — playback panel for offline dataset sources. Besides the
   entry index and the play/pause/speed controls, sources may also report the
   playback position in seconds via `datasetUI_time()` /
-  `datasetUI_total_time()`. Both default to `std::nullopt` ("unknown"): the
+  `datasetUI_total_time()` (feature macro `MOLA_KERNEL_DATASET_UI_HAS_TIME`,
+  for out-of-tree sources that may compile against an older mola_kernel).
+  Both default to `std::nullopt` ("unknown"): the
   `mola_viz_imgui` panel drops the time if the position is unknown, and shows
   "t / ???" if only the total duration is.
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
