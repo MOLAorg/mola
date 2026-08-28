@@ -123,8 +123,8 @@ All plugin modules derive from these virtual base classes:
   `datasetUI_total_time()` (feature macro `MOLA_KERNEL_DATASET_UI_HAS_TIME`,
   for out-of-tree sources that may compile against an older mola_kernel).
   Both default to `std::nullopt` ("unknown"): the
-  `mola_viz_imgui` panel drops the time if the position is unknown, and shows
-  "t / ???" if only the total duration is.
+  `mola_viz_imgui` panel omits the time if the position is unknown, and shows
+  "t / ???" if the position is known but the total duration is not.
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
   `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
   `requestInsertKeyframe()`, decoupled from their own local map/odometry
