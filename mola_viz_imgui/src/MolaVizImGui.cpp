@@ -33,7 +33,10 @@
 #include <mrpt/system/string_utils.h>
 #include <mrpt/system/thread_name.h>
 
+#include <cmath>
+#include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 using namespace mola;
@@ -349,6 +352,29 @@ void MolaVizImGui::gui_thread()
 // Dataset UI
 // ---------------------------------------------------------------------------
 
+namespace
+{
+/** Compact "[h:]mm:ss.s" rendering of a time interval, for the dataset
+ *  playback panel. */
+std::string format_playback_time(double t)
+{
+  if (t < 0 || !std::isfinite(t))
+  {
+    t = 0;
+  }
+  const auto   totalSecs = static_cast<uint64_t>(t);
+  const auto   hours     = static_cast<unsigned int>(totalSecs / 3600);
+  const auto   mins      = static_cast<unsigned int>((totalSecs / 60) % 60);
+  const double secs      = t - static_cast<double>(hours * 3600 + mins * 60);
+
+  if (hours > 0)
+  {
+    return mrpt::format("%u:%02u:%04.1f", hours, mins, secs);
+  }
+  return mrpt::format("%u:%04.1f", mins, secs);
+}
+}  // namespace
+
 void MolaVizImGui::dataset_ui_check_new_modules()
 {
   auto datasetUIs = findService<Dataset_UI>();
@@ -386,7 +412,7 @@ void MolaVizImGui::dataset_ui_check_new_modules()
     mola::gui::WindowDescription desc;
     desc.title               = module->getModuleInstanceName();
     desc.position            = {300, 5};
-    desc.size                = {650, 70};
+    desc.size                = {800, 70};
     desc.dock_top_by_default = true;
 
     mola::gui::Tab tab{"Controls", {}};
@@ -449,7 +475,20 @@ void MolaVizImGui::dataset_ui_update()
     if (!mod || !e.lbPlaybackPosition) continue;
     const size_t pos = mod->datasetUI_lastQueriedTimestep();
     const size_t N   = mod->datasetUI_size();
-    e.lbPlaybackPosition->set(mrpt::format("%zu / %zu", pos, N));
+
+    std::string txt = mrpt::format("%zu / %zu", pos, N);
+
+    // Dataset playback time, if the source can tell it:
+    if (const auto t = mod->datasetUI_time(); t.has_value())
+    {
+      txt += "  |  " + format_playback_time(*t);
+      if (const auto T = mod->datasetUI_total_time(); T.has_value())
+      {
+        txt += " / " + format_playback_time(*T);
+      }
+    }
+
+    e.lbPlaybackPosition->set(txt);
     if (e.liveSliderPos) e.liveSliderPos->set(static_cast<float>(pos));
   }
 }

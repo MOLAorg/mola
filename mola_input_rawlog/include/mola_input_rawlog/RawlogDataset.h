@@ -92,6 +92,16 @@ class RawlogDataset : public RawDataSourceBase, public OfflineDatasetSource, pub
     auto lck       = mrpt::lockHelper(dataset_ui_mtx_);
     teleport_here_ = timestep;
   }
+  std::optional<double> datasetUI_time() const override
+  {
+    auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+    return ui_dataset_time_;
+  }
+  std::optional<double> datasetUI_total_time() const override
+  {
+    auto lck = mrpt::lockHelper(dataset_ui_mtx_);
+    return dataset_total_time_;
+  }
 
  protected:
   // See docs in base class
@@ -112,6 +122,16 @@ class RawlogDataset : public RawDataSourceBase, public OfflineDatasetSource, pub
 
   std::optional<mrpt::Clock::time_point> last_play_wallclock_time_;
   double                                 last_dataset_time_ = 0;
+
+  /// Copy of last_dataset_time_ for the GUI, guarded by dataset_ui_mtx_.
+  double ui_dataset_time_ = 0;
+
+  /// Dataset duration [s]. Only known if the whole rawlog was read at once.
+  std::optional<double> dataset_total_time_;
+
+  /** Returns the timestamp of the first (or last, if fromEnd) rawlog entry
+   *  that has one. Only valid if read_all_first_=true. */
+  std::optional<mrpt::Clock::time_point> findEntryTimestamp(bool fromEnd) const;
 
   void doReadAhead();
   void doReadAheadFromFile();

@@ -46,6 +46,7 @@
 #include <mrpt/system/filesystem.h>
 #include <mrpt/version.h>
 
+#include <chrono>
 #include <set>
 #include <tf2/buffer_core.hpp>
 #include <tf2/convert.hpp>
@@ -199,6 +200,10 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   rosbag_storage_ids_.clear();
   std::map<std::string, rosbag2_storage::TopicMetadata> all_topics_by_name;
 
+  // Time span covered by all input bags, to report the total dataset duration:
+  using bag_time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
+  std::optional<std::pair<bag_time_point, bag_time_point>> bagsTimeSpan;
+
   for (const auto& path : rosbag_filenames_)
   {
     const bool pathIsDir  = mrpt::system::directoryExists(path);
@@ -226,9 +231,26 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
             inserted || it->second.type == t.type,
             "Topic '"s + t.name + "' has inconsistent types across input bags"s);
       }
-      const size_t cnt = static_cast<size_t>(tmpReader->get_metadata().message_count);
+      const auto&  md  = tmpReader->get_metadata();
+      const size_t cnt = static_cast<size_t>(md.message_count);
       per_bag_msg_counts_.push_back(cnt);
       bagMessageCount_ += cnt;
+
+      // Accumulate the total time span covered by all input bags:
+      if (cnt > 0)
+      {
+        const auto tIni = md.starting_time;
+        const auto tEnd = tIni + md.duration;
+        if (!bagsTimeSpan)
+        {
+          bagsTimeSpan = {tIni, tEnd};
+        }
+        else
+        {
+          bagsTimeSpan->first  = std::min(bagsTimeSpan->first, tIni);
+          bagsTimeSpan->second = std::max(bagsTimeSpan->second, tEnd);
+        }
+      }
       MRPT_LOG_INFO_STREAM(
           "Bag '" << path << "': " << cnt << " messages (storage: " << storageId << ")");
     }
@@ -238,6 +260,12 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   {
     MRPT_LOG_INFO_STREAM(
         "Total messages across " << rosbag_filenames_.size() << " bags: " << bagMessageCount_);
+  }
+
+  if (bagsTimeSpan)
+  {
+    dataset_total_time_ =
+        std::chrono::duration<double>(bagsTimeSpan->second - bagsTimeSpan->first).count();
   }
 
   // Open the first bag to read topic metadata and start replay.
@@ -785,6 +813,7 @@ void Rosbag2Dataset::spinOnce()
     auto lck = mrpt::lockHelper(dataset_ui_mtx_);
 
     last_used_tim_index_ = rosbag_next_idx_;
+    ui_dataset_time_     = last_dataset_time_;
   }
 
   MRPT_END

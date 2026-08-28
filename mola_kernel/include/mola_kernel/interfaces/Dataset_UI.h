@@ -19,6 +19,11 @@
 #pragma once
 
 #include <cstdlib>
+#include <optional>
+
+/** Feature macro: Dataset_UI exposes the dataset playback time via
+ *  datasetUI_time() / datasetUI_total_time(). */
+#define MOLA_KERNEL_DATASET_UI_HAS_TIME 1
 
 namespace mola
 {
@@ -46,6 +51,14 @@ class Dataset_UI
 
   /** Forces continue replaying in this moment in time */
   virtual void datasetUI_teleport(size_t timestep) = 0;
+
+  /** Current dataset playback time, in seconds elapsed since the beginning of
+   *  the dataset. Returns std::nullopt if the source cannot tell (default). */
+  virtual std::optional<double> datasetUI_time() const { return std::nullopt; }
+
+  /** Total dataset duration, in seconds. Returns std::nullopt if unknown
+   *  (default), e.g. for live sources or datasets read on the fly. */
+  virtual std::optional<double> datasetUI_total_time() const { return std::nullopt; }
   /** @} */
 };
 
