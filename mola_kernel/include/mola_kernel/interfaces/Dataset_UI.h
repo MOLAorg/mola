@@ -21,10 +21,6 @@
 #include <cstdlib>
 #include <optional>
 
-/** Feature macro: Dataset_UI exposes the dataset playback time via
- *  datasetUI_time() / datasetUI_total_time(). */
-#define MOLA_KERNEL_DATASET_UI_HAS_TIME 1
-
 namespace mola
 {
 /** Virtual base for offline dataset sources to have a GUI within MolaViz
