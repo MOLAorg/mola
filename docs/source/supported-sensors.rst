@@ -30,24 +30,33 @@ Generic formats
    :header-rows: 1
 
    * - Format
-     - Reader
-     - Launch it with
+     - Reader module
+     - Run LiDAR odometry on it with
    * - **ROS 2 bag** (``.mcap``, sqlite3)
      - `mola_input_rosbag2 <https://github.com/MOLAorg/mola/tree/develop/mola_input_rosbag2>`_
-     - ``mola-lo-gui-rosbag2`` / ``mola-lo-cli-rosbag2``, or
-       ``mola-lidar-odometry-cli --input-rosbag2``
+     - ``mola-lo-gui-rosbag2 <bag>`` (GUI) or
+       ``mola-lo-cli-rosbag2 <bag>`` (offline)
    * - **ROS 1 bag** (``.bag``)
      - `mola_input_rosbag1 <https://github.com/MOLAorg/mola_input_rosbag1>`_,
        which needs **no ROS 1 installation**
-     - ``mola-lo-gui-rosbag1`` / ``mola-lo-cli-rosbag1``, or
-       ``mola-lidar-odometry-cli --input-rosbag1``
+     - ``mola-lo-gui-rosbag1 <bag> [more bags]`` or
+       ``mola-lo-cli-rosbag1 <bag> [more bags]``
    * - **MRPT rawlog** (``.rawlog``)
      - `mola_input_rawlog <https://github.com/MOLAorg/mola/tree/develop/mola_input_rawlog>`_
-     - ``mola-lo-gui-rawlog`` / ``mola-lo-cli-rawlog``, or
-       ``mola-lidar-odometry-cli --input-rawlog``
+     - ``mola-lo-gui-rawlog <file.rawlog>`` or
+       ``mola-lo-cli-rawlog <file.rawlog>``
    * - **KITTI-style ``.bin`` directories**
      - `mola_input_lidar_bin_dataset <https://github.com/MOLAorg/mola/tree/develop/mola_input_lidar_bin_dataset>`_
-     - a ``mola-cli`` launch file
+     - No odometry launcher yet; to **replay** one, use
+       ``mola-cli $(ros2 pkg prefix mola_demos)/share/mola_demos/mola-cli-launchs/lidar_bin_directory_just_replay.yaml``
+
+.. note::
+   The ``mola-lo-*`` launchers are installed by ``mola_lidar_odometry``. Each is
+   a thin wrapper that picks the right ``mola-cli`` launch file (GUI) or supplies
+   the right flags to ``mola-lidar-odometry-cli`` (offline), so you do not have to
+   pass ``-c <pipeline.yaml>`` and ``--state-estimator-param-file`` yourself.
+   Run any of them with no arguments to see its usage, and see
+   :ref:`Launching MOLA-LO <launching_mola_lo>` for the underlying commands.
 
 .. note::
    Several bags can be replayed **jointly as one merged stream**, which is what

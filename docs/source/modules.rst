@@ -5,9 +5,13 @@ MOLA packages
 ===================
 
 MOLA's modular design means a SLAM or localization problem is split into the
-smallest possible reusable pieces. Each piece is one **colcon package**,
-loadable at runtime from a :ref:`YAML configuration file <yaml_slam_cfg_file>`
-without recompiling anything.
+smallest possible reusable pieces, each shipped as one **colcon package**.
+The ones that implement a ``mola_kernel`` interface (data sources, front ends,
+state estimators, map servers, visualizers) are *modules*: they are named in a
+:ref:`YAML configuration file <yaml_slam_cfg_file>` and loaded at runtime,
+without recompiling anything. The rest are the supporting cast, linked as
+ordinary libraries or used as build-time dependencies: message definitions,
+CLI tools and metapackages.
 
 This page is the **inventory**: what each package is for, and where its sources
 live. For the tasks these packages are combined to solve, see
@@ -54,8 +58,9 @@ Everything else builds on these. They live in the
 Input: datasets and sensors
 -----------------------------
 
-Each implements ``RawDataSourceBase``, so any of them can feed any front end.
-See :ref:`sensors and datasets <supported_sensors>` for how to choose one.
+Except where noted, each of these implements ``RawDataSourceBase``, so any of
+them can feed any front end. See :ref:`sensors and datasets <supported_sensors>`
+for how to choose one.
 
 .. list-table::
    :widths: 30 70
@@ -77,7 +82,8 @@ See :ref:`sensors and datasets <supported_sensors>` for how to choose one.
      - Ouster LiDARs through the native Ouster SDK: direct sensor connection
        and PCAP replay, with no ROS middleware in between.
    * - `mola_academic_datasets <https://github.com/MOLAorg/mola_academic_datasets>`_
-     - Metapackage bundling the readers for public benchmark datasets:
+     - *Metapackage*, not a module itself; it bundles the readers for public
+       benchmark datasets, each of which is one:
        ``mola_input_kitti_dataset``, ``mola_input_kitti360_dataset``,
        ``mola_input_mulran_dataset``, ``mola_input_euroc_dataset``,
        ``mola_input_paris_luco_dataset``, plus ``kitti_metrics_eval``.
