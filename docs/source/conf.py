@@ -59,6 +59,26 @@ mermaid_version = '11.4.0'
 mermaid_output_format = 'raw'  # render via JS in the browser; keeps diagrams vector and diffable.
 
 extensions += ['doxyrest', 'cpplexer']
+extensions += ['sphinx_sitemap', 'sphinxext.opengraph']
+
+# --- Findability -----------------------------------------------------------
+# Canonical URL of the published site. Sphinx emits <link rel="canonical">
+# from this, which consolidates ranking signals onto one address, and
+# sphinx-sitemap needs it to build absolute URLs.
+html_baseurl = 'https://docs.mola-slam.org/latest/'
+
+# The site is published as a single 'latest/' directory, with no per-language
+# or per-version subdirectories, so the default '{lang}{version}{link}'
+# scheme would emit URLs that do not exist.
+sitemap_url_scheme = '{link}'
+
+# OpenGraph tags, so a link to these pages in chat or on social media shows
+# the page title and its own summary instead of a bare URL. Deliberately
+# text-only: the project logo is 120x120, and link previews expect roughly
+# 1200x630, so it would be upscaled into something worse than no image.
+ogp_site_url = html_baseurl
+ogp_site_name = 'MOLA documentation'
+ogp_description_length = 200
 
 bibtex_bibfiles = ['refs.bib']
 

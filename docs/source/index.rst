@@ -90,6 +90,10 @@
   bibliography
 
 
+=====================================================
+MOLA: LiDAR Odometry, SLAM and Localization for ROS 2
+=====================================================
+
 .. raw:: html
 
    <div style="text-align: center; margin: 1.5em 0 1em 0;">
