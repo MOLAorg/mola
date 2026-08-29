@@ -30,4 +30,6 @@ sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.7
 sphinxcontrib-serializinghtml==1.1.10
 urllib3==2.6.3
-setuptools
+# pkg_resources, which sphinxcontrib-bibtex still imports, was removed in
+# setuptools 82. Leave this unpinned and a fresh environment breaks the build.
+setuptools<82
