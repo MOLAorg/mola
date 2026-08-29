@@ -82,6 +82,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Mirrors the Makefile's dataset-pages target: the per-dataset pages are
+      # generated from the mola_lidar_odometry profiles, not committed, so CI
+      # has to produce them or index.rst points at documents that do not exist.
+      - name: Generate the dataset pages
+        working-directory: src/mola/docs
+        run: |
+          python3 generate_dataset_pages.py \
+            ../../mola_lidar_odometry/scripts/lib/profiles \
+            ../../mola_lidar_odometry/scripts \
+            source/datasets
+
       - name: Build the hand-written docs
         working-directory: src/mola/docs
         env:

@@ -18,6 +18,13 @@
   map-tools
 
 .. toctree::
+  :maxdepth: 1
+  :hidden:
+  :caption: Datasets
+
+  datasets/index
+
+.. toctree::
   :maxdepth: 2
   :hidden:
   :caption: Solutions & pricing

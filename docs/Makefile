@@ -21,6 +21,7 @@ clean:
 		source/page_* \
 		source/union_* \
 		source/global.rst source/doxygen-index.rst \
+		source/datasets \
 		2> /dev/null || true
 
 .PHONY: all
@@ -37,11 +38,21 @@ python-venv: requirements.txt
 	DEB_PYTHON_INSTALL_LAYOUT=deb virtualenv -p /usr/bin/python3 venv
 	bash -c "source venv/bin/activate && pip install -r requirements.txt"
 
+# One page per public dataset, generated from the mola_lidar_odometry
+# profiles so the website cannot drift from what the wrappers actually run.
+# Not committed: regenerated on every build.
+.PHONY: dataset-pages
+dataset-pages:
+	python3 generate_dataset_pages.py \
+		../../mola_lidar_odometry/scripts/lib/profiles \
+		../../mola_lidar_odometry/scripts \
+		source/datasets
+
 html-and-view:
 	make html
 	xdg-open html/index.html
 
-html: python-venv
+html: python-venv dataset-pages
 	echo "Building docs"
 	echo "Using MRPT_LIST_INCLUDE_DIRS: ${MRPT_LIST_INCLUDE_DIRS}"
 	# 1) Build Doxygen

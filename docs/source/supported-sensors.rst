@@ -73,6 +73,10 @@ out its topic names, frame ids, extrinsics or per-dataset tuning yourself. Each
 comes in two flavors: ``mola-lo-gui-<name>`` for interactive replay with the
 3D GUI, and ``mola-lo-cli-<name>`` for offline batch processing at full speed.
 
+The table below is the overview. For one dataset in particular, see
+:ref:`its own page <supported_datasets>`: where to put the data, the exact
+commands, and every tuned default with the reasoning behind it.
+
 .. list-table::
    :widths: 20 55 25
    :header-rows: 1
