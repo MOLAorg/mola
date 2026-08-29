@@ -9,13 +9,17 @@
   :caption: Get started
 
   Home <index.html#http://>
+  quickstart
   why-mola
+  your-own-rosbag
+  gui-vs-cli
   building-maps
   localization
   geo-referencing
   ros2api
   mola_ros2_configurations
   map-tools
+  troubleshooting
 
 .. toctree::
   :maxdepth: 1

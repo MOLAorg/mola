@@ -252,7 +252,14 @@ The rest will be discarded, after emitting a warning to the terminal.
 ----------------------------
 For ROS 1 and ROS 2.
 
-Write me!
+There is no dedicated ``rawlog2rosbag`` program, because the general mechanism
+covers this case: a rawlog is read by the ``mola_input_rawlog`` module, and any
+MOLA dataset source can be republished as live ROS topics through the ROS 2
+bridge. See :ref:`§5 below <mola-dataset-to-ros>`, using ``mola_input_rawlog``
+as the dataset source module.
+
+Record those topics with ``ros2 bag record`` if you want a bag rather than a
+live replay.
 
 
 |
