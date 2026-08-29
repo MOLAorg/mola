@@ -17,6 +17,11 @@ on:
   # so github.repository and github.sha already point at the code under test.
   workflow_call:
 
+# Sphinx executes conf.py from the code under test, so this job runs
+# pull-request-controlled Python. Give its token nothing but read access.
+permissions:
+  contents: read
+
 jobs:
   build-docs:
     runs-on: ubuntu-latest
@@ -24,6 +29,7 @@ jobs:
       - name: Check out mola
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: MOLAorg/mola
           path: src/mola
 
@@ -32,24 +38,28 @@ jobs:
       - name: Check out mp2p_icp
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: MOLAorg/mp2p_icp
           path: src/mp2p_icp
 
       - name: Check out mola_lidar_odometry
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: MOLAorg/mola_lidar_odometry
           path: src/mola_lidar_odometry
 
       - name: Check out mola_mapper
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: MOLAorg/mola_mapper
           path: src/mola_mapper
 
       - name: Check out mola_state_estimation
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: MOLAorg/mola_state_estimation
           path: src/mola_state_estimation
 
@@ -59,6 +69,7 @@ jobs:
       - name: Check out the code under test
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           path: src/${{ github.event.repository.name }}
 
       - uses: actions/setup-python@v5
