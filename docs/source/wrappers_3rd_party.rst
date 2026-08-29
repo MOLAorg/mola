@@ -219,3 +219,111 @@ Repository: https://github.com/MOLAorg/mola_simple_wrapper
 
          mola-lidar-odometry-cli-simple
 
+
+DLIO
+--------------------------------------
+Wrapper for the work :cite:`chen2023dlio`.
+
+Repository: https://github.com/MOLAorg/mola_dlio_wrapper
+
+Unlike the filter-based methods above, DLIO uses no filter and no factor
+graph: the pose comes from GICP scan-to-submap registration, and the IMU is
+fused by a nonlinear geometric observer with constant gains. Every point is
+deskewed against a continuous IMU-integrated trajectory rather than a
+per-scan linear interpolation, and the local map is a submap selected from
+keyframes by a hull plus kNN search rather than a voxel or octree structure.
+
+It provides two entry points:
+
+- ``mola::DlioOdometry``, an online module loadable from a ``mola-cli`` launch
+  YAML (``type: mola::DlioOdometry``), which publishes localization and submap
+  updates so the MOLA GUI draws the trajectory and the growing map live.
+- ``mola-dlio-cli``, an offline tool that waits for each observation to finish
+  before feeding the next, so no scan is ever dropped. This is the one to use
+  for comparisons: see :ref:`gui_vs_cli`.
+
+.. note::
+   This wrapper currently targets Oxford Spires, read through the generic
+   ``mola::Rosbag2Dataset`` input. It does not cover the full set of dataset
+   sources that the KISS-ICP and SiMpLE wrappers accept.
+
+.. dropdown:: Compile instructions
+   :icon: code-square
+
+   Clone in your ROS 2 workspace:
+
+   .. code-block:: bash
+
+      mkdir -p ~/ros2_mola_ws/src/
+      cd ~/ros2_mola_ws/src/
+
+      git clone https://github.com/MOLAorg/mola_dlio_wrapper.git --recursive
+
+   Install dependencies and compile:
+
+   .. code-block:: bash
+
+      cd ~/ros2_mola_ws/
+      rosdep install --from-paths src --ignore-src -r -y
+      colcon build --symlink-install --packages-select mola_dlio_wrapper \
+        --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+|
+
+GLIM
+--------------------------------------
+Wrapper for the work :cite:`koide2024glim`.
+
+Repository: https://github.com/MOLAorg/mola_glim_wrapper
+
+Upstream GLIM is a full SLAM system: an odometry front end, a sub-mapping
+stage, and a global-mapping back end with loop closure. **This wrapper
+instantiates the odometry stage only** (``glim::OdometryEstimationCPU``, a
+fixed-lag factor-graph estimator over GICP/VGICP scan-to-model factors and
+preintegrated IMU factors).
+
+That is deliberate. The wrapper exists for cross-method *odometry*
+comparison, and a loop-closed, globally optimized trajectory is not
+comparable with the odometry-only results the other wrappers on this page
+produce.
+
+It provides:
+
+- ``mola::GlimOdometry``, an online module loadable from a ``mola-cli`` launch
+  YAML.
+- ``mola-glim-cli``, an offline, loss-free CLI over the MOLA dataset sources:
+  KITTI, ROS 1 bags, ROS 2 bags, MulRan and rawlog.
+- Pipeline YAMLs for Oxford Spires, KITTI, BotanicGarden and Newer College.
+
+.. dropdown:: Compile instructions
+   :icon: code-square
+
+   Everything GLIM needs is vendored in the repository, so the only
+   prerequisites are system packages: GTSAM >= 4.2 with ``gtsam_unstable``
+   (``ros-$ROS_DISTRO-gtsam`` on ROS distributions), Eigen 3, Boost (graph,
+   filesystem, serialization), spdlog, OpenMP, plus MRPT and the MOLA core
+   packages.
+
+   .. code-block:: bash
+
+      mkdir -p ~/ros2_mola_ws/src/
+      cd ~/ros2_mola_ws/src/
+
+      git clone https://github.com/MOLAorg/mola_glim_wrapper.git --recursive
+
+   .. code-block:: bash
+
+      cd ~/ros2_mola_ws/
+      rosdep install --from-paths src --ignore-src -r -y
+      colcon build --symlink-install --packages-select mola_glim_wrapper \
+        --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+.. dropdown:: Example: run on a KITTI sequence
+   :icon: terminal
+
+   .. code-block:: bash
+
+      KITTI_BASE_DIR=/path/to/kitti mola-glim-cli \
+        -c $(ros2 pkg prefix mola_glim_wrapper)/share/mola_glim_wrapper/pipelines/glim-kitti.yaml \
+        --input-kitti-seq 04 \
+        --output-tum-path /tmp/glim_kitti04.tum
