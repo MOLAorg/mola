@@ -1,3 +1,8 @@
+:orphan:
+
+.. Deliberately not in any toctree: the entry in mola_architecture.rst is
+   commented out. Kept as a draft rather than published.
+
 .. _concept_state_vector:
 
 =============================================
