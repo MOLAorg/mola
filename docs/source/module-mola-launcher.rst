@@ -18,7 +18,7 @@ Application: ``mola-cli``
 ##########################
 
 ``mola-cli`` is the most-common entry point to the MOLA system for users.
-Refer to :ref:`demos` for real examples to launch and run SLAM systems.
+Refer to `the example launch files in mola_demos <https://github.com/MOLAorg/mola/tree/develop/mola_demos/mola-cli-launchs>`_ for real examples to launch and run SLAM systems.
 
 -------------
 SYNOPSIS
@@ -200,4 +200,4 @@ Example:
 C++ library: `mola-launcher`
 #############################
 
-See :ref:`mola_launcher_grp`.
+See :ref:`the mola_launcher C++ API <doxid-group__mola__launcher__grp>`.

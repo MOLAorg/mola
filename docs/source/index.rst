@@ -33,6 +33,7 @@
   mola_lidar_odometry
   mola_lo_apps
   mola_lo_pipelines
+  mola_lo_diagnostics
   wrappers_3rd_party
 
 .. toctree::

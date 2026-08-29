@@ -65,7 +65,6 @@ There are two versions of ``rosbag2rawlog``, for **ROS 1** and **ROS 2 bags**:
         sudo apt install ros-${ROS_DISTRO}-mrpt-rawlog
 
     .. tab-item:: ROS 1 bags
-      :selected:
 
       ``rosbag2rawlog`` for **ROS 1 bags** belongs to upstream MRPT, and it is generated only *if*
       ROS 1 is detected at cmake configuration time. You can either build MRPT from sources after activating
