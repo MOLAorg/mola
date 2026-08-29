@@ -267,6 +267,7 @@ It provides two entry points:
       rosdep install --from-paths src --ignore-src -r -y
       colcon build --symlink-install --packages-select mola_dlio_wrapper \
         --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      source install/setup.bash
 
 |
 
@@ -317,6 +318,7 @@ It provides:
       rosdep install --from-paths src --ignore-src -r -y
       colcon build --symlink-install --packages-select mola_glim_wrapper \
         --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      source install/setup.bash
 
 .. dropdown:: Example: run on a KITTI sequence
    :icon: terminal

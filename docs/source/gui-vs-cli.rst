@@ -100,7 +100,9 @@ Two habits, both of which have caught real mistakes:
 - **Check the estimate covers the whole ground-truth timespan.** A run that
   quietly stopped early can look excellent on any alignment-based metric.
 
-And read ``no_motion_model`` and ``scan_drop_pct`` from the run summary next
-to whatever error number you computed. A non-zero ``no_motion_model`` means
-part of the trajectory was registered with no motion prior at all, whatever
-the error says.
+And read ``no_motion_model`` from the run summary next to whatever error
+number you computed. A non-zero value means part of the trajectory was
+registered with no motion prior at all, whatever the error says. The
+proportion of dropped scans is not in that line; it is published separately
+as the ``dropped_ratio`` diagnostic, which is the one to watch when running
+through the GUI.

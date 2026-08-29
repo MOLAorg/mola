@@ -14,6 +14,15 @@ go to :ref:`your_own_rosbag`.
 1. Install
 -----------
 
+You need a ROS 2 distribution installed and **sourced**, so that
+``$ROS_DISTRO`` is set:
+
+.. code-block:: bash
+
+   source /opt/ros/$ROS_DISTRO/setup.bash   # or e.g. /opt/ros/jazzy/setup.bash
+
+Then:
+
 .. code-block:: bash
 
    sudo apt install \

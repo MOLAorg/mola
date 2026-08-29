@@ -55,8 +55,10 @@ not a rounding error.
 The trajectory tracks the sensor, not the vehicle
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-There is no ``base_link`` to LiDAR transform in ``/tf_static``, so MOLA has
-nothing to compose with. Either publish it, or state it yourself with
+Neither ``/tf`` nor ``/tf_static`` carries a usable ``base_link`` to LiDAR
+transform, so MOLA has nothing to compose with. A transform published
+dynamically on ``/tf`` works just as well as a static one; check both before
+concluding it is missing. Either publish it, or state it yourself with
 ``MOLA_USE_FIXED_LIDAR_POSE=true`` and the ``LIDAR_POSE_*`` variables. See
 :ref:`your_own_rosbag`.
 

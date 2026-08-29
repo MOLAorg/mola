@@ -45,9 +45,9 @@ the run work at all.
 
 This decides whether MOLA tracks your **vehicle** or your **sensor**.
 
-If the bag has a ``/tf_static`` giving the transform from ``base_link`` to
-the LiDAR frame, MOLA uses it and the trajectory is your vehicle's. Nothing
-to configure.
+If the bag carries the transform from ``base_link`` to the LiDAR frame, on
+either ``/tf_static`` or ``/tf``, MOLA uses it and the trajectory is your
+vehicle's. Nothing to configure; a dynamically published transform is fine.
 
 If it does not, which is common when only a driver node was recorded, tell
 MOLA where the sensor sits:
@@ -66,6 +66,12 @@ valid choice: it means "track the sensor, and I know it".
 For a namespaced bag (``/robot1/tf``), also set ``MOLA_TF_TOPIC`` and
 ``MOLA_TF_STATIC_TOPIC``, and ``MOLA_TF_BASE_LINK`` if your base frame is not
 called ``base_link``.
+
+.. note::
+   Those two topic overrides need **MOLA 2.7.0 or newer**. Before that,
+   ``mola_input_rosbag2`` read ``/tf`` and ``/tf_static`` by hard-coded name,
+   so on an older install a namespaced bag is silently ignored rather than
+   rejected.
 
 
 3. GUI or CLI?
