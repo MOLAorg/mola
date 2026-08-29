@@ -24,7 +24,3 @@ routine. It also allows running modules to find each other (either by name or by
 to be established and allow the information and signals to flow
 forth and back throughout the system.
 
-
-(Expand me!)
-
-TODO: Add ExecutableBase life cycle figures.

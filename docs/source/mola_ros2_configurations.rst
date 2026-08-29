@@ -750,29 +750,6 @@ Best option for large batch runs and reproducible benchmarks.
 6. Troubleshooting
 ------------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 35 65
-
-   * - Symptom
-     - Most common cause
-   * - ``"base_link" passed to lookupTransform ... does not exist``
-     - The bag/driver is not publishing a ``base_link`` frame, or the
-       launch ``mola_tf_base_link`` does not match the one in ``/tf``.
-   * - LO starts but ``/tf`` is empty / map not visible in RViz2
-     - Forgot to set ``publish_localization_following_rep105:=False`` when
-       no external odometry is running. The launch waits for
-       ``odom → base_link`` that never arrives.
-   * - Smoother set, but ``map → odom`` appears (and not ``map →
-       base_link``)
-     - REP-105 is incompatible with the smoother. Set
-       ``publish_localization_following_rep105:=False`` or simply do not
-       set it (the launch default already matches when
-       ``use_state_estimator:=True``).
-   * - Namespaced bag silently ignored on ``/tf``
-     - Before ``mola_input_rosbag2`` gained ``tf_topic`` / ``tf_static_topic``
-       params, ``/tf`` was hardcoded. Update the package and set
-       ``MOLA_TF_TOPIC`` / ``MOLA_TF_STATIC_TOPIC`` (see §5.1).
-   * - Smoother converges slowly to geo-reference
-     - The vehicle must move non-trivially for GNSS factors to constrain
-       ``enu → map``. Drive at least a few meters.
+Moved to its own page: :ref:`troubleshooting`. It covers the frame and topic
+problems that used to be listed here, plus the failure modes that are not
+specific to ROS 2.

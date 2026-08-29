@@ -250,9 +250,18 @@ The rest will be discarded, after emitting a warning to the terminal.
 
 3. rawlog ⇒ ROS
 ----------------------------
-For ROS 1 and ROS 2.
+For ROS 2. There is no ROS 1 republishing path: MOLA's bridge module targets
+ROS 2 only, and ``mola_input_rosbag1`` reads ROS 1 bags rather than writing
+them.
 
-Write me!
+There is no dedicated ``rawlog2rosbag`` program either, because the general
+mechanism covers this case: a rawlog is read by the ``mola_input_rawlog`` module, and any
+MOLA dataset source can be republished as live ROS topics through the ROS 2
+bridge. See :ref:`§5 below <mola-dataset-to-ros>`, using ``mola_input_rawlog``
+as the dataset source module.
+
+Record those topics with ``ros2 bag record`` if you want a bag rather than a
+live replay.
 
 
 |
