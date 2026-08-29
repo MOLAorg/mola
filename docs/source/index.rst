@@ -91,7 +91,7 @@
 
 
 =====================================================
-MOLA: LiDAR Odometry, SLAM and Localization for ROS 2
+MOLA: LiDAR Odometry, SLAM and Localization
 =====================================================
 
 .. raw:: html
