@@ -519,9 +519,13 @@ mp2p_icp::NearestPlaneCapable::NearestPlaneResult TSDF::bootstrapSearch(
   const mp2p_icp::PointCloudEigen pca =
       mp2p_icp::estimate_points_eigen(xs.data(), ys.data(), zs.data(), idxs);
 
-  // Eigenvalues ascending. A line or a point has no second spread direction and
-  // therefore no tangent plane; taking one anyway yields an arbitrary normal.
-  if (pca.eigVals[1] < 1e-3 * pca.eigVals[2])
+  // Eigenvalues ascending. This tests numerical degeneracy only: a neighborhood
+  // with no second spread direction has no tangent plane at all, and asking for
+  // one yields an arbitrary normal. Planarity proper belongs to the deviation
+  // gate below; testing it here instead rejects the merely elongated
+  // neighborhoods that scan lines produce in quantity on the first scans, and
+  // starves exactly the registrations the warm-up exists to feed.
+  if (!(pca.eigVals[2] > 0) || pca.eigVals[1] < 1e-9 * pca.eigVals[2])
   {
     return ret;
   }
