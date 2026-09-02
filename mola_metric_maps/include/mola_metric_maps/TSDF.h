@@ -131,34 +131,7 @@ class TSDF : public mrpt::maps::CMetricMap,
     float weight = 0;
   };
 
-  /** Spatial hash for the field's voxels.
-   *
-   *  `mola::index3d_hash` truncates to 20 bits, which caps it at 2^20 distinct
-   *  values. That is ample for a point-based voxel map, which holds one cell
-   *  per occupied voxel at a decimetre-to-metre cell size, and no map class in
-   *  this library had ever come near it. A field map is the first that does: it
-   *  fills a band around *every* surface at a fine voxel, so it passes a
-   *  million voxels within seconds of driving, and past that point every new
-   *  key collides with an existing hash and the container degrades from a
-   *  measured 51 bytes per voxel to effectively unbounded -- 112 GB on a single
-   *  KITTI sequence.
-   *
-   *  So this class uses the full 64-bit mix. The shared functor is deliberately
-   *  left alone: changing it would alter the iteration order of every existing
-   *  voxel map, and with it the summation order of anything that accumulates
-   *  over one.
-   */
-  struct voxel_hash_t
-  {
-    std::size_t operator()(const global_index3d_t& k) const noexcept
-    {
-      return (static_cast<uint64_t>(static_cast<uint32_t>(k.cx)) * 73856093ULL) ^
-             (static_cast<uint64_t>(static_cast<uint32_t>(k.cy)) * 19349663ULL) ^
-             (static_cast<uint64_t>(static_cast<uint32_t>(k.cz)) * 83492791ULL);
-    }
-  };
-
-  using grids_map_t = tsl::robin_map<global_index3d_t, VoxelData, voxel_hash_t>;
+  using grids_map_t = tsl::robin_map<global_index3d_t, VoxelData, index3d_hash<int32_t>>;
 
   /** @} */
 
