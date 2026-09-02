@@ -367,29 +367,41 @@ class TSDF : public mrpt::maps::CMetricMap,
      */
     bool bootstrap_with_points = true;
 
-    /** Scans to accumulate before the field is tested at all. */
-    uint32_t bootstrap_min_scans = 2;
+    /** Scans to accumulate before the field is tested at all.
+     *
+     *  This and `bootstrap_max_plane_deviation` interact, and neither works
+     *  alone: on the sequences a fine voxel fails to start, lengthening the
+     *  warm-up by itself and loosening the plane test by itself each leave the
+     *  run incomplete, while doing both completes it.
+     */
+    uint32_t bootstrap_min_scans = 10;
 
     /** Hard bound on the warm-up, in scans. If the field still cannot answer by
      *  then, the switch happens anyway and a message is printed: a map that
      *  quietly stayed a point cloud under this class's name would misreport
      *  what was measured.
      */
-    uint32_t bootstrap_max_scans = 20;
+    uint32_t bootstrap_max_scans = 200;
 
     /** Fraction of the last scan's points at which the field must return a
      *  valid query for the warm-up to end.
      */
-    double bootstrap_field_ready_fraction = 0.5;
+    double bootstrap_field_ready_fraction = 0.9;
 
     /** Neighbors used for the warm-up plane fit. */
     uint32_t bootstrap_knn = 10;
 
     /** Maximum distance [m] any neighbor may sit from the fitted plane for that
-     *  plane to be used. A neighborhood that is not locally planar has no
-     *  tangent plane to offer, and a bad one is worse than none.
+     *  plane to be used, or <=0 to accept every fit.
+     *
+     *  The default is deliberately loose, near the decimation voxel size of a
+     *  typical pipeline, because the warm-up turns out to need *many* pairings
+     *  more than it needs good ones: a poorly fitted plane is diluted by the
+     *  others in the same solve, while a rejected one removes its information
+     *  outright. Tightening this starves the first registrations and the run
+     *  fails to start, which is the very thing the warm-up exists to prevent.
      */
-    double bootstrap_max_plane_deviation = 0.10;
+    double bootstrap_max_plane_deviation = 0.5;
 
     /** @} */
   };
