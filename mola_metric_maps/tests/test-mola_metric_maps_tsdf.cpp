@@ -424,6 +424,39 @@ void test_bootstrap_answers_before_the_field_can()
   }
 }
 
+/** A neighborhood with no plane in it must yield no pairing, not an exception.
+ *
+ *  On the first scans a k-NN neighborhood can easily be a single scan line, and
+ *  a plane fit that throws on that case escapes the matcher and is treated by
+ *  the caller as a fatal error, which stops the run outright.
+ */
+void test_bootstrap_survives_a_degenerate_neighborhood()
+{
+  auto obs                                        = mrpt::obs::CObservationPointCloud::Create();
+  obs->sensorPose                                 = mrpt::poses::CPose3D::Identity();
+  auto pts                                        = mrpt::maps::CSimplePointsMap::Create();
+  pts->insertionOptions.minDistBetweenLaserPoints = .0f;
+
+  // A single straight line of points: collinear, so there is no tangent plane.
+  for (int i = 0; i < 200; i++)
+  {
+    pts->insertPointFast(0.05f * static_cast<float>(i) - 5.0f, .0f, -SENSOR_HEIGHT);
+  }
+  pts->mark_as_modified();
+  obs->pointcloud = pts;
+
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.bootstrap_min_scans = 100;  // stay in the warm-up
+  map.insertionOptions.bootstrap_max_scans = 100;
+  map.insertObservation(*obs, SENSOR_POSE);
+  ASSERT_(map.isBootstrapping());
+
+  const auto np = map.nn_search_pt2pl({0.1f, 0.02f, 0.1f}, 1.0f);
+  ASSERT_(!np.pairing.has_value());
+
+  std::cout << "test_bootstrap_survives_a_degenerate_neighborhood: OK" << std::endl;
+}
+
 /** The warm-up must be bounded: a field that never becomes ready must not
  *  leave the map silently answering as a point cloud for the whole run.
  */
@@ -547,6 +580,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_noise_averaging();
     test_bootstrap_answers_before_the_field_can();
     test_bootstrap_is_bounded();
+    test_bootstrap_survives_a_degenerate_neighborhood();
     test_serialization_roundtrip();
     test_pruning();
     test_voxel_budget_is_a_ceiling();

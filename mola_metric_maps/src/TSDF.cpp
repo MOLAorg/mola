@@ -27,9 +27,9 @@
 */
 
 #include <mola_metric_maps/TSDF.h>
+#include <mp2p_icp/estimate_points_eigen.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/maps/CSimplePointsMap.h>
-#include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
@@ -512,44 +512,45 @@ mp2p_icp::NearestPlaneCapable::NearestPlaneResult TSDF::bootstrapSearch(
   const auto& ys = bootstrapPoints_->getPointsBufferRef_y();
   const auto& zs = bootstrapPoints_->getPointsBufferRef_z();
 
-  std::vector<mrpt::math::TPoint3D> neighbors;
-  neighbors.reserve(knn);
-  for (const size_t i : idxs)
-  {
-    neighbors.emplace_back(xs[i], ys[i], zs[i]);
-  }
+  // The principal components of the neighborhood, which is how every other map
+  // class in this library fits a local plane. It also reports the degenerate
+  // cases instead of throwing on them, and a neighborhood of collinear points
+  // is not rare here: on the first scans it can easily be a single scan line.
+  const mp2p_icp::PointCloudEigen pca =
+      mp2p_icp::estimate_points_eigen(xs.data(), ys.data(), zs.data(), idxs);
 
-  mrpt::math::TPlane plane;
-  mrpt::math::getRegressionPlane(neighbors, plane);
-  plane.unitarize();
-
-  // A neighborhood that is not locally planar has no tangent plane to offer,
-  // and a bad one is worse than none.
-  const auto maxDev = static_cast<double>(insertionOptions.bootstrap_max_plane_deviation);
-  if (maxDev > 0)
-  {
-    for (const auto& n : neighbors)
-    {
-      if (std::abs(plane.evaluatePoint(n)) > maxDev)
-      {
-        return ret;
-      }
-    }
-  }
-
-  const mrpt::math::TPoint3D q3d(query.x, query.y, query.z);
-
-  // Unitarized, this is the signed distance along the plane normal. Its sign
-  // depends on the arbitrary orientation the fit gave the normal, which the
-  // point-to-plane residual is invariant to: flipping the normal flips the
-  // residual too, and the product is unchanged.
-  const double signedDist = plane.evaluatePoint(q3d);
-  if (std::abs(signedDist) > max_search_distance)
+  // Eigenvalues ascending. A line or a point has no second spread direction and
+  // therefore no tangent plane; taking one anyway yields an arbitrary normal.
+  if (pca.eigVals[1] < 1e-3 * pca.eigVals[2])
   {
     return ret;
   }
 
-  const mrpt::math::TVector3D normal = plane.getNormalVector();
+  // The smallest eigenvalue is the variance across the fitted plane, so its
+  // square root is the neighborhood's RMS distance from that plane: a
+  // neighborhood that is not locally planar has no plane worth pairing against.
+  const auto maxDev = static_cast<double>(insertionOptions.bootstrap_max_plane_deviation);
+  if (maxDev > 0 && std::sqrt(std::max(.0, pca.eigVals[0])) > maxDev)
+  {
+    return ret;
+  }
+
+  const mrpt::math::TVector3D normal   = pca.eigVectors[0];
+  const mrpt::math::TPoint3D  centroid = pca.meanCov.mean.asTPoint();
+  const mrpt::math::TPoint3D  q3d(query.x, query.y, query.z);
+
+  // Signed distance along the plane normal. Its sign depends on the arbitrary
+  // orientation the decomposition gave the normal, which the point-to-plane
+  // residual is invariant to: flipping the normal flips the residual too, and
+  // the product is unchanged.
+  const double signedDist = normal.x * (q3d.x - centroid.x) +  //
+                            normal.y * (q3d.y - centroid.y) +  //
+                            normal.z * (q3d.z - centroid.z);
+
+  if (std::abs(signedDist) > max_search_distance)
+  {
+    return ret;
+  }
 
   const mrpt::math::TPoint3D foot = {
       q3d.x - signedDist * normal.x,  //
