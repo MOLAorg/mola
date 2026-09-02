@@ -792,6 +792,12 @@ bool TSDF::internal_insertObservation(
     pp.takeIntoAccountSensorPoseOnRobot = true;
 
     mrpt::maps::CSimplePointsMap pointMap;
+
+    // The two sources do not deliver points in the same frame: the stored
+    // points3D_* are in the sensor frame, while unprojectInto() with the
+    // parameter above already brings them into the robot frame.
+    mrpt::poses::CPose3D cloudPose = robotPose3D;
+
     if (o.hasPoints3D)
     {
       pointMap.insertionOptions.minDistBetweenLaserPoints = .0f;
@@ -799,6 +805,7 @@ bool TSDF::internal_insertObservation(
       {
         pointMap.insertPointFast(o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]);
       }
+      cloudPose = robotPose3D + o.sensorPose;
     }
     else if (o.hasRangeImage)
     {
@@ -813,7 +820,7 @@ bool TSDF::internal_insertObservation(
     const auto& ys = pointMap.getPointsBufferRef_y();
     const auto& zs = pointMap.getPointsBufferRef_z();
 
-    internal_insertPointCloud3D(robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
+    internal_insertPointCloud3D(cloudPose, xs.data(), ys.data(), zs.data(), xs.size());
     return true;
   }
 
@@ -1102,16 +1109,18 @@ void TSDF::TRenderOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
   MRPT_LOAD_CONFIG_VAR(point_size, float, c, s);
-  points_color = mrpt::img::TColorf(
-      c.read_float(s, "points_color_r", points_color.R),
-      c.read_float(s, "points_color_g", points_color.G),
-      c.read_float(s, "points_color_b", points_color.B));
+  MRPT_LOAD_CONFIG_VAR(points_color.R, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(points_color.G, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(points_color.B, float, c, s);
 }
 
 void TSDF::TRenderOptions::dumpToTextStream(std::ostream& out) const
 {
   out << "\n------ [TSDF::TRenderOptions] ------- \n\n";
   LOADABLEOPTS_DUMP_VAR(point_size, float);
+  LOADABLEOPTS_DUMP_VAR(points_color.R, float);
+  LOADABLEOPTS_DUMP_VAR(points_color.G, float);
+  LOADABLEOPTS_DUMP_VAR(points_color.B, float);
 }
 
 void TSDF::TRenderOptions::writeToStream(mrpt::serialization::CArchive& out) const
