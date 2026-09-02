@@ -22,6 +22,7 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/serialization/CArchive.h>
 
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <random>
@@ -132,6 +133,67 @@ void test_surface_is_not_displaced()
       std::abs(atNarrow) < 0.003,
       mrpt::format("narrow profile still displaces the surface by %.2f mm", atNarrow * 1000));
   ASSERT_LT_(std::abs(atNarrow), std::abs(atDefault));
+}
+
+/** The gradient the matcher uses as a surface normal is the analytical
+ *  gradient of the trilinear interpolant, not a difference of neighbors, so it
+ *  is worth checking against finite differences of the field itself: a sign or
+ *  a scale error there would tilt every plane the solver is given, and would
+ *  not show up on a horizontal plane where two of the three components are
+ *  zero.
+ */
+void test_gradient_against_finite_differences()
+{
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.truncation_voxels = 4.0;
+
+  // A tilted plane, so all three gradient components are exercised:
+  // z = 0.3*x - 0.2*y, seen from above.
+  const mrpt::math::TPoint3Df sensor(.0f, .0f, 4.0f);
+  for (float x = -PLANE_SPAN; x <= PLANE_SPAN; x += PLANE_STEP)
+  {
+    for (float y = -PLANE_SPAN; y <= PLANE_SPAN; y += PLANE_STEP)
+    {
+      map.insertPoint({x, y, 0.3f * x - 0.2f * y}, sensor);
+    }
+  }
+
+  constexpr float H = 0.02f;
+  size_t          n = 0;
+  for (const float qx : {-1.0f, 0.4f, 1.3f})
+  {
+    for (const float qy : {-0.7f, 0.6f})
+    {
+      const mrpt::math::TPoint3Df q{qx, qy, 0.3f * qx - 0.2f * qy + 0.2f};
+      const auto                  f = map.queryField(q);
+      if (!f.valid)
+      {
+        continue;
+      }
+      const std::array<mrpt::math::TVector3Df, 3> axes = {
+          mrpt::math::TVector3Df{H, 0, 0}, mrpt::math::TVector3Df{0, H, 0},
+          mrpt::math::TVector3Df{0, 0, H}};
+      const std::array<float, 3> analytic = {f.gradient.x, f.gradient.y, f.gradient.z};
+
+      for (int k = 0; k < 3; k++)
+      {
+        const auto& d  = axes[k];
+        const auto  fp = map.queryField({q.x + d.x, q.y + d.y, q.z + d.z});
+        const auto  fm = map.queryField({q.x - d.x, q.y - d.y, q.z - d.z});
+        if (!fp.valid || !fm.valid)
+        {
+          continue;
+        }
+        const float numeric = (fp.dist - fm.dist) / (2 * H);
+        ASSERTMSG_(
+            std::abs(numeric - analytic[k]) < 0.05f,
+            mrpt::format("gradient[%i] analytic %.4f != numeric %.4f", k, analytic[k], numeric));
+        n++;
+      }
+    }
+  }
+  ASSERT_GT_(n, 10U);
+  std::cout << "test_gradient_against_finite_differences: OK (" << n << " checks)" << std::endl;
 }
 
 void test_pt2pl_pairing_of_a_plane()
@@ -280,6 +342,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     test_field_of_a_plane();
     test_surface_is_not_displaced();
+    test_gradient_against_finite_differences();
     test_pt2pl_pairing_of_a_plane();
     test_noise_averaging();
     test_serialization_roundtrip();
