@@ -79,6 +79,7 @@ set(LIB_SRCS
   src/register.cpp
   src/SparseTreesPointCloud.cpp
   src/SparseVoxelPointCloud.cpp
+  src/TSDF.cpp
 )
 set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/FixedDenseGrid3D.h
@@ -91,6 +92,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/OptionsIniIO.h
   include/mola_metric_maps/SparseTreesPointCloud.h
   include/mola_metric_maps/SparseVoxelPointCloud.h
+  include/mola_metric_maps/TSDF.h
 )
 
 # The map class is always built; only the k-d tree backend is conditional (see
