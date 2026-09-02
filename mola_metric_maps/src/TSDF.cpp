@@ -27,9 +27,9 @@
 */
 
 #include <mola_metric_maps/TSDF.h>
-#include <mp2p_icp/estimate_points_eigen.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
@@ -512,44 +512,52 @@ mp2p_icp::NearestPlaneCapable::NearestPlaneResult TSDF::bootstrapSearch(
   const auto& ys = bootstrapPoints_->getPointsBufferRef_y();
   const auto& zs = bootstrapPoints_->getPointsBufferRef_z();
 
-  // The principal components of the neighborhood, which is how every other map
-  // class in this library fits a local plane. It also reports the degenerate
-  // cases instead of throwing on them, and a neighborhood of collinear points
-  // is not rare here: on the first scans it can easily be a single scan line.
-  const mp2p_icp::PointCloudEigen pca =
-      mp2p_icp::estimate_points_eigen(xs.data(), ys.data(), zs.data(), idxs);
+  std::vector<mrpt::math::TPoint3D> neighbors;
+  neighbors.reserve(knn);
+  for (const size_t i : idxs)
+  {
+    neighbors.emplace_back(xs[i], ys[i], zs[i]);
+  }
 
-  // Eigenvalues ascending. This tests numerical degeneracy only: a neighborhood
-  // with no second spread direction has no tangent plane at all, and asking for
-  // one yields an arbitrary normal. Planarity proper belongs to the deviation
-  // gate below; testing it here instead rejects the merely elongated
-  // neighborhoods that scan lines produce in quantity on the first scans, and
-  // starves exactly the registrations the warm-up exists to feed.
-  if (!(pca.eigVals[2] > 0) || pca.eigVals[1] < 1e-9 * pca.eigVals[2])
+  // The regression plane through the neighborhood. It throws when its points
+  // are collinear, which a k-NN neighborhood over the first scans genuinely can
+  // be: LiDAR samples are far denser along a scan ring than across rings, so
+  // the nearest neighbors of a point often all come from one ring. That is a
+  // "no plane here" answer, not an error, and it must not escape into the
+  // matcher, whose caller treats any exception as fatal and stops the run.
+  mrpt::math::TPlane plane;
+  try
+  {
+    mrpt::math::getRegressionPlane(neighbors, plane);
+  }
+  catch (const std::exception&)
   {
     return ret;
   }
+  plane.unitarize();
 
-  // The smallest eigenvalue is the variance across the fitted plane, so its
-  // square root is the neighborhood's RMS distance from that plane: a
-  // neighborhood that is not locally planar has no plane worth pairing against.
+  // A neighborhood that is not locally planar has no tangent plane to offer,
+  // and a bad one is worse than none.
   const auto maxDev = static_cast<double>(insertionOptions.bootstrap_max_plane_deviation);
-  if (maxDev > 0 && std::sqrt(std::max(.0, pca.eigVals[0])) > maxDev)
+  if (maxDev > 0)
   {
-    return ret;
+    for (const auto& n : neighbors)
+    {
+      if (std::abs(plane.evaluatePoint(n)) > maxDev)
+      {
+        return ret;
+      }
+    }
   }
 
-  const mrpt::math::TVector3D normal   = pca.eigVectors[0];
-  const mrpt::math::TPoint3D  centroid = pca.meanCov.mean.asTPoint();
-  const mrpt::math::TPoint3D  q3d(query.x, query.y, query.z);
+  const mrpt::math::TPoint3D q3d(query.x, query.y, query.z);
 
-  // Signed distance along the plane normal. Its sign depends on the arbitrary
-  // orientation the decomposition gave the normal, which the point-to-plane
-  // residual is invariant to: flipping the normal flips the residual too, and
-  // the product is unchanged.
-  const double signedDist = normal.x * (q3d.x - centroid.x) +  //
-                            normal.y * (q3d.y - centroid.y) +  //
-                            normal.z * (q3d.z - centroid.z);
+  // Unitarized, this is the signed distance along the plane normal. Its sign
+  // depends on the arbitrary orientation the fit gave the normal, which the
+  // point-to-plane residual is invariant to: flipping the normal flips the
+  // residual too, and the product is unchanged.
+  const double                signedDist = plane.evaluatePoint(q3d);
+  const mrpt::math::TVector3D normal     = plane.getNormalVector();
 
   if (std::abs(signedDist) > max_search_distance)
   {
@@ -734,8 +742,14 @@ void TSDF::internal_insertPointCloud3D(
   }
 
   // Called here, and not per observation, because this is the one path every
-  // observation type funnels through.
-  updateBootstrapState();
+  // observation type funnels through. An observation that carried no points
+  // says nothing about the field, and counting it would let a run of empty
+  // scans exhaust the warm-up and throw away the fallback cloud before any
+  // real scan had arrived.
+  if (num_pts > 0)
+  {
+    updateBootstrapState();
+  }
 }
 
 bool TSDF::internal_insertObservation(
@@ -1044,13 +1058,16 @@ void TSDF::TInsertionOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(weight_by_incidence, bool, c, s);
 
   MRPT_LOAD_CONFIG_VAR(bootstrap_with_points, bool, c, s);
+  // Clamped before the conversion: a negative value would wrap to a huge
+  // unsigned bound, and an unbounded warm-up keeps every scan it has seen.
   bootstrap_min_scans = static_cast<uint32_t>(
-      c.read_int(s, "bootstrap_min_scans", static_cast<int>(bootstrap_min_scans)));
+      std::max(0, c.read_int(s, "bootstrap_min_scans", static_cast<int>(bootstrap_min_scans))));
   bootstrap_max_scans = static_cast<uint32_t>(
-      c.read_int(s, "bootstrap_max_scans", static_cast<int>(bootstrap_max_scans)));
+      std::max(0, c.read_int(s, "bootstrap_max_scans", static_cast<int>(bootstrap_max_scans))));
   MRPT_LOAD_CONFIG_VAR(bootstrap_field_ready_fraction, double, c, s);
-  bootstrap_knn =
-      static_cast<uint32_t>(c.read_int(s, "bootstrap_knn", static_cast<int>(bootstrap_knn)));
+  // The plane fit needs three points, and bootstrapSearch() asserts as much.
+  bootstrap_knn = static_cast<uint32_t>(
+      std::max(3, c.read_int(s, "bootstrap_knn", static_cast<int>(bootstrap_knn))));
   MRPT_LOAD_CONFIG_VAR(bootstrap_max_plane_deviation, double, c, s);
 }
 

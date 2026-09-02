@@ -391,8 +391,8 @@ class TSDF : public mrpt::maps::CMetricMap,
     /** Neighbors used for the warm-up plane fit. */
     uint32_t bootstrap_knn = 10;
 
-    /** Maximum RMS distance [m] of the neighborhood from the plane fitted
-     *  through it, for that plane to be used, or <=0 to accept every fit.
+    /** Maximum distance [m] any neighbor may sit from the plane fitted through
+     *  the neighborhood, for that plane to be used, or <=0 to accept every fit.
      *
      *  The default is deliberately loose, near the decimation voxel size of a
      *  typical pipeline, because the warm-up turns out to need *many* pairings
