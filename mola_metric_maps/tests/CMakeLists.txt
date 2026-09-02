@@ -35,6 +35,13 @@ mola_add_test(
 )
 
 mola_add_test(
+  TARGET  test-mola_metric_maps_tsdf
+  SOURCES test-mola_metric_maps_tsdf.cpp
+  LINK_LIBRARIES
+  mola_metric_maps
+)
+
+mola_add_test(
   TARGET  test-mola_metric_maps_serialization
   SOURCES test-serialization.cpp
   LINK_LIBRARIES

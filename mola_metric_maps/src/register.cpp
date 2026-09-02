@@ -29,6 +29,7 @@
 #include <mola_metric_maps/OccGrid.h>
 #include <mola_metric_maps/SparseTreesPointCloud.h>
 #include <mola_metric_maps/SparseVoxelPointCloud.h>
+#include <mola_metric_maps/TSDF.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/rtti/CObject.h>
 
@@ -48,4 +49,5 @@ MRPT_INITIALIZER(do_register_mola_metric_maps)  // NOLINT(misc-use-anonymous-nam
   registerClass(CLASS_ID(mola::OccGrid));
   registerClass(CLASS_ID(mola::SparseTreesPointCloud));
   registerClass(CLASS_ID(mola::SparseVoxelPointCloud));
+  registerClass(CLASS_ID(mola::TSDF));
 }
