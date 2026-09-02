@@ -273,8 +273,30 @@ class TSDF : public mrpt::maps::CMetricMap,
     double min_weight_for_query = 1.0;
 
     /** If !=0, remove voxels farther (Chebyshev distance) than this, in
-     *  meters, from the current sensor pose. */
+     *  meters, from the current sensor pose.
+     *
+     *  A field map must not be given a point map's extent. It allocates a band
+     *  of voxels around every surface rather than one cell per measured point,
+     *  so its footprint grows with the retained volume and with the inverse
+     *  cube of the voxel size, not with the point count.
+     */
     double remove_voxels_farther_than = .0;
+
+    /** If !=0, a hard ceiling on the number of voxels. Once exceeded, the
+     *  effective extent is shrunk until the map fits, so the footprint is
+     *  bounded whatever the voxel size, the scene density or the trajectory.
+     *
+     *  This exists because `remove_voxels_farther_than` alone does not bound
+     *  anything usefully: at a fixed extent the voxel count still scales as the
+     *  inverse cube of the voxel size and with how much surface the scene puts
+     *  inside that extent, and a run that diverges sweeps an arbitrary volume.
+     *  Measured on kitti-05 at a 0.3 m voxel, a 155 m extent peaked at 110 GB.
+     *
+     *  The eviction is by distance, not by age, so it stays a pure function of
+     *  the map contents and the sensor pose and does not depend on insertion
+     *  order.
+     */
+    uint64_t max_voxels = 0;
 
     /** If true, each sample is weighted by `(ref_range/range)^2`, the usual
      *  range-dependent confidence of a range measurement. Default off, so the

@@ -39,6 +39,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <vector>
 
 using namespace mola;
 
@@ -426,23 +428,50 @@ mp2p_icp::NearestPlaneCapable::NearestPlaneResult TSDF::nn_search_pt2pl(
 
 void TSDF::pruneFarVoxels(const mrpt::math::TPoint3Df& sensorPt)
 {
-  if (insertionOptions.remove_voxels_farther_than <= 0)
+  const bool byExtent = insertionOptions.remove_voxels_farther_than > 0;
+  const bool byCount =
+      insertionOptions.max_voxels > 0 && voxels_.size() > insertionOptions.max_voxels;
+
+  if (!byExtent && !byCount)
   {
     return;
   }
 
-  const int distInGrid =
-      static_cast<int>(std::ceil(insertionOptions.remove_voxels_farther_than * voxel_size_inv_));
-
   const auto idxCurObs = coordToGlobalIdx(sensorPt);
+
+  const auto chebyshev = [&idxCurObs](const global_index3d_t& i)
+  {
+    return mrpt::max3(
+        std::abs(i.cx - idxCurObs.cx), std::abs(i.cy - idxCurObs.cy),
+        std::abs(i.cz - idxCurObs.cz));
+  };
+
+  int distInGrid = std::numeric_limits<int>::max();
+  if (byExtent)
+  {
+    distInGrid =
+        static_cast<int>(std::ceil(insertionOptions.remove_voxels_farther_than * voxel_size_inv_));
+  }
+
+  if (byCount)
+  {
+    // Shrink the effective radius until the map fits under the ceiling. Taking
+    // the n-th smallest distance keeps this a pure function of the contents and
+    // the sensor pose, so it does not depend on insertion order.
+    std::vector<int> dists;
+    dists.reserve(voxels_.size());
+    for (const auto& [idx, v] : voxels_)
+    {
+      dists.push_back(chebyshev(idx));
+    }
+    const size_t keep = insertionOptions.max_voxels;
+    std::nth_element(dists.begin(), dists.begin() + keep, dists.end());
+    distInGrid = std::min(distInGrid, dists[keep]);
+  }
 
   for (auto it = voxels_.begin(); it != voxels_.end();)
   {
-    const int dist = mrpt::max3(
-        std::abs(it->first.cx - idxCurObs.cx), std::abs(it->first.cy - idxCurObs.cy),
-        std::abs(it->first.cz - idxCurObs.cz));
-
-    if (dist > distInGrid)
+    if (chebyshev(it->first) > distInGrid)
     {
       it = voxels_.erase(it);
     }
@@ -751,6 +780,8 @@ void TSDF::TInsertionOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(max_weight, double, c, s);
   MRPT_LOAD_CONFIG_VAR(min_weight_for_query, double, c, s);
   MRPT_LOAD_CONFIG_VAR(remove_voxels_farther_than, double, c, s);
+  max_voxels =
+      static_cast<uint64_t>(c.read_double(s, "max_voxels", static_cast<double>(max_voxels)));
   MRPT_LOAD_CONFIG_VAR(weight_by_range, bool, c, s);
   MRPT_LOAD_CONFIG_VAR(weight_range_ref, double, c, s);
   MRPT_LOAD_CONFIG_VAR(weight_by_incidence, bool, c, s);
@@ -766,6 +797,7 @@ void TSDF::TInsertionOptions::dumpToTextStream(std::ostream& out) const
   LOADABLEOPTS_DUMP_VAR(max_weight, double);
   LOADABLEOPTS_DUMP_VAR(min_weight_for_query, double);
   LOADABLEOPTS_DUMP_VAR(remove_voxels_farther_than, double);
+  out << mrpt::format("max_voxels = %lu\n", static_cast<unsigned long>(max_voxels));
   LOADABLEOPTS_DUMP_VAR(weight_by_range, bool);
   LOADABLEOPTS_DUMP_VAR(weight_range_ref, double);
   LOADABLEOPTS_DUMP_VAR(weight_by_incidence, bool);
@@ -776,8 +808,8 @@ void TSDF::TInsertionOptions::writeToStream(mrpt::serialization::CArchive& out) 
   const int8_t version = 0;
   out << version;
   out << truncation_distance << truncation_voxels << ray_tube_voxels << tube_sigma_voxels
-      << max_weight << min_weight_for_query << remove_voxels_farther_than << weight_by_range
-      << weight_range_ref << weight_by_incidence;
+      << max_weight << min_weight_for_query << remove_voxels_farther_than << max_voxels
+      << weight_by_range << weight_range_ref << weight_by_incidence;
 }
 
 void TSDF::TInsertionOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -788,8 +820,8 @@ void TSDF::TInsertionOptions::readFromStream(mrpt::serialization::CArchive& in)
   {
     case 0:
       in >> truncation_distance >> truncation_voxels >> ray_tube_voxels >> tube_sigma_voxels >>
-          max_weight >> min_weight_for_query >> remove_voxels_farther_than >> weight_by_range >>
-          weight_range_ref >> weight_by_incidence;
+          max_weight >> min_weight_for_query >> remove_voxels_farther_than >> max_voxels >>
+          weight_by_range >> weight_range_ref >> weight_by_incidence;
       break;
     default:
       MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);

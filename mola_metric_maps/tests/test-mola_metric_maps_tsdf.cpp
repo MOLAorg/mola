@@ -381,6 +381,45 @@ void test_pruning()
 
   std::cout << "test_pruning: OK" << std::endl;
 }
+/** The extent bound alone does not bound anything usefully: at a fixed extent
+ *  the voxel count still grows as the inverse cube of the voxel size and with
+ *  how much surface the scene puts inside it. The count ceiling has to hold
+ *  whatever the extent says.
+ */
+void test_voxel_budget_is_a_ceiling()
+{
+  constexpr uint64_t CAP = 2000;
+
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.truncation_voxels          = 4.0;
+  map.insertionOptions.remove_voxels_farther_than = 1000.0;  // deliberately useless
+  map.insertionOptions.max_voxels                 = CAP;
+
+  fill_ground_plane(map);
+
+  // Nothing prunes until an observation is inserted, which is where the
+  // sensor pose the eviction is measured from comes from.
+  mrpt::obs::CObservationPointCloud obs;
+  obs.pointcloud = mrpt::maps::CSimplePointsMap::Create();
+  obs.pointcloud->insertPointFast(0.1f, 0.1f, -2.0f);
+  map.insertObservation(obs, mrpt::poses::CPose3D::Identity());
+
+  std::cout << "test_voxel_budget_is_a_ceiling: " << map.size() << " voxels under a cap of " << CAP
+            << std::endl;
+
+  // Ties at the cut radius are all kept, so the cap is approached from above by
+  // at most one shell; a factor of two is a generous allowance for that.
+  ASSERTMSG_(
+      map.size() <= 2 * CAP, mrpt::format(
+                                 "voxel budget not enforced: %zu voxels against a cap of %lu",
+                                 map.size(), static_cast<unsigned long>(CAP)));
+
+  // What survives has to be what is nearest the sensor, not an arbitrary
+  // subset: the field around the origin must still answer.
+  const auto q = map.queryField({.0f, .0f, .0f});
+  ASSERT_(q.valid);
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -395,6 +434,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_noise_averaging();
     test_serialization_roundtrip();
     test_pruning();
+    test_voxel_budget_is_a_ceiling();
   }
   catch (const std::exception& e)
   {
