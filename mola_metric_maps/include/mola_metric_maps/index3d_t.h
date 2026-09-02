@@ -91,17 +91,15 @@ struct index3d_hash
   /// Hash operator for unordered maps:
   std::size_t operator()(const index3d_t<cell_coord_t>& k) const noexcept
   {
-    // These are the implicit assumptions of the reinterpret cast below:
+    // The coordinates are signed, and the multiplies below are meant to run on
+    // their bit patterns, so each one is converted through uint32_t. That is a
+    // well-defined modulo-2^32 conversion, and on two's complement it keeps the
+    // bits unchanged.
     static_assert(sizeof(cell_coord_t) == sizeof(uint32_t));
-    static_assert(offsetof(index3d_t<cell_coord_t>, cx) == 0 * sizeof(uint32_t));
-    static_assert(offsetof(index3d_t<cell_coord_t>, cy) == 1 * sizeof(uint32_t));
-    static_assert(offsetof(index3d_t<cell_coord_t>, cz) == 2 * sizeof(uint32_t));
 
-    const uint32_t* vec = reinterpret_cast<const uint32_t*>(&k);
-
-    uint64_t h = (static_cast<uint64_t>(vec[0]) * 73856093ULL) ^
-                 (static_cast<uint64_t>(vec[1]) * 19349663ULL) ^
-                 (static_cast<uint64_t>(vec[2]) * 83492791ULL);
+    uint64_t h = (static_cast<uint64_t>(static_cast<uint32_t>(k.cx)) * 73856093ULL) ^
+                 (static_cast<uint64_t>(static_cast<uint32_t>(k.cy)) * 19349663ULL) ^
+                 (static_cast<uint64_t>(static_cast<uint32_t>(k.cz)) * 83492791ULL);
 
     // splitmix64 finalizer, so that every output bit depends on every input bit
     h ^= h >> 30;
