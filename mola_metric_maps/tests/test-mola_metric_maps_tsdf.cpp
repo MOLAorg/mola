@@ -229,6 +229,53 @@ void test_pt2pl_pairing_of_a_plane()
 /** The point of the map class: fusing many noisy views of one surface must
  *  estimate it better than any single measurement does.
  */
+/** The solver's point-to-plane residual is signed: it is the vector
+ *  -n/|n|^2 * (n.g + d), which points from the transformed query towards the
+ *  plane and reverses on the far side. So the plane this map emits has to carry
+ *  the field's own sign convention through to the optimizer, not just its
+ *  magnitude -- a normal flipped between the two sides would leave the squared
+ *  cost unchanged while sending the Gauss-Newton step the wrong way.
+ *
+ *  Unlike a plane fitted by PCA, whose normal sign is arbitrary, the gradient
+ *  of a signed field always points towards free space. Pin that.
+ */
+void test_plane_sign_is_carried_through()
+{
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.truncation_voxels = 4.0;
+
+  fill_ground_plane(map);
+
+  // The same lateral position, once in free space above the ground and once
+  // inside it below.
+  for (const float zq : {0.3f, -0.3f})
+  {
+    const mrpt::math::TPoint3Df q(0.5f, 0.5f, zq);
+    const auto                  r = map.nn_search_pt2pl(q, 1.0f);
+    ASSERTMSG_(r.pairing.has_value(), mrpt::format("no pairing at z=%.2f", zq));
+
+    const auto& pl = r.pairing->pl_global.plane;
+
+    // The normal must point towards the sensor, i.e. up, on BOTH sides.
+    const double nz = pl.coefs[2];
+    ASSERTMSG_(nz > 0.9, mrpt::format("normal points down at z=%.2f (nz=%.3f)", zq, nz));
+
+    // And the plane's own signed evaluation must reproduce the query's height,
+    // with the sign, so the residual handed to the solver reverses across the
+    // surface.
+    const double modN = std::sqrt(
+        pl.coefs[0] * pl.coefs[0] + pl.coefs[1] * pl.coefs[1] + pl.coefs[2] * pl.coefs[2]);
+    const double signedDist =
+        (pl.coefs[0] * q.x + pl.coefs[1] * q.y + pl.coefs[2] * q.z + pl.coefs[3]) / modN;
+
+    ASSERTMSG_(
+        std::abs(signedDist - zq) < 0.02,
+        mrpt::format("signed plane distance %.4f != %.2f", signedDist, zq));
+  }
+
+  std::cout << "test_plane_sign_is_carried_through: OK" << std::endl;
+}
+
 void test_noise_averaging()
 {
   constexpr float SIGMA = 0.05f;
@@ -344,6 +391,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_surface_is_not_displaced();
     test_gradient_against_finite_differences();
     test_pt2pl_pairing_of_a_plane();
+    test_plane_sign_is_carried_through();
     test_noise_averaging();
     test_serialization_roundtrip();
     test_pruning();
