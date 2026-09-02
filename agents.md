@@ -11,7 +11,7 @@
 
 **Maintainer**: Jose Luis Blanco-Claraco
 **License**: GPL-3.0 (core) and BSD-3-Clause (utilities, bridge, demos)
-**Current Version**: 2.6.0
+**Current Version**: 3.2.0
 **Official Docs**: https://docs.mola-slam.org/latest/
 
 **Important**: Whenever a change is made to the repo, reflect it here if applicable, to keep it in sync with the code.
@@ -36,35 +36,35 @@ MOLA uses a **plugin-based modular architecture**:
 mola/                          # Metapackage (version tags, top-level docs)
 mola_kernel/                   # Core virtual interfaces and data types
 mola_yaml/                     # YAML parsing library with variable expansion
-mola_msgs/                     # ROS 2 message/service/action definitions
-mola_common/                   # External shared utilities (CMake macros)
+mola_msgs/                     # ROS 2 service definitions (map load/save, runtime params, relocalize)
+mola_common/                   # External shared utilities (CMake macros; not in this repo)
 
 # Core Libraries
-mola_metric_maps/              # Advanced metric map classes (NDT, voxels, occupancy)
+mola_metric_maps/              # Metric map classes (voxel maps, NDT, TSDF, keyframe map, occupancy)
 mola_relocalization/           # Global localization and loop closure
 mola_pose_list/                # Searchable/spatial pose list data structure
-mola_viz/                      # GUI visualization system (backend-agnostic)
+mola_viz/                      # GUI visualization, nanogui backend (`MolaViz`)
+mola_viz_imgui/                # GUI visualization, Dear ImGui + ImPlot backend (`MolaVizImGui`)
 
 # Data Input Sources (RawDataSource implementations)
 mola_input_rosbag2/            # ROS 2 bag file player
-mola_input_kitti_dataset/      # KITTI odometry/SLAM dataset reader
-mola_input_kitti360_dataset/   # KITTI-360 panoramic dataset reader
-mola_input_euroc_dataset/      # EuRoC UAV stereo dataset reader
-mola_input_video/              # Live/offline video sources (OpenCV)
 mola_input_rawlog/             # MRPT rawlog binary format
+mola_input_video/              # Live/offline video sources (OpenCV)
 mola_input_lidar_bin_dataset/  # Generic binary LiDAR format
-mola_input_mulran_dataset/     # MulRan urban SLAM dataset
-mola_input_paris_luco_dataset/ # Paris-LUCO dataset
 
 # Integration & Tooling
 mola_launcher/                 # CLI app (`mola-cli`) for launching MOLA systems
 mola_bridge_ros2/              # Bidirectional ROS 2 ↔ MOLA bridge
 mola_traj_tools/               # CLI tools for trajectory file manipulation
 mola_demos/                    # Example YAML launch configurations
-
-# Evaluation
-kitti_metrics_eval/            # KITTI benchmark evaluation tools
+docs/                          # Sphinx + Doxygen sources for the whole doc site
 ```
+
+**Not here any more**: the public-dataset readers (KITTI, KITTI-360, EuRoC,
+MulRan, Paris-Luco, ...) live in the sibling repo `mola_academic_datasets`, and
+`kitti_metrics_eval` in its own. `mola_demos/mola-cli-launchs/*.yaml` still
+reference them by module name, and `docs/` still includes their pages (see
+"Documentation Build" below).
 
 ---
 
@@ -81,7 +81,16 @@ All plugin modules derive from these virtual base classes:
 - `NavStateFilter` — navigation state estimators
 - `LocalizationSourceBase` — localization systems
 - `MapSourceBase` / `MapServer` — map sources/servers
-- `VizInterface` — visualization (backend-agnostic, updated in v2.6). The
+- `RawDataConsumer` — sink for observations produced by a `RawDataSourceBase`
+- `DiagnosticsProvider` — structured REP-107 diagnostics (`DiagnosticLevel`,
+  `DiagnosticStatusMsg`). Any module implementing it has its messages collected
+  and republished by `BridgeROS2` on `/diagnostics` (topic prefix
+  `mola_diagnostics/<module>/`, period `period_publish_diagnostics`).
+  `hardware_id` is auto-filled with the module instance name when left empty.
+- `MetricChannel` — opaque handle returned by `VizInterface::register_metric()`;
+  `push()` is thread-safe, callable at any rate, and near-free when no plot
+  window is showing the channel (a live no-op on backends without plotting)
+- `VizInterface` — visualization (backend-agnostic). The
   `mola_viz_imgui` backend auto-exposes a dockable "Console" subwindow that
   aggregates mrpt-logger output from all running modules (gated by the
   `console_enabled` param, added subsequently). On a fresh profile (no saved
@@ -129,7 +138,7 @@ All plugin modules derive from these virtual base classes:
   `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
   `requestInsertKeyframe()`, decoupled from their own local map/odometry
   frame. Detected via `findService<>()` the same way as `NavStateFilter`,
-  but optional. Feature macro `MOLA_KERNEL_HAS_SHARED_KEYFRAME_MAP`.
+  but optional.
 
 Other key types:
 - `GuiWidgetDescription` — descriptor for GUI widget creation (backend-agnostic)
@@ -152,11 +161,52 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - Publishes MOLA outputs (maps, poses) as ROS 2 topics/TF
 - Must have ROS 2 environment sourced before building
 
+### `mola_viz` / `mola_viz_imgui` — GUI Backends
+
+Two interchangeable implementations of `VizInterface`, selected in the YAML by
+module class name; nothing else in the tree may call MRPT GUI functions directly.
+
+- `mola_viz` (`MolaViz`): the original nanogui/MRPT backend.
+- `mola_viz_imgui` (`MolaVizImGui`, `MolaVizImGuiCore`): Dear ImGui + ImPlot on
+  GLFW, both vendored under `3rdparty/`. Adds the docking layout, the Console log
+  sink, and the metric plots described under `VizInterface` above.
+  `MolaVizImGuiCore` is the reusable, MOLA-agnostic half.
+
+### `mola_traj_tools` — Trajectory CLI Tools
+
+`traj_rebase`, `traj_tf_left`, `traj_tf_right`, `traj_tum2ypr`, `traj_ypr2tum`,
+plus Python helpers in `python/`. Formats: TUM text and MRPT's own.
+
 ### `mola_metric_maps` — Map Types
-- `OccupancyGridMap` (super-resolution)
-- `SparseVoxelPointCloud`
-- `NDTMap` (Normal Distribution Transform)
-- `KeyframeMap`
+
+Classes registered by `src/register.cpp` (these are the names a YAML must use):
+`mola::OccGrid` (super-resolution occupancy grid), `mola::HashedVoxelPointCloud`,
+`mola::SparseVoxelPointCloud`, `mola::SparseTreesPointCloud`, `mola::NDT`,
+`mola::TSDF`, `mola::KeyframePointCloudMap`, `mola::IncrementalPointCloud`.
+
+- `TSDF` (new 2026): voxel-hashed truncated signed distance field. Each measured
+  point writes a signed distance **along its own ray** into the voxels of a
+  narrow cylinder around it (`ray_tube_voxels` is the coverage knob,
+  `tube_sigma_voxels` the bias knob: a flat wide tube displaces the surface by
+  cm), combined by a weighted running average capped at `max_weight`. A query is
+  trilinear over the eight surrounding voxel centers, with the interpolant's
+  analytical gradient as the normal, so `NearestPlaneCapable` /
+  `Matcher_Point2Plane` / `Solver_GaussNewton` are reused unchanged: no stored
+  points, no candidate set, no `argmin` in the query path.
+  `truncation_voxels`/`ray_tube_voxels` are in **voxel units**, so halving
+  `voxel_size` also halves the physical band and tube while beam spacing at range
+  does not change. Extent is bounded twice, and both are needed: a field fills a
+  band around every surface, so `remove_voxels_farther_than` alone still scales as
+  the inverse cube of the voxel size, and `max_voxels` is the hard ceiling that
+  shrinks the effective extent until the map fits.
+  **Warm-up**: a field map is not queryable after one scan (a trilinear query
+  needs all eight neighbors), so with `bootstrap_with_points` (default on) the
+  first scans are also kept as a point cloud that answers every `nn_search_pt2pl()`
+  by k-NN plane fit; the field is probed once per scan and takes over once it
+  answers `bootstrap_field_ready_fraction` of it, or at `bootstrap_max_scans`
+  (with a warning). Without it the first registration finds no surface and the
+  caller discards the map. Tests: `tests/test-mola_metric_maps_tsdf.cpp`.
+- `KeyframePointCloudMap`
 - `IncrementalPointCloud` (new 2026): sliding-window LIO local map derived from
   `mrpt::maps::CGenericPointsMap`, backed by **one** incremental self-balancing
   nanoflann k-d tree (`KDTreeSingleIndexIncrementalAdaptor`, or the `…MT`
@@ -232,6 +282,16 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   directory as `-isystem`, and a directory listed both ways is deduplicated by
   GCC in favor of the system entry. Keep that file free of MRPT headers, and
   keep nanoflann out of the public headers.
+- `index3d_t<T>` / `index3d_hash<T>` (`include/mola_metric_maps/index3d_t.h`): the
+  shared voxel key and its hash/comparator, used by every voxel map here.
+  Teschner et al.'s prime-multiplier spatial hash over the **full** coordinate
+  entropy, plus a splitmix64 finalizer. The finalizer is not cosmetic:
+  `tsl::robin_map` buckets on the *low* bits, and the low bits of a sum of
+  odd-prime multiples depend on very few input bits, so grid-aligned keys
+  cluster (on 4M keys: longest chain 14 -> 8, lookups ~30% faster). Changing this
+  functor reorders the iteration of every voxel map, and with it the summation
+  order of anything accumulating over one. Tests:
+  `tests/test-mola_metric_maps_index3d_hash.cpp`.
 - All support MRPT serialization
 - `NDT` implements `mp2p_icp::NearestPlaneCapable` twice over: `nn_search_pt2pl()`
   returns the single closest cell plane, and `nn_visit_pt2pl_candidates()` reports
@@ -334,11 +394,37 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   avoid). Note the runtime `MOLA_LOCALMAP_APPROXIMATE_COV` env var only configures the live local
   map, not a loaded `.mm`, whose `approximate_cov` is read from the file.
 
+- Per-point covariance regularization is configurable in both cov2cov map classes
+  (`KeyframePointCloudMap`, `IncrementalPointCloud`): `plane_regularization_lambda`
+  (default `1e-3`, the asserted variance along the normal, i.e. the 1000:1 plane
+  confidence) and `max_plane_deviation_for_cov` (default `0`, off; Fast-LIO2's
+  `esti_plane` test: fall back to an isotropic covariance if any of the k neighbors
+  lies farther than this from the fitted plane). A rejection deliberately leaves
+  the local density estimate untouched, since that feeds the adaptive matching
+  threshold.
+
+### Feature macros
+
+Public compile-time macros, so out-of-tree code can build against older releases.
+Guard with `#if defined(...)`, never with a version check.
+
+| Macro | Defined in | Means |
+|---|---|---|
+| `MOLA_KERNEL_VIZ_HAS_METRICS` | `interfaces/MetricChannel.h` | `VizInterface::register_metric()`/`push_metric()` exist |
+| `MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES` | `interfaces/VizInterface.h` | named movable reference frames: `update_3d_object_frame()` and the `parentFrame` argument of `update_3d_object()`, `insert_point_cloud_with_decay()`, `update_viewport_look_at()` |
+| `MOLA_KERNEL_DATASET_UI_HAS_TIME` | `interfaces/Dataset_UI.h` | `datasetUI_time()`/`datasetUI_total_time()` |
+| `MOLA_KERNEL_NAVSTATE_FILTER_HAS_GEO_REFERENCE` | `interfaces/NavStateFilter.h` | geo-reference accessor |
+| `MOLA_KERNEL_NAVSTATE_FILTER_HAS_TRANSFORM_FRAME` | `interfaces/NavStateFilter.h` | `transform_frame()` |
+| `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD` | CMake (PUBLIC) | `IncrementalPointCloud` is functional (nanoflann >= 1.10) |
+| `MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE` | CMake (PUBLIC) | incremental k-d tree save/load (nanoflann >= 1.11) |
+| `MOLA_MM_HAS_RKNN_SEARCH` | `mola_metric_maps` sources | MRPT's radius-limited kNN overload is usable (nanoflann >= 1.5.1) |
+| `MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE`, `MP2P_ICP_HAS_NN_VISIT_PT2PL_CANDIDATES` | `mp2p_icp` headers | the mp2p_icp side of an API that the ROS binary repos may not ship yet |
+
 ---
 
 ## Build System
 
-- **Build tool**: CMake 3.5+ / Colcon (for ROS 2)
+- **Build tool**: CMake 3.22+ (Ubuntu 22.04's) / Colcon (for ROS 2)
 - **C++ standard**: C++17
 - **Config**: `colcon_defaults.yaml` (symlink install, RelWithDebInfo, compile_commands.json)
 - **CMake macros** (from `mola_common`): `mola_add_library()`, `find_mola_package()`
@@ -361,9 +447,11 @@ colcon build --symlink-install
 
 | Dependency | Purpose |
 |------------|---------|
-| **MRPT** (≥2.1.0) | Core robotics toolkit: poses, observations, maps, OpenGL GUI, serialization |
-| **mp2p_icp** | Point cloud ICP registration (used by relocalization and metric maps) |
-| **TBB** | Intel Threading Building Blocks for parallelism |
+| **MRPT** (2.x) | Core robotics toolkit: poses, observations, maps, OpenGL GUI, serialization. No hard minimum is pinned; the few newer APIs used are compile-time detected (see "Feature macros") |
+| **mp2p_icp** | Point cloud ICP registration (matchers/solvers consumed by `mola_metric_maps`, and by relocalization) |
+| **nanoflann** (`nanoflann_vendor`) | k-d trees for `IncrementalPointCloud` / `KeyframePointCloudMap`; version-gated features |
+| **TBB** | Intel Threading Building Blocks for parallelism (optional) |
+| **glfw3** | Windowing for `mola_viz_imgui` (Dear ImGui and ImPlot are vendored in `3rdparty/`) |
 | **OpenCV** | Image/video handling (via MRPT) |
 | **rclcpp** | ROS 2 C++ client library (optional, only if ROS 2 present) |
 | **rosbag2_cpp** | ROS 2 bag I/O (mola_input_rosbag2) |
@@ -375,8 +463,9 @@ colcon build --symlink-install
 
 - **Framework**: CMake + GTest
 - Each package has `tests/` with its own `CMakeLists.txt`
-- CI/CD: `.github/workflows/build-ros.yml`: Humble and Jazzy, each as a
-  `stable` (released debs) and a `testing` (`ros2-testing`) variant, on
+- CI/CD, three workflows: `check-clang-format.yml` (style),
+  `check-docs.yml` (see "Documentation Build" below), and `build-ros.yml`:
+  Humble and Jazzy, each as a `stable` (released debs) and a `testing` (`ros2-testing`) variant, on
   GitHub-hosted x86_64 and self-hosted arm64; Rolling entries exist
   commented-out. `rosdep install` runs twice when the first pass fails: the
   retry skips the optional keys (`nanoflann_vendor`, `gps_msgs`), which are not
@@ -384,7 +473,9 @@ colcon build --symlink-install
   unresolved stops the job.
 - Style: enforced with `.clang-format` and `.clang-tidy`
 
-Test coverage exists for: `mola_yaml`, `mola_metric_maps`, `mola_pose_list`, `mola_relocalization`
+Test coverage exists for: `mola_yaml`, `mola_metric_maps` (11 test binaries, the
+bulk of the suite), `mola_pose_list`, `mola_relocalization`, `mola_kernel`
+(diagnostics provider).
 
 ---
 
@@ -425,7 +516,7 @@ types into `mola_kernel`: `transform_tree(root)` returns the subtree below
   initializer list>'"; naming the type first sidesteps that overload
   resolution entirely. Older GCC (Humble/Jazzy/Kilted) accepts either form.
 
-### GUI Widget Creation (v2.6+)
+### GUI Widget Creation
 Use `GuiWidgetDescription` for backend-agnostic widget creation in `VizInterface`.
 Do not use direct MRPT GUI calls in modules — use the `VizInterface` abstraction.
 
@@ -444,10 +535,10 @@ Do not use direct MRPT GUI calls in modules — use the `VizInterface` abstracti
 ## Environment Variables (Debug/Tracing Flags)
 
 All debug/tracing flags use `mrpt::get_env<T>(name, default)` (from
-`<mrpt/core/get_env.h>`), never plain `::getenv`/`std::getenv`. The one
-exception is `mola_yaml`'s `${VAR}` expansion (`yaml_helpers.cpp`), which
-needs tri-state unset-vs-empty semantics that `mrpt::get_env` cannot express,
-so it keeps `::getenv` by design.
+`<mrpt/core/get_env.h>`), never plain `::getenv`/`std::getenv`. Two exceptions
+by design, both needing unset-vs-empty semantics `mrpt::get_env` cannot express:
+`mola_yaml`'s `${VAR}` expansion (`yaml_helpers.cpp`), and
+`mola_metric_maps/src/cov_diagnostics.h` (a path, where empty must mean off).
 
 | Variable | Type | Default | Location | Purpose |
 |----------|------|---------|----------|---------|
@@ -464,6 +555,7 @@ so it keeps `::getenv` by design.
 | `MOLA_KEYFRAME_MAP_VIZ_COLOR_BY_KF` | bool | false | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Color rendered points by owning keyframe instead of by intensity/height |
 | `MOLA_KEYFRAME_MAP_VIZ_SHOW_COV_DECIMATION` | uint32 | 0 | `mola_metric_maps/src/KeyframePointCloudMap.cpp` | Decimation factor when rendering covariance ellipsoids |
 | `MOLA_LOCALMAP_APPROXIMATE_COV` | bool | (module default) | consumed via YAML, see `KeyframePointCloudMap::TCreationOptions::approximate_cov` | Configures the live local map's approximate-cov2cov path (does not affect a loaded `.mm`, whose flag is read from the file) |
+| `MOLA_MM_COV_DIAG_FILE` | path | (unset) | `mola_metric_maps/src/cov_diagnostics.h` | Append per-matching-call cov-to-cov degeneracy stats to this file: pairing count, how many had an identity (isotropic fallback) covariance on each side, and the 10/50/90 percentiles of the weight's eigenvalue ratio. Costs nothing when unset; computed serially after the parallel matching loop |
 | `TEST_GENERATE_3D_SCENES` | bool | false | `mola_metric_maps/tests/test-mola_metric_maps_ndt.cpp` | Regenerate reference 3D scene files instead of comparing against them |
 | `MOLA_YAML_VERBOSE` | bool | false | `mola_yaml/src/yaml_helpers.cpp` | Print each external YAML file loaded via `@include`/`@import` |
 
@@ -476,6 +568,16 @@ in a common parent directory. The Sphinx/Doxygen build in `docs/` pulls content 
 sibling repos via relative paths (e.g. `../../../mola_academic_datasets/` in
 `docs/source/Doxyfile`, and toctree stubs in `.rst` files that `.. include::` from
 sibling checkouts).
+
+**Generated pages**: `docs/generate_dataset_pages.py` builds one page per public
+dataset at doc-build time by parsing `mola_lidar_odometry`'s per-dataset shell
+profiles and their wrapper scripts (invocation for GUI and offline CLI, every
+published setting with the comment that justifies it, the launch file and
+pipeline it selects). They are **not committed** -- edit the profile, not a page.
+`.github/workflows/check-docs.yml` reconstructs the sibling-repo layout, runs the
+generator and fails the build on structural breakage (missing include, dangling
+reference, unreachable page). Sibling repos call it via `workflow_call` so their
+own PRs are checked against the real doc set.
 
 **Consequence**: do not remove toctree entries from `docs/source/modules.rst` (or
 other `.rst` files) just because a package moved to a different repo — the entry will
