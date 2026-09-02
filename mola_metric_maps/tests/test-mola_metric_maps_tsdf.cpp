@@ -19,7 +19,9 @@
 
 #include <mola_metric_maps/TSDF.h>
 #include <mrpt/io/CMemoryStream.h>
+#include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
 
 #include <array>
@@ -335,6 +337,117 @@ void test_noise_averaging()
   ASSERTMSG_(std::abs(mean) < 0.03, mrpt::format("fused surface is biased: mean=%.4f", mean));
 }
 
+/** One scan of a horizontal plane z=0, as an observation, so that insertion
+ *  goes through the path that drives the warm-up. `step` sets how far apart
+ *  the measured points are, which is what decides whether one scan alone can
+ *  fill the eight corners a trilinear query needs.
+ */
+mrpt::obs::CObservationPointCloud::Ptr plane_scan(float step, float zPlane = .0f)
+{
+  auto obs                                        = mrpt::obs::CObservationPointCloud::Create();
+  obs->sensorPose                                 = mrpt::poses::CPose3D::Identity();
+  auto pts                                        = mrpt::maps::CSimplePointsMap::Create();
+  pts->insertionOptions.minDistBetweenLaserPoints = .0f;
+
+  for (float x = -PLANE_SPAN; x <= PLANE_SPAN; x += step)
+  {
+    for (float y = -PLANE_SPAN; y <= PLANE_SPAN; y += step)
+    {
+      // Coordinates in the sensor frame: the sensor sits SENSOR_HEIGHT above.
+      pts->insertPointFast(x, y, zPlane - SENSOR_HEIGHT);
+    }
+  }
+  pts->mark_as_modified();
+  obs->pointcloud = pts;
+  return obs;
+}
+
+const mrpt::poses::CPose3D SENSOR_POSE = mrpt::poses::CPose3D::FromXYZYawPitchRoll(
+    .0, .0, static_cast<double>(SENSOR_HEIGHT), .0, .0, .0);
+
+/** The warm-up must produce a pairing where the field cannot yet, and the two
+ *  must agree once the field can, or the switch would move the residual under
+ *  the optimizer.
+ */
+void test_bootstrap_answers_before_the_field_can()
+{
+  const mrpt::math::TPoint3Df query{0.3f, -0.2f, 0.15f};
+
+  // A scan whose points are far enough apart that one of them alone leaves
+  // most cells with fewer than eight populated corners.
+  auto sparseScan = plane_scan(4.0f * TEST_VOXEL);
+
+  {
+    mola::TSDF map(TEST_VOXEL);
+    map.insertionOptions.ray_tube_voxels = 0.5;  // no coverage help from the tube
+    map.insertObservation(*sparseScan, SENSOR_POSE);
+
+    ASSERT_(map.isBootstrapping());
+    ASSERT_(!map.queryField(query).valid);
+
+    // ... and yet the map answers, because the warm-up cloud does.
+    const auto np = map.nn_search_pt2pl(query, 1.0f);
+    ASSERT_(np.pairing.has_value());
+    std::cout << "test_bootstrap_answers_before_the_field_can: warm-up distance = " << np.distance
+              << " m, field ready = " << map.lastFieldReadyFraction() << "\n";
+    ASSERT_NEAR_(np.distance, 0.15f, 0.02f);
+  }
+
+  // With a dense scan the field is ready at once, and the two answers agree.
+  {
+    mola::TSDF map(TEST_VOXEL);
+    map.insertionOptions.bootstrap_min_scans = 1;
+    auto denseScan                           = plane_scan(0.05f);
+
+    map.insertObservation(*denseScan, SENSOR_POSE);
+    ASSERT_(!map.isBootstrapping());
+    ASSERT_(map.queryField(query).valid);
+
+    const auto fromField = map.nn_search_pt2pl(query, 1.0f);
+    ASSERT_(fromField.pairing.has_value());
+
+    mola::TSDF pointsOnly(TEST_VOXEL);
+    pointsOnly.insertionOptions.bootstrap_min_scans = 100;  // never leaves the warm-up
+    pointsOnly.insertionOptions.bootstrap_max_scans = 100;
+    pointsOnly.insertObservation(*denseScan, SENSOR_POSE);
+    ASSERT_(pointsOnly.isBootstrapping());
+
+    const auto fromPoints = pointsOnly.nn_search_pt2pl(query, 1.0f);
+    ASSERT_(fromPoints.pairing.has_value());
+
+    std::cout << "test_bootstrap_answers_before_the_field_can: field = " << fromField.distance
+              << " m, points = " << fromPoints.distance << " m\n";
+
+    // Both must find the same surface. They are not the same estimator, so the
+    // tolerance is the field's own tube displacement, not zero.
+    ASSERT_NEAR_(fromField.distance, fromPoints.distance, 0.03f);
+  }
+}
+
+/** The warm-up must be bounded: a field that never becomes ready must not
+ *  leave the map silently answering as a point cloud for the whole run.
+ */
+void test_bootstrap_is_bounded()
+{
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.ray_tube_voxels = 0.5;
+  // A readiness that can never be reached, so only the bound can end it.
+  map.insertionOptions.bootstrap_field_ready_fraction = 2.0;
+  map.insertionOptions.bootstrap_min_scans            = 1;
+  map.insertionOptions.bootstrap_max_scans            = 3;
+
+  auto scan = plane_scan(4.0f * TEST_VOXEL);
+
+  map.insertObservation(*scan, SENSOR_POSE);
+  ASSERT_(map.isBootstrapping());
+  map.insertObservation(*scan, SENSOR_POSE);
+  ASSERT_(map.isBootstrapping());
+  map.insertObservation(*scan, SENSOR_POSE);
+  ASSERT_(!map.isBootstrapping());
+
+  std::cout << "test_bootstrap_is_bounded: OK" << std::endl;
+}
+
 void test_serialization_roundtrip()
 {
   mola::TSDF map(TEST_VOXEL);
@@ -432,6 +545,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_pt2pl_pairing_of_a_plane();
     test_plane_sign_is_carried_through();
     test_noise_averaging();
+    test_bootstrap_answers_before_the_field_can();
+    test_bootstrap_is_bounded();
     test_serialization_roundtrip();
     test_pruning();
     test_voxel_budget_is_a_ceiling();

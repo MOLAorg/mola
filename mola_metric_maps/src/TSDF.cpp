@@ -29,6 +29,7 @@
 #include <mola_metric_maps/TSDF.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
 #include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
@@ -39,6 +40,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <vector>
 
@@ -95,7 +97,7 @@ IMPLEMENTS_SERIALIZABLE(TSDF, CMetricMap, mola)
 // Serialization
 // =====================================
 
-uint8_t TSDF::serializeGetVersion() const { return 0; }
+uint8_t TSDF::serializeGetVersion() const { return 1; }
 
 void TSDF::serializeTo(mrpt::serialization::CArchive& out) const
 {
@@ -111,6 +113,15 @@ void TSDF::serializeTo(mrpt::serialization::CArchive& out) const
     out << idx.cx << idx.cy << idx.cz;
     out << voxel.dist << voxel.weight;
   }
+
+  // Warm-up state (v1). A map saved mid-warm-up would otherwise come back
+  // answering from a field that cannot yet answer.
+  out << bootstrapping_ << bootstrapScans_ << fieldReadyFraction_;
+  out << bootstrapPoints_.has_value();
+  if (bootstrapPoints_)
+  {
+    out << *bootstrapPoints_;
+  }
 }
 
 void TSDF::serializeFrom(mrpt::serialization::CArchive& in, uint8_t version)
@@ -118,6 +129,7 @@ void TSDF::serializeFrom(mrpt::serialization::CArchive& in, uint8_t version)
   switch (version)
   {
     case 0:
+    case 1:
     {
       float vxSize = 0;
       in >> vxSize;
@@ -138,6 +150,27 @@ void TSDF::serializeFrom(mrpt::serialization::CArchive& in, uint8_t version)
         in >> v.dist >> v.weight;
         voxels_[idx] = v;
       }
+
+      if (version >= 1)
+      {
+        in >> bootstrapping_ >> bootstrapScans_ >> fieldReadyFraction_;
+        bool hasPoints = false;
+        in >> hasPoints;
+        if (hasPoints)
+        {
+          in >> bootstrapPoints_.emplace();
+        }
+        else
+        {
+          bootstrapPoints_.reset();
+        }
+      }
+      else
+      {
+        // A map written before the warm-up existed is a finished map.
+        endBootstrap();
+      }
+
       invalidateCaches();
     }
     break;
@@ -170,6 +203,14 @@ void TSDF::setVoxelProperties(float voxel_size)
 void TSDF::internal_clear()
 {
   voxels_.clear();
+
+  bootstrapping_      = true;
+  bootstrapWarned_    = false;
+  bootstrapScans_     = 0;
+  fieldReadyFraction_ = 0;
+  bootstrapPoints_.reset();
+  bootstrapProbe_.clear();
+
   invalidateCaches();
 }
 
@@ -380,6 +421,15 @@ mp2p_icp::NearestPlaneCapable::NearestPlaneResult TSDF::nn_search_pt2pl(
 {
   NearestPlaneCapable::NearestPlaneResult ret;
 
+  // While the field is still filling in, the same pairing comes from a plane
+  // fitted to the accumulated points. A map built through the low-level
+  // insertPoint() API has no warm-up cloud and goes straight to the field.
+  if (bootstrapping_ && insertionOptions.bootstrap_with_points && bootstrapPoints_ &&
+      !bootstrapPoints_->empty())
+  {
+    return bootstrapSearch(query, max_search_distance);
+  }
+
   const auto q = queryField(query);
   if (!q.valid)
   {
@@ -420,6 +470,160 @@ mp2p_icp::NearestPlaneCapable::NearestPlaneResult TSDF::nn_search_pt2pl(
   ret.distance = std::abs(step);
 
   return ret;
+}
+
+// =====================================
+// Warm-up
+// =====================================
+
+mp2p_icp::NearestPlaneCapable::NearestPlaneResult TSDF::bootstrapSearch(
+    const mrpt::math::TPoint3Df& query, const float max_search_distance) const
+{
+  NearestPlaneCapable::NearestPlaneResult ret;
+
+  const size_t knn = insertionOptions.bootstrap_knn;
+  ASSERT_GE_(knn, 3U);
+
+  if (!bootstrapPoints_ || bootstrapPoints_->size() < knn)
+  {
+    return ret;
+  }
+
+  // The neighbor search is deliberately not capped at `max_search_distance`.
+  // That bound is on the distance to the *surface*, which is what the field
+  // applies too, while the patch needed to fit a plane is necessarily wider
+  // than it. What bounds the search instead is the map's own declared reach.
+  std::vector<size_t> idxs;
+  std::vector<float>  distsSqr;
+  bootstrapPoints_->kdTreeNClosestPoint3DIdx(query.x, query.y, query.z, knn, idxs, distsSqr);
+
+  if (idxs.size() < knn)
+  {
+    return ret;
+  }
+
+  const float reach = std::max(max_search_distance, truncation());
+  if (distsSqr.front() > reach * reach)
+  {
+    return ret;
+  }
+
+  const auto& xs = bootstrapPoints_->getPointsBufferRef_x();
+  const auto& ys = bootstrapPoints_->getPointsBufferRef_y();
+  const auto& zs = bootstrapPoints_->getPointsBufferRef_z();
+
+  std::vector<mrpt::math::TPoint3D> neighbors;
+  neighbors.reserve(knn);
+  for (const size_t i : idxs)
+  {
+    neighbors.emplace_back(xs[i], ys[i], zs[i]);
+  }
+
+  mrpt::math::TPlane plane;
+  mrpt::math::getRegressionPlane(neighbors, plane);
+  plane.unitarize();
+
+  // A neighborhood that is not locally planar has no tangent plane to offer,
+  // and a bad one is worse than none.
+  const auto maxDev = static_cast<double>(insertionOptions.bootstrap_max_plane_deviation);
+  if (maxDev > 0)
+  {
+    for (const auto& n : neighbors)
+    {
+      if (std::abs(plane.evaluatePoint(n)) > maxDev)
+      {
+        return ret;
+      }
+    }
+  }
+
+  const mrpt::math::TPoint3D q3d(query.x, query.y, query.z);
+
+  // Unitarized, this is the signed distance along the plane normal. Its sign
+  // depends on the arbitrary orientation the fit gave the normal, which the
+  // point-to-plane residual is invariant to: flipping the normal flips the
+  // residual too, and the product is unchanged.
+  const double signedDist = plane.evaluatePoint(q3d);
+  if (std::abs(signedDist) > max_search_distance)
+  {
+    return ret;
+  }
+
+  const mrpt::math::TVector3D normal = plane.getNormalVector();
+
+  const mrpt::math::TPoint3D foot = {
+      q3d.x - signedDist * normal.x,  //
+      q3d.y - signedDist * normal.y,  //
+      q3d.z - signedDist * normal.z};
+
+  auto& pa              = ret.pairing.emplace();
+  pa.pt_local           = query;
+  pa.pl_global.centroid = foot;
+  pa.pl_global.plane    = mrpt::math::TPlane(foot, normal);
+
+  ret.distance = static_cast<float>(std::abs(signedDist));
+
+  return ret;
+}
+
+void TSDF::updateBootstrapState()
+{
+  if (!bootstrapping_)
+  {
+    return;
+  }
+
+  if (!insertionOptions.bootstrap_with_points)
+  {
+    endBootstrap();
+    return;
+  }
+
+  bootstrapScans_++;
+
+  size_t valid = 0;
+  for (const auto& p : bootstrapProbe_)
+  {
+    if (queryField(p).valid)
+    {
+      valid++;
+    }
+  }
+  fieldReadyFraction_ =
+      bootstrapProbe_.empty() ? .0 : double(valid) / double(bootstrapProbe_.size());
+  bootstrapProbe_.clear();
+
+  const bool ready = bootstrapScans_ >= insertionOptions.bootstrap_min_scans &&
+                     fieldReadyFraction_ >= insertionOptions.bootstrap_field_ready_fraction;
+
+  if (ready)
+  {
+    endBootstrap();
+    return;
+  }
+
+  if (bootstrapScans_ >= insertionOptions.bootstrap_max_scans)
+  {
+    if (!bootstrapWarned_)
+    {
+      bootstrapWarned_ = true;
+      std::cerr << "[mola::TSDF] Warning: the field could only answer "
+                << mrpt::format("%.1f%%", 100.0 * fieldReadyFraction_) << " of the last scan after "
+                << bootstrapScans_
+                << " scans, below the configured bootstrap_field_ready_fraction. Switching to the "
+                   "field anyway. A coarser voxel_size, a wider ray_tube_voxels or a lower "
+                   "min_weight_for_query would each let it fill in sooner.\n";
+    }
+    endBootstrap();
+  }
+}
+
+void TSDF::endBootstrap()
+{
+  bootstrapping_ = false;
+  bootstrapPoints_.reset();
+  bootstrapProbe_.clear();
+  bootstrapProbe_.shrink_to_fit();
 }
 
 // =====================================
@@ -489,11 +693,44 @@ void TSDF::internal_insertPointCloud3D(
 {
   const auto sensorPt = pc_in_map.translation().cast<float>();
 
+  const bool warmingUp = bootstrapping_ && insertionOptions.bootstrap_with_points;
+  if (warmingUp)
+  {
+    if (!bootstrapPoints_)
+    {
+      bootstrapPoints_.emplace();
+      bootstrapPoints_->insertionOptions.minDistBetweenLaserPoints = .0f;
+    }
+    bootstrapPoints_->reserve(bootstrapPoints_->size() + num_pts);
+  }
+
+  // One point in this many is kept to probe the field's readiness, so the test
+  // costs a fixed fraction of the insertion whatever the scan size.
+  constexpr std::size_t PROBE_DECIMATION = 20;
+
   for (std::size_t i = 0; i < num_pts; i++)
   {
     const auto gPt = pc_in_map.composePoint(mrpt::math::TPoint3Df(xs[i], ys[i], zs[i]));
     insertPoint(gPt, sensorPt);
+
+    if (warmingUp)
+    {
+      bootstrapPoints_->insertPointFast(gPt.x, gPt.y, gPt.z);
+      if (i % PROBE_DECIMATION == 0)
+      {
+        bootstrapProbe_.push_back(gPt);
+      }
+    }
   }
+
+  if (warmingUp)
+  {
+    bootstrapPoints_->mark_as_modified();
+  }
+
+  // Called here, and not per observation, because this is the one path every
+  // observation type funnels through.
+  updateBootstrapState();
 }
 
 bool TSDF::internal_insertObservation(
@@ -615,9 +852,17 @@ bool TSDF::isEmpty() const { return voxels_.empty(); }
 
 std::string TSDF::asString() const
 {
-  return mrpt::format(
+  std::string ret = mrpt::format(
       "TSDF, voxel_size=%.03f truncation=%.03f voxels=%u", voxel_size_, truncation(),
       static_cast<unsigned int>(voxels_.size()));
+
+  if (bootstrapping_)
+  {
+    ret += mrpt::format(
+        " [warming up: %u scans, field answers %.1f%% of the last one]", bootstrapScans_,
+        100.0 * fieldReadyFraction_);
+  }
+  return ret;
 }
 
 void TSDF::visitAllVoxels(
@@ -785,6 +1030,16 @@ void TSDF::TInsertionOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(weight_by_range, bool, c, s);
   MRPT_LOAD_CONFIG_VAR(weight_range_ref, double, c, s);
   MRPT_LOAD_CONFIG_VAR(weight_by_incidence, bool, c, s);
+
+  MRPT_LOAD_CONFIG_VAR(bootstrap_with_points, bool, c, s);
+  bootstrap_min_scans = static_cast<uint32_t>(
+      c.read_int(s, "bootstrap_min_scans", static_cast<int>(bootstrap_min_scans)));
+  bootstrap_max_scans = static_cast<uint32_t>(
+      c.read_int(s, "bootstrap_max_scans", static_cast<int>(bootstrap_max_scans)));
+  MRPT_LOAD_CONFIG_VAR(bootstrap_field_ready_fraction, double, c, s);
+  bootstrap_knn =
+      static_cast<uint32_t>(c.read_int(s, "bootstrap_knn", static_cast<int>(bootstrap_knn)));
+  MRPT_LOAD_CONFIG_VAR(bootstrap_max_plane_deviation, double, c, s);
 }
 
 void TSDF::TInsertionOptions::dumpToTextStream(std::ostream& out) const
@@ -801,15 +1056,24 @@ void TSDF::TInsertionOptions::dumpToTextStream(std::ostream& out) const
   LOADABLEOPTS_DUMP_VAR(weight_by_range, bool);
   LOADABLEOPTS_DUMP_VAR(weight_range_ref, double);
   LOADABLEOPTS_DUMP_VAR(weight_by_incidence, bool);
+  LOADABLEOPTS_DUMP_VAR(bootstrap_with_points, bool);
+  out << mrpt::format("bootstrap_min_scans = %u\n", bootstrap_min_scans);
+  out << mrpt::format("bootstrap_max_scans = %u\n", bootstrap_max_scans);
+  LOADABLEOPTS_DUMP_VAR(bootstrap_field_ready_fraction, double);
+  out << mrpt::format("bootstrap_knn = %u\n", bootstrap_knn);
+  LOADABLEOPTS_DUMP_VAR(bootstrap_max_plane_deviation, double);
 }
 
 void TSDF::TInsertionOptions::writeToStream(mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 0;
+  const int8_t version = 1;
   out << version;
   out << truncation_distance << truncation_voxels << ray_tube_voxels << tube_sigma_voxels
       << max_weight << min_weight_for_query << remove_voxels_farther_than << max_voxels
       << weight_by_range << weight_range_ref << weight_by_incidence;
+  // v1:
+  out << bootstrap_with_points << bootstrap_min_scans << bootstrap_max_scans
+      << bootstrap_field_ready_fraction << bootstrap_knn << bootstrap_max_plane_deviation;
 }
 
 void TSDF::TInsertionOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -819,9 +1083,15 @@ void TSDF::TInsertionOptions::readFromStream(mrpt::serialization::CArchive& in)
   switch (version)
   {
     case 0:
+    case 1:
       in >> truncation_distance >> truncation_voxels >> ray_tube_voxels >> tube_sigma_voxels >>
           max_weight >> min_weight_for_query >> remove_voxels_farther_than >> max_voxels >>
           weight_by_range >> weight_range_ref >> weight_by_incidence;
+      if (version >= 1)
+      {
+        in >> bootstrap_with_points >> bootstrap_min_scans >> bootstrap_max_scans >>
+            bootstrap_field_ready_fraction >> bootstrap_knn >> bootstrap_max_plane_deviation;
+      }
       break;
     default:
       MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);

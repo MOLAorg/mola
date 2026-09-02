@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <vector>
 
 namespace mola
 {
@@ -197,6 +198,16 @@ class TSDF : public mrpt::maps::CMetricMap,
 
   size_t size() const { return voxels_.size(); }
 
+  /** True while queries are still answered from the warm-up point cloud
+   *  instead of from the field. \sa TInsertionOptions::bootstrap_with_points
+   */
+  bool isBootstrapping() const { return bootstrapping_; }
+
+  /** Fraction of the last inserted scan at which the field returned a valid
+   *  query. This is the quantity that ends the warm-up.
+   */
+  double lastFieldReadyFraction() const { return fieldReadyFraction_; }
+
   mrpt::math::TBoundingBoxf boundingBox() const override;
 
   void visitAllVoxels(
@@ -340,6 +351,47 @@ class TSDF : public mrpt::maps::CMetricMap,
      *  gradient already present. Default off, for the same reason.
      */
     bool weight_by_incidence = false;
+
+    /** @name Warm-up
+     *  @{ */
+
+    /** Answer queries from a point cloud accumulated over the first scans, and
+     *  switch to the field once the field can answer.
+     *
+     *  A field map is empty in a way a point map is not. One scan of points is
+     *  immediately queryable; one scan of field is not, because a trilinear
+     *  query needs all eight surrounding voxels and adjacent beams are more
+     *  than a voxel apart at working range. Without a warm-up the first
+     *  registration finds no surface at all, the caller discards the map as a
+     *  failed start, and the run never gets going.
+     */
+    bool bootstrap_with_points = true;
+
+    /** Scans to accumulate before the field is tested at all. */
+    uint32_t bootstrap_min_scans = 2;
+
+    /** Hard bound on the warm-up, in scans. If the field still cannot answer by
+     *  then, the switch happens anyway and a message is printed: a map that
+     *  quietly stayed a point cloud under this class's name would misreport
+     *  what was measured.
+     */
+    uint32_t bootstrap_max_scans = 20;
+
+    /** Fraction of the last scan's points at which the field must return a
+     *  valid query for the warm-up to end.
+     */
+    double bootstrap_field_ready_fraction = 0.5;
+
+    /** Neighbors used for the warm-up plane fit. */
+    uint32_t bootstrap_knn = 10;
+
+    /** Maximum distance [m] any neighbor may sit from the fitted plane for that
+     *  plane to be used. A neighborhood that is not locally planar has no
+     *  tangent plane to offer, and a bad one is worse than none.
+     */
+    double bootstrap_max_plane_deviation = 0.10;
+
+    /** @} */
   };
   TInsertionOptions insertionOptions;
 
@@ -392,6 +444,38 @@ class TSDF : public mrpt::maps::CMetricMap,
   mutable mrpt::maps::CSimplePointsMap::Ptr        cachedPoints_;
 
   void invalidateCaches();
+
+  /** @name Warm-up state
+   *  Everything below is live only until the field can answer, and is released
+   *  at that point. \sa TInsertionOptions::bootstrap_with_points
+   *  @{ */
+
+  bool     bootstrapping_      = true;
+  bool     bootstrapWarned_    = false;
+  uint32_t bootstrapScans_     = 0;
+  double   fieldReadyFraction_ = 0;
+
+  /// Points of the scans seen so far, in the map frame. Held in an optional so
+  /// that ending the warm-up actually releases the storage.
+  std::optional<mrpt::maps::CSimplePointsMap> bootstrapPoints_;
+
+  /// A decimated copy of the scan being inserted, in the map frame. Querying
+  /// the field at these is what measures whether it is ready.
+  std::vector<mrpt::math::TPoint3Df> bootstrapProbe_;
+
+  /// k-NN plane fit over `bootstrapPoints_`: the warm-up stand-in for a field
+  /// query, returning the same point-to-plane pairing.
+  NearestPlaneResult bootstrapSearch(
+      const mrpt::math::TPoint3Df& query, float max_search_distance) const;
+
+  /// Called once per inserted observation: measures the field's readiness and
+  /// ends the warm-up when it is ready, or when it has gone on too long.
+  void updateBootstrapState();
+
+  /// Drops the warm-up point cloud and starts answering from the field.
+  void endBootstrap();
+
+  /** @} */
 
  protected:
   // See docs in base CMetricMap class:
