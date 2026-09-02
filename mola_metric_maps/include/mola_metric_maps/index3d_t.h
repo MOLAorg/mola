@@ -110,6 +110,10 @@ struct index3d_hash
     h *= 0x94d049bb133111ebULL;
     h ^= h >> 31;
 
+    // Narrowing to a 32-bit `std::size_t` is harmless: the finalizer above
+    // spreads every input bit across the whole word, so the low half is as
+    // good a hash as the full one, and 2^32 distinct values is far beyond
+    // anything a voxel map holds.
     return static_cast<std::size_t>(h);
   }
 
