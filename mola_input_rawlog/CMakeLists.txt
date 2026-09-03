@@ -16,7 +16,7 @@ project(mola_input_rawlog LANGUAGES CXX)
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola_common REQUIRED)
 # find dependencies:
-find_package(mrpt-obs REQUIRED)
+find_package(mrpt_obs REQUIRED)
 
 find_mola_package(mola_kernel)
 
@@ -30,8 +30,8 @@ mola_add_library(
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
   PRIVATE_LINK_LIBRARIES
     mola::mola_kernel
-    mrpt::obs
+    mrpt::mrpt_obs
   CMAKE_DEPENDENCIES
     mola_kernel
-    mrpt-obs
+    mrpt_obs
 )

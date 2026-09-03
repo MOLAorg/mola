@@ -17,10 +17,10 @@ project(mola_input_bin_dataset LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # find dependencies:
-find_package(mrpt-maps REQUIRED)    # For CGenericPointsMap
-find_package(mrpt-obs REQUIRED)     # For CObservationPointCloud
-find_package(mrpt-system REQUIRED)  # For file system utilities
-find_package(mrpt-core REQUIRED)    # For mrpt::Clock
+find_package(mrpt_maps REQUIRED)    # For CGenericPointsMap
+find_package(mrpt_obs REQUIRED)     # For CObservationPointCloud
+find_package(mrpt_system REQUIRED)  # For file system utilities
+find_package(mrpt_core REQUIRED)    # For mrpt::Clock
 
 find_mola_package(mola_kernel)
 find_mola_package(mola_yaml) # For parameter parsing
@@ -37,10 +37,10 @@ mola_add_library(
     mola::mola_kernel
     mola::mola_yaml
   PRIVATE_LINK_LIBRARIES
-    mrpt::maps
-    mrpt::obs
-    mrpt::system
-    mrpt::core
+    mrpt::mrpt_maps
+    mrpt::mrpt_obs
+    mrpt::mrpt_system
+    mrpt::mrpt_core
   CMAKE_DEPENDENCIES
     mola_kernel
     mola_yaml

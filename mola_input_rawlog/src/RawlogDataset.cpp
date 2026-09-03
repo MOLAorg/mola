@@ -52,13 +52,13 @@ std::optional<mrpt::Clock::time_point> RawlogDataset::findEntryTimestamp(bool fr
 
     switch (rawlog_entire_.getType(idx))
     {
-      case mrpt::obs::CRawlog::etObservation:
+      case mrpt::obs::CRawlog::TEntryType::etObservation:
         if (auto o = rawlog_entire_.getAsObservation(idx); o)
         {
           return o->timestamp;
         }
         break;
-      case mrpt::obs::CRawlog::etSensoryFrame:
+      case mrpt::obs::CRawlog::TEntryType::etSensoryFrame:
         if (auto sf = rawlog_entire_.getAsObservations(idx); sf && !sf->empty())
         {
           return (*sf->begin())->timestamp;
@@ -102,7 +102,8 @@ void RawlogDataset::initialize_rds(const Yaml& c)
   {
     MRPT_LOG_INFO_STREAM("Reading the whole rawlog dataset: " << rawlog_filename_);
 
-    rawlog_entire_.loadFromRawLogFile(rawlog_filename_);
+    const bool loadOk = rawlog_entire_.loadFromRawLogFile(rawlog_filename_);
+    ASSERTMSG_(loadOk, "Error loading rawlog file.");
 
     MRPT_LOG_INFO_STREAM("Read ok, with " << rawlog_entire_.size() << " entries.");
 
@@ -337,7 +338,8 @@ mrpt::obs::CSensoryFrame::Ptr RawlogDataset::datasetGetObservations(size_t times
     last_used_tim_index_ = timestep;
   }
 
-  const auto obj = rawlog_entire_.getAsGeneric(timestep);
+  auto objConst = rawlog_entire_.getAsGeneric(timestep);
+  auto obj      = std::const_pointer_cast<mrpt::serialization::CSerializable>(objConst);
 
   auto sfRet = mrpt::obs::CSensoryFrame::Create();
 

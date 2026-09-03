@@ -17,7 +17,7 @@
   <depend>mola_common</depend>
   <depend>mola_kernel</depend>
 
-  <depend>mrpt_libmaps</depend>
+  <depend>mrpt_maps</depend>
 
   <doc_depend>doxygen</doc_depend>
 
