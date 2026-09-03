@@ -16,7 +16,8 @@
 
   <depend>mola_common</depend>
 
-  <depend>mrpt_libbase</depend>
+  <depend>mrpt_containers</depend>
+  <depend>mrpt_system</depend>
 
   <doc_depend>doxygen</doc_depend>
 
