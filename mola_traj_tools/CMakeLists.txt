@@ -17,7 +17,7 @@ project(mola_traj_tools LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # find dependencies:
-find_package(mrpt-poses)
+find_package(mrpt_poses REQUIRED)
 
 # ----------------------
 # define app targets:
@@ -26,35 +26,35 @@ mola_add_executable(
   TARGET  traj_ypr2tum
   SOURCES src/traj_ypr2tum.cpp
   LINK_LIBRARIES
-    mrpt::poses
+    mrpt::mrpt_poses
 )
 
 mola_add_executable(
   TARGET  traj_tum2ypr
   SOURCES src/traj_tum2ypr.cpp
   LINK_LIBRARIES
-    mrpt::poses
+    mrpt::mrpt_poses
 )
 
 mola_add_executable(
   TARGET  traj_tf_left
   SOURCES src/traj_tf_left.cpp
   LINK_LIBRARIES
-    mrpt::poses
+    mrpt::mrpt_poses
 )
 
 mola_add_executable(
   TARGET  traj_tf_right
   SOURCES src/traj_tf_right.cpp
   LINK_LIBRARIES
-    mrpt::poses
+    mrpt::mrpt_poses
 )
 
 mola_add_executable(
   TARGET  traj_rebase
   SOURCES src/traj_rebase.cpp
   LINK_LIBRARIES
-    mrpt::poses
+    mrpt::mrpt_poses
 )
 
 # Install "executables" too:
