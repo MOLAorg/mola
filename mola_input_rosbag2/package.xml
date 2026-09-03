@@ -16,7 +16,7 @@
   <depend>cv_bridge</depend>
   <depend>gps_msgs</depend>  <!-- optional -->
   <depend>mola_kernel</depend>
-  <depend>mrpt_libobs</depend>
+  <depend>mrpt_obs</depend>
   <depend>mrpt_libros_bridge</depend>
   <depend>rosbag2_cpp</depend>
   <depend>sensor_msgs</depend>

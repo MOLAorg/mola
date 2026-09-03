@@ -356,26 +356,26 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
 
   for (auto& sensorNode : sensorsYaml.asSequence())
   {
-    const auto& sensor = sensorNode.asMap();
-    const auto  topic  = sensor.at("topic").as<std::string>();
+    const mrpt::containers::yaml sensor(sensorNode);
+    const auto                   topic = sensor["topic"].as<std::string>();
 
     std::string sensorLabel = topic;
-    if (sensor.count("sensorLabel") != 0)
+    if (sensor.has("sensorLabel"))
     {
-      sensorLabel = sensor.at("sensorLabel").as<std::string>();
+      sensorLabel = sensor["sensorLabel"].as<std::string>();
     }
 
     // Map to MOLA class: auto or manual:
     std::string sensorType;
 
-    if (sensor.count("type") != 0)
+    if (sensor.has("type"))
     {
-      sensorType = sensor.at("type").as<std::string>();
+      sensorType = sensor["type"].as<std::string>();
     }
     else
     {
       bool topic_is_optional = false;
-      if (sensor.count("is_optional") != 0 && sensor.at("is_optional").as<bool>())
+      if (sensor.has("is_optional") && sensor["is_optional"].as<bool>())
       {
         topic_is_optional = true;
       }
@@ -411,11 +411,11 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
 
     // Optional: fixed sensorPose (then ignores/don't need "tf" data):
     std::optional<mrpt::poses::CPose3D> fixedSensorPose;
-    if (sensor.count("fixed_sensor_pose") != 0 && (sensor.count("use_fixed_sensor_pose") == 0 ||
-                                                   sensor.at("use_fixed_sensor_pose").as<bool>()))
+    if (sensor.has("fixed_sensor_pose") &&
+        (!sensor.has("use_fixed_sensor_pose") || sensor["use_fixed_sensor_pose"].as<bool>()))
     {
       fixedSensorPose = mrpt::poses::CPose3D::FromString(
-          "["s + sensor.at("fixed_sensor_pose").as<std::string>() + "]"s);
+          "["s + sensor["fixed_sensor_pose"].as<std::string>() + "]"s);
     }
 
     // Optional: override this observation's timestamp with the bag's own
@@ -424,14 +424,14 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     // clock instead of wall-clock epoch time (seen in the wild for some IMU
     // drivers), which otherwise trips the "mis-timestamped sensors" time
     // reference reset (huge jump between this sensor and others).
-    const bool useBagRecvTimeAsTimestamp = sensor.count("use_bag_recv_time_as_timestamp") != 0 &&
-                                           sensor.at("use_bag_recv_time_as_timestamp").as<bool>();
+    const bool useBagRecvTimeAsTimestamp = sensor.has("use_bag_recv_time_as_timestamp") &&
+                                           sensor["use_bag_recv_time_as_timestamp"].as<bool>();
 
 #if 0  // TODO ?
 			else if (sensorType == "CObservation3DRangeScan")
 			{
-				bool rangeIsDepth = sensor.count("rangeIsDepth")
-										? sensor.at("rangeIsDepth").as<bool>()
+				bool rangeIsDepth = sensor.has("rangeIsDepth")
+										? sensor["rangeIsDepth"].as<bool>()
 										: true;
 				auto callback = [=](const sensor_msgs::Image::Ptr& image,
 									const sensor_msgs::CameraInfo::Ptr& info) {
@@ -1479,9 +1479,13 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
 
   auto cv_ptr = cv_bridge::toCvCopy(image, "bgr8");
 
-  // cv_ptr (and the cv::Mat it owns) is local to this call, so a shallow
-  // copy (ref-counted, no pixel buffer duplication) is safe here:
-  imgObs->image = mrpt::img::CImage(cv_ptr->image, mrpt::img::SHALLOW_COPY);
+  // MRPT 3.x's CImage no longer wraps cv::Mat directly (removed to drop the
+  // OpenCV dependency), so copy the decoded pixels via the raw-buffer loader
+  // instead; swapRedBlue=true converts cv_bridge's BGR order to MRPT's RGB.
+  ASSERT_(cv_ptr->image.isContinuous());
+  imgObs->image.loadFromMemoryBuffer(
+      cv_ptr->image.cols, cv_ptr->image.rows, mrpt::img::CH_RGB, cv_ptr->image.data,
+      /*swapRedBlue=*/true);
 
   if (fixedSensorPose)
   {
