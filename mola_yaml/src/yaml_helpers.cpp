@@ -624,6 +624,10 @@ void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opt
 {
   if (n.isScalar())
   {
+    // A null scalar (e.g. an empty YAML value, or an explicit `~`/`null`)
+    // has no string representation to search for "$include{" in.
+    if (n.isNullNode()) return;
+
     const std::string text = n.as<std::string>();
 
     const auto tokenStart = text.find("$include{");
