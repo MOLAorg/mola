@@ -21,7 +21,7 @@
 #include <mrpt/core/get_env.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/stock_observations.h>
-#include <mrpt/opengl/Scene.h>
+#include <mrpt/viz/Scene.h>
 
 #include <iostream>
 
@@ -47,7 +47,7 @@ void test_voxelmap_insert_2d_scan()
 
   if (mrpt::get_env<bool>("TEST_GENERATE_3D_SCENES"))
   {
-    mrpt::opengl::Scene scene;
+    mrpt::viz::Scene scene;
     map.renderOptions.point_size = 5.0f;
     scene.insert(map.getVisualization());
     scene.saveToFile("sparsevoxelmap_scan2d.3Dscene");

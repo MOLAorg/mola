@@ -207,7 +207,7 @@ class TSDF : public mrpt::maps::CMetricMap,
 
   std::string asString() const override;
 
-  void getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const override;
+  void getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const override;
 
   bool isEmpty() const override;
 

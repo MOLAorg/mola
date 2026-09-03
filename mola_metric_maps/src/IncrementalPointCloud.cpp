@@ -25,10 +25,10 @@
 #include <mrpt/core/get_env.h>
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/obs/CObservation.h>
-#include <mrpt/opengl/CSetOfObjects.h>
 #include <mrpt/poses/CPose2D.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
+#include <mrpt/viz/CSetOfObjects.h>
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -1146,7 +1146,7 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
 // Visualization / export
 // =====================================
 
-void IncrementalPointCloud::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
+void IncrementalPointCloud::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 {
   MRPT_START
   if (!genericMapParams.enableSaveAs3DObject) return;

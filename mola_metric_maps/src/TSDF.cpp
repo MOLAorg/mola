@@ -34,9 +34,10 @@
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
-#include <mrpt/opengl/CPointCloud.h>
 #include <mrpt/serialization/CArchive.h>
 #include <mrpt/system/os.h>
+#include <mrpt/viz/CPointCloud.h>
+#include <mrpt/viz/CSetOfObjects.h>
 
 #include <algorithm>
 #include <cmath>
@@ -948,9 +949,9 @@ const mrpt::maps::CSimplePointsMap* TSDF::getAsSimplePointsMap() const
   return cachedPoints_.get();
 }
 
-void TSDF::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
+void TSDF::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 {
-  auto pts = mrpt::opengl::CPointCloud::Create();
+  auto pts = mrpt::viz::CPointCloud::Create();
   pts->setPointSize(renderOptions.point_size);
   pts->setColor(renderOptions.points_color);
 

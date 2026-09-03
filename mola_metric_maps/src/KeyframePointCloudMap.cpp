@@ -32,16 +32,16 @@
 #include <mrpt/math/matrix_serialization.h>  // CArchive << CMatrixFloat33 (cov baking)
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/customizable_obs_viz.h>
-#include <mrpt/opengl/CEllipsoid3D.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/Scene.h>
-#include <mrpt/opengl/stock_objects.h>
 #include <mrpt/poses/Lie/SO.h>
 #include <mrpt/serialization/CArchive.h>  // serialization
 #include <mrpt/serialization/optional_serialization.h>
 #include <mrpt/serialization/stl_serialization.h>
 #include <mrpt/system/string_utils.h>  // unitsFormat()
 #include <mrpt/version.h>  // For MRPT_VERSION
+#include <mrpt/viz/CEllipsoid3D.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/Scene.h>
+#include <mrpt/viz/stock_objects.h>
 
 #include <Eigen/Eigenvalues>  // SelfAdjointEigenSolver (optional cov diagnostic)
 #include <algorithm>  // std::lower_bound
@@ -186,12 +186,12 @@ const thread_local auto ENV_DEBUG_ACTIVE_KFS =
 // #define DO_VIZ_DEBUG 1
 
 #if DO_VIZ_DEBUG
-#include <mrpt/opengl/CAxis.h>
-#include <mrpt/opengl/CEllipsoid3D.h>
-#include <mrpt/opengl/CGridPlaneXY.h>
-#include <mrpt/opengl/CPointCloud.h>
-#include <mrpt/opengl/CSetOfLines.h>
-#include <mrpt/opengl/Scene.h>
+#include <mrpt/viz/CAxis.h>
+#include <mrpt/viz/CEllipsoid3D.h>
+#include <mrpt/viz/CGridPlaneXY.h>
+#include <mrpt/viz/CPointCloud.h>
+#include <mrpt/viz/CSetOfLines.h>
+#include <mrpt/viz/Scene.h>
 
 #include <fstream>
 #endif
@@ -1593,7 +1593,7 @@ mrpt::img::TColor distinctKfColor(size_t i)
 }
 }  // namespace
 
-void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
+void KeyframePointCloudMap::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 {
   MRPT_START
   if (!genericMapParams.enableSaveAs3DObject)
@@ -1649,7 +1649,7 @@ void KeyframePointCloudMap::getVisualizationInto(mrpt::opengl::CSetOfObjects& ou
     {
       const float axesLength =
           (ENV_KEYFRAMES_SHOW_ACTIVE_FRAMES && isActiveKF ? 3.0f : 1.0f) * nominalAxesLength;
-      auto glAxes = mrpt::opengl::stock_objects::CornerXYZSimple(axesLength);
+      auto glAxes = mrpt::viz::stock_objects::CornerXYZSimple(axesLength);
       glAxes->setPose(kf.pose());
       outObj.insert(glAxes);
     }
@@ -1714,7 +1714,7 @@ void KeyframePointCloudMap::saveMetricMapRepresentationToFile(
 {
   using namespace std::string_literals;
 
-  mrpt::opengl::Scene scene;
+  mrpt::viz::Scene scene;
   scene.insert(getVisualization());
   scene.saveToFile(filNamePrefix + ".3Dscene"s);
 }
@@ -3040,13 +3040,13 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
 #if DO_VIZ_DEBUG
         if (i % 100 == 0)
         {
-          mrpt::opengl::Scene scene;
+          mrpt::viz::Scene scene;
 
-          scene.insert(mrpt::opengl::CAxis::Create());
-          scene.insert(mrpt::opengl::CGridPlaneXY::Create(-100, 100, -100, 100, 0, 5));
+          scene.insert(mrpt::viz::CAxis::Create());
+          scene.insert(mrpt::viz::CGridPlaneXY::Create(-100, 100, -100, 100, 0, 5));
 
           {
-            auto glPts = mrpt::opengl::CPointCloud::Create();
+            auto glPts = mrpt::viz::CPointCloud::Create();
 
             glPts->loadFromPointsMap(this->pointcloud().get());
             glPts->setPointSize(2.5f);
@@ -3055,7 +3055,7 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
           }
 
           {
-            auto glPts = mrpt::opengl::CPointCloud::Create();
+            auto glPts = mrpt::viz::CPointCloud::Create();
 
             for (size_t j = 0; j < k_indices.size(); j++)
             {
@@ -3067,7 +3067,7 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
           }
 
           {
-            auto glPts = mrpt::opengl::CPointCloud::Create();
+            auto glPts = mrpt::viz::CPointCloud::Create();
 
             glPts->insertPoint(xs[i], ys[i], zs[i]);
 
@@ -3077,7 +3077,7 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
           }
 
           {
-            auto glElli = mrpt::opengl::CEllipsoid3D::Create();
+            auto glElli = mrpt::viz::CEllipsoid3D::Create();
             glElli->setLocation(xs[i], ys[i], zs[i]);
             glElli->enableDrawSolid3D(false);
             glElli->setCovMatrix(cached_cov_local_[i] * 0.05);
@@ -3086,7 +3086,7 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
           }
 
           {
-            auto glEigs = mrpt::opengl::CSetOfLines::Create();
+            auto glEigs = mrpt::viz::CSetOfLines::Create();
             glEigs->setColor_u8(0x00, 0x00, 0x00, 0xff);
 
             const auto c = mrpt::math::TPoint3Df(xs[i], ys[i], zs[i]).cast<double>();
@@ -3151,7 +3151,7 @@ void KeyframePointCloudMap::KeyFrame::updateCovariancesGlobal() const
   }
 }
 
-std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFrame::getViz(
+std::shared_ptr<mrpt::viz::CPointCloudColoured> KeyframePointCloudMap::KeyFrame::getViz(
     const TRenderOptions& ro, const std::optional<mrpt::img::TColor>& overrideColor) const
 {
   // The cache only holds the normal (non-overridden) visualization.
@@ -3161,7 +3161,7 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
   }
 
   const uint8_t alpha_u8 = mrpt::f2u8(ro.color.A);
-  auto          obj      = mrpt::opengl::CPointCloudColoured::Create();
+  auto          obj      = mrpt::viz::CPointCloudColoured::Create();
 
   obj->loadFromPointsMap(pointcloud().get());
 
@@ -3196,7 +3196,7 @@ std::shared_ptr<mrpt::opengl::CPointCloudColoured> KeyframePointCloudMap::KeyFra
   return cached_viz_;
 }
 
-std::shared_ptr<mrpt::opengl::CSetOfObjects>
+std::shared_ptr<mrpt::viz::CSetOfObjects>
     KeyframePointCloudMap::KeyFrame::getCovarianceEllipsoidViz(const TRenderOptions& ro) const
 {
   buildCache();
@@ -3219,7 +3219,7 @@ std::shared_ptr<mrpt::opengl::CSetOfObjects>
     cov_decimation = 1;
   }
 
-  auto obj = mrpt::opengl::CSetOfObjects::Create();
+  auto obj = mrpt::viz::CSetOfObjects::Create();
 
   ASSERT_(pointcloud_global_);
   ASSERT_EQUAL_(cached_cov_global_.size(), pointcloud_global_->size());
@@ -3236,7 +3236,7 @@ std::shared_ptr<mrpt::opengl::CSetOfObjects>
 
     const auto& cov = cached_cov_global_[i];
 
-    auto elli = mrpt::opengl::CEllipsoid3D::Create();
+    auto elli = mrpt::viz::CEllipsoid3D::Create();
     elli->setLocation(xs[i], ys[i], zs[i]);
     elli->enableDrawSolid3D(false);
     elli->setCovMatrix(cov * 0.05);

@@ -23,10 +23,10 @@
 #include <mrpt/io/CMemoryStream.h>
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/obs/CObservationPointCloud.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/CSetOfObjects.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfObjects.h>
 
 #include <algorithm>
 #include <cmath>
@@ -793,8 +793,9 @@ void test_kf_pose_plumbing()
     const auto next = m.nextFreeKeyFrameID_public();
     ASSERT_EQUAL_(next, static_cast<KFID>(i));
     m.insertObservation(*obs, seedPoses[i]);
-    ASSERT_(m.lastInsertedKeyFrameID().has_value());
-    ASSERT_EQUAL_(*m.lastInsertedKeyFrameID(), static_cast<KFID>(i));
+    const auto lastId = m.lastInsertedKeyFrameID();
+    ASSERT_(lastId.has_value());
+    ASSERT_EQUAL_(*lastId, static_cast<KFID>(i));
   }
 
   // keyframePoses returns a snapshot keyed by id.
@@ -837,8 +838,9 @@ void test_kf_pose_plumbing()
   const auto poseNear = CPose3D::FromXYZYawPitchRoll(5.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg);
   m.insertObservation(*obs, poseNear);
 
-  ASSERT_(m.lastInsertedKeyFrameID().has_value());
-  ASSERT_EQUAL_(*m.lastInsertedKeyFrameID(), KFID{3});
+  const auto lastIdAfterEviction = m.lastInsertedKeyFrameID();
+  ASSERT_(lastIdAfterEviction.has_value());
+  ASSERT_EQUAL_(*lastIdAfterEviction, KFID{3});
 
   // drainEvictedKeyFrameIDs returns the ids of KFs dropped during the
   // last insertion(s), then clears its internal list.
@@ -1192,7 +1194,7 @@ void test_viz_color_by_kf()
   size_t             cloudObjs = 0;
   for (const auto& child : *glObj)
   {
-    auto pc = std::dynamic_pointer_cast<mrpt::opengl::CPointCloudColoured>(child);
+    auto pc = std::dynamic_pointer_cast<mrpt::viz::CPointCloudColoured>(child);
     if (!pc || pc->size() == 0)
     {
       continue;

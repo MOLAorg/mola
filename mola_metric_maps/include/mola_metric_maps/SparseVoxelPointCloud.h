@@ -379,7 +379,7 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
   /** Returns a short description of the map. */
   std::string asString() const override;
 
-  void getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const override;
+  void getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const override;
 
   /** Returns true if the map is empty */
   bool isEmpty() const override;
