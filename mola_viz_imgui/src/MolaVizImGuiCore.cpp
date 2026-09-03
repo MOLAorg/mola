@@ -26,11 +26,11 @@
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/lock_helper.h>
-#include <mrpt/opengl/COpenGLScene.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/CSetOfObjects.h>
 #include <mrpt/system/datetime.h>
 #include <mrpt/system/filesystem.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/Scene.h>
 
 #include <algorithm>
 #include <cctype>
@@ -146,7 +146,7 @@ void MolaVizImGuiCore::init_for_embed(const window_name_t& name)
   }
   auto& wd            = windows_[name];
   wd.glfw_window      = nullptr;
-  wd.background_scene = mrpt::opengl::COpenGLScene::Create();
+  wd.background_scene = mrpt::viz::Scene::Create();
   // No background_scene_view — the embed host renders via its own CImGuiSceneView.
   embed_active_ = true;
 
@@ -195,13 +195,12 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGuiCore::init_window(
 {
   auto& wd                 = windows_[name];
   wd.glfw_window           = win;
-  wd.background_scene      = mrpt::opengl::COpenGLScene::Create();
+  wd.background_scene      = mrpt::viz::Scene::Create();
   wd.background_scene_view = std::make_unique<mrpt::imgui::CImGuiSceneView>();
   return wd;
 }
 
-std::shared_ptr<mrpt::opengl::COpenGLScene> MolaVizImGuiCore::get_background_scene(
-    const window_name_t& name)
+std::shared_ptr<mrpt::viz::Scene> MolaVizImGuiCore::get_background_scene(const window_name_t& name)
 {
   auto it = windows_.find(name);
   if (it == windows_.end()) return {};
@@ -530,11 +529,11 @@ void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
 
   if (wd.cam_dirty)
   {
-    auto& cam = wd.background_scene_view->camera();
+    auto& cam = wd.background_scene_view->cameraController;
     cam.setAzimuthDegrees(wd.cam_azimuth_deg);
     cam.setElevationDegrees(wd.cam_elevation_deg);
     cam.setZoomDistance(wd.cam_zoom);
-    cam.setPointingAt(wd.cam_look_at[0], wd.cam_look_at[1], wd.cam_look_at[2]);
+    cam.setCameraPointing(wd.cam_look_at[0], wd.cam_look_at[1], wd.cam_look_at[2]);
     cam.setProjectiveModel(!wd.cam_orthographic);
     wd.cam_dirty = false;
   }
@@ -556,13 +555,13 @@ void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
     }
     wd.background_scene_view->render();
 
-    const auto& cam      = wd.background_scene_view->camera();
+    const auto& cam      = wd.background_scene_view->cameraController;
     wd.cam_azimuth_deg   = cam.getAzimuthDegrees();
     wd.cam_elevation_deg = cam.getElevationDegrees();
     wd.cam_zoom          = cam.getZoomDistance();
-    wd.cam_look_at[0]    = cam.getPointingAtX();
-    wd.cam_look_at[1]    = cam.getPointingAtY();
-    wd.cam_look_at[2]    = cam.getPointingAtZ();
+    wd.cam_look_at[0]    = cam.getCameraPointingX();
+    wd.cam_look_at[1]    = cam.getCameraPointingY();
+    wd.cam_look_at[2]    = cam.getCameraPointingZ();
   }
   ImGui::End();
 }
@@ -1121,16 +1120,15 @@ namespace
 {
 /** Get-or-create a movable reference-frame node (a named CSetOfObjects at the
  *  viewport root). Caller must already hold the scene mutex. */
-mrpt::opengl::CSetOfObjects::Ptr getOrCreateFrameNode(
-    mrpt::opengl::COpenGLScene& scene, const std::string& frameName,
-    const std::string& viewportName)
+mrpt::viz::CSetOfObjects::Ptr getOrCreateFrameNode(
+    mrpt::viz::Scene& scene, const std::string& frameName, const std::string& viewportName)
 {
-  mrpt::opengl::CSetOfObjects::Ptr frameNode;
+  mrpt::viz::CSetOfObjects::Ptr frameNode;
   if (auto o = scene.getByName(frameName, viewportName); o)
-    frameNode = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+    frameNode = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
   if (!frameNode)
   {
-    frameNode = mrpt::opengl::CSetOfObjects::Create();
+    frameNode = mrpt::viz::CSetOfObjects::Create();
     frameNode->setName(frameName);
     scene.insert(frameNode, viewportName);
   }
@@ -1139,7 +1137,7 @@ mrpt::opengl::CSetOfObjects::Ptr getOrCreateFrameNode(
 }  // namespace
 
 std::future<bool> MolaVizImGuiCore::update_3d_object(
-    const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+    const std::string& objName, const std::shared_ptr<mrpt::viz::CSetOfObjects>& obj,
     const std::string& viewportName, const std::string& parentWindow,
     const std::string& parentFrame)
 {
@@ -1152,7 +1150,7 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
         auto&           scene = it->second.background_scene;
         std::lock_guard lk(it->second.background_scene_mtx);
 
-        mrpt::opengl::CSetOfObjects::Ptr container;
+        mrpt::viz::CSetOfObjects::Ptr container;
         if (parentFrame.empty())
         {
           // Non-recursive search: only direct children of the viewport root,
@@ -1163,7 +1161,7 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
             {
               if (o->getName() == objName)
               {
-                container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+                container = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
                 break;
               }
             }
@@ -1176,7 +1174,7 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
             {
               scene->removeObject(o, viewportName);
             }
-            container = mrpt::opengl::CSetOfObjects::Create();
+            container = mrpt::viz::CSetOfObjects::Create();
             scene->insert(container, viewportName);
           }
         }
@@ -1186,7 +1184,7 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
           auto frameNode = getOrCreateFrameNode(*scene, parentFrame, viewportName);
           if (auto o = frameNode->getByName(objName); o)
           {
-            container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            container = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
           }
           if (!container)
           {
@@ -1196,7 +1194,7 @@ std::future<bool> MolaVizImGuiCore::update_3d_object(
             {
               scene->removeObject(o, viewportName);
             }
-            container = mrpt::opengl::CSetOfObjects::Create();
+            container = mrpt::viz::CSetOfObjects::Create();
             frameNode->insert(container);
           }
         }
@@ -1270,7 +1268,7 @@ std::future<bool> MolaVizImGuiCore::clear_background_scene(
 }
 
 std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
-    const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
+    const std::shared_ptr<mrpt::viz::CPointCloudColoured>& cloud, double decay_time_seconds,
     const std::string& viewportName, const std::string& parentWindow,
     const std::string& parentFrame)
 {
@@ -1287,14 +1285,14 @@ std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
         constexpr const char* DECAY_NAME = "__viz_decaying_clouds";
         std::lock_guard       lk(wd.background_scene_mtx);
 
-        mrpt::opengl::CSetOfObjects::Ptr container;
+        mrpt::viz::CSetOfObjects::Ptr container;
         if (parentFrame.empty())
         {
           if (auto o = wd.background_scene->getByName(DECAY_NAME, viewportName); o)
-            container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            container = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
           if (!container)
           {
-            container = mrpt::opengl::CSetOfObjects::Create();
+            container = mrpt::viz::CSetOfObjects::Create();
             wd.background_scene->insert(container, viewportName);
             container->setName(DECAY_NAME);
           }
@@ -1303,10 +1301,10 @@ std::future<bool> MolaVizImGuiCore::insert_point_cloud_with_decay(
         {
           auto frameNode = getOrCreateFrameNode(*wd.background_scene, parentFrame, viewportName);
           if (auto o = frameNode->getByName(DECAY_NAME); o)
-            container = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            container = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
           if (!container)
           {
-            container = mrpt::opengl::CSetOfObjects::Create();
+            container = mrpt::viz::CSetOfObjects::Create();
             container->setName(DECAY_NAME);
             frameNode->insert(container);
           }
@@ -1355,7 +1353,7 @@ std::future<bool> MolaVizImGuiCore::clear_all_point_clouds_with_decay(
         constexpr const char* DECAY_NAME = "__viz_decaying_clouds";
         std::lock_guard       lk(wd.background_scene_mtx);
         if (auto o = wd.background_scene->getByName(DECAY_NAME, viewportName); o)
-          if (auto c = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o); c) c->clear();
+          if (auto c = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o); c) c->clear();
         wd.decaying_clouds.clear();
         return true;
       });
@@ -1445,7 +1443,7 @@ std::future<bool> MolaVizImGuiCore::update_viewport_camera_orthographic(
 }
 
 std::future<bool> MolaVizImGuiCore::execute_custom_code_on_background_scene(
-    const std::function<void(mrpt::opengl::Scene&)>& userCode, const std::string& parentWindow)
+    const std::function<void(mrpt::viz::Scene&)>& userCode, const std::string& parentWindow)
 {
   auto task = std::make_shared<std::packaged_task<bool()>>(
       [this, userCode, parentWindow]()

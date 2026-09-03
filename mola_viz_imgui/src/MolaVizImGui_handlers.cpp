@@ -32,9 +32,9 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
-#include <mrpt/opengl/COpenGLScene.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/stock_objects.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/Scene.h>
+#include <mrpt/viz/stock_objects.h>
 
 #include <cstdio>
 #include <set>
@@ -121,8 +121,7 @@ void show_common_sensor_info(const mrpt::obs::CObservation& obs, const std::stri
   ImGui::Text("%s", msg.c_str());
   // too verbose? ImGui::Text("Class: %s", , obs.GetRuntimeClass()->className);
 
-  mrpt::poses::CPose3D sensorPose;
-  obs.getSensorPose(sensorPose);
+  const auto sensorPose = obs.getSensorPose();
   ImGui::Text("Sensor pose: %s", sensorPose.asString().c_str());
 }
 
@@ -193,7 +192,7 @@ void handler_images(
 
   if (!st.initialized)
   {
-    auto scene = mrpt::opengl::COpenGLScene::Create();
+    auto scene = mrpt::viz::Scene::Create();
     st.sceneView.setScene(scene);
     st.initialized = true;
   }
@@ -208,7 +207,7 @@ void handler_images(
 
     const auto imgW = static_cast<int>(imgToShow.getWidth());
     const auto imgH = static_cast<int>(imgToShow.getHeight());
-    ImGui::Text("Size: %dx%dx%d", imgW, imgH, imgToShow.channelCount());
+    ImGui::Text("Size: %dx%dx%d", imgW, imgH, static_cast<int>(imgToShow.channels()));
 
     // Drain stale GL errors before MRPT rendering:
     drain_gl_errors();
@@ -224,11 +223,11 @@ void handler_images(
 
 struct PointCloudViewState
 {
-  mrpt::imgui::CImGuiSceneView           sceneView;
-  mrpt::opengl::CPointCloudColoured::Ptr glPc;
-  mrpt::opengl::CSetOfObjects::Ptr       glCornerRef;
-  mrpt::opengl::CSetOfObjects::Ptr       glCornerSensor;
-  bool                                   initialized = false;
+  mrpt::imgui::CImGuiSceneView        sceneView;
+  mrpt::viz::CPointCloudColoured::Ptr glPc;
+  mrpt::viz::CSetOfObjects::Ptr       glCornerRef;
+  mrpt::viz::CSetOfObjects::Ptr       glCornerSensor;
+  bool                                initialized = false;
 };
 
 void handler_point_cloud(
@@ -282,19 +281,19 @@ void handler_point_cloud(
 
   if (!st.initialized)
   {
-    auto scene        = mrpt::opengl::COpenGLScene::Create();
-    st.glPc           = mrpt::opengl::CPointCloudColoured::Create();
-    st.glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
-    st.glCornerSensor = mrpt::opengl::stock_objects::CornerXYZ(0.5f);
+    auto scene        = mrpt::viz::Scene::Create();
+    st.glPc           = mrpt::viz::CPointCloudColoured::Create();
+    st.glCornerRef    = mrpt::viz::stock_objects::CornerXYZ(1.0f);
+    st.glCornerSensor = mrpt::viz::stock_objects::CornerXYZ(0.5f);
     st.glPc->setPointSize(3.0f);
     scene->insert(st.glPc);
     scene->insert(st.glCornerRef);
     scene->insert(st.glCornerSensor);
     st.sceneView.setScene(scene);
     st.sceneView.setBackgroundColor(0.15f, 0.15f, 0.18f);
-    st.sceneView.camera().setZoomDistance(20.0f);
-    st.sceneView.camera().setAzimuthDegrees(-140.0f);
-    st.sceneView.camera().setElevationDegrees(30.0f);
+    st.sceneView.cameraController.setZoomDistance(20.0f);
+    st.sceneView.cameraController.setAzimuthDegrees(-140.0f);
+    st.sceneView.cameraController.setElevationDegrees(30.0f);
     st.initialized = true;
   }
 
@@ -311,11 +310,7 @@ void handler_point_cloud(
   st.glPc->clear();
 
   // Set sensor pose on corner marker:
-  {
-    mrpt::poses::CPose3D p;
-    obs->getSensorPose(p);
-    st.glCornerSensor->setPose(p);
-  }
+  st.glCornerSensor->setPose(obs->getSensorPose());
 
   // Populate point cloud from observation:
   bool populated = false;

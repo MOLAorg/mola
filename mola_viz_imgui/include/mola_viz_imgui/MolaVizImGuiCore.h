@@ -21,8 +21,8 @@
 #include <imgui.h>
 #include <mola_kernel/interfaces/VizInterface.h>
 #include <mrpt/imgui/CImGuiSceneView.h>
-#include <mrpt/opengl/COpenGLScene.h>
 #include <mrpt/system/COutputLogger.h>
+#include <mrpt/viz/Scene.h>
 
 #include <atomic>
 #include <cstdint>
@@ -191,7 +191,7 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    *  scene contents on the GUI thread must hold `get_background_scene_mutex()`
    *  for the duration of access — VizInterface writers also lock it.
    */
-  std::shared_ptr<mrpt::opengl::COpenGLScene> get_background_scene(
+  std::shared_ptr<mrpt::viz::Scene> get_background_scene(
       const window_name_t& name = DEFAULT_WINDOW_NAME);
 
   /** Returns the mutex guarding `get_background_scene()`.
@@ -253,7 +253,7 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    * @{ */
 
   std::future<bool> update_3d_object(
-      const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+      const std::string& objName, const std::shared_ptr<mrpt::viz::CSetOfObjects>& obj,
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME,
       const std::string& parentFrame  = "") override;
@@ -264,7 +264,7 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> insert_point_cloud_with_decay(
-      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
+      const std::shared_ptr<mrpt::viz::CPointCloudColoured>& cloud, double decay_time_seconds,
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME,
       const std::string& parentFrame  = "") override;
@@ -288,8 +288,8 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> execute_custom_code_on_background_scene(
-      const std::function<void(mrpt::opengl::Scene&)>& userCode,
-      const std::string&                               parentWindow = DEFAULT_WINDOW_NAME) override;
+      const std::function<void(mrpt::viz::Scene&)>& userCode,
+      const std::string&                            parentWindow = DEFAULT_WINDOW_NAME) override;
 
   /** @} */
   // =========================================================================
@@ -426,15 +426,14 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   {
     DecayingCloud() = default;
     DecayingCloud(
-        std::string vp, const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud_,
-        float alpha_)
+        std::string vp, const std::shared_ptr<mrpt::viz::CPointCloudColoured>& cloud_, float alpha_)
         : viewport_name(std::move(vp)), cloud(cloud_), initial_alpha(alpha_)
     {
     }
-    std::string                                        viewport_name;
-    std::shared_ptr<mrpt::opengl::CPointCloudColoured> cloud;
-    mrpt::opengl::CSetOfObjects::Ptr container;  // owning container at insert time
-    float                            initial_alpha = 1.0f;
+    std::string                                     viewport_name;
+    std::shared_ptr<mrpt::viz::CPointCloudColoured> cloud;
+    mrpt::viz::CSetOfObjects::Ptr                   container;  // owning container at insert time
+    float                                           initial_alpha = 1.0f;
   };
 
   /** One live plot window: which channels it overlays and its display options.
@@ -461,8 +460,8 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   {
     GLFWwindow* glfw_window = nullptr;  // nullptr in embed mode
 
-    std::shared_ptr<mrpt::opengl::COpenGLScene> background_scene;
-    std::mutex                                  background_scene_mtx;
+    std::shared_ptr<mrpt::viz::Scene> background_scene;
+    std::mutex                        background_scene_mtx;
 
     /// nullptr in embed mode (host renders via its own CImGuiSceneView).
     std::unique_ptr<mrpt::imgui::CImGuiSceneView> background_scene_view;
