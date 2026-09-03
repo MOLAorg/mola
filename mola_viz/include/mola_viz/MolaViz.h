@@ -118,7 +118,7 @@ class MolaViz : public ExecutableBase, public VizInterface
    * @{ */
 
   std::future<bool> update_3d_object(
-      const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+      const std::string& objName, const std::shared_ptr<mrpt::viz::CSetOfObjects>& obj,
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME,
       const std::string& parentFrame  = "") override;
@@ -129,7 +129,7 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> insert_point_cloud_with_decay(
-      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
+      const std::shared_ptr<mrpt::viz::CPointCloudColoured>& cloud, double decay_time_seconds,
       const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME,
       const std::string& parentFrame  = "") override;
@@ -153,8 +153,8 @@ class MolaViz : public ExecutableBase, public VizInterface
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
   std::future<bool> execute_custom_code_on_background_scene(
-      const std::function<void(mrpt::opengl::Scene&)>& userCode,
-      const std::string&                               parentWindow = DEFAULT_WINDOW_NAME) override;
+      const std::function<void(mrpt::viz::Scene&)>& userCode,
+      const std::string&                            parentWindow = DEFAULT_WINDOW_NAME) override;
 
   /** @} */
 
@@ -228,18 +228,18 @@ class MolaViz : public ExecutableBase, public VizInterface
   {
     DecayingCloud() = default;
     DecayingCloud(
-        std::string                                               opengl_viewport_name_,
-        const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud_, float initial_alpha_)
+        std::string                                            opengl_viewport_name_,
+        const std::shared_ptr<mrpt::viz::CPointCloudColoured>& cloud_, float initial_alpha_)
         : opengl_viewport_name(std::move(opengl_viewport_name_)),
           cloud(cloud_),
           initial_alpha(initial_alpha_)
     {
     }
 
-    std::string                                        opengl_viewport_name;
-    std::shared_ptr<mrpt::opengl::CPointCloudColoured> cloud;
-    mrpt::opengl::CSetOfObjects::Ptr container;  // owning container at insert time
-    float                            initial_alpha = 1.0f;
+    std::string                                     opengl_viewport_name;
+    std::shared_ptr<mrpt::viz::CPointCloudColoured> cloud;
+    mrpt::viz::CSetOfObjects::Ptr                   container;  // owning container at insert time
+    float                                           initial_alpha = 1.0f;
   };
 
   struct PerWindowData
@@ -257,8 +257,8 @@ class MolaViz : public ExecutableBase, public VizInterface
 
   /** Get-or-create a movable reference-frame node (a named CSetOfObjects at
    *  the viewport root). GUI-thread only. \sa update_3d_object_frame() */
-  static std::shared_ptr<mrpt::opengl::CSetOfObjects> get_or_create_frame_node_(
-      mrpt::opengl::Scene& scene, const std::string& frameName, const std::string& viewportName);
+  static std::shared_ptr<mrpt::viz::CSetOfObjects> get_or_create_frame_node_(
+      mrpt::viz::Scene& scene, const std::string& frameName, const std::string& viewportName);
 
   mutable std::shared_mutex subWindowsMtx_;
 
