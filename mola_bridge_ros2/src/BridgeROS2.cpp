@@ -1122,8 +1122,7 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationImage& obs)
   const std::string sSensorFrameId = obs.sensorLabel;
 
   // Send TF:
-  mrpt::poses::CPose3D sensorPose;
-  obs.getSensorPose(sensorPose);
+  const mrpt::poses::CPose3D sensorPose = obs.getSensorPose();
 
   tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(sensorPose);
 
@@ -1165,8 +1164,7 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservation2DRangeScan& obs)
   const std::string sSensorFrameId = obs.sensorLabel;
 
   // Send TF:
-  mrpt::poses::CPose3D sensorPose;
-  obs.getSensorPose(sensorPose);
+  const mrpt::poses::CPose3D sensorPose = obs.getSensorPose();
 
   tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(sensorPose);
 
@@ -1329,8 +1327,7 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationGPS& obs)
   const std::string sSensorFrameId = obs.sensorLabel;
 
   // Send TF:
-  mrpt::poses::CPose3D sensorPose;
-  obs.getSensorPose(sensorPose);
+  const mrpt::poses::CPose3D sensorPose = obs.getSensorPose();
 
   tf2::Transform transform = mrpt::ros2bridge::toROS_tfTransform(sensorPose);
 
@@ -1371,8 +1368,7 @@ void BridgeROS2::internalOn(const mrpt::obs::CObservationIMU& obs)
   const std::string sSensorFrameId = obs.sensorLabel;
 
   // Send TF:
-  mrpt::poses::CPose3D sensorPose;
-  obs.getSensorPose(sensorPose);
+  const mrpt::poses::CPose3D sensorPose = obs.getSensorPose();
 
   if (tf_bc_)
   {
@@ -2163,7 +2159,8 @@ void BridgeROS2::timerPubMapLayer(const std::string& layerName, const MapSourceB
   // Is it a CVoxelMap?
   else if (auto vox = std::dynamic_pointer_cast<const mrpt::maps::CVoxelMap>(mu.map); vox)
   {
-    mrpt::maps::CSimplePointsMap::Ptr pm = vox->getOccupiedVoxels();
+    mrpt::maps::CSimplePointsMap::Ptr pm =
+        std::const_pointer_cast<mrpt::maps::CSimplePointsMap>(vox->getOccupiedVoxels());
     if (pm)
     {
       mrpt::obs::CObservationPointCloud obs;
