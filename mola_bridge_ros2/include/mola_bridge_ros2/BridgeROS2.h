@@ -468,6 +468,12 @@ class BridgeROS2 : public RawDataSourceBase,
   double lastTimeCheckMolaSubs_ = 0;
   void   doLookForNewMolaSubs();
 
+  /// Timestamp of the last module scan triggered on demand (see
+  /// relocalizationModules()). Atomic: unlike lastTimeCheckMolaSubs_, which
+  /// only the spinOnce() thread touches, this one is written from ROS
+  /// callback threads.
+  std::atomic<double> lastOnDemandMolaSubsScan_{0};
+
   /// Returns a copy of the set of MOLA modules implementing mola::Relocalization.
   /// `discoverIfEmpty` runs one module scan when none is known yet, so that a
   /// request arriving before the periodic scan (see period_check_new_mola_subs)

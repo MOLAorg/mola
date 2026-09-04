@@ -1644,10 +1644,19 @@ std::set<std::shared_ptr<mola::Relocalization>> BridgeROS2::relocalizationModule
     }
   }
 
-  // Nothing known yet: the periodic scan (period_check_new_mola_subs) may not
-  // have run since the modules were created. Scan now so that an early request
-  // is served instead of silently dropped.
-  doLookForNewMolaSubs();
+  // Nothing known yet: the periodic scan may not have run since the modules
+  // were created. Scan now so that an early request is served instead of
+  // silently dropped, but no more often than period_check_new_mola_subs:
+  // while no module implements the interface, every incoming message would
+  // otherwise trigger a full scan. The compare-exchange also coalesces
+  // concurrent callers into a single scan.
+  const double tNow  = mrpt::Clock::nowDouble();
+  double       tLast = lastOnDemandMolaSubsScan_.load();
+  if (tNow - tLast > params_.period_check_new_mola_subs &&
+      lastOnDemandMolaSubsScan_.compare_exchange_strong(tLast, tNow))
+  {
+    doLookForNewMolaSubs();
+  }
 
   auto lck = mrpt::lockHelper(molaSubsMtx_);
   return molaSubs_.relocalization;
