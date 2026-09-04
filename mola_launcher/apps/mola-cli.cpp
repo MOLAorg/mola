@@ -57,6 +57,12 @@ void mola_install_signal_handler()
   sigIntHandler.sa_flags = 0;
 
   sigaction(SIGINT, &sigIntHandler, nullptr);
+  // SIGTERM too: it is what process supervisors (systemd, containers, `timeout`,
+  // plain `kill`) send to request a shutdown. Without this, rclcpp's own handler
+  // would be the only one to run: it stops the ROS node from being spun, while
+  // the main MOLA loop keeps running, so the process never exits and lingers
+  // with its ROS 2 endpoints still advertised but no longer served.
+  sigaction(SIGTERM, &sigIntHandler, nullptr);
 }
 
 // Default task for mola-cli: launching a SLAM system
