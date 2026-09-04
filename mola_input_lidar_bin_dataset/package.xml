@@ -16,8 +16,12 @@
 
   <depend>mola_common</depend>
   <depend>mola_kernel</depend>
+  <depend>mola_yaml</depend>
 
   <depend>mrpt_maps</depend>
+  <depend>mrpt_obs</depend>
+  <depend>mrpt_system</depend>
+  <depend>mrpt_core</depend>
 
   <doc_depend>doxygen</doc_depend>
 
