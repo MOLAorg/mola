@@ -163,6 +163,12 @@ void MolaLauncherApp::shutdown()
   }
 }
 
+void MolaLauncherApp::requestSpinExit()
+{
+  // Keep this async-signal-safe: a lock-free atomic store and nothing else.
+  threads_must_end_ = true;
+}
+
 void MolaLauncherApp::addPathModuleLibs(const std::string& path)
 {
   lib_search_paths_.push_back(path);

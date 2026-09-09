@@ -62,6 +62,13 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
    * opportunity to end and save any pending data, etc. \sa spin() */
   void shutdown();
 
+  /** Asks spin() to exit its main loop as soon as possible, without doing any
+   * of the actual shutdown work. It only stores into an atomic flag, hence it
+   * is async-signal-safe and can be called from a signal handler. Callers are
+   * then expected to invoke shutdown() from a regular thread, e.g. right after
+   * spin() returns. \sa spin(), shutdown() */
+  void requestSpinExit();
+
   /** @} */
 
   /** @name MOLA module listing, paths, finding, etc.
