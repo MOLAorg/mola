@@ -210,7 +210,17 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   by k-NN plane fit; the field is probed once per scan and takes over once it
   answers `bootstrap_field_ready_fraction` of it, or at `bootstrap_max_scans`
   (with a warning). Without it the first registration finds no surface and the
-  caller discards the map. Tests: `tests/test-mola_metric_maps_tsdf.cpp`.
+  caller discards the map.
+  **Rendering**: both `getVisualizationInto()` and `getAsSimplePointsMap()` (the
+  ROS bridge) report the zero level set sampled on the lattice *edges*, where the
+  field changes sign, interpolated between the two voxels: voxel centers would
+  quantize the surface to the grid and miss every crossing that falls between
+  them. Points are colored by `recolorize_by` ("z" or "weight") through
+  `colormap`; `render_as_mesh` polygonizes instead, by marching **tetrahedra**
+  (six per cell sharing the main diagonal, which keeps the mesh watertight with
+  three cases instead of a 256-entry cube table). Note that
+  `CSetOfTriangles::setColor_u8()` recurses into itself in MRPT 2.x, so the mesh
+  colors each triangle. Tests: `tests/test-mola_metric_maps_tsdf.cpp`.
 - `KeyframePointCloudMap`
 - `IncrementalPointCloud` (new 2026): sliding-window LIO local map derived from
   `mrpt::maps::CGenericPointsMap`, backed by **one** incremental self-balancing
