@@ -1176,6 +1176,12 @@ void TSDF::buildSurfaceMesh(mrpt::opengl::CSetOfTriangles& mesh) const
       const auto towardsPositive =
           outCentroid * (1.0f / nOut) - inCentroid * (1.0f / static_cast<float>(nIn));
 
+      // The cross product below scales with the square of the cell size, so
+      // the degeneracy cutoff has to scale with it too, or a valid triangle
+      // falls under a fixed threshold once the voxels are small enough.
+      const float cellArea2      = voxel_size_ * voxel_size_ * voxel_size_ * voxel_size_;
+      const float degenerateArea = 1e-12f * cellArea2;
+
       const auto addTriangle = [&](const mrpt::math::TPoint3Df& a, const mrpt::math::TPoint3Df& b,
                                    const mrpt::math::TPoint3Df& c)
       {
@@ -1183,7 +1189,7 @@ void TSDF::buildSurfaceMesh(mrpt::opengl::CSetOfTriangles& mesh) const
 
         // A cell corner sitting exactly on the surface collapses some of these
         // triangles to a point or a segment; they carry no surface.
-        if (normal.sqrNorm() < 1e-12f)
+        if (normal.sqrNorm() < degenerateArea)
         {
           return;
         }
