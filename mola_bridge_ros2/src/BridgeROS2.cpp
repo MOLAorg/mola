@@ -2228,8 +2228,11 @@ void BridgeROS2::timerPubMapLayer(const std::string& layerName, const MapSourceB
   // Not empty?
   else if (mu.map)
   {
-    // Try to publish it via it's simple pointsmap representation:
-    const auto* pts = mu.map->getAsSimplePointsMap();
+    // Try to publish it via its points-map representation. MRPT retired
+    // CMetricMap::getAsSimplePointsMap() in favour of the free function
+    // mrpt::maps::asPointsMap(), which answers for any points map rather than
+    // only for CSimplePointsMap.
+    const auto* pts = mrpt::maps::asPointsMap(*mu.map);
     if (pts == nullptr)
     {
       MRPT_LOG_WARN_STREAM(
@@ -2240,7 +2243,11 @@ void BridgeROS2::timerPubMapLayer(const std::string& layerName, const MapSourceB
     {
       mrpt::obs::CObservationPointCloud obs;
       obs.sensorLabel = mapTopic;
-      obs.pointcloud  = std::make_shared<mrpt::maps::CSimplePointsMap>(*pts);
+      // The view may be any CPointsMap, so copy through insertAnotherMap()
+      // rather than through a CSimplePointsMap copy constructor.
+      auto cloud = std::make_shared<mrpt::maps::CSimplePointsMap>();
+      cloud->insertAnotherMap(pts, mrpt::poses::CPose3D::Identity());
+      obs.pointcloud  = cloud;
       obs.timestamp   = mu.timestamp;
       // Reuse code for point cloud observations: build a "fake" observation:
       internalOn(obs, false /*no tf*/, mu.reference_frame);
