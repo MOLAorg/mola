@@ -949,6 +949,14 @@ void TSDF::visitZeroCrossings(
     }
     const auto c = globalIdxToCenter(idx);
 
+    // A voxel sitting exactly on the surface is reported once, from the voxel
+    // itself: no edge would report it if all its neighbors are on one side,
+    // and reporting it from every incident edge would duplicate it.
+    if (v.dist == 0)
+    {
+      f(c, v.weight);
+    }
+
     for (int axis = 0; axis < 3; axis++)
     {
       const auto& o = neighborOffsets[axis];
@@ -960,9 +968,11 @@ void TSDF::visitZeroCrossings(
       }
       const float d0 = v.dist;
       const float d1 = n->dist;
-      if ((d0 < 0) == (d1 < 0))
+      if (!((d0 < 0) != (d1 < 0)) || d0 == 0 || d1 == 0)
       {
-        continue;  // no sign change along this edge
+        // No sign change along this edge, or an endpoint already reported
+        // above as an exact zero.
+        continue;
       }
 
       // Linear interpolation of the crossing along the edge:
@@ -1149,16 +1159,52 @@ void TSDF::buildSurfaceMesh(mrpt::opengl::CSetOfTriangles& mesh) const
             cornerPt[a].z + t * (cornerPt[b].z - cornerPt[a].z));
       };
 
+      // The tetrahedra have mixed vertex orientations, so the winding that
+      // falls out of the cases below is not consistent by itself. Orienting
+      // every triangle towards the positive side of the field makes all the
+      // normals agree, which is what shading and back-face culling need.
+      mrpt::math::TPoint3Df inCentroid(.0f, .0f, .0f);
+      mrpt::math::TPoint3Df outCentroid(.0f, .0f, .0f);
+      for (int i = 0; i < nIn; i++)
+      {
+        inCentroid += cornerPt[in[i]];
+      }
+      for (int i = 0; i < nOut; i++)
+      {
+        outCentroid += cornerPt[out[i]];
+      }
+      const auto towardsPositive =
+          outCentroid * (1.0f / nOut) - inCentroid * (1.0f / static_cast<float>(nIn));
+
+      const auto addTriangle = [&](const mrpt::math::TPoint3Df& a, const mrpt::math::TPoint3Df& b,
+                                   const mrpt::math::TPoint3Df& c)
+      {
+        const auto normal = mrpt::math::crossProduct3D(b - a, c - a);
+
+        // A cell corner sitting exactly on the surface collapses some of these
+        // triangles to a point or a segment; they carry no surface.
+        if (normal.sqrNorm() < 1e-12f)
+        {
+          return;
+        }
+
+        mrpt::opengl::TTriangle t = (normal.x * towardsPositive.x + normal.y * towardsPositive.y +
+                                     normal.z * towardsPositive.z) < 0
+                                        ? mrpt::opengl::TTriangle(a, c, b)
+                                        : mrpt::opengl::TTriangle(a, b, c);
+
+        t.setColor(color);
+        mesh.insertTriangle(t);
+      };
+
       if (nIn == 1 || nIn == 3)
       {
         // One vertex alone on its side: the surface cuts its three edges.
         const int  apex  = (nIn == 1) ? in[0] : out[0];
         const auto other = (nIn == 1) ? out : in;
 
-        mrpt::opengl::TTriangle t(
+        addTriangle(
             edgePoint(apex, other[0]), edgePoint(apex, other[1]), edgePoint(apex, other[2]));
-        t.setColor(color);
-        mesh.insertTriangle(t);
       }
       else
       {
@@ -1168,12 +1214,8 @@ void TSDF::buildSurfaceMesh(mrpt::opengl::CSetOfTriangles& mesh) const
         const auto p2 = edgePoint(in[1], out[1]);
         const auto p3 = edgePoint(in[1], out[0]);
 
-        mrpt::opengl::TTriangle t1(p0, p1, p2);
-        mrpt::opengl::TTriangle t2(p0, p2, p3);
-        t1.setColor(color);
-        t2.setColor(color);
-        mesh.insertTriangle(t1);
-        mesh.insertTriangle(t2);
+        addTriangle(p0, p1, p2);
+        addTriangle(p0, p2, p3);
       }
     }
   }
@@ -1385,6 +1427,15 @@ void TSDF::TRenderOptions::readFromStream(mrpt::serialization::CArchive& in)
       {
         in.ReadAsAndCastTo<int8_t>(this->colormap);
         in >> recolorize_by >> render_as_mesh;
+      }
+      else
+      {
+        // Back to the declared defaults, so reading an older stream into a
+        // reused object does not inherit its previous state.
+        const TRenderOptions defaults;
+        colormap       = defaults.colormap;
+        recolorize_by  = defaults.recolorize_by;
+        render_as_mesh = defaults.render_as_mesh;
       }
       break;
     default:

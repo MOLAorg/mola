@@ -21,6 +21,7 @@
 #include <mrpt/config/CConfigFileMemory.h>
 #include <mrpt/io/CMemoryStream.h>
 #include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/opengl/CSetOfObjects.h>
 #include <mrpt/opengl/CSetOfTriangles.h>
@@ -578,6 +579,88 @@ void test_voxel_budget_is_a_ceiling()
   ASSERT_(q.valid);
 }
 
+void test_mesh_winding_is_consistent()
+{
+  // A plane exactly on a voxel-center layer: the case where cell corners land
+  // on the surface, which is what produces degenerate triangles.
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.truncation_voxels    = 4.0;
+  map.insertionOptions.min_weight_for_query = 1.0;
+
+  fill_ground_plane(map, .0f);
+
+  map.renderOptions.render_as_mesh = true;
+
+  auto glObjs = mrpt::opengl::CSetOfObjects::Create();
+  map.getVisualizationInto(*glObjs);
+
+  auto mesh = glObjs->getByClass<mrpt::opengl::CSetOfTriangles>(0);
+  ASSERT_(mesh);
+  ASSERT_GT_(mesh->getTrianglesCount(), 100U);
+
+  // Every normal must point to the same side of a surface this simple, and no
+  // triangle may be degenerate.
+  size_t up   = 0;
+  size_t down = 0;
+  for (size_t i = 0; i < mesh->getTrianglesCount(); i++)
+  {
+    mrpt::opengl::TTriangle t;
+    mesh->getTriangle(i, t);
+
+    const auto a = t.vertices[0].xyzrgba.pt;
+    const auto b = t.vertices[1].xyzrgba.pt;
+    const auto c = t.vertices[2].xyzrgba.pt;
+
+    const auto n = mrpt::math::crossProduct3D(b - a, c - a);
+    ASSERT_GT_(n.sqrNorm(), 1e-12f);
+
+    if (n.z > 0)
+    {
+      up++;
+    }
+    else
+    {
+      down++;
+    }
+  }
+
+  // The sensor is above, so the positive side of the field is up:
+  ASSERT_EQUAL_(down, 0U);
+
+  std::cout << "test_mesh_winding_is_consistent: " << up << " triangles, all facing the sensor"
+            << std::endl;
+}
+
+void test_exact_zero_voxel_is_reported_once()
+{
+  // A voxel whose field is exactly zero, with every neighbor on the positive
+  // side: no edge changes sign, so only the voxel itself can report it.
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.min_weight_for_query = 1.0;
+
+  auto& voxels = const_cast<mola::TSDF::grids_map_t&>(map.voxels());
+  for (int ix = -1; ix <= 1; ix++)
+  {
+    for (int iy = -1; iy <= 1; iy++)
+    {
+      for (int iz = -1; iz <= 1; iz++)
+      {
+        mola::TSDF::VoxelData v;
+        v.dist   = (ix == 0 && iy == 0 && iz == 0) ? .0f : 0.1f;
+        v.weight = 10.0f;
+        voxels.insert({mola::TSDF::global_index3d_t(ix, iy, iz), v});
+      }
+    }
+  }
+
+  size_t n = 0;
+  map.visitZeroCrossings([&](const mrpt::math::TPoint3Df&, float) { n++; });
+
+  ASSERT_EQUAL_(n, 1U);
+
+  std::cout << "test_exact_zero_voxel_is_reported_once: OK" << std::endl;
+}
+
 void test_render_options_from_config()
 {
   // The names the pipeline YAML's renderOpts block sets:
@@ -701,6 +784,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_render_options_from_config();
     test_zero_crossings_are_sub_voxel();
     test_surface_mesh_is_watertight_around_the_plane();
+    test_mesh_winding_is_consistent();
+    test_exact_zero_voxel_is_reported_once();
   }
   catch (const std::exception& e)
   {
