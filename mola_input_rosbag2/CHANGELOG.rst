@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.2.1 (2026-09-15)
+------------------
 * Merge pull request `#209 <https://github.com/MOLAorg/mola/issues/209>`_ from MOLAorg/feat/rosbag2-se3-odometry-as-robot-pose
   rosbag2: allow reading a 3D odometry source as CObservationRobotPose
 * mola_viz_imgui: show dataset playback time in the dataset UI panel (`#202 <https://github.com/MOLAorg/mola/issues/202>`_)

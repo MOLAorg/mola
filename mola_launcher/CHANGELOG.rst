@@ -2,8 +2,8 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.2.1 (2026-09-15)
+------------------
 * FIX: mola-cli ignored SIGTERM and never exited (`#215 <https://github.com/MOLAorg/mola/issues/215>`_)
   All x86_64 checks pass (humble/jazzy stable+testing, build-docs, clang-format, CLA), CodeRabbit review completed. arm64 checks have been stuck in queued state with nothing ahead of them in the queue since the PR was opened - the self-hosted Jetson runner is offline, not busy (confirmed: no in-progress or other queued runs on this repo). Infra unavailability, not a PR issue.
 * Contributors: Jose Luis Blanco-Claraco

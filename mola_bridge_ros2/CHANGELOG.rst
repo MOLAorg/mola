@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.2.1 (2026-09-15)
+------------------
 * Merge pull request `#214 <https://github.com/MOLAorg/mola/issues/214>`_ from MOLAorg/fix/reloc-request-race-with-module-discovery
   FIX: relocalization requests raced with MOLA module discovery
 * Throttle and coalesce the on-demand MOLA module scan

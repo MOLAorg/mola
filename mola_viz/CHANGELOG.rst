@@ -2,8 +2,8 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.2.1 (2026-09-15)
+------------------
 * mola_viz_imgui: show "???" for an unknown dataset duration (`#203 <https://github.com/MOLAorg/mola/issues/203>`_)
 * Contributors: Jose Luis Blanco-Claraco
 

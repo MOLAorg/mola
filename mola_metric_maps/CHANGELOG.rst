@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.2.1 (2026-09-15)
+------------------
 * TSDF: render the actual zero level set, not the voxel centers (`#217 <https://github.com/MOLAorg/mola/issues/217>`_)
 * Merge pull request `#213 <https://github.com/MOLAorg/mola/issues/213>`_ from MOLAorg/feat/tsdf-uses-shared-hash
   Drop TSDF's private voxel hash for the shared one
