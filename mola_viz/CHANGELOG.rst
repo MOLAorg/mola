@@ -2,6 +2,11 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* mola_viz_imgui: show "???" for an unknown dataset duration (`#203 <https://github.com/MOLAorg/mola/issues/203>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.0 (2026-08-21)
 ------------------
 * Remove stray COLCON_IGNORE from mola_viz, mola_viz_imgui
