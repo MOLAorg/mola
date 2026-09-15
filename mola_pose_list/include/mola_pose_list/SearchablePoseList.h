@@ -115,10 +115,57 @@ class SearchablePoseList
   [[nodiscard]] std::tuple<bool /*isFirst*/, mrpt::poses::CPose3D /*distanceToClosest*/> check(
       const mrpt::poses::CPose3D& p) const;
 
+  /** One stored pose that matched a neighborhood query. \sa findNearby() */
+  struct NearbyPose
+  {
+    /// Index into the insertion order.
+    size_t index = 0;
+
+    /// The id given to insert(), if one was.
+    std::optional<KFID> id;
+
+    /// The stored pose itself.
+    mrpt::poses::CPose3D pose;
+
+    /// `p - pose` for the query pose `p`, so the caller does not recompute it.
+    mrpt::poses::CPose3D relativePose;
+
+    /// Norm of the translation part of `relativePose` [m].
+    double translation = 0;
+
+    /// Norm of SO(3)-log of the rotation part of `relativePose` [rad].
+    double rotation = 0;
+  };
+
+  /** Returns every stored pose within both the given translation and rotation
+   *  distance from \a p, i.e. those satisfying
+   *  translation(p - candidate).norm() <= maxTranslation
+   *  && SO3_log(rotation(p - candidate)).norm() <= maxRotationRad.
+   *
+   *  Gating on rotation as well as translation is what separates a genuine
+   *  revisit from a pass through the same place on a different heading. The
+   *  two are not interchangeable for any consumer that then registers the two
+   *  observations against each other: an error in the body-to-sensor lever arm
+   *  `d` enters such a comparison as `(R_ij - I) d`, which vanishes at equal
+   *  heading and grows toward a half turn, so a translation-only neighborhood
+   *  silently mixes a calibration error into the measurement.
+   *
+   *  Results are ordered by increasing translation distance. Pass a non-zero
+   *  \a maxCount to keep only that many of the closest.
+   *
+   *  In `from_last_only_` mode at most one entry is returned, and it carries
+   *  no id.
+   */
+  [[nodiscard]] std::vector<NearbyPose> findNearby(
+      const mrpt::poses::CPose3D& p, double maxTranslation, double maxRotationRad,
+      size_t maxCount = 0) const;
+
   /** Returns the count of stored poses that are within both the given
    *  translation and rotation distance from \a p.
    *  The check is: translation(p - candidate).norm() <= maxTranslation
    *             && SO3_log(rotation(p - candidate)).norm() <= maxRotationRad
+   *
+   *  \sa findNearby(), which returns the matches themselves.
    */
   [[nodiscard]] uint32_t countNearby(
       const mrpt::poses::CPose3D& p, double maxTranslation, double maxRotationRad) const;
@@ -163,3 +210,8 @@ class SearchablePoseList
  *  re-express all stored poses after a change of the reference (map) frame.
  */
 #define MOLA_POSE_LIST_HAS_TRANSFORM_LEFT_MULTIPLY 1
+
+/** Feature macro: SearchablePoseList exposes findNearby(), which returns the
+ *  matching entries of a neighborhood query instead of only their count.
+ */
+#define MOLA_POSE_LIST_HAS_FIND_NEARBY 1

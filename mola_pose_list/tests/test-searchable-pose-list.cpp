@@ -217,6 +217,80 @@ void test_count_nearby_empty()
   ASSERT_EQUAL_(list.countNearby(xyz(0, 0, 0), 100.0, M_PI), 0u);
 }
 
+// ── findNearby: returns the matches, ordered, with ids ───────────────────
+void test_find_nearby_returns_matches()
+{
+  mola::SearchablePoseList list(false);
+
+  // KFs at x = 0, 1, 2, 3, 4 m, ids 100..104
+  for (mola::SearchablePoseList::KFID i = 0; i < 5; ++i)
+  {
+    list.insert(xyz(static_cast<double>(i), 0, 0), 100 + i);
+  }
+
+  const auto near = list.findNearby(xyz(2, 0, 0), 1.5, M_PI);
+  ASSERT_EQUAL_(near.size(), 3UL);
+
+  // Ordered by increasing translation distance: the exact match first.
+  ASSERT_NEAR_(near.at(0).translation, 0.0, 1e-6);
+  ASSERT_EQUAL_(*near.at(0).id, 102UL);
+  ASSERT_NEAR_(near.at(1).translation, 1.0, 1e-6);
+  ASSERT_NEAR_(near.at(2).translation, 1.0, 1e-6);
+
+  // The relative pose is the one the caller would otherwise recompute.
+  ASSERT_NEAR_(near.at(0).relativePose.translation().norm(), 0.0, 1e-6);
+
+  // maxCount keeps only the closest.
+  const auto capped = list.findNearby(xyz(2, 0, 0), 1.5, M_PI, 2);
+  ASSERT_EQUAL_(capped.size(), 2UL);
+  ASSERT_EQUAL_(*capped.at(0).id, 102UL);
+
+  // Nothing in range.
+  ASSERT_(list.findNearby(xyz(100, 0, 0), 1.0, M_PI).empty());
+}
+
+// ── findNearby: the rotation bound separates a revisit from a fly-by ──────
+void test_find_nearby_rotation_gate()
+{
+  mola::SearchablePoseList list(false);
+
+  // Same place, opposite headings.
+  list.insert(mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, 0, 0, 0), 1);
+  list.insert(mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, M_PI, 0, 0), 2);
+
+  const auto loose =
+      list.findNearby(mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, 0.1, 0, 0), 0.1, M_PI);
+  ASSERT_EQUAL_(loose.size(), 2UL);
+
+  const auto tight =
+      list.findNearby(mrpt::poses::CPose3D::FromXYZYawPitchRoll(0, 0, 0, 0.1, 0, 0), 0.1, 0.2);
+  ASSERT_EQUAL_(tight.size(), 1UL);
+  ASSERT_EQUAL_(*tight.at(0).id, 1UL);
+  ASSERT_NEAR_(tight.at(0).rotation, 0.1, 1e-6);
+}
+
+// ── findNearby and countNearby must agree, including from_last_only ───────
+void test_find_nearby_matches_count()
+{
+  mola::SearchablePoseList list(false);
+  populateLine(list);  // x = 0..24
+
+  for (const double r : {0.5, 1.0, 3.0, 100.0})
+  {
+    const auto n = list.findNearby(xyz(12, 0, 0), r, M_PI).size();
+    ASSERT_EQUAL_(list.countNearby(xyz(12, 0, 0), r, M_PI), static_cast<uint32_t>(n));
+  }
+
+  mola::SearchablePoseList lastOnly(true /*from_last_only*/);
+  lastOnly.insert(xyz(5, 0, 0));
+  ASSERT_EQUAL_(lastOnly.findNearby(xyz(5.05, 0, 0), 0.1, M_PI).size(), 1UL);
+  ASSERT_(!lastOnly.findNearby(xyz(5.05, 0, 0), 0.1, M_PI).at(0).id.has_value());
+  ASSERT_(lastOnly.findNearby(xyz(10, 0, 0), 0.1, M_PI).empty());
+
+  mola::SearchablePoseList emptyList(false);
+  ASSERT_(emptyList.findNearby(xyz(0, 0, 0), 100.0, M_PI).empty());
+}
+
 // ── transform_left_multiply(): kd-tree mode ───────────────────────────────
 // The frame change must move every stored pose by `b` AND keep the spatial
 // index consistent with the new coordinates, so NN queries answer in the new
@@ -348,6 +422,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_count_nearby_empty();
 
     std::cout << "test_transform_left_multiply_kdtree ...\n";
+    test_find_nearby_returns_matches();
+    std::cout << "test_find_nearby_returns_matches: PASSED" << std::endl;
+
+    test_find_nearby_rotation_gate();
+    std::cout << "test_find_nearby_rotation_gate: PASSED" << std::endl;
+
+    test_find_nearby_matches_count();
+    std::cout << "test_find_nearby_matches_count: PASSED" << std::endl;
+
     test_transform_left_multiply_kdtree();
 
     std::cout << "test_transform_left_multiply_from_last_only ...\n";
