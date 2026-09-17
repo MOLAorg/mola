@@ -28,21 +28,29 @@
 
 #include <mola_metric_maps/TSDF.h>
 #include <mrpt/config/CConfigFileBase.h>  // MRPT_LOAD_CONFIG_VAR
+#include <mrpt/core/bits_math.h>
+#include <mrpt/img/color_maps.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
+#include <mrpt/viz/CPointCloud.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 #include <mrpt/serialization/CArchive.h>
 #include <mrpt/system/os.h>
 #include <mrpt/viz/CPointCloud.h>
 #include <mrpt/viz/CSetOfObjects.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <string>
+#include <utility>
 #include <vector>
 
 using namespace mola;
@@ -926,24 +934,72 @@ mrpt::math::TBoundingBoxf TSDF::boundingBox() const
   return *cachedBoundingBox_;
 }
 
+void TSDF::visitZeroCrossings(
+    const std::function<void(const mrpt::math::TPoint3Df&, float)>& f) const
+{
+  const float minW = static_cast<float>(insertionOptions.min_weight_for_query);
+
+  // Only the three forward neighbors, so each lattice edge is visited once.
+  const std::array<global_index3d_t, 3> neighborOffsets = {
+      global_index3d_t(1, 0, 0), global_index3d_t(0, 1, 0), global_index3d_t(0, 0, 1)};
+
+  for (const auto& [idx, v] : voxels_)
+  {
+    if (v.weight < minW)
+    {
+      continue;
+    }
+    const auto c = globalIdxToCenter(idx);
+
+    // A voxel sitting exactly on the surface is reported once, from the voxel
+    // itself: no edge would report it if all its neighbors are on one side,
+    // and reporting it from every incident edge would duplicate it.
+    if (v.dist == 0)
+    {
+      f(c, v.weight);
+    }
+
+    for (int axis = 0; axis < 3; axis++)
+    {
+      const auto& o = neighborOffsets[axis];
+      const auto* n =
+          voxelByGlobalIdxs(global_index3d_t(idx.cx + o.cx, idx.cy + o.cy, idx.cz + o.cz));
+      if (!n || n->weight < minW)
+      {
+        continue;
+      }
+      const float d0 = v.dist;
+      const float d1 = n->dist;
+      if (!((d0 < 0) != (d1 < 0)) || d0 == 0 || d1 == 0)
+      {
+        // No sign change along this edge, or an endpoint already reported
+        // above as an exact zero.
+        continue;
+      }
+
+      // Linear interpolation of the crossing along the edge:
+      const float t = d0 / (d0 - d1);
+
+      auto p = c;
+      p[axis] += t * voxel_size_;
+
+      f(p, std::min(v.weight, n->weight));
+    }
+  }
+}
+
 const mrpt::maps::CSimplePointsMap* TSDF::getAsSimplePointsMap() const
 {
   if (!cachedPoints_)
   {
     cachedPoints_ = mrpt::maps::CSimplePointsMap::Create();
 
-    // Report the voxel centers whose field is close to the zero level set, as
-    // a stand-in surface sampling for visualization and for the ROS bridge.
-    const float minW = static_cast<float>(insertionOptions.min_weight_for_query);
-    for (const auto& [idx, v] : voxels_)
-    {
-      if (v.weight < minW || std::abs(v.dist) > 0.5f * voxel_size_)
-      {
-        continue;
-      }
-      const auto c = globalIdxToCenter(idx);
-      cachedPoints_->insertPointFast(c.x, c.y, c.z);
-    }
+    // A sampling of the zero level set, for visualization and for the ROS
+    // bridge. Taken from the sign changes rather than from the voxel centers,
+    // which would quantize the surface to the grid.
+    visitZeroCrossings([this](const mrpt::math::TPoint3Df& p, float)
+                       { cachedPoints_->insertPointFast(p.x, p.y, p.z); });
+
     cachedPoints_->mark_as_modified();
   }
   return cachedPoints_.get();
@@ -951,21 +1007,226 @@ const mrpt::maps::CSimplePointsMap* TSDF::getAsSimplePointsMap() const
 
 void TSDF::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 {
-  auto pts = mrpt::viz::CPointCloud::Create();
-  pts->setPointSize(renderOptions.point_size);
-  pts->setColor(renderOptions.points_color);
-
-  const auto* surface = getAsSimplePointsMap();
-  for (size_t i = 0; i < surface->size(); i++)
+  if (!genericMapParams.enableSaveAs3DObject)
   {
-    float x = 0;
-    float y = 0;
-    float z = 0;
-    surface->getPointFast(i, x, y, z);
-    pts->insertPoint(x, y, z);
+    return;
+  }
+
+  if (renderOptions.render_as_mesh)
+  {
+    auto mesh = mrpt::viz::CSetOfTriangles::Create();
+    buildSurfaceMesh(*mesh);
+    outObj.insert(mesh);
+    return;
+  }
+
+  if (renderOptions.colormap == mrpt::img::cmNONE)
+  {
+    auto pts = mrpt::viz::CPointCloud::Create();
+    pts->setPointSize(renderOptions.point_size);
+    pts->setColor(renderOptions.points_color);
+    pts->enableColorFromZ(false);
+
+    visitZeroCrossings([&pts](const mrpt::math::TPoint3Df& p, float) { pts->insertPoint(p); });
+
+    outObj.insert(pts);
+    return;
+  }
+
+  // Colored by one of the two quantities a crossing carries: its height, or
+  // how much evidence the field has there. The distance is not among them: it
+  // is zero at a crossing by construction.
+  const bool byWeight = renderOptions.recolorize_by == "weight";
+
+  // Two passes: the color index is a normalized value, so the range has to be
+  // known before any point can be colored.
+  std::vector<std::pair<mrpt::math::TPoint3Df, float>> samples;
+  float                                                vMin = std::numeric_limits<float>::max();
+  float                                                vMax = std::numeric_limits<float>::lowest();
+
+  visitZeroCrossings(
+      [&](const mrpt::math::TPoint3Df& p, float w)
+      {
+        const float v = byWeight ? w : p.z;
+        mrpt::keep_min(vMin, v);
+        mrpt::keep_max(vMax, v);
+        samples.emplace_back(p, v);
+      });
+
+  auto pts = mrpt::viz::CPointCloudColoured::Create();
+  pts->setPointSize(renderOptions.point_size);
+  pts->reserve(samples.size());
+
+  const auto toU8 = [](float v)
+  { return static_cast<uint8_t>(std::clamp(v, .0f, 1.0f) * 255.0f + 0.5f); };
+
+  const float invRange = (vMax > vMin) ? 1.0f / (vMax - vMin) : .0f;
+
+  for (const auto& [p, v] : samples)
+  {
+    float r = 0;
+    float g = 0;
+    float b = 0;
+    mrpt::img::colormap(renderOptions.colormap, (v - vMin) * invRange, r, g, b);
+
+    pts->insertPoint({p.x, p.y, p.z, toU8(r), toU8(g), toU8(b)});
   }
 
   outObj.insert(pts);
+}
+
+void TSDF::buildSurfaceMesh(mrpt::viz::CSetOfTriangles& mesh) const
+{
+  const float minW = static_cast<float>(insertionOptions.min_weight_for_query);
+
+  // Each triangle carries the color: CSetOfTriangles::setColor_u8() recurses
+  // into itself in MRPT 2.x, so it must not be called here.
+  const auto color = renderOptions.points_color;
+
+  // Marching TETRAHEDRA, not cubes: splitting each cell into six tetrahedra
+  // that all share the main diagonal keeps the mesh watertight across cells
+  // while replacing the 256-entry cube table with the three cases below.
+  //
+  // Corner c of a cell is the voxel at idx + (bit0, bit1, bit2), so corners 0
+  // and 7 are the ends of the diagonal every tetrahedron shares.
+  constexpr std::array<std::array<int, 4>, 6> tetrahedra = {
+      std::array<int, 4>{0, 1, 3, 7}, std::array<int, 4>{0, 1, 5, 7},
+      std::array<int, 4>{0, 2, 3, 7}, std::array<int, 4>{0, 2, 6, 7},
+      std::array<int, 4>{0, 4, 5, 7}, std::array<int, 4>{0, 4, 6, 7}};
+
+  std::array<mrpt::math::TPoint3Df, 8> cornerPt;
+  std::array<float, 8>                 cornerDist{};
+
+  for (const auto& [idx, v] : voxels_)
+  {
+    if (v.weight < minW)
+    {
+      continue;
+    }
+
+    // A cell is polygonized only where all eight of its corners carry
+    // evidence; a partially observed cell would otherwise invent a surface.
+    bool complete = true;
+    for (int c = 0; c < 8 && complete; c++)
+    {
+      const global_index3d_t cIdx(
+          idx.cx + (c & 1), idx.cy + ((c >> 1) & 1), idx.cz + ((c >> 2) & 1));
+
+      const auto* cv = voxelByGlobalIdxs(cIdx);
+      if (!cv || cv->weight < minW)
+      {
+        complete = false;
+        break;
+      }
+      cornerPt[c]   = globalIdxToCenter(cIdx);
+      cornerDist[c] = cv->dist;
+    }
+    if (!complete)
+    {
+      continue;
+    }
+
+    for (const auto& tet : tetrahedra)
+    {
+      // Order the vertices so that the ones behind the surface come first:
+      // the case then depends only on how many there are.
+      std::array<int, 4> in;
+      std::array<int, 4> out;
+      int                nIn  = 0;
+      int                nOut = 0;
+      for (const int c : tet)
+      {
+        if (cornerDist[c] < 0)
+        {
+          in[nIn++] = c;
+        }
+        else
+        {
+          out[nOut++] = c;
+        }
+      }
+      if (nIn == 0 || nIn == 4)
+      {
+        continue;  // no crossing inside this tetrahedron
+      }
+
+      const auto edgePoint = [&](int a, int b)
+      {
+        const float d0 = cornerDist[a];
+        const float d1 = cornerDist[b];
+        const float t  = d0 / (d0 - d1);
+        return mrpt::math::TPoint3Df(
+            cornerPt[a].x + t * (cornerPt[b].x - cornerPt[a].x),
+            cornerPt[a].y + t * (cornerPt[b].y - cornerPt[a].y),
+            cornerPt[a].z + t * (cornerPt[b].z - cornerPt[a].z));
+      };
+
+      // The tetrahedra have mixed vertex orientations, so the winding that
+      // falls out of the cases below is not consistent by itself. Orienting
+      // every triangle towards the positive side of the field makes all the
+      // normals agree, which is what shading and back-face culling need.
+      mrpt::math::TPoint3Df inCentroid(.0f, .0f, .0f);
+      mrpt::math::TPoint3Df outCentroid(.0f, .0f, .0f);
+      for (int i = 0; i < nIn; i++)
+      {
+        inCentroid += cornerPt[in[i]];
+      }
+      for (int i = 0; i < nOut; i++)
+      {
+        outCentroid += cornerPt[out[i]];
+      }
+      const auto towardsPositive =
+          outCentroid * (1.0f / nOut) - inCentroid * (1.0f / static_cast<float>(nIn));
+
+      // The cross product below scales with the square of the cell size, so
+      // the degeneracy cutoff has to scale with it too, or a valid triangle
+      // falls under a fixed threshold once the voxels are small enough.
+      const float cellArea2      = voxel_size_ * voxel_size_ * voxel_size_ * voxel_size_;
+      const float degenerateArea = 1e-12f * cellArea2;
+
+      const auto addTriangle = [&](const mrpt::math::TPoint3Df& a, const mrpt::math::TPoint3Df& b,
+                                   const mrpt::math::TPoint3Df& c)
+      {
+        const auto normal = mrpt::math::crossProduct3D(b - a, c - a);
+
+        // A cell corner sitting exactly on the surface collapses some of these
+        // triangles to a point or a segment; they carry no surface.
+        if (normal.sqrNorm() < degenerateArea)
+        {
+          return;
+        }
+
+        mrpt::viz::TTriangle t = (normal.x * towardsPositive.x + normal.y * towardsPositive.y +
+                                     normal.z * towardsPositive.z) < 0
+                                        ? mrpt::viz::TTriangle(a, c, b)
+                                        : mrpt::viz::TTriangle(a, b, c);
+
+        t.setColor(color);
+        mesh.insertTriangle(t);
+      };
+
+      if (nIn == 1 || nIn == 3)
+      {
+        // One vertex alone on its side: the surface cuts its three edges.
+        const int  apex  = (nIn == 1) ? in[0] : out[0];
+        const auto other = (nIn == 1) ? out : in;
+
+        addTriangle(
+            edgePoint(apex, other[0]), edgePoint(apex, other[1]), edgePoint(apex, other[2]));
+      }
+      else
+      {
+        // Two against two: the surface cuts four edges, forming a quad.
+        const auto p0 = edgePoint(in[0], out[0]);
+        const auto p1 = edgePoint(in[0], out[1]);
+        const auto p2 = edgePoint(in[1], out[1]);
+        const auto p3 = edgePoint(in[1], out[0]);
+
+        addTriangle(p0, p1, p2);
+        addTriangle(p0, p2, p3);
+      }
+    }
+  }
 }
 
 void TSDF::saveMetricMapRepresentationToFile(const std::string& filNamePrefix) const
@@ -1135,6 +1396,10 @@ void TSDF::TRenderOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(points_color.R, float, c, s);
   MRPT_LOAD_CONFIG_VAR(points_color.G, float, c, s);
   MRPT_LOAD_CONFIG_VAR(points_color.B, float, c, s);
+  MRPT_LOAD_CONFIG_VAR(recolorize_by, string, c, s);
+  MRPT_LOAD_CONFIG_VAR(render_as_mesh, bool, c, s);
+
+  colormap = c.read_enum(s, "colormap", colormap);
 }
 
 void TSDF::TRenderOptions::dumpToTextStream(std::ostream& out) const
@@ -1144,13 +1409,17 @@ void TSDF::TRenderOptions::dumpToTextStream(std::ostream& out) const
   LOADABLEOPTS_DUMP_VAR(points_color.R, float);
   LOADABLEOPTS_DUMP_VAR(points_color.G, float);
   LOADABLEOPTS_DUMP_VAR(points_color.B, float);
+  dumpVar_string(out, "recolorize_by", recolorize_by);
+  LOADABLEOPTS_DUMP_VAR(render_as_mesh, bool);
+  LOADABLEOPTS_DUMP_VAR(colormap, int);
 }
 
 void TSDF::TRenderOptions::writeToStream(mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 0;
+  const int8_t version = 1;
   out << version;
   out << point_size << points_color.R << points_color.G << points_color.B;
+  out << static_cast<int8_t>(colormap) << recolorize_by << render_as_mesh;
 }
 
 void TSDF::TRenderOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1160,7 +1429,22 @@ void TSDF::TRenderOptions::readFromStream(mrpt::serialization::CArchive& in)
   switch (version)
   {
     case 0:
+    case 1:
       in >> point_size >> points_color.R >> points_color.G >> points_color.B;
+      if (version >= 1)
+      {
+        in.ReadAsAndCastTo<int8_t>(this->colormap);
+        in >> recolorize_by >> render_as_mesh;
+      }
+      else
+      {
+        // Back to the declared defaults, so reading an older stream into a
+        // reused object does not inherit its previous state.
+        const TRenderOptions defaults;
+        colormap       = defaults.colormap;
+        recolorize_by  = defaults.recolorize_by;
+        render_as_mesh = defaults.render_as_mesh;
+      }
       break;
     default:
       MRPT_THROW_UNKNOWN_SERIALIZATION_VERSION(version);

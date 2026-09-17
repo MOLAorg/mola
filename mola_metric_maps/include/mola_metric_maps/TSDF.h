@@ -26,12 +26,14 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/TBoundingBox.h>
 #include <mrpt/math/TPoint3D.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 #include <tsl/robin_map.h>
 
 #include <cmath>
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace mola
@@ -185,6 +187,18 @@ class TSDF : public mrpt::maps::CMetricMap,
 
   void visitAllVoxels(
       const std::function<void(const global_index3d_t&, const VoxelData&)>& f) const;
+
+  /** Visits the zero level set, sampled on the lattice edges: wherever the
+   *  field changes sign between two adjacent voxels, the crossing is located
+   *  between them by linear interpolation and reported, together with the
+   *  smaller of the two accumulated weights.
+   *
+   *  This is where the surface actually is, to sub-voxel precision. Reporting
+   *  voxel centers instead would both quantize it to the grid and miss every
+   *  crossing that does not happen to fall inside a voxel.
+   */
+  void visitZeroCrossings(
+      const std::function<void(const mrpt::math::TPoint3Df&, float weight)>& f) const;
 
   /** @} */
 
@@ -390,8 +404,22 @@ class TSDF : public mrpt::maps::CMetricMap,
     void writeToStream(mrpt::serialization::CArchive& out) const;
     void readFromStream(mrpt::serialization::CArchive& in);
 
-    float              point_size = 2.0f;
+    float point_size = 2.0f;
+
+    /// Used when `colormap` is cmNONE, and for the mesh.
     mrpt::img::TColorf points_color{.0f, .8f, .0f};
+
+    /// Colormap for the surface points, or cmNONE for a uniform color.
+    mrpt::img::TColormap colormap = mrpt::img::cmHOT;
+
+    /// Quantity the colormap is indexed by: "z" or "weight".
+    std::string recolorize_by = "z";
+
+    /** Draw the zero level set as a shaded surface instead of as points. It is
+     *  far prettier and far slower, so it is meant for figures and for a close
+     *  look at a small map, not for a live run.
+     */
+    bool render_as_mesh = false;
   };
   TRenderOptions renderOptions;
 
@@ -429,6 +457,10 @@ class TSDF : public mrpt::maps::CMetricMap,
   mutable mrpt::maps::CSimplePointsMap::Ptr        cachedPoints_;
 
   void invalidateCaches();
+
+  /// Marching-tetrahedra polygonization of the zero level set, for
+  /// TRenderOptions::render_as_mesh.
+  void buildSurfaceMesh(mrpt::viz::CSetOfTriangles& mesh) const;
 
   /** @name Warm-up state
    *  Everything below is live only until the field can answer, and is released

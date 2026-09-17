@@ -2,6 +2,9 @@
 Changelog for package mola_traj_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.1 (2026-09-15)
+------------------
+
 3.2.0 (2026-08-21)
 ------------------
 * Merge remote-tracking branch 'origin/feat/map-frame-gauge-change' into feat/map-frame-gauge-change

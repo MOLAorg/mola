@@ -2,6 +2,12 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.1 (2026-09-15)
+------------------
+* mola_viz_imgui: show "???" for an unknown dataset duration (`#203 <https://github.com/MOLAorg/mola/issues/203>`_)
+* mola_viz_imgui: show dataset playback time in the dataset UI panel (`#202 <https://github.com/MOLAorg/mola/issues/202>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.0 (2026-08-21)
 ------------------
 * Fix mola_viz_imgui GUI rendering nothing depending on link order

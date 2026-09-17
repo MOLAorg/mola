@@ -3,6 +3,13 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+3.2.1 (2026-09-15)
+------------------
+* Merge pull request `#214 <https://github.com/MOLAorg/mola/issues/214>`_ from MOLAorg/fix/reloc-request-race-with-module-discovery
+  FIX: relocalization requests raced with MOLA module discovery
+* Throttle and coalesce the on-demand MOLA module scan
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.0 (2026-08-21)
 ------------------
 * Merge pull request `#198 <https://github.com/MOLAorg/mola/issues/198>`_ from Zeal-Robotics/fix/bridge_ros2-tf-buffer-staleness

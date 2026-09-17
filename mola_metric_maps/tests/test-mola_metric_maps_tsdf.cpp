@@ -18,9 +18,13 @@
  */
 
 #include <mola_metric_maps/TSDF.h>
+#include <mrpt/config/CConfigFileMemory.h>
 #include <mrpt/io/CMemoryStream.h>
 #include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
 
@@ -486,6 +490,11 @@ void test_serialization_roundtrip()
   mola::TSDF map(TEST_VOXEL);
   fill_ground_plane(map);
 
+  // Non-default render options, so the roundtrip actually exercises them:
+  map.renderOptions.colormap       = mrpt::img::cmGRAYSCALE;
+  map.renderOptions.recolorize_by  = "weight";
+  map.renderOptions.render_as_mesh = true;
+
   mrpt::io::CMemoryStream buf;
   auto                    arch = mrpt::serialization::archiveFrom(buf);
   arch << map;
@@ -500,6 +509,10 @@ void test_serialization_roundtrip()
   const auto q2 = map2.queryField({0.3f, -0.2f, 0.2f});
   ASSERT_(q1.valid && q2.valid);
   ASSERT_(std::abs(q1.dist - q2.dist) < 1e-6f);
+
+  ASSERT_EQUAL_(map2.renderOptions.colormap, mrpt::img::cmGRAYSCALE);
+  ASSERT_EQUAL_(map2.renderOptions.recolorize_by, "weight");
+  ASSERT_(map2.renderOptions.render_as_mesh);
 
   std::cout << "test_serialization_roundtrip: OK" << std::endl;
 }
@@ -566,6 +579,190 @@ void test_voxel_budget_is_a_ceiling()
   ASSERT_(q.valid);
 }
 
+void test_mesh_winding_is_consistent()
+{
+  // A plane exactly on a voxel-center layer: the case where cell corners land
+  // on the surface, which is what produces degenerate triangles.
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.truncation_voxels    = 4.0;
+  map.insertionOptions.min_weight_for_query = 1.0;
+
+  fill_ground_plane(map, .0f);
+
+  map.renderOptions.render_as_mesh = true;
+
+  auto glObjs = mrpt::viz::CSetOfObjects::Create();
+  map.getVisualizationInto(*glObjs);
+
+  auto mesh = glObjs->getByClass<mrpt::viz::CSetOfTriangles>(0);
+  ASSERT_(mesh);
+  ASSERT_GT_(mesh->getTrianglesCount(), 100U);
+
+  // Every normal must point to the same side of a surface this simple, and no
+  // triangle may be degenerate.
+  size_t up   = 0;
+  size_t down = 0;
+  for (size_t i = 0; i < mesh->getTrianglesCount(); i++)
+  {
+    mrpt::viz::TTriangle t;
+    mesh->getTriangle(i, t);
+
+    const auto a = t.vertices[0].xyzrgba.pt;
+    const auto b = t.vertices[1].xyzrgba.pt;
+    const auto c = t.vertices[2].xyzrgba.pt;
+
+    const auto n = mrpt::math::crossProduct3D(b - a, c - a);
+    ASSERT_GT_(n.sqrNorm(), 1e-12f);
+
+    if (n.z > 0)
+    {
+      up++;
+    }
+    else
+    {
+      down++;
+    }
+  }
+
+  // The sensor is above, so the positive side of the field is up:
+  ASSERT_EQUAL_(down, 0U);
+
+  std::cout << "test_mesh_winding_is_consistent: " << up << " triangles, all facing the sensor"
+            << std::endl;
+}
+
+void test_exact_zero_voxel_is_reported_once()
+{
+  // A voxel whose field is exactly zero, with every neighbor on the positive
+  // side: no edge changes sign, so only the voxel itself can report it.
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.min_weight_for_query = 1.0;
+
+  auto& voxels = const_cast<mola::TSDF::grids_map_t&>(map.voxels());
+  for (int ix = -1; ix <= 1; ix++)
+  {
+    for (int iy = -1; iy <= 1; iy++)
+    {
+      for (int iz = -1; iz <= 1; iz++)
+      {
+        mola::TSDF::VoxelData v;
+        v.dist   = (ix == 0 && iy == 0 && iz == 0) ? .0f : 0.1f;
+        v.weight = 10.0f;
+        voxels.insert({mola::TSDF::global_index3d_t(ix, iy, iz), v});
+      }
+    }
+  }
+
+  size_t n = 0;
+  map.visitZeroCrossings([&](const mrpt::math::TPoint3Df&, float) { n++; });
+
+  ASSERT_EQUAL_(n, 1U);
+
+  std::cout << "test_exact_zero_voxel_is_reported_once: OK" << std::endl;
+}
+
+void test_render_options_from_config()
+{
+  // The names the pipeline YAML's renderOpts block sets:
+  mrpt::config::CConfigFileMemory cfg;
+  cfg.write("map", "point_size", 4.0);
+  cfg.write("map", "colormap", "cmGRAYSCALE");
+  cfg.write("map", "recolorize_by", "weight");
+  cfg.write("map", "render_as_mesh", true);
+
+  mola::TSDF::TRenderOptions ro;
+  ro.loadFromConfigFile(cfg, "map");
+
+  ASSERT_EQUAL_(ro.point_size, 4.0f);
+  ASSERT_EQUAL_(ro.colormap, mrpt::img::cmGRAYSCALE);
+  ASSERT_EQUAL_(ro.recolorize_by, "weight");
+  ASSERT_(ro.render_as_mesh);
+
+  std::cout << "test_render_options_from_config: OK" << std::endl;
+}
+
+void test_zero_crossings_are_sub_voxel()
+{
+  // The surface sits deliberately between two voxel layers, where reporting
+  // voxel centers would quantize it to the grid.
+  constexpr float Z_PLANE = 0.37f;
+
+  // The simulated plane ends abruptly, and the ray tube of its last, very
+  // oblique ray reaches past that edge, so the outermost voxel column carries
+  // a surface that is not there. Measure over the interior.
+  constexpr float MARGIN = 1.0f;
+
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.truncation_voxels    = 4.0;
+  map.insertionOptions.min_weight_for_query = 1.0;
+
+  fill_ground_plane(map, Z_PLANE);
+
+  size_t n      = 0;
+  float  maxErr = .0f;
+  map.visitZeroCrossings(
+      [&](const mrpt::math::TPoint3Df& p, float w)
+      {
+        ASSERT_GT_(w, .0f);
+        n++;
+
+        if (std::abs(p.x) > PLANE_SPAN - MARGIN || std::abs(p.y) > PLANE_SPAN - MARGIN)
+        {
+          return;
+        }
+        maxErr = std::max(maxErr, std::abs(p.z - Z_PLANE));
+      });
+
+  ASSERT_GT_(n, 100U);
+  // Well under a voxel: that is the whole point of interpolating the crossing.
+  ASSERT_LT_(maxErr, 0.3f * TEST_VOXEL);
+
+  std::cout << "test_zero_crossings_are_sub_voxel: " << n << " crossings, max error " << maxErr
+            << " m\n";
+
+  // The points map exposed to the GUI and to the ROS bridge is the same set:
+  const auto* pts = map.getAsSimplePointsMap();
+  ASSERT_EQUAL_(pts->size(), n);
+}
+
+void test_surface_mesh_is_watertight_around_the_plane()
+{
+  mola::TSDF map(TEST_VOXEL);
+  map.insertionOptions.truncation_voxels    = 4.0;
+  map.insertionOptions.min_weight_for_query = 1.0;
+
+  fill_ground_plane(map, 0.37f);
+
+  map.renderOptions.render_as_mesh = true;
+
+  auto glObjs = mrpt::viz::CSetOfObjects::Create();
+  map.getVisualizationInto(*glObjs);
+
+  auto mesh = glObjs->getByClass<mrpt::viz::CSetOfTriangles>(0);
+  ASSERT_(mesh);
+  ASSERT_GT_(mesh->getTrianglesCount(), 100U);
+
+  // Every triangle of a horizontal surface must lie on it (away from the
+  // fixture's own border, see test_zero_crossings_are_sub_voxel):
+  for (size_t i = 0; i < mesh->getTrianglesCount(); i++)
+  {
+    mrpt::viz::TTriangle t;
+    mesh->getTriangle(i, t);
+    for (int v = 0; v < 3; v++)
+    {
+      const auto& p = t.vertices[v].xyzrgba.pt;
+      if (std::abs(p.x) > PLANE_SPAN - 1.0f || std::abs(p.y) > PLANE_SPAN - 1.0f)
+      {
+        continue;
+      }
+      ASSERT_LT_(std::abs(p.z - 0.37f), 0.3f * TEST_VOXEL);
+    }
+  }
+
+  std::cout << "test_surface_mesh_is_watertight_around_the_plane: " << mesh->getTrianglesCount()
+            << " triangles\n";
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -584,6 +781,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_serialization_roundtrip();
     test_pruning();
     test_voxel_budget_is_a_ceiling();
+    test_render_options_from_config();
+    test_zero_crossings_are_sub_voxel();
+    test_surface_mesh_is_watertight_around_the_plane();
+    test_mesh_winding_is_consistent();
+    test_exact_zero_voxel_is_reported_once();
   }
   catch (const std::exception& e)
   {

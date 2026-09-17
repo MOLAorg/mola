@@ -2,6 +2,21 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.1 (2026-09-15)
+------------------
+* TSDF: render the actual zero level set, not the voxel centers (`#217 <https://github.com/MOLAorg/mola/issues/217>`_)
+* Merge pull request `#213 <https://github.com/MOLAorg/mola/issues/213>`_ from MOLAorg/feat/tsdf-uses-shared-hash
+  Drop TSDF's private voxel hash for the shared one
+* Read the voxel index through its members, not through a cast
+* Merge pull request `#211 <https://github.com/MOLAorg/mola/issues/211>`_ from MOLAorg/feat/tsdf-local-map
+  Add mola::TSDF, a truncated signed distance field local map
+* Expose the two constants of the per-point plane regularization (`#200 <https://github.com/MOLAorg/mola/issues/200>`_)
+* Optional diagnostic: scan-side covariance degeneracy in cov-to-cov matching (`#199 <https://github.com/MOLAorg/mola/issues/199>`_)
+* Merge pull request `#197 <https://github.com/MOLAorg/mola/issues/197>`_ from MOLAorg/feat/ndt-plane-candidates
+  NDT: report every candidate cell plane, not only the closest one
+* Guard NDT::nn_visit_pt2pl_candidates() for older mp2p_icp
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.0 (2026-08-21)
 ------------------
 * Merge pull request `#195 <https://github.com/MOLAorg/mola/issues/195>`_ from MOLAorg/feat/cov2cov-ambiguity-gating

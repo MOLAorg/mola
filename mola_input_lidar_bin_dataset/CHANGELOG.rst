@@ -2,6 +2,11 @@
 Changelog for package mola_input_lidar_bin_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.1 (2026-09-15)
+------------------
+* mola_viz_imgui: show dataset playback time in the dataset UI panel (`#202 <https://github.com/MOLAorg/mola/issues/202>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.0 (2026-08-21)
 ------------------
 * Merge remote-tracking branch 'origin/feat/map-frame-gauge-change' into feat/map-frame-gauge-change

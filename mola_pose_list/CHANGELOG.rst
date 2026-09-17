@@ -2,6 +2,9 @@
 Changelog for package mola_pose_list
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.1 (2026-09-15)
+------------------
+
 3.2.0 (2026-08-21)
 ------------------
 * Merge pull request `#192 <https://github.com/MOLAorg/mola/issues/192>`_ from MOLAorg/feat/map-frame-gauge-change
