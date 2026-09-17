@@ -262,7 +262,7 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   bool        isEmpty() const override;
   void        getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const override;
   void        saveMetricMapRepresentationToFile(const std::string& filNamePrefix) const override;
-  const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const override;
+  const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const;
   /** @} */
 
   /** All parameters specific to this class. The standard `insertionOptions`,

@@ -215,7 +215,7 @@ class TSDF : public mrpt::maps::CMetricMap,
 
   /// Zero-crossing points of the field, for visualization and for the
   /// MOLA->ROS2 bridge only. Not efficient.
-  const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const override;
+  const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const;
 
   /** @} */
 
