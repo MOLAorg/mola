@@ -1064,12 +1064,9 @@ void TSDF::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 
   for (const auto& [p, v] : samples)
   {
-    float r = 0;
-    float g = 0;
-    float b = 0;
-    mrpt::img::colormap(renderOptions.colormap, (v - vMin) * invRange, r, g, b);
+    const auto c = mrpt::img::colormap(renderOptions.colormap, (v - vMin) * invRange);
 
-    pts->insertPoint({p.x, p.y, p.z, toU8(r), toU8(g), toU8(b)});
+    pts->insertPoint({p.x, p.y, p.z, toU8(c.R), toU8(c.G), toU8(c.B)});
   }
 
   outObj.insert(pts);
