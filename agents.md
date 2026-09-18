@@ -267,8 +267,25 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   not a mutator rewriting a few points or a caller poking the inherited
   coordinate buffers directly; those stay as stale-index hazards.
   Implements `mp2p_icp::NearestPointWithCovCapable` with lazily computed,
-  cached, plane-regularized per-point covariances (the "option A" of the plan;
-  voxel/NDT-style and dirty-propagation covariances remain future work). Not for
+  cached, plane-regularized per-point covariances (voxel/NDT-style covariances
+  remain future work). A cached covariance goes stale when points are inserted
+  or evicted within `max_distance_for_cov` of it, and the steady-state
+  append/evict path never invalidates it. (Wholesale operations do reset the
+  cache, e.g. an index rebuild, an insertion that *replaces* rather than
+  appends, or some option changes; see `resetIndex()` and
+  `trySetCreationOptions()` for what exactly.) What
+  `TCreationOptions::min_neighbors_to_cache_cov` controls is what gets *into*
+  the cache. A point whose neighbor search returned fewer than that many neighbors is
+  answered but not cached, so the estimate is redone on the next query, by
+  which time the map may have densified around it. The map only ever gains
+  points around an existing one, so this is what keeps a thin-neighborhood
+  estimate, in particular the isotropic fallback, from being frozen for the
+  point's whole life. 0 (the default) means `k_correspondences_for_cov`, i.e.
+  only a full neighborhood is trusted; 1 caches everything, which is the
+  historical behavior; any value above `k_correspondences_for_cov` can never be
+  met, which disables the cache altogether and makes every query exact at a
+  large cost. Eviction is out of reach either way: a well-populated point keeps
+  its covariance when its neighbors are trimmed away behind the vehicle. Not for
   loop closure (a global SE(3) re-map would force a full rebuild) -- use
   `KeyframePointCloudMap` there. Caveats: point removal is lazy, so the
   inherited `size()` counts live + not-yet-reclaimed slots (use
