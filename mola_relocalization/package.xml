@@ -19,7 +19,6 @@
   <depend>mola_pose_list</depend>
 
   <depend>mrpt_obs</depend>
-  <depend>mrpt_slam</depend>
   <depend>mrpt_maps</depend>
 
   <test_depend>mola_test_datasets</test_depend>

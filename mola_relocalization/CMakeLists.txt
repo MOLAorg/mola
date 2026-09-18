@@ -19,7 +19,6 @@ find_package(mola_common REQUIRED)
 # find CMake dependencies:
 find_package(mrpt_obs REQUIRED)
 find_package(mrpt_maps REQUIRED)
-find_package(mrpt_slam REQUIRED)
 find_package(mp2p_icp REQUIRED)
 find_package(mola_pose_list REQUIRED)
 
@@ -37,7 +36,6 @@ mola_add_library(
   PUBLIC_LINK_LIBRARIES
     mrpt::mrpt_obs
     mrpt::mrpt_maps
-    mrpt::mrpt_slam
     mola::mp2p_icp
     mola::mola_pose_list
 #  PRIVATE_LINK_LIBRARIES
@@ -46,7 +44,6 @@ mola_add_library(
     mola_common
     mp2p_icp
     mola_pose_list
-    mrpt_slam
 )
 
 # -----------------------
