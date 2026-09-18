@@ -36,13 +36,12 @@
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
-#include <mrpt/viz/CPointCloud.h>
-#include <mrpt/viz/CPointCloudColoured.h>
-#include <mrpt/viz/CSetOfTriangles.h>
 #include <mrpt/serialization/CArchive.h>
 #include <mrpt/system/os.h>
 #include <mrpt/viz/CPointCloud.h>
+#include <mrpt/viz/CPointCloudColoured.h>
 #include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 
 #include <algorithm>
 #include <array>
@@ -1194,9 +1193,9 @@ void TSDF::buildSurfaceMesh(mrpt::viz::CSetOfTriangles& mesh) const
         }
 
         mrpt::viz::TTriangle t = (normal.x * towardsPositive.x + normal.y * towardsPositive.y +
-                                     normal.z * towardsPositive.z) < 0
-                                        ? mrpt::viz::TTriangle(a, c, b)
-                                        : mrpt::viz::TTriangle(a, b, c);
+                                  normal.z * towardsPositive.z) < 0
+                                     ? mrpt::viz::TTriangle(a, c, b)
+                                     : mrpt::viz::TTriangle(a, b, c);
 
         t.setColor(color);
         mesh.insertTriangle(t);

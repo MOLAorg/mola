@@ -2247,8 +2247,8 @@ void BridgeROS2::timerPubMapLayer(const std::string& layerName, const MapSourceB
       // rather than through a CSimplePointsMap copy constructor.
       auto cloud = std::make_shared<mrpt::maps::CSimplePointsMap>();
       cloud->insertAnotherMap(pts, mrpt::poses::CPose3D::Identity());
-      obs.pointcloud  = cloud;
-      obs.timestamp   = mu.timestamp;
+      obs.pointcloud = cloud;
+      obs.timestamp  = mu.timestamp;
       // Reuse code for point cloud observations: build a "fake" observation:
       internalOn(obs, false /*no tf*/, mu.reference_frame);
     }

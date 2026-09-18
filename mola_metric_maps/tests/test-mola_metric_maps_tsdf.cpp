@@ -23,10 +23,10 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
-#include <mrpt/viz/CSetOfObjects.h>
-#include <mrpt/viz/CSetOfTriangles.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 
 #include <array>
 #include <cmath>
