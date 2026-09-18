@@ -44,6 +44,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <stdexcept>
 #include <thread>
 
 namespace
@@ -421,8 +422,9 @@ void stress_nonfinite_input()
 /** The class is a `mrpt::maps::CPointsMap`, so any generic MRPT code may reach
  *  its inherited storage buffers directly, including the `KDTreeCapable`
  *  interface every points map carries (`kdTreeNClosestPoint3DIdx()` and
- *  friends). That static k-d tree is built over the raw storage, holes
- *  included, and must not be corrupted by them.
+ *  friends). That static k-d tree would be built over the raw storage, holes
+ *  included, so the class disables it: the inherited methods must throw, and
+ *  `liveCompactedCopy()` must give a plain points map that answers correctly.
  */
 void stress_generic_pointsmap_kdtree()
 {
@@ -449,23 +451,46 @@ void stress_generic_pointsmap_kdtree()
       map.size() > map.livePointCount(),
       "the scenario is void unless the storage actually has holes in it");
 
-  // This is what a consumer holding it as a plain CPointsMap does (icp_bench's
-  // map-quality metric, for one): walk every storage slot and ask the inherited
-  // static k-d tree for its neighbors.
-  const auto& pts = static_cast<const mrpt::maps::CPointsMap&>(map);
-
+  // This is what a consumer holding it as a plain CPointsMap used to do
+  // (icp_bench's map-quality metric, for one): walk every storage slot and ask
+  // the inherited static k-d tree for its neighbors. Those answers would cover
+  // the holes too, so the class now refuses the query outright.
   std::vector<float>  distsSq;
   std::vector<size_t> idxs;
 
-  const size_t step = std::max<size_t>(1, pts.size() / 2000);
-  for (size_t i = 0; i < pts.size(); i += step)
+#if defined(MRPT_HAS_KDTREE_CAPABLE_DISABLE)
+  bool threw = false;
+  try
+  {
+    const auto& pts = static_cast<const mrpt::maps::CPointsMap&>(map);
+    pts.kdTreeNClosestPoint3DIdx(0.f, 0.f, 0.f, 12, idxs, distsSq);
+  }
+  catch (const std::logic_error& e)
+  {
+    threw = true;
+    std::cout << "[stress]   inherited k-d tree correctly refused: " << e.what() << "\n";
+  }
+  ASSERTMSG_(threw, "the inherited KDTreeCapable index must be disabled on this class");
+#endif
+
+  // ...and this is what such a consumer should do instead: a compacted copy is
+  // a plain points map, with no holes and a perfectly usable static k-d tree.
+  const auto live = map.liveCompactedCopy();
+  ASSERT_EQUAL_(live->size(), map.livePointCount());
+
+  const size_t step = std::max<size_t>(1, live->size() / 2000);
+  for (size_t i = 0; i < live->size(); i += step)
   {
     mrpt::math::TPoint3Df q;
-    pts.getPointFast(i, q.x, q.y, q.z);
+    live->getPointFast(i, q.x, q.y, q.z);
 
     idxs.clear();
     distsSq.clear();
-    pts.kdTreeNClosestPoint3DIdx(q.x, q.y, q.z, 12, idxs, distsSq);
+    live->kdTreeNClosestPoint3DIdx(q.x, q.y, q.z, 12, idxs, distsSq);
+
+    // The query point itself is in the map, so the nearest hit is exact:
+    ASSERTMSG_(!idxs.empty(), "the compacted copy must answer neighbor queries");
+    ASSERTMSG_(distsSq.front() < 1e-6f, "the nearest neighbor of a stored point is itself");
   }
 
   std::cout << "[stress]   done\n";
