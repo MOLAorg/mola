@@ -38,6 +38,7 @@
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/math/TPoint3D.h>
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -144,6 +145,19 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
   /** Number of storage slots ready to be reused by the next insertion. */
   [[nodiscard]] std::size_t recyclableSlotCount() const;
+
+  /** Number of per-point covariance estimations run so far, i.e. cache misses
+   *  plus the points whose neighborhood never qualified for caching. For
+   *  diagnostics and benchmarks.
+   *  \sa TCreationOptions::min_neighbors_to_cache_cov
+   */
+  [[nodiscard]] uint64_t covarianceComputations() const
+  {
+    return cov_computations_.load(std::memory_order_relaxed);
+  }
+
+  /** Number of points whose covariance is currently held in the cache. */
+  [[nodiscard]] std::size_t cachedCovarianceCount() const;
 
   /** Physically drops the tombstoned storage slots (so `size()` becomes
    *  `livePointCount()`) and rebuilds the k-d tree with the current
@@ -348,6 +362,24 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
     /** Maximum distance [m] to search neighbors for the covariance estimate. */
     double max_distance_for_cov = 1.0;
 
+    /** Minimum number of neighbors that must have been found for a computed
+     *  per-point covariance to be stored in the cache. A point whose
+     *  neighborhood was still too thin is left uncached and recomputed on the
+     *  next query, by which time the map may have densified around it, so an
+     *  unreliable estimate (in particular the isotropic fallback) is never
+     *  frozen for the whole life of the point.
+     *
+     *  0 (default) means `k_correspondences_for_cov`, i.e. only a full
+     *  neighborhood is trusted. 1 caches every result, which is cheapest but
+     *  never revisits an early estimate. A value above
+     *  `k_correspondences_for_cov` can never be met, which disables the cache
+     *  altogether: every query is then exact, at a large cost.
+     *
+     *  @note Eviction is not covered: a point that was already well populated
+     *  keeps its covariance when its neighbors are trimmed away.
+     */
+    uint32_t min_neighbors_to_cache_cov = 0;
+
     /** Maximum distance [m] any neighbor may sit from the least-squares plane
      *  through the neighborhood for that neighborhood to receive the plane
      *  regularization below. 0 (default) disables the test. Same semantics as
@@ -437,6 +469,9 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   mutable std::vector<mrpt::math::CMatrixFloat33> cov_;
   mutable std::vector<uint8_t>                    cov_valid_;
 
+  /// Diagnostics only: how many times a point covariance has been estimated.
+  mutable std::atomic<uint64_t> cov_computations_{0};
+
   /// Used for getAsSimplePointsMap() only.
   mutable mrpt::maps::CSimplePointsMap::Ptr cachedPoints_;
 
@@ -496,8 +531,14 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   /// Collects the slots the index reclaimed, blanks them and marks them reusable.
   void harvestRemovedSlots();
 
-  /// Computes and caches the covariance of one live point, if not cached yet.
+  /** Computes the covariance of one live point, unless it is already cached,
+   *  and caches it only if its neighborhood was populated enough.
+   *  \sa TCreationOptions::min_neighbors_to_cache_cov
+   */
   void computeCovariance(uint32_t slot) const;
+
+  /// Neighbors required to cache a covariance, resolving the "0 = auto" case.
+  [[nodiscard]] std::size_t covCacheThreshold() const;
 
   /** Fills the covariance cache for the given slots, in parallel when TBB is
    *  available. The caller must pass each slot at most once, so that threads

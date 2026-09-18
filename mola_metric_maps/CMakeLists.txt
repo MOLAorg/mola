@@ -29,6 +29,8 @@ find_package(Eigen3 REQUIRED NO_MODULE)
 
 find_package(TBB) # optional
 
+find_package(mola_test_datasets QUIET) # optional (for testing builds only)
+
 if(TBB_FOUND)
   option(MOLA_METRIC_MAPS_USE_TBB "If found TBB, this option controls whether to use it or not" ON)
 endif()
