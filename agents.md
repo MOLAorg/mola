@@ -160,6 +160,11 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   async-signal-safe: it only calls `MolaLauncherApp::requestSpinExit()`, which
   raises an atomic flag so `spin()` returns; the blocking `shutdown()` (logs,
   joins module threads) then runs in the main thread.
+- `execution_rate` monitoring: each module thread warns only if its *sustained*
+  rate over a 30 s window stays below 80% of the desired one, not on every
+  single late cycle. Modules implementing `OfflineDatasetSource` are exempt:
+  they replay at their own pace and catch up on the next cycle, so for them
+  `execution_rate` is just a polling rate.
 
 ### `mola_bridge_ros2` — ROS 2 Integration
 - Consumes ROS 2 sensor topics as MOLA `RawDataSource`
