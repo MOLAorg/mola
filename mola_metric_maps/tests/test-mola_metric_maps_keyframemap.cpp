@@ -808,7 +808,12 @@ void test_kf_pose_plumbing()
 
   // Mutating the snapshot does not affect the map.
   snap.at(KFID{0}) = CPose3D::FromXYZYawPitchRoll(99.0, 0.0, 0.0, 0.0_deg, 0.0_deg, 0.0_deg);
-  ASSERT_NEAR_(m.keyframePoses().at(KFID{0}).x(), 0.0, 1e-9);
+  // Note the named local: keyframePoses() returns the snapshot by value, and
+  // ASSERT_NEAR_() binds its argument to a `const auto&`. Reading through the
+  // temporary would leave that reference dangling, since x() hands out a
+  // reference into a map that dies with the enclosing declaration.
+  const auto refetched = m.keyframePoses();
+  ASSERT_NEAR_(refetched.at(KFID{0}).x(), 0.0, 1e-9);
 
   // setKeyframePose updates the stored pose.
   const auto newPose1 = CPose3D::FromXYZYawPitchRoll(2.0, 0.0, 1.5, 0.0_deg, 5.0_deg, 0.0_deg);
