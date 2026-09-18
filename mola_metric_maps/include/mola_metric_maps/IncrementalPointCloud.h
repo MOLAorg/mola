@@ -99,17 +99,27 @@ class IncrementalKDTree;
  * coordinates; that fraction is bounded by
  * `TCreationOptions::alpha_deleted`.
  *
+ * ## The inherited static k-d tree is disabled
+ * `CPointsMap` also carries the cached, rebuilt-from-scratch index of
+ * `mrpt::math::KDTreeCapable` (`kdTreeNClosestPoint3D*()` and friends). That
+ * index is built over the *raw storage*, i.e. over the tombstoned and blanked
+ * slots too, so its answers on this class would be meaningless; and building it
+ * concurrently with an insertion is a data race on the coordinate buffers.
+ *
+ * It is therefore switched off here via `kdtree_disable()`, and every one of
+ * those inherited methods throws `std::logic_error` explaining what to use
+ * instead: the `nn_*()` methods of `mrpt::maps::NearestNeighborsCapable`, or
+ * `liveCompactedCopy()` for a plain points map that any other API can query.
+ * Generic code holding this map as a `mrpt::maps::CPointsMap` therefore fails
+ * loudly rather than silently returning neighbors that do not exist.
+ *
+ * @note Requires an MRPT providing the opt-out (feature macro
+ *       `MRPT_HAS_KDTREE_CAPABLE_DISABLE`). Without it the inherited methods
+ *       stay reachable and keep their old, unsupported behavior.
+ *
  * @note Thread-safety: all index access is serialized internally, so a mapping
  *       thread and an ICP thread may use the map concurrently through the
  *       `nn_*` and `insert*` APIs.
- *       The one exception is the *generic* `mrpt::math::KDTreeCapable` API
- *       inherited from `CPointsMap` (`kdTreeNClosestPoint3D*()` and friends),
- *       which builds its own static tree over the raw storage: that tree's
- *       construction calls back into `boundingBox()`, so it takes MRPT's k-d
- *       tree mutex and then ours, while insertion takes them the other way
- *       round. Use those methods only from a single thread, and prefer
- *       `liveCompactedCopy()` anyway, since the raw storage they see includes
- *       the tombstoned and blanked slots.
  */
 class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
                               public mp2p_icp::NearestPointWithCovCapable,
@@ -390,6 +400,13 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
       const std::optional<const mrpt::poses::CPose3D>& robotPose = std::nullopt) override;
 
  private:
+  /** Declares the static k-d tree inherited from `mrpt::math::KDTreeCapable`
+   *  unsupported for this class, so that its query methods throw instead of
+   *  indexing the raw storage. Called from every constructor; a no-op when
+   *  built against an MRPT without the opt-out.
+   */
+  void disableInheritedKDTree();
+
   /// The actual cov2cov search. Both public overloads forward here, so the
   /// implementation stays free of preprocessor branches.
   void nn_search_cov2cov_impl(

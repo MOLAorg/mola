@@ -16,7 +16,11 @@ tests/run-sanitizers.sh asan 400 7    # <frames> <seed> for the stress test
 ```
 
 It builds this package standalone into `/tmp/mola_metric_maps-<mode>` and runs
-the whole test suite, the stress test last.
+the whole test suite, the stress test last. It also puts that build's `lib/` at
+the front of `LD_LIBRARY_PATH`: with a ROS overlay/underlay providing
+`mola_metric_maps` sourced, the instrumented binaries would otherwise load the
+*uninstrumented* `libmola_metric_maps.so` from that install, and the run then
+fails in ways that have nothing to do with the code under test.
 
 ## The stress test
 
