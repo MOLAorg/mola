@@ -14,10 +14,12 @@ project(mola_viz_imgui LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # -- External dependencies ----------------------------------------------------
-find_package(mrpt-maps    REQUIRED)
-find_package(mrpt-opengl  REQUIRED)
-find_package(mrpt-obs     REQUIRED)
-find_package(mrpt-gui     REQUIRED)
+find_package(mrpt_maps    REQUIRED)
+find_package(mrpt_opengl  REQUIRED)
+find_package(mrpt_obs     REQUIRED)
+find_package(mrpt_gui     REQUIRED)
+find_package(mrpt_viz     REQUIRED)
+find_package(mrpt_imgui   REQUIRED)
 find_mola_package(mola_kernel)
 
 # GLFW is needed explicitly for our own GLFW window management.
@@ -54,19 +56,23 @@ mola_add_library(
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
   PUBLIC_LINK_LIBRARIES
     mola::mola_kernel
-    mrpt::opengl
-    mrpt::maps
-    mrpt::obs
+    mrpt::mrpt_opengl
+    mrpt::mrpt_maps
+    mrpt::mrpt_obs
+    mrpt::mrpt_viz
     OpenGL::GL
-    mrpt::gui          # public header includes mrpt/imgui/CImGuiSceneView.h
+    mrpt::mrpt_gui
+    mrpt::mrpt_imgui   # public header includes mrpt/imgui/CImGuiSceneView.h
   PRIVATE_LINK_LIBRARIES
     imgui::imgui
   CMAKE_DEPENDENCIES
     mola_kernel
-    mrpt-opengl
-    mrpt-maps
-    mrpt-obs
-    mrpt-gui
+    mrpt_opengl
+    mrpt_maps
+    mrpt_obs
+    mrpt_gui
+    mrpt_imgui
+    mrpt_viz
 )
 
 # -- Compiler options ---------------------------------------------------------

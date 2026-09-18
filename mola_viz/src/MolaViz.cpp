@@ -36,11 +36,13 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
-#include <mrpt/opengl/COpenGLScene.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/stock_objects.h>
 #include <mrpt/system/thread_name.h>
 #include <mrpt/version.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/Scene.h>
+#include <mrpt/viz/opengl_fonts.h>
+#include <mrpt/viz/stock_objects.h>
 
 #include <array>
 #include <cinttypes>
@@ -142,7 +144,7 @@ void gui_handler_show_common_sensor_info(
   constexpr unsigned int TXT_ID_SENSOR_POSE = 2;
   constexpr unsigned int TXT_ID_ADDITIONALS = 3;
 
-  mrpt::opengl::TFontParams fp;
+  mrpt::viz::TFontParams fp;
   fp.color        = {1.0f, 1.0f, 1.0f};
   fp.draw_shadow  = true;
   fp.shadow_color = {0.0f, 0.0f, 0.0f};
@@ -156,8 +158,7 @@ void gui_handler_show_common_sensor_info(
       mrpt::format("Timestamp: %s", mrpt::system::dateTimeToString(obs.timestamp).c_str()),
       TXT_ID_TIMESTAMP, fp);
 
-  mrpt::poses::CPose3D sensorPose;
-  obs.getSensorPose(sensorPose);
+  const auto sensorPose = obs.getSensorPose();
 
   glView->addTextMessage(
       2, line_y(TXT_ID_SENSOR_POSE), mrpt::format("Sensor pose: %s", sensorPose.asString().c_str()),
@@ -238,7 +239,7 @@ void gui_handler_images(
     glControl->setFixedSize({winW, winH});
 
     auto lck         = mrpt::lockHelper(glControl->scene_mtx);
-    glControl->scene = mrpt::opengl::COpenGLScene::Create();
+    glControl->scene = mrpt::viz::Scene::Create();
     instance->markWindowForReLayout(parentWin);
   }
   else
@@ -258,7 +259,7 @@ void gui_handler_images(
 
   const auto imgW        = static_cast<int>(imgToShow.getWidth());
   const auto imgH        = static_cast<int>(imgToShow.getHeight());
-  const int  imgChannels = imgToShow.channelCount();
+  const int  imgChannels = static_cast<int>(imgToShow.channels());
 
   auto lck = mrpt::lockHelper(glControl->scene_mtx);
   glControl->scene->getViewport()->setImageView(imgToShow);
@@ -272,9 +273,9 @@ void gui_handler_images(
 struct PointCloudGLObjects
 {
   mrpt::gui::MRPT2NanoguiGLCanvas*            glControl = nullptr;
-  mrpt::opengl::CPointCloudColoured::Ptr      glPc;
-  mrpt::opengl::CSetOfObjects::Ptr            glCornerRef;
-  mrpt::opengl::CSetOfObjects::Ptr            glCornerSensor;
+  mrpt::viz::CPointCloudColoured::Ptr         glPc;
+  mrpt::viz::CSetOfObjects::Ptr               glCornerRef;
+  mrpt::viz::CSetOfObjects::Ptr               glCornerSensor;
   std::optional<mrpt::LockHelper<std::mutex>> lck;
 };
 
@@ -288,11 +289,11 @@ PointCloudGLObjects setup_or_reuse_point_cloud_gl(
   {
     gl.glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
     gl.lck.emplace(&gl.glControl->scene_mtx);
-    gl.glControl->scene = mrpt::opengl::COpenGLScene::Create();
-    gl.glPc             = mrpt::opengl::CPointCloudColoured::Create();
+    gl.glControl->scene = mrpt::viz::Scene::Create();
+    gl.glPc             = mrpt::viz::CPointCloudColoured::Create();
     gl.glControl->scene->insert(gl.glPc);
-    gl.glCornerRef    = mrpt::opengl::stock_objects::CornerXYZ(1.0f);
-    gl.glCornerSensor = mrpt::opengl::stock_objects::CornerXYZ(0.5f);
+    gl.glCornerRef    = mrpt::viz::stock_objects::CornerXYZ(1.0f);
+    gl.glCornerSensor = mrpt::viz::stock_objects::CornerXYZ(0.5f);
     gl.glControl->scene->insert(gl.glCornerRef);
     gl.glControl->scene->insert(gl.glCornerSensor);
     gl.glPc->setPointSize(point_size);
@@ -302,9 +303,9 @@ PointCloudGLObjects setup_or_reuse_point_cloud_gl(
   {
     gl.glControl = dynamic_cast<mrpt::gui::MRPT2NanoguiGLCanvas*>(w->children().at(1));
     gl.lck.emplace(&gl.glControl->scene_mtx);
-    gl.glPc           = gl.glControl->scene->getByClass<mrpt::opengl::CPointCloudColoured>();
-    gl.glCornerRef    = gl.glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(0);
-    gl.glCornerSensor = gl.glControl->scene->getByClass<mrpt::opengl::CSetOfObjects>(1);
+    gl.glPc           = gl.glControl->scene->getByClass<mrpt::viz::CPointCloudColoured>();
+    gl.glCornerRef    = gl.glControl->scene->getByClass<mrpt::viz::CSetOfObjects>(0);
+    gl.glCornerSensor = gl.glControl->scene->getByClass<mrpt::viz::CSetOfObjects>(1);
   }
   ASSERT_(gl.glControl != nullptr);
   ASSERT_(gl.glPc);
@@ -315,8 +316,8 @@ PointCloudGLObjects setup_or_reuse_point_cloud_gl(
 }
 
 bool populate_from_observation_point_cloud(
-    const mrpt::obs::CObservationPointCloud&      objPc,
-    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+    const mrpt::obs::CObservationPointCloud& objPc, const mrpt::viz::CPointCloudColoured::Ptr& glPc,
+    nanogui::Window* w, double sensorDecimation)
 {
   auto& objPcMut = const_cast<mrpt::obs::CObservationPointCloud&>(objPc);
   objPcMut.load();
@@ -378,8 +379,8 @@ bool populate_from_observation_point_cloud(
 }
 
 void populate_from_rotating_scan(
-    const mrpt::obs::CObservationRotatingScan&    objRS,
-    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+    const mrpt::obs::CObservationRotatingScan& objRS,
+    const mrpt::viz::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
 {
   auto& objRSMut = const_cast<mrpt::obs::CObservationRotatingScan&>(objRS);
   objRSMut.load();
@@ -405,8 +406,8 @@ void populate_from_rotating_scan(
 }
 
 void populate_from_3d_range_scan(
-    const mrpt::obs::CObservation3DRangeScan&     obj3D,
-    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation,
+    const mrpt::obs::CObservation3DRangeScan&  obj3D,
+    const mrpt::viz::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation,
     bool& color_from_z)
 {
   if (obj3D.hasPoints3D)
@@ -446,8 +447,8 @@ void populate_from_3d_range_scan(
 }
 
 void populate_from_2d_range_scan(
-    const mrpt::obs::CObservation2DRangeScan&     obj2D,
-    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+    const mrpt::obs::CObservation2DRangeScan&  obj2D,
+    const mrpt::viz::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
 {
   mrpt::maps::CSimplePointsMap auxMap;
   auxMap.insertObservationPtr(std::make_shared<mrpt::obs::CObservation2DRangeScan>(obj2D));
@@ -456,8 +457,8 @@ void populate_from_2d_range_scan(
 }
 
 bool populate_from_velodyne_scan(
-    const mrpt::obs::CObservationVelodyneScan&    objVel,
-    const mrpt::opengl::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
+    const mrpt::obs::CObservationVelodyneScan& objVel,
+    const mrpt::viz::CPointCloudColoured::Ptr& glPc, nanogui::Window* w, double sensorDecimation)
 {
   if (objVel.point_cloud.size() == 0)
   {
@@ -511,9 +512,7 @@ void gui_handler_point_cloud(
 
   if (auto obs = std::dynamic_pointer_cast<CObservation>(o); obs)
   {
-    mrpt::poses::CPose3D p;
-    obs->getSensorPose(p);
-    gl.glCornerSensor->setPose(p);
+    gl.glCornerSensor->setPose(obs->getSensorPose());
   }
 
   if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o); objPc)
@@ -642,7 +641,7 @@ void gui_handler_imu(
         nanogui::Orientation::Horizontal, 1, nanogui::Alignment::Fill, 2, 2));
     glControl = w->add<mrpt::gui::MRPT2NanoguiGLCanvas>();
     lck.emplace(&glControl->scene_mtx);
-    glControl->scene = mrpt::opengl::COpenGLScene::Create();
+    glControl->scene = mrpt::viz::Scene::Create();
     const int winW   = 400;
     const int winH   = 125;
     glControl->setSize({winW, winH});
@@ -1205,7 +1204,7 @@ mrpt::gui::CDisplayWindowGUI::Ptr MolaViz::create_and_add_window(const window_na
 
   win->setIconFromData(mola_icon_data, mola_icon_width, mola_icon_height, 0xff);
 
-  auto scene = mrpt::opengl::COpenGLScene::Create();
+  auto scene = mrpt::viz::Scene::Create();
   {
     std::lock_guard<std::mutex> lck(win->background_scene_mtx);
     win->background_scene = std::move(scene);
@@ -1607,7 +1606,7 @@ std::future<bool> MolaViz::subwindow_update_visualization(
 // ---------------------------------------------------------------------------
 
 std::future<bool> MolaViz::update_3d_object(
-    const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+    const std::string& objName, const std::shared_ptr<mrpt::viz::CSetOfObjects>& obj,
     const std::string& viewportName, const std::string& parentWindow,
     const std::string& parentFrame)
 {
@@ -1623,8 +1622,8 @@ std::future<bool> MolaViz::update_3d_object(
         ASSERT_(topWin);
         ASSERT_(topWin->background_scene);
 
-        mrpt::opengl::CSetOfObjects::Ptr glContainer;
-        auto&                            scene = *topWin->background_scene;
+        mrpt::viz::CSetOfObjects::Ptr glContainer;
+        auto&                         scene = *topWin->background_scene;
         if (parentFrame.empty())
         {
           // Non-recursive search: only direct children of the viewport root,
@@ -1635,7 +1634,7 @@ std::future<bool> MolaViz::update_3d_object(
             {
               if (o->getName() == objName)
               {
-                glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+                glContainer = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
                 break;
               }
             }
@@ -1648,7 +1647,7 @@ std::future<bool> MolaViz::update_3d_object(
             {
               scene.removeObject(o, viewportName);
             }
-            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            glContainer = mrpt::viz::CSetOfObjects::Create();
             scene.insert(glContainer, viewportName);
           }
         }
@@ -1659,7 +1658,7 @@ std::future<bool> MolaViz::update_3d_object(
           auto frameNode = get_or_create_frame_node_(scene, parentFrame, viewportName);
           if (auto o = frameNode->getByName(objName); o)
           {
-            glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            glContainer = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
           }
           if (!glContainer)
           {
@@ -1669,7 +1668,7 @@ std::future<bool> MolaViz::update_3d_object(
             {
               scene.removeObject(o, viewportName);
             }
-            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            glContainer = mrpt::viz::CSetOfObjects::Create();
             frameNode->insert(glContainer);
           }
         }
@@ -1685,19 +1684,19 @@ std::future<bool> MolaViz::update_3d_object(
   return task->get_future();
 }
 
-mrpt::opengl::CSetOfObjects::Ptr MolaViz::get_or_create_frame_node_(
-    mrpt::opengl::Scene& scene, const std::string& frameName, const std::string& viewportName)
+mrpt::viz::CSetOfObjects::Ptr MolaViz::get_or_create_frame_node_(
+    mrpt::viz::Scene& scene, const std::string& frameName, const std::string& viewportName)
 {
   // Called from the GUI thread only.
-  mrpt::opengl::CSetOfObjects::Ptr frameNode;
+  mrpt::viz::CSetOfObjects::Ptr frameNode;
   if (auto o = scene.getByName(frameName, viewportName); o)
   {
-    frameNode = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+    frameNode = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
     ASSERT_(frameNode);
   }
   else
   {
-    frameNode = mrpt::opengl::CSetOfObjects::Create();
+    frameNode = mrpt::viz::CSetOfObjects::Create();
     frameNode->setName(frameName);
     scene.insert(frameNode, viewportName);
   }
@@ -1732,9 +1731,9 @@ std::future<bool> MolaViz::update_3d_object_frame(
 }
 
 std::future<bool> MolaViz::insert_point_cloud_with_decay(
-    const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud,
-    const double decay_time_seconds, const std::string& viewportName,
-    const std::string& parentWindow, const std::string& parentFrame)
+    const std::shared_ptr<mrpt::viz::CPointCloudColoured>& cloud, const double decay_time_seconds,
+    const std::string& viewportName, const std::string& parentWindow,
+    const std::string& parentFrame)
 {
   using return_type = bool;
 
@@ -1752,17 +1751,17 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
         ASSERT_(topWin);
         ASSERT_(topWin->background_scene);
 
-        mrpt::opengl::CSetOfObjects::Ptr glContainer;
+        mrpt::viz::CSetOfObjects::Ptr glContainer;
         if (parentFrame.empty())
         {
           if (auto o = topWin->background_scene->getByName(DECAY_CLOUDS_NAME, viewportName); o)
           {
-            glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            glContainer = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
             ASSERT_(glContainer);
           }
           else
           {
-            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            glContainer = mrpt::viz::CSetOfObjects::Create();
             topWin->background_scene->insert(glContainer, viewportName);
             glContainer->setName(DECAY_CLOUDS_NAME);
           }
@@ -1773,12 +1772,12 @@ std::future<bool> MolaViz::insert_point_cloud_with_decay(
               get_or_create_frame_node_(*topWin->background_scene, parentFrame, viewportName);
           if (auto o = frameNode->getByName(DECAY_CLOUDS_NAME); o)
           {
-            glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+            glContainer = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
             ASSERT_(glContainer);
           }
           else
           {
-            glContainer = mrpt::opengl::CSetOfObjects::Create();
+            glContainer = mrpt::viz::CSetOfObjects::Create();
             glContainer->setName(DECAY_CLOUDS_NAME);
             frameNode->insert(glContainer);
           }
@@ -1825,15 +1824,15 @@ std::future<bool> MolaViz::clear_all_point_clouds_with_decay(
         ASSERT_(topWin);
         ASSERT_(topWin->background_scene);
 
-        mrpt::opengl::CSetOfObjects::Ptr glContainer;
+        mrpt::viz::CSetOfObjects::Ptr glContainer;
         if (auto o = topWin->background_scene->getByName(DECAY_CLOUDS_NAME, viewportName); o)
         {
-          glContainer = std::dynamic_pointer_cast<mrpt::opengl::CSetOfObjects>(o);
+          glContainer = std::dynamic_pointer_cast<mrpt::viz::CSetOfObjects>(o);
           ASSERT_(glContainer);
         }
         else
         {
-          glContainer = mrpt::opengl::CSetOfObjects::Create();
+          glContainer = mrpt::viz::CSetOfObjects::Create();
           topWin->background_scene->insert(glContainer, viewportName);
           glContainer->setName(DECAY_CLOUDS_NAME);
         }
@@ -1943,7 +1942,7 @@ std::future<bool> MolaViz::update_viewport_camera_orthographic(
         auto topWin = windows_.at(parentWindow).win;
         ASSERT_(topWin);
         ASSERT_(topWin->background_scene);
-        topWin->camera().setCameraProjective(!orthographic);
+        topWin->camera().setProjectiveModel(!orthographic);
         return true;
       });
 
@@ -1954,7 +1953,7 @@ std::future<bool> MolaViz::update_viewport_camera_orthographic(
 }
 
 std::future<bool> MolaViz::execute_custom_code_on_background_scene(
-    const std::function<void(mrpt::opengl::Scene&)>& userCode, const std::string& parentWindow)
+    const std::function<void(mrpt::viz::Scene&)>& userCode, const std::string& parentWindow)
 {
   using return_type = bool;
 
@@ -2015,9 +2014,9 @@ std::future<bool> MolaViz::output_console_message(
         ASSERT_(topWin);
         ASSERT_(topWin->background_scene);
 
-        const double              LINE_HEIGHT  = console_text_font_size_;
-        const double              LINE_SPACING = 3.0;
-        mrpt::opengl::TFontParams fp;
+        const double           LINE_HEIGHT  = console_text_font_size_;
+        const double           LINE_SPACING = 3.0;
+        mrpt::viz::TFontParams fp;
         fp.vfont_scale = static_cast<float>(LINE_HEIGHT);
 
         for (size_t i = 0; i < winData.console_messages.size(); i++)

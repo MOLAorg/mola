@@ -36,11 +36,12 @@
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
-#include <mrpt/opengl/CPointCloud.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/CSetOfTriangles.h>
 #include <mrpt/serialization/CArchive.h>
 #include <mrpt/system/os.h>
+#include <mrpt/viz/CPointCloud.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 
 #include <algorithm>
 #include <array>
@@ -1003,7 +1004,7 @@ const mrpt::maps::CSimplePointsMap* TSDF::getAsSimplePointsMap() const
   return cachedPoints_.get();
 }
 
-void TSDF::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
+void TSDF::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 {
   if (!genericMapParams.enableSaveAs3DObject)
   {
@@ -1012,7 +1013,7 @@ void TSDF::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
 
   if (renderOptions.render_as_mesh)
   {
-    auto mesh = mrpt::opengl::CSetOfTriangles::Create();
+    auto mesh = mrpt::viz::CSetOfTriangles::Create();
     buildSurfaceMesh(*mesh);
     outObj.insert(mesh);
     return;
@@ -1020,7 +1021,7 @@ void TSDF::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
 
   if (renderOptions.colormap == mrpt::img::cmNONE)
   {
-    auto pts = mrpt::opengl::CPointCloud::Create();
+    auto pts = mrpt::viz::CPointCloud::Create();
     pts->setPointSize(renderOptions.point_size);
     pts->setColor(renderOptions.points_color);
     pts->enableColorFromZ(false);
@@ -1051,7 +1052,7 @@ void TSDF::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
         samples.emplace_back(p, v);
       });
 
-  auto pts = mrpt::opengl::CPointCloudColoured::Create();
+  auto pts = mrpt::viz::CPointCloudColoured::Create();
   pts->setPointSize(renderOptions.point_size);
   pts->reserve(samples.size());
 
@@ -1062,18 +1063,15 @@ void TSDF::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
 
   for (const auto& [p, v] : samples)
   {
-    float r = 0;
-    float g = 0;
-    float b = 0;
-    mrpt::img::colormap(renderOptions.colormap, (v - vMin) * invRange, r, g, b);
+    const auto c = mrpt::img::colormap(renderOptions.colormap, (v - vMin) * invRange);
 
-    pts->insertPoint({p.x, p.y, p.z, toU8(r), toU8(g), toU8(b)});
+    pts->insertPoint({p.x, p.y, p.z, toU8(c.R), toU8(c.G), toU8(c.B)});
   }
 
   outObj.insert(pts);
 }
 
-void TSDF::buildSurfaceMesh(mrpt::opengl::CSetOfTriangles& mesh) const
+void TSDF::buildSurfaceMesh(mrpt::viz::CSetOfTriangles& mesh) const
 {
   const float minW = static_cast<float>(insertionOptions.min_weight_for_query);
 
@@ -1194,10 +1192,10 @@ void TSDF::buildSurfaceMesh(mrpt::opengl::CSetOfTriangles& mesh) const
           return;
         }
 
-        mrpt::opengl::TTriangle t = (normal.x * towardsPositive.x + normal.y * towardsPositive.y +
-                                     normal.z * towardsPositive.z) < 0
-                                        ? mrpt::opengl::TTriangle(a, c, b)
-                                        : mrpt::opengl::TTriangle(a, b, c);
+        mrpt::viz::TTriangle t = (normal.x * towardsPositive.x + normal.y * towardsPositive.y +
+                                  normal.z * towardsPositive.z) < 0
+                                     ? mrpt::viz::TTriangle(a, c, b)
+                                     : mrpt::viz::TTriangle(a, b, c);
 
         t.setColor(color);
         mesh.insertTriangle(t);

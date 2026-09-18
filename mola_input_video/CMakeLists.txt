@@ -13,8 +13,8 @@ cmake_minimum_required(VERSION 3.22...3.31)  # Ubuntu 22.04+
 project(mola_input_video LANGUAGES CXX)
 
 find_package(mola_common REQUIRED)
-find_package(mrpt-hwdrivers REQUIRED)
-find_package(mrpt-obs REQUIRED)
+find_package(mrpt_hwdrivers REQUIRED)
+find_package(mrpt_obs REQUIRED)
 
 find_mola_package(mola_kernel)
 
@@ -31,6 +31,6 @@ mola_add_library(
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
   PRIVATE_LINK_LIBRARIES
     mola::mola_kernel
-    mrpt::hwdrivers
-    mrpt::obs
+    mrpt::mrpt_hwdrivers
+    mrpt::mrpt_obs
 )

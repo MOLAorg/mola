@@ -32,12 +32,13 @@
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
-#include <mrpt/opengl/CPointCloud.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/CSetOfLines.h>
-#include <mrpt/opengl/CSetOfTriangles.h>
 #include <mrpt/serialization/CArchive.h>  // serialization
 #include <mrpt/system/os.h>
+#include <mrpt/viz/CPointCloud.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfLines.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 
 #include <cmath>
 
@@ -207,7 +208,7 @@ std::string NDT::asString() const
       "NDT, resolution=%.03f bbox=%s", voxel_size_, boundingBox().asString().c_str());
 }
 
-void NDT::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
+void NDT::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 {
   MRPT_START
   if (!genericMapParams.enableSaveAs3DObject)
@@ -282,7 +283,7 @@ void NDT::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
   // points:
   if (renderOptions.points_visible)
   {
-    auto obj = mrpt::opengl::CPointCloudColoured::Create();
+    auto obj = mrpt::viz::CPointCloudColoured::Create();
 
     const auto lambdaVisitPoints = [&obj](const mrpt::math::TPoint3Df& pt) {
       obj->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
@@ -321,7 +322,7 @@ void NDT::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
   // planes:
   if (renderOptions.planes_visible)
   {
-    auto obj = mrpt::opengl::CSetOfTriangles::Create();
+    auto obj = mrpt::viz::CSetOfTriangles::Create();
 
     const auto lambdaVisitVoxel =
         [&obj, recolorK, recolorMin, recolorIdx, this](
@@ -348,7 +349,7 @@ void NDT::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
       const auto  vx = ndt->eigVectors.at(1).cast<float>() * s;
       const auto  vy = ndt->eigVectors.at(2).cast<float>() * s;
 
-      mrpt::opengl::TTriangle t;
+      mrpt::viz::TTriangle t;
 
       if (renderOptions.planes_colormap == mrpt::img::cmNONE)
       {
@@ -380,7 +381,7 @@ void NDT::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
   // normals:
   if (renderOptions.normals_visible)
   {
-    auto obj = mrpt::opengl::CSetOfLines::Create();
+    auto obj = mrpt::viz::CSetOfLines::Create();
 
     const auto lambdaVisitVoxel =
         [&obj, this]([[maybe_unused]] const global_index3d_t& idx, const VoxelData& v)

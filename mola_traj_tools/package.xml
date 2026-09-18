@@ -16,7 +16,7 @@
 
   <depend>mola_common</depend>
 
-  <depend>mrpt_libposes</depend>
+  <depend>mrpt_poses</depend>
 
   <doc_depend>doxygen</doc_depend>
 

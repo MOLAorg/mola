@@ -33,8 +33,8 @@
 #include <mrpt/math/TPoint2D.h>
 #include <mrpt/math/TPoint3D.h>
 #include <mrpt/math/TPose3D.h>
-#include <mrpt/opengl/opengl_frwds.h>
 #include <mrpt/rtti/CObject.h>
+#include <mrpt/viz/viz_frwds.h>
 
 #include <future>
 #include <memory>
@@ -222,7 +222,7 @@ class VizInterface
    * \return               future<bool>; resolves to true when executed.
    */
   virtual std::future<bool> update_3d_object(
-      const std::string& objName, const std::shared_ptr<mrpt::opengl::CSetOfObjects>& obj,
+      const std::string& objName, const std::shared_ptr<mrpt::viz::CSetOfObjects>& obj,
       const std::string& viewportName = "main", const std::string& parentWindow = "main",
       const std::string& parentFrame = "") = 0;
 
@@ -263,7 +263,7 @@ class VizInterface
    * \return                   future<bool> resolving to true when executed.
    */
   virtual std::future<bool> insert_point_cloud_with_decay(
-      const std::shared_ptr<mrpt::opengl::CPointCloudColoured>& cloud, double decay_time_seconds,
+      const std::shared_ptr<mrpt::viz::CPointCloudColoured>& cloud, double decay_time_seconds,
       const std::string& viewportName = "main", const std::string& parentWindow = "main",
       const std::string& parentFrame = "") = 0;
 
@@ -306,7 +306,7 @@ class VizInterface
       const std::string& parentWindow = "main") = 0;
 
   /**
-   * \brief Executes arbitrary user code on the mrpt::opengl::Scene of the
+   * \brief Executes arbitrary user code on the mrpt::viz::Scene of the
    *        background viewport.
    *
    * Use this to modify viewport properties, add sub-viewports, change
@@ -317,8 +317,8 @@ class VizInterface
    * embed an mrpt scene in their OpenGL canvas.
    */
   virtual std::future<bool> execute_custom_code_on_background_scene(
-      const std::function<void(mrpt::opengl::Scene&)>& userCode,
-      const std::string&                               parentWindow = "main") = 0;
+      const std::function<void(mrpt::viz::Scene&)>& userCode,
+      const std::string&                            parentWindow = "main") = 0;
 
   /** @} */
 

@@ -52,6 +52,11 @@ cmake -S "$SRC_DIR" -B "$BUILD_DIR" \
 
 cmake --build "$BUILD_DIR" -j"$(nproc)"
 
+# A sourced ROS overlay/underlay providing mola_metric_maps would otherwise win
+# the library lookup, and the instrumented binaries would silently run against
+# the uninstrumented libmola_metric_maps.so from that install:
+export LD_LIBRARY_PATH="$BUILD_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
 STRESS="test-mola_metric_maps_incrementalpointcloud_stress"
 
 for t in "$BUILD_DIR"/bin/test-*; do

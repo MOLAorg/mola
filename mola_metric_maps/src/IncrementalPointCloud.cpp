@@ -25,10 +25,10 @@
 #include <mrpt/core/get_env.h>
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/obs/CObservation.h>
-#include <mrpt/opengl/CSetOfObjects.h>
 #include <mrpt/poses/CPose2D.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
+#include <mrpt/viz/CSetOfObjects.h>
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -132,12 +132,39 @@ IMPLEMENTS_SERIALIZABLE(IncrementalPointCloud, CGenericPointsMap, mola)
 // Construction / copy
 // =====================================
 
-IncrementalPointCloud::IncrementalPointCloud() { resetIndex(); }
+namespace
+{
+#if defined(MRPT_HAS_KDTREE_CAPABLE_DISABLE)
+constexpr const char* kInheritedKDTreeOptOutReason =
+    "mola::IncrementalPointCloud maintains its own incremental k-d tree over "
+    "storage slots that may be tombstoned or blanked, so the static index of "
+    "mrpt::math::KDTreeCapable cannot be built over them meaningfully nor "
+    "safely. Use the nn_*() methods of mrpt::maps::NearestNeighborsCapable, or "
+    "liveCompactedCopy() for a plain points map to query with any other API.";
+#endif
+}  // namespace
+
+void IncrementalPointCloud::disableInheritedKDTree()
+{
+#if defined(MRPT_HAS_KDTREE_CAPABLE_DISABLE)
+  kdtree_disable(kInheritedKDTreeOptOutReason);
+#endif
+}
+
+IncrementalPointCloud::IncrementalPointCloud()
+{
+  disableInheritedKDTree();
+  resetIndex();
+}
 
 IncrementalPointCloud::~IncrementalPointCloud() = default;
 
 IncrementalPointCloud::IncrementalPointCloud(const IncrementalPointCloud& o) : CGenericPointsMap()
 {
+  // The base subobject is default-constructed above, so the opt-out has to be
+  // re-applied here, as in any other constructor:
+  disableInheritedKDTree();
+
   *this = o;
 }
 
@@ -1146,7 +1173,7 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
 // Visualization / export
 // =====================================
 
-void IncrementalPointCloud::getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const
+void IncrementalPointCloud::getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const
 {
   MRPT_START
   if (!genericMapParams.enableSaveAs3DObject) return;

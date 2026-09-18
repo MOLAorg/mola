@@ -20,7 +20,7 @@
 #include <mola_metric_maps/HashedVoxelPointCloud.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/stock_observations.h>
-#include <mrpt/opengl/Scene.h>
+#include <mrpt/viz/Scene.h>
 
 #include <iostream>
 
@@ -42,7 +42,7 @@ void test_voxelmap_insert_2d_scan()
 
   map.insertObservation(scan2D);
 #if 0
-    mrpt::opengl::Scene scene;
+    mrpt::viz::Scene scene;
     map.renderOptions.point_size = 5.0f;
     scene.insert(map.getVisualization());
     scene.saveToFile("sparsevoxelmap_scan2d.3Dscene");

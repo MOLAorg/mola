@@ -23,10 +23,10 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/geometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
-#include <mrpt/opengl/CSetOfObjects.h>
-#include <mrpt/opengl/CSetOfTriangles.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 
 #include <array>
 #include <cmath>
@@ -591,10 +591,10 @@ void test_mesh_winding_is_consistent()
 
   map.renderOptions.render_as_mesh = true;
 
-  auto glObjs = mrpt::opengl::CSetOfObjects::Create();
+  auto glObjs = mrpt::viz::CSetOfObjects::Create();
   map.getVisualizationInto(*glObjs);
 
-  auto mesh = glObjs->getByClass<mrpt::opengl::CSetOfTriangles>(0);
+  auto mesh = glObjs->getByClass<mrpt::viz::CSetOfTriangles>(0);
   ASSERT_(mesh);
   ASSERT_GT_(mesh->getTrianglesCount(), 100U);
 
@@ -604,7 +604,7 @@ void test_mesh_winding_is_consistent()
   size_t down = 0;
   for (size_t i = 0; i < mesh->getTrianglesCount(); i++)
   {
-    mrpt::opengl::TTriangle t;
+    mrpt::viz::TTriangle t;
     mesh->getTriangle(i, t);
 
     const auto a = t.vertices[0].xyzrgba.pt;
@@ -735,10 +735,10 @@ void test_surface_mesh_is_watertight_around_the_plane()
 
   map.renderOptions.render_as_mesh = true;
 
-  auto glObjs = mrpt::opengl::CSetOfObjects::Create();
+  auto glObjs = mrpt::viz::CSetOfObjects::Create();
   map.getVisualizationInto(*glObjs);
 
-  auto mesh = glObjs->getByClass<mrpt::opengl::CSetOfTriangles>(0);
+  auto mesh = glObjs->getByClass<mrpt::viz::CSetOfTriangles>(0);
   ASSERT_(mesh);
   ASSERT_GT_(mesh->getTrianglesCount(), 100U);
 
@@ -746,7 +746,7 @@ void test_surface_mesh_is_watertight_around_the_plane()
   // fixture's own border, see test_zero_crossings_are_sub_voxel):
   for (size_t i = 0; i < mesh->getTrianglesCount(); i++)
   {
-    mrpt::opengl::TTriangle t;
+    mrpt::viz::TTriangle t;
     mesh->getTriangle(i, t);
     for (int v = 0; v < 3; v++)
     {

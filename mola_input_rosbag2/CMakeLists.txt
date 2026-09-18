@@ -16,8 +16,8 @@ project(mola_input_rosbag2 LANGUAGES CXX)
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola_common REQUIRED)
 # find dependencies:
-find_package(mrpt-obs REQUIRED)
-find_package(mrpt-ros2bridge REQUIRED)
+find_package(mrpt_obs REQUIRED)
+find_package(mrpt_libros_bridge REQUIRED)
 
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -35,13 +35,19 @@ find_mola_package(mola_kernel)
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
 file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 
+# Make sure workspace mrpt_libros_bridge include comes before Jazzy's includes
+# to avoid picking up mrpt2 ros2bridge headers from the system install.
+include_directories(BEFORE SYSTEM
+  $<TARGET_PROPERTY:mrpt_libros_bridge::mrpt_libros_bridge,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
 mola_add_library(
   TARGET ${PROJECT_NAME}
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
   PRIVATE_LINK_LIBRARIES
     mola::mola_kernel
-    mrpt::obs
-    mrpt::ros2bridge
+    mrpt::mrpt_obs
+    mrpt_libros_bridge::mrpt_libros_bridge
     tf2::tf2
     rosbag2_cpp::rosbag2_cpp
     tf2_geometry_msgs::tf2_geometry_msgs
@@ -51,8 +57,8 @@ mola_add_library(
     ${gps_msgs_TARGETS}
   CMAKE_DEPENDENCIES
     mola_kernel
-    mrpt-obs
-    mrpt-ros2bridge
+    mrpt_obs
+    mrpt_libros_bridge
 )
 
 # Convert package versions to hex so they can be used in preprocessor for wider

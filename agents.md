@@ -274,6 +274,17 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   inherited `size()` counts live + not-yet-reclaimed slots (use
   `livePointCount()`, or `compact()` to drop them); `nn_*` indices are storage
   slots; 2D `nn_*` queries throw.
+  The *other* k-d tree every `CPointsMap` carries, the cached static index of
+  `mrpt::math::KDTreeCapable` (`kdTreeNClosestPoint3D*()` and friends), is
+  switched off in every constructor via MRPT's `kdtree_disable()`: it would be
+  built over the raw storage, tombstoned and NaN-blanked slots included, and
+  building it races with insertion on the coordinate buffers. Those inherited
+  methods now throw `std::logic_error` pointing at the `nn_*()` API or at
+  `liveCompactedCopy()`, so generic code holding the map as a `CPointsMap`
+  (mp2p_icp's `FilterSOR`/`FilterVoxelSOR`, icp_bench's map-quality metric)
+  fails loudly instead of silently matching against holes. Gated on
+  `MRPT_HAS_KDTREE_CAPABLE_DISABLE`; without it those methods keep their old,
+  unsupported behavior.
   Requires nanoflann >= 1.10.0. On distributions shipping an older one the build
   still succeeds, with a CMake warning: the class is compiled and registered as
   usual, but `src/IncrementalKDTree_stub.cpp` replaces the k-d tree factory with
@@ -438,6 +449,7 @@ Guard with `#if defined(...)`, never with a version check.
 | `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD` | CMake (PUBLIC) | `IncrementalPointCloud` is functional (nanoflann >= 1.10) |
 | `MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE` | CMake (PUBLIC) | incremental k-d tree save/load (nanoflann >= 1.11) |
 | `MOLA_MM_HAS_RKNN_SEARCH` | `mola_metric_maps` sources | MRPT's radius-limited kNN overload is usable (nanoflann >= 1.5.1) |
+| `MRPT_HAS_KDTREE_CAPABLE_DISABLE` | `mrpt/math/KDTreeCapable.h` | MRPT's `kdtree_disable()` opt-out exists, used by `IncrementalPointCloud` |
 | `MP2P_ICP_HAS_MATCHING_DISTANCE_PROFILE`, `MP2P_ICP_HAS_NN_VISIT_PT2PL_CANDIDATES` | `mp2p_icp` headers | the mp2p_icp side of an API that the ROS binary repos may not ship yet |
 
 ---

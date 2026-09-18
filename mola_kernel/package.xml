@@ -17,8 +17,10 @@
   <depend>mola_common</depend>
   <depend>mola_yaml</depend>
 
-  <depend>mrpt_libobs</depend>
-  <depend>mrpt_libmaps</depend>
+  <depend>mrpt_obs</depend>
+  <depend>mrpt_maps</depend>
+  <depend>mrpt_topography</depend>
+  <build_depend>eigen</build_depend>
 
   <doc_depend>doxygen</doc_depend>
 

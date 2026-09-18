@@ -15,8 +15,8 @@
 
   <depend>mola_kernel</depend>
 
-  <depend>mrpt_libobs</depend>
-  <depend>mrpt_libhwdrivers</depend>
+  <depend>mrpt_obs</depend>
+  <depend>mrpt_hwdrivers</depend>
 
   <doc_depend>doxygen</doc_depend>
 

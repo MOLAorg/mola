@@ -12,14 +12,14 @@
 
   <!-- Runtime deps -->
   <depend>mola_kernel</depend>
-  <depend>mrpt_libmaps</depend>
-  <depend>mrpt_libopengl</depend>
-  <depend>mrpt_libobs</depend>
-  <depend>mrpt_libgui</depend>
+  <depend>mrpt_maps</depend>
+  <depend>mrpt_opengl</depend>
+  <depend>mrpt_obs</depend>
+  <depend>mrpt_gui</depend>
+  <depend>mrpt_viz</depend>
+  <depend>mrpt_imgui</depend>
 
   <depend>libglfw3-dev</depend>
-  <depend>opengl</depend> <!-- remove with mrpt3 -->
-  <depend>glut</depend>  <!-- remove with mrpt3 -->
 
   <!-- Dear ImGui is a git submodule built internally; no system package needed -->
 

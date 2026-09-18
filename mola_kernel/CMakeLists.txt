@@ -18,7 +18,10 @@ find_package(mola_common REQUIRED)
 find_package(mola_yaml REQUIRED)
 
 # find dependencies:
-find_package(MRPT 2.15.0 REQUIRED COMPONENTS obs maps topography)
+find_package(mrpt_obs REQUIRED)
+find_package(mrpt_maps REQUIRED)
+find_package(mrpt_topography REQUIRED)
+find_package(Eigen3 REQUIRED NO_MODULE)
 
 # define lib:
 set(LIB_SRCS
@@ -71,13 +74,16 @@ mola_add_library(
   TARGET ${PROJECT_NAME}
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
   PUBLIC_LINK_LIBRARIES
-    mrpt::obs
-    mrpt::topography
+    mrpt::mrpt_obs
+    mrpt::mrpt_maps
+    mrpt::mrpt_topography
     mola::mola_yaml
-#  PRIVATE_LINK_LIBRARIES
+  PRIVATE_LINK_LIBRARIES
+    Eigen3::Eigen
   CMAKE_DEPENDENCIES
-    mrpt-obs
-    mrpt-topography
+    mrpt_obs
+    mrpt_maps
+    mrpt_topography
     mola_yaml
 )
 

@@ -26,7 +26,7 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/TBoundingBox.h>
 #include <mrpt/math/TPoint3D.h>
-#include <mrpt/opengl/CSetOfTriangles.h>
+#include <mrpt/viz/CSetOfTriangles.h>
 #include <tsl/robin_map.h>
 
 #include <cmath>
@@ -221,7 +221,7 @@ class TSDF : public mrpt::maps::CMetricMap,
 
   std::string asString() const override;
 
-  void getVisualizationInto(mrpt::opengl::CSetOfObjects& outObj) const override;
+  void getVisualizationInto(mrpt::viz::CSetOfObjects& outObj) const override;
 
   bool isEmpty() const override;
 
@@ -229,7 +229,7 @@ class TSDF : public mrpt::maps::CMetricMap,
 
   /// Zero-crossing points of the field, for visualization and for the
   /// MOLA->ROS2 bridge only. Not efficient.
-  const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const override;
+  const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const;
 
   /** @} */
 
@@ -460,7 +460,7 @@ class TSDF : public mrpt::maps::CMetricMap,
 
   /// Marching-tetrahedra polygonization of the zero level set, for
   /// TRenderOptions::render_as_mesh.
-  void buildSurfaceMesh(mrpt::opengl::CSetOfTriangles& mesh) const;
+  void buildSurfaceMesh(mrpt::viz::CSetOfTriangles& mesh) const;
 
   /** @name Warm-up state
    *  Everything below is live only until the field can answer, and is released

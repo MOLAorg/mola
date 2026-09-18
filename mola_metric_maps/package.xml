@@ -17,7 +17,9 @@
   <depend>mola_common</depend>
   <depend>mola_kernel</depend>
 
-  <depend>mrpt_libmaps</depend>
+  <depend>mrpt_maps</depend>
+  <depend>mrpt_viz</depend>
+  <build_depend>eigen</build_depend>
   <depend>cli11</depend>
   <depend>mp2p_icp</depend>  <!-- actually, just the mp2p_icp_map library -->
 

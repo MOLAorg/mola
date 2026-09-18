@@ -21,7 +21,7 @@ project(mola_launcher LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # find dependencies:
-find_package(mrpt-core)
+find_package(mrpt_core REQUIRED)
 
 find_mola_package(mola_kernel)
 
@@ -38,7 +38,7 @@ mola_add_library(
   TARGET ${PROJECT_NAME}
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
   PUBLIC_LINK_LIBRARIES
-    mrpt::core
+    mrpt::mrpt_core
     mola::mola_kernel
   PRIVATE_LINK_LIBRARIES
     ${CMAKE_DL_LIBS} # To be able to load DLLs/.so's

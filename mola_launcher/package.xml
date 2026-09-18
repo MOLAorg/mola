@@ -16,7 +16,7 @@
 
   <depend>mola_kernel</depend>
 
-  <depend>mrpt_libbase</depend>
+  <depend>mrpt_core</depend>
   <depend>cli11</depend>
 
   <doc_depend>doxygen</doc_depend>

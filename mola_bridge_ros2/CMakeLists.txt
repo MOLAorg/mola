@@ -14,12 +14,12 @@ cmake_minimum_required(VERSION 3.22...3.31)  # Ubuntu 22.04+
 project(mola_bridge_ros2 LANGUAGES CXX)
 
 # find dependencies:
-find_package(mrpt-maps REQUIRED)
+find_package(mrpt_maps REQUIRED)
 
-find_package(mrpt-ros2bridge QUIET)
-if(NOT mrpt-ros2bridge_FOUND)
+find_package(mrpt_libros_bridge QUIET)
+if(NOT mrpt_libros_bridge_FOUND)
   message(STATUS "*NOTE*: Module mola_input_ros2 will NOT be built due to missing"
-    "dependency mrpt-ros2bridge. Set mrpt-ros2bridge_DIR to enable it.")
+    "dependency mrpt_libros_bridge. Set mrpt_libros_bridge_DIR to enable it.")
   return()
 endif()
 
@@ -50,14 +50,20 @@ mola_find_package_or_return(mrpt_nav_interfaces)
 file(GLOB_RECURSE LIB_SRCS src/*.cpp src/*.h)
 file(GLOB_RECURSE LIB_PUBLIC_HDRS include/*.h)
 
+# Make sure workspace mrpt_libros_bridge include comes before Jazzy's includes
+# to avoid picking up mrpt2 ros2bridge headers from the system install.
+include_directories(BEFORE SYSTEM
+  $<TARGET_PROPERTY:mrpt_libros_bridge::mrpt_libros_bridge,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
 # This adds non-ROS deps. The rest are handled below with ament_target_dependencies()
 mola_add_library(
   TARGET ${PROJECT_NAME}
   SOURCES ${LIB_SRCS} ${LIB_PUBLIC_HDRS}
   PRIVATE_LINK_LIBRARIES
     mola::mola_kernel
-    mrpt::maps
-    mrpt::ros2bridge
+    mrpt::mrpt_maps
+    mrpt_libros_bridge::mrpt_libros_bridge
   PUBLIC_LINK_LIBRARIES
     rclcpp::rclcpp
     tf2::tf2
@@ -72,7 +78,8 @@ mola_add_library(
     ${gps_msgs_TARGETS}
   CMAKE_DEPENDENCIES
     mola_kernel
-    mrpt-maps
+    mrpt_maps
+    mrpt_libros_bridge
 )
 
 # Same for mrpt_libros_bridge
