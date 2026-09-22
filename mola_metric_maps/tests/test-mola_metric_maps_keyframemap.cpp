@@ -821,8 +821,7 @@ void test_kf_pose_plumbing()
   const auto poseAfter = m.keyframePoses().at(KFID{1});
   ASSERT_NEAR_(poseAfter.x(), newPose1.x(), 1e-9);
   ASSERT_NEAR_(poseAfter.z(), newPose1.z(), 1e-9);
-  double y, p, r;
-  poseAfter.getYawPitchRoll(y, p, r);
+  const auto [y, p, r] = poseAfter.getYawPitchRoll();
   ASSERT_NEAR_(p, 5.0_deg, 1e-9);
 
   // setKeyframePose on a missing id is a no-op (does not throw, does not add).

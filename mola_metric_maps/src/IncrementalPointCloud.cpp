@@ -1238,7 +1238,11 @@ void IncrementalPointCloud::saveMetricMapRepresentationToFile(
     const std::string& filNamePrefix) const
 {
   using namespace std::string_literals;
-  liveCompactedCopy()->save3D_to_text_file(filNamePrefix + ".txt"s);
+  const bool ok = liveCompactedCopy()->save3D_to_text_file(filNamePrefix + ".txt"s);
+  if (!ok)
+  {
+    THROW_EXCEPTION_FMT("Error saving point cloud to file: '%s'", filNamePrefix.c_str());
+  }
 }
 
 const mrpt::maps::CSimplePointsMap* IncrementalPointCloud::getAsSimplePointsMap() const
