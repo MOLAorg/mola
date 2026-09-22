@@ -98,3 +98,10 @@ if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
   endif()
 endif()
 
+mola_add_test(
+  TARGET  test-mola_metric_maps_covariance_shape
+  SOURCES test-covariance-shape.cpp
+  LINK_LIBRARIES
+  mola_metric_maps
+  Eigen3::Eigen
+)

@@ -39,6 +39,7 @@
 
 #include "IncrementalKDTree.h"
 #include "cov_diagnostics.h"
+#include "covariance_shape.h"
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
 #include <tbb/enumerable_thread_specific.h>
@@ -1006,12 +1007,8 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
   const Eigen::Matrix3d cov = neighbors * neighbors.transpose() / static_cast<double>(found);
 
   // Plane regularization of the singular values (see DLIO'2023, or Segal's
-  // GICP paper): SVD sorts them in decreasing order, so the last one is the
-  // plane normal direction.
-  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-  const Eigen::Vector3d values(1.0, 1.0, creationOptions.plane_regularization_lambda);
-  cov_[slot] = svd.matrixU() * values.asDiagonal() * svd.matrixV().transpose();
+  // GICP paper), or the eigenvalues as found when it is switched off:
+  cov_[slot] = internal::shapePointCovariance(cov, creationOptions.plane_regularization_lambda);
 }
 
 void IncrementalPointCloud::ensureCovariancesFor(const std::vector<uint32_t>& slots) const
