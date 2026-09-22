@@ -41,9 +41,17 @@ namespace mola::internal
  *
  * A non-positive `lambda` keeps the eigenvalues the fit produced, so a sparse
  * or rough neighborhood ends up with a broader covariance, and therefore less
- * weight, than a dense flat one. `|lambda|` is then a floor on the smaller
- * eigenvalues, relative to the largest, so that the matrix stays invertible on
- * a perfectly planar or collinear neighborhood.
+ * weight, than a dense flat one.
+ *
+ * `|lambda|` means the same thing in both regimes: the smallest eigenvalue as
+ * a fraction of the largest. What the sign changes is whether that number is
+ * assigned or only bounded. Positive assigns it, so every neighborhood comes
+ * out with exactly that ratio. Non-positive bounds it from below, so a
+ * neighborhood flatter than the bound is clamped to it and everything else
+ * keeps what it had: -0.01 allows up to 100:1, -0.1 up to 10:1, and 0 leaves
+ * the ratio alone but for a numerical guard. The bound is what keeps the
+ * matrix invertible on a perfectly planar or collinear neighborhood, and it
+ * also stops a handful of near-degenerate ones from dominating the solve.
  *
  * Note that the two branches differ in scale as well as in shape: kept
  * eigenvalues carry squared metric units, so the resulting information
