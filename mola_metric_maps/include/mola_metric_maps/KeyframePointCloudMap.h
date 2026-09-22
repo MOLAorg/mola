@@ -465,7 +465,17 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  in the surface, and on a ground vehicle the normal of the dominant
      *  surface is the vertical -- the axis that is already best determined.
      *  Raising this softens the assertion without changing which direction is
-     *  asserted. Must be in (0, 1].
+     *  asserted.
+     *
+     *  Values in (0, 1] regularize as described above. A value <= 0 switches
+     *  the regularization off and keeps the eigenvalues the neighborhood
+     *  actually produced, so a sparse or rough neighborhood carries less
+     *  information than a dense flat one instead of the same amount; the
+     *  magnitude of the value is then a floor on the smaller eigenvalues,
+     *  relative to the largest one. Note that the two regimes are not on the
+     *  same scale, since kept eigenvalues carry squared metric units, so a
+     *  matching threshold or robust kernel tuned against one does not
+     *  transfer to the other.
      */
     double plane_regularization_lambda = 1e-3;
 

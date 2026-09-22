@@ -20,6 +20,7 @@
 #include <mola_metric_maps/KeyframePointCloudMap.h>
 
 #include "cov_diagnostics.h"
+#include "covariance_shape.h"
 #if __has_include(<mp2p_icp/pointcloud_field_utils.h>)
 #include <mp2p_icp/pointcloud_field_utils.h>
 #define MOLA_MM_HAS_ROTATE_VIEW_HEADER 1
@@ -3027,15 +3028,9 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
         const Eigen::Matrix3d cov =
             neighbors * neighbors.transpose() / static_cast<double>(k_indices.size());
 
-        // Plane regularization (see DLIO'2023 or Thrun's GICP paper)
-        // ------------------------------------------------------------
-        // Regularization of singular values.
-        Eigen::JacobiSVD<Eigen::Matrix3d> svd(cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-        // SVD sorts eigenvalues in decreasing order, so the last one
-        // is the smallest (normal direction of a plane):
-        const Eigen::Vector3d values = Eigen::Vector3d(1.0, 1.0, PLANE_REG_LAMBDA);
-        cached_cov_local_[i] = svd.matrixU() * values.asDiagonal() * svd.matrixV().transpose();
+        // Plane regularization (see DLIO'2023 or Thrun's GICP paper), or the
+        // eigenvalues as found when it is switched off:
+        cached_cov_local_[i] = internal::shapePointCovariance(cov, PLANE_REG_LAMBDA);
 
 #if DO_VIZ_DEBUG
         if (i % 100 == 0)

@@ -388,7 +388,16 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
     /** Variance asserted along the estimated surface normal, the other two
      *  being 1, i.e. the plane confidence ratio written as its reciprocal. The
-     *  shipped 1e-3 asserts 1000:1. Must be in (0, 1]. */
+     *  shipped 1e-3 asserts 1000:1.
+     *
+     *  Values in (0, 1] regularize that way. A value <= 0 switches the
+     *  regularization off and keeps the eigenvalues the neighborhood actually
+     *  produced, so a sparse or rough neighborhood carries less information
+     *  than a dense flat one instead of the same amount; the magnitude is then
+     *  a floor on the smaller eigenvalues, relative to the largest one. The
+     *  two regimes are not on the same scale, since kept eigenvalues carry
+     *  squared metric units. Same semantics as the option of the same name on
+     *  KeyframePointCloudMap. */
     double plane_regularization_lambda = 1e-3;
 
     /** If `true`, the k-d tree index is serialized alongside the points (see
