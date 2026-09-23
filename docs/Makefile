@@ -9,8 +9,13 @@ export PATH := $(HOME)/code/doxyrest_b/build/doxyrest/bin/Release:$(PATH)
 #export MOLA_DOX_INPUT_DIRS := $(shell for f in ../libs/*; do printf "$$(realpath $$f) "; done)
 
 .PHONY: clean
-clean:
-	rm -fr html
+clean: clean-api
+	rm -fr html source/datasets
+
+# Generated C++ API pages. Removed before each build too: neither doxygen nor
+# doxyrest delete the output of code that no longer exists.
+.PHONY: clean-api
+clean-api:
 	rm -fr \
 		source/xml-dir \
 		source/class_* \
@@ -21,7 +26,6 @@ clean:
 		source/page_* \
 		source/union_* \
 		source/global.rst source/doxygen-index.rst \
-		source/datasets \
 		2> /dev/null || true
 
 .PHONY: all
@@ -52,7 +56,7 @@ html-and-view:
 	make html
 	xdg-open html/index.html
 
-html: python-venv dataset-pages
+html: python-venv dataset-pages clean-api
 	echo "Building docs"
 	echo "Using MRPT_LIST_INCLUDE_DIRS: ${MRPT_LIST_INCLUDE_DIRS}"
 	# 1) Build Doxygen
