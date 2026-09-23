@@ -405,8 +405,12 @@ void deepMergeNode(yaml::node_t& base, const yaml::node_t& overlay)
 [[nodiscard]] yaml::node_t loadExternalYaml(
     const std::string& pathExpr, const mola::YAMLParseOptions& opts)
 {
-  // Resolve any variable/command expressions inside the path itself.
-  std::string expr = trimWSNL(mola::parse_yaml(pathExpr, opts));
+  // Resolve any variable/command expressions inside the path itself. Variables
+  // in the PATH are always expanded, even with `doEnvVars` disabled: that flag
+  // is about the loaded contents, and an unexpanded path can never be loaded.
+  auto pathOpts      = opts;
+  pathOpts.doEnvVars = true;
+  std::string expr   = trimWSNL(mola::parse_yaml(pathExpr, pathOpts));
 
   // Resolve relative paths against the current include base.
   if (!opts.includesBasePath.empty())
