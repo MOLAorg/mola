@@ -632,6 +632,35 @@ void test_parseImportMissingFile()
 }
 
 // ---------------------------------------------------------------------------
+// 12b. Variables in an `$import` / `$include{}` PATH are expanded even with
+// `doEnvVars` disabled, while the loaded contents keep theirs verbatim.
+// ---------------------------------------------------------------------------
+void test_parseImportPathVarsWithEnvVarsDisabled()
+{
+  using mrpt::containers::yaml;
+
+  mola::YAMLParseOptions opts;
+  opts.includesBasePath = MOLA_MODULE_SOURCE_DIR;
+  opts.doEnvVars        = false;
+
+  {
+    const std::string input =
+        "p:\n"
+        "  $import:\n"
+        "    - ${MOLA_TEST_UNDEFINED_IMPORT_PATH|test_import_novars.yaml}\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["p"]["a"].as<int>(), 1);
+    ASSERT_EQUAL_(y["p"]["v"].as<std::string>(), "${MOLA_TEST_UNDEFINED_VALUE|x}");
+  }
+  {
+    const std::string input =
+        "p: $include{${MOLA_TEST_UNDEFINED_IMPORT_PATH|test_import_novars.yaml}}\n";
+    const auto y = mola::parse_yaml(yaml::FromText(input), opts);
+    ASSERT_EQUAL_(y["p"]["v"].as<std::string>(), "${MOLA_TEST_UNDEFINED_VALUE|x}");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 13. `$define` directive: bind ${VAR} variables for a subtree
 //
 // A `$define` map key binds `${NAME}` variables for the whole subtree of the
@@ -814,6 +843,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_yaml2stringAdditional();
     test_parseImportOverride();
     test_parseImportMissingFile();
+    test_parseImportPathVarsWithEnvVarsDisabled();
     test_parseDefine();
 
     std::cout << "Test successful.\n";

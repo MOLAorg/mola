@@ -1,0 +1,4 @@
+# Loaded with variable substitution disabled: `v` must stay verbatim.
+---
+a: 1
+v: "${MOLA_TEST_UNDEFINED_VALUE|x}"
