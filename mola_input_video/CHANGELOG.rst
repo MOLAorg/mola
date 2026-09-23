@@ -2,8 +2,8 @@
 Changelog for package mola_input_video
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.0 (2026-09-23)
+------------------
 * Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
 * Contributors: Jose Luis Blanco-Claraco
 

@@ -2,8 +2,8 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.0 (2026-09-23)
+------------------
 * Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
 * mola-cli: only warn on sustained execution rate losses (`#219 <https://github.com/MOLAorg/mola/issues/219>`_)
 * Contributors: Jose Luis Blanco-Claraco
