@@ -57,6 +57,7 @@ html: python-venv dataset-pages
 	echo "Using MRPT_LIST_INCLUDE_DIRS: ${MRPT_LIST_INCLUDE_DIRS}"
 	# 1) Build Doxygen
 	cd source && doxygen
+	python3 inline_group_members.py source/xml-dir
 	# 2) Doxygen XML -> RST
 	cd source && bash -c "source ../venv/bin/activate && doxyrest -c doxyrest-config.lua"
 	# Remove main doc file created for nanoflann:
