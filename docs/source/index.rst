@@ -243,83 +243,68 @@ Quick links
 .. humble badges ------
 
 .. |badgeHrel| image:: https://img.shields.io/ros/v/humble/mola
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola
 
 .. |badgeHrel_LO| image:: https://img.shields.io/ros/v/humble/mola_lidar_odometry
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_lidar_odometry
 
 .. |badgeHrel_MP| image:: https://img.shields.io/ros/v/humble/mp2p_icp
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
 
 .. |badgeHrel_SE| image:: https://img.shields.io/ros/v/humble/mola_state_estimation
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
 
 .. iron badges ------
 
 .. |badgeIrel| image:: https://img.shields.io/ros/v/iron/mola
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola
 
 .. |badgeIrel_LO| image:: https://img.shields.io/ros/v/iron/mola_lidar_odometry
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_lidar_odometry
 
 .. |badgeIrel_MP| image:: https://img.shields.io/ros/v/iron/mp2p_icp
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
 
 .. jazzy badges ------
 
 .. |badgeJrel| image:: https://img.shields.io/ros/v/jazzy/mola
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola
 
 .. |badgeJrel_LO| image:: https://img.shields.io/ros/v/jazzy/mola_lidar_odometry
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_lidar_odometry
 
 .. |badgeJrel_MP| image:: https://img.shields.io/ros/v/jazzy/mp2p_icp
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
 
 .. |badgeJrel_SE| image:: https://img.shields.io/ros/v/jazzy/mola_state_estimation
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
 
 .. rolling badges ------
 
 .. |badgeRrel| image:: https://img.shields.io/ros/v/rolling/mola
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola
 
 .. |badgeRrel_LO| image:: https://img.shields.io/ros/v/rolling/mola_lidar_odometry
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_lidar_odometry
 
 .. |badgeRrel_MP| image:: https://img.shields.io/ros/v/rolling/mp2p_icp
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
 
 .. |badgeRrel_SE| image:: https://img.shields.io/ros/v/rolling/mola_state_estimation
-   :scale: 100%
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
 
