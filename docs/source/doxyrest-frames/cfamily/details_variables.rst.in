@@ -14,6 +14,7 @@ local argArray = table.pack(...)
 local compound = argArray[1]
 local sectionName = argArray[2]
 }
+
 $(getTitle(sectionName, 3))
 
 %{
