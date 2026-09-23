@@ -20,6 +20,7 @@ docs/source/group*.rst
 docs/source/namespace*.rst
 docs/source/page*.rst
 docs/source/struct*.rst
+docs/source/union*.rst
 docs/source/xml-dir/
 install_manifest.txt
 Makefile

@@ -783,11 +783,11 @@ WARN_LOGFILE           =
 
 INPUT                  = \
     ../../  \
-    ../../../mp2p_icp/mp2p_icp \
-    ../../../mp2p_icp/mp2p_icp_filters \
-    ../../../mp2p_icp/mp2p_icp_map \
+    ../../../mp2p_icp/mp2p_icp_core/mp2p_icp \
+    ../../../mp2p_icp/mp2p_icp_core/mp2p_icp_common \
+    ../../../mp2p_icp/mp2p_icp_core/mp2p_icp_filters \
+    ../../../mp2p_icp/mp2p_icp_core/mp2p_icp_map \
     ../../../mola_lidar_odometry/module/include \
-    ../../../mp2p_icp/mp2p_icp \
     ../../../mola_state_estimation/ \
     ../../../mola_academic_datasets/ \
 
@@ -853,6 +853,7 @@ EXCLUDE_SYMLINKS       = NO
 # exclude all test directories for example use the pattern */test/*
 
 EXCLUDE_PATTERNS       = \
+    */3rdparty/* \
     */test/* \
     */build/* \
     */install/* \
