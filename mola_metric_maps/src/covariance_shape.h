@@ -90,7 +90,9 @@ inline Eigen::Matrix3d shapePointCovariance(const Eigen::Matrix3d& cov, double l
     return Eigen::Matrix3d::Identity();
   }
 
-  const double floorValue = std::max(-lambda * largest, largest * 1e-9);
+  // A bound above one would push the smaller eigenvalues past the largest.
+  const double ratio      = std::min(-lambda, 1.0);
+  const double floorValue = std::max(ratio * largest, largest * 1e-9);
   values[0]               = std::max(values[0], floorValue);
   values[1]               = std::max(values[1], floorValue);
 

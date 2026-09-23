@@ -94,6 +94,17 @@ int main()
       ASSERT_GT_(ev[2], 0.0);
     }
 
+    // A bound beyond -1 saturates at an isotropic covariance, never above
+    // the largest eigenvalue.
+    {
+      const Eigen::Vector3d ev =
+          sortedEigenvalues(shapePointCovariance(makeScatter(4.0, 2.0, 0.0), -2.0));
+
+      ASSERT_NEAR_(ev[0], 4.0, 1e-6);
+      ASSERT_NEAR_(ev[1], 4.0, 1e-6);
+      ASSERT_NEAR_(ev[2], 4.0, 1e-6);
+    }
+
     // 4) An all-zero neighborhood carries no shape at all, and must fall back
     //    to the isotropic covariance rather than produce a singular one.
     {
