@@ -2,6 +2,12 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
+* mola-cli: only warn on sustained execution rate losses (`#219 <https://github.com/MOLAorg/mola/issues/219>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.1 (2026-09-15)
 ------------------
 * FIX: mola-cli ignored SIGTERM and never exited (`#215 <https://github.com/MOLAorg/mola/issues/215>`_)

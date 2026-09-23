@@ -3,6 +3,12 @@ Changelog for package mola_relocalization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
+* cmake: drop stale mrpt_slam dependency
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.1 (2026-09-15)
 ------------------
 

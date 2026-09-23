@@ -3,6 +3,12 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
+* Fix map layer publishing against the MRPT 3 points-map API
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.1 (2026-09-15)
 ------------------
 * Merge pull request `#214 <https://github.com/MOLAorg/mola/issues/214>`_ from MOLAorg/fix/reloc-request-race-with-module-discovery

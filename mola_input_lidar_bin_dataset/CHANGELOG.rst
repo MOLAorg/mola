@@ -2,6 +2,12 @@
 Changelog for package mola_input_lidar_bin_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
+* Declare package.xml deps CMake already needs
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.1 (2026-09-15)
 ------------------
 * mola_viz_imgui: show dataset playback time in the dataset UI panel (`#202 <https://github.com/MOLAorg/mola/issues/202>`_)

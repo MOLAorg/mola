@@ -2,6 +2,12 @@
 Changelog for package mola_pose_list
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
+* findNearby() returns the matches, and the search uses the kd-tree (`#218 <https://github.com/MOLAorg/mola/issues/218>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.1 (2026-09-15)
 ------------------
 

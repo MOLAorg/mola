@@ -2,6 +2,16 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
+* Disable the inherited KDTreeCapable index on IncrementalPointCloud (`#224 <https://github.com/MOLAorg/mola/issues/224>`_)
+* Fix a dangling reference in the keyframe-pose test (`#225 <https://github.com/MOLAorg/mola/issues/225>`_)
+* Do not cache a covariance estimated from a thin neighborhood (`#222 <https://github.com/MOLAorg/mola/issues/222>`_)
+* Cap the negative covariance floor at the largest eigenvalue
+* Allow keeping the per-point covariance eigenvalues as found
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.1 (2026-09-15)
 ------------------
 * TSDF: render the actual zero level set, not the voxel centers (`#217 <https://github.com/MOLAorg/mola/issues/217>`_)

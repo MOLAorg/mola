@@ -2,6 +2,11 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.2.1 (2026-09-15)
 ------------------
 * mola_viz_imgui: show "???" for an unknown dataset duration (`#203 <https://github.com/MOLAorg/mola/issues/203>`_)
