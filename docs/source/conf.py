@@ -273,6 +273,15 @@ def _demote_headings_to_rubrics(text: str) -> str:
     return "\n".join(out) + "\n"
 
 
+# `#62 <url>`_ defines a named target "#62": the same issue number appears in
+# several changelogs included into one page, so make those links anonymous.
+_NAMED_LINK_RE = re.compile(r'(`[^`<]+<[^`>]+>`)_(?!_)')
+
+
+def _anonymous_links(text: str) -> str:
+    return _NAMED_LINK_RE.sub(r'\1__', text)
+
+
 def build_tab_friendly_changelogs(app):
     gen_dir = os.path.join(app.srcdir, "_generated_changelogs")
     os.makedirs(gen_dir, exist_ok=True)
@@ -280,7 +289,7 @@ def build_tab_friendly_changelogs(app):
         src = os.path.normpath(os.path.join(app.srcdir, relpath))
         with io.open(src, "r", encoding="utf-8") as f:
             text = f.read()
-        processed = _demote_headings_to_rubrics(text)
+        processed = _anonymous_links(_demote_headings_to_rubrics(text))
         dst = os.path.join(gen_dir, f"{label}.rst")
         with io.open(dst, "w", encoding="utf-8") as f:
             f.write(processed)
