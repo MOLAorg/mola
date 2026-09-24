@@ -228,6 +228,11 @@ struct PointCloudViewState
   mrpt::viz::CSetOfObjects::Ptr       glCornerRef;
   mrpt::viz::CSetOfObjects::Ptr       glCornerSensor;
   bool                                initialized = false;
+
+  // What glPc was last built from, to rebuild it only when it changes:
+  mrpt::rtti::CObject::Ptr lastObs;
+  bool                     lastColorFromZ = true;
+  bool                     populated      = false;
 };
 
 void handler_point_cloud(
@@ -306,99 +311,120 @@ void handler_point_cloud(
     color_from_z = extra->getOrDefault("color_from_z", color_from_z);
   }
   st.glPc->setPointSize(point_size);
-  st.glPc->setPose(mrpt::poses::CPose3D::Identity());
-  st.glPc->clear();
 
-  // Set sensor pose on corner marker:
-  st.glCornerSensor->setPose(obs->getSensorPose());
-
-  // Populate point cloud from observation:
-  bool populated = false;
-
-  if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o); objPc)
+  // Rebuilding the cloud is O(points) and forces a new GPU upload, so it is
+  // done once per new observation, not on every GUI frame.
+  if (o != st.lastObs || color_from_z != st.lastColorFromZ)
   {
-    objPc->load();
-    if (objPc->pointcloud)
+    st.lastObs        = o;
+    st.lastColorFromZ = color_from_z;
+
+    st.glPc->setPose(mrpt::poses::CPose3D::Identity());
+    st.glPc->clear();
+
+    // Set sensor pose on corner marker:
+    st.glCornerSensor->setPose(obs->getSensorPose());
+
+    // Populate point cloud from observation:
+    bool& populated = st.populated;
+    populated       = false;
+
+    if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o); objPc)
     {
-      st.glPc->loadFromPointsMap(objPc->pointcloud.get());
-      st.glPc->setPose(objPc->sensorPose);
+      objPc->load();
+      if (objPc->pointcloud)
+      {
+        st.glPc->loadFromPointsMap(objPc->pointcloud.get());
+        st.glPc->setPose(objPc->sensorPose);
+        populated = true;
+      }
+    }
+    else if (auto objRS = std::dynamic_pointer_cast<CObservationRotatingScan>(o); objRS)
+    {
+      objRS->load();
+      mrpt::math::TBoundingBoxf bbox = mrpt::math::TBoundingBoxf::PlusMinusInfinity();
+      for (size_t r = 0; r < objRS->rowCount; r++)
+      {
+        for (size_t c = 0; c < objRS->columnCount; c++)
+        {
+          if (objRS->rangeImage(r, c) == 0)
+          {
+            continue;
+          }
+          const auto& pt = objRS->organizedPoints(r, c);
+          st.glPc->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
+          bbox.updateWithPoint(pt);
+        }
+      }
+      st.glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
+      color_from_z = false;
+      populated    = true;
+    }
+    else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o); obj3D)
+    {
+      if (instance->show_rgbd_as_point_cloud_)
+      {
+        obj3D->load();
+        if (obj3D->hasPoints3D)
+        {
+          for (size_t i = 0; i < obj3D->points3D_x.size(); i++)
+          {
+            st.glPc->insertPoint(
+                {obj3D->points3D_x[i], obj3D->points3D_y[i], obj3D->points3D_z[i], 0, 0, 0});
+          }
+        }
+        else if (obj3D->hasRangeImage && obj3D->hasIntensityImage)
+        {
+          mrpt::obs::T3DPointsProjectionParams pp;
+          pp.takeIntoAccountSensorPoseOnRobot = true;
+          auto pointMapCol                    = mrpt::maps::CGenericPointsMap::Create();
+          pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Ru8);
+          pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Gu8);
+          pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Bu8);
+          obj3D->unprojectInto(*pointMapCol, pp);
+          st.glPc->loadFromPointsMap(pointMapCol.get());
+          color_from_z = false;
+        }
+        else if (obj3D->hasRangeImage)
+        {
+          mrpt::obs::T3DPointsProjectionParams pp;
+          pp.takeIntoAccountSensorPoseOnRobot = true;
+          obj3D->unprojectInto(*st.glPc, pp);
+        }
+        populated = true;
+      }
+    }
+    else if (auto obj2D = std::dynamic_pointer_cast<CObservation2DRangeScan>(o); obj2D)
+    {
+      mrpt::maps::CSimplePointsMap auxMap;
+      auxMap.insertObservationPtr(std::make_shared<CObservation2DRangeScan>(*obj2D));
+      st.glPc->loadFromPointsMap(&auxMap);
       populated = true;
     }
-  }
-  else if (auto objRS = std::dynamic_pointer_cast<CObservationRotatingScan>(o); objRS)
-  {
-    objRS->load();
-    mrpt::math::TBoundingBoxf bbox = mrpt::math::TBoundingBoxf::PlusMinusInfinity();
-    for (size_t r = 0; r < objRS->rowCount; r++)
+    else if (auto objVel = std::dynamic_pointer_cast<CObservationVelodyneScan>(o); objVel)
     {
-      for (size_t c = 0; c < objRS->columnCount; c++)
+      if (objVel->point_cloud.size() > 0)
       {
-        if (objRS->rangeImage(r, c) == 0) continue;
-        const auto& pt = objRS->organizedPoints(r, c);
-        st.glPc->insertPoint({pt.x, pt.y, pt.z, 0, 0, 0});
-        bbox.updateWithPoint(pt);
+        const auto&  pc = objVel->point_cloud;
+        const size_t N  = pc.size();
+        for (size_t i = 0; i < N; i++)
+        {
+          st.glPc->insertPoint({pc.x[i], pc.y[i], pc.z[i], 0, 0, 0});
+        }
+        populated = true;
       }
     }
-    st.glPc->recolorizeByCoordinate(bbox.min.z, bbox.max.z);
-    color_from_z = false;
-    populated    = true;
-  }
-  else if (auto obj3D = std::dynamic_pointer_cast<CObservation3DRangeScan>(o); obj3D)
-  {
-    if (instance->show_rgbd_as_point_cloud_)
+
+    if (populated && color_from_z)
     {
-      obj3D->load();
-      if (obj3D->hasPoints3D)
-      {
-        for (size_t i = 0; i < obj3D->points3D_x.size(); i++)
-          st.glPc->insertPoint(
-              {obj3D->points3D_x[i], obj3D->points3D_y[i], obj3D->points3D_z[i], 0, 0, 0});
-      }
-      else if (obj3D->hasRangeImage && obj3D->hasIntensityImage)
-      {
-        mrpt::obs::T3DPointsProjectionParams pp;
-        pp.takeIntoAccountSensorPoseOnRobot = true;
-        auto pointMapCol                    = mrpt::maps::CGenericPointsMap::Create();
-        pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Ru8);
-        pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Gu8);
-        pointMapCol->registerField_uint8(mrpt::maps::CPointsMap::POINT_FIELD_COLOR_Bu8);
-        obj3D->unprojectInto(*pointMapCol, pp);
-        st.glPc->loadFromPointsMap(pointMapCol.get());
-        color_from_z = false;
-      }
-      else if (obj3D->hasRangeImage)
-      {
-        mrpt::obs::T3DPointsProjectionParams pp;
-        pp.takeIntoAccountSensorPoseOnRobot = true;
-        obj3D->unprojectInto(*st.glPc, pp);
-      }
-      populated = true;
-    }
-  }
-  else if (auto obj2D = std::dynamic_pointer_cast<CObservation2DRangeScan>(o); obj2D)
-  {
-    mrpt::maps::CSimplePointsMap auxMap;
-    auxMap.insertObservationPtr(std::make_shared<CObservation2DRangeScan>(*obj2D));
-    st.glPc->loadFromPointsMap(&auxMap);
-    populated = true;
-  }
-  else if (auto objVel = std::dynamic_pointer_cast<CObservationVelodyneScan>(o); objVel)
-  {
-    if (objVel->point_cloud.size() > 0)
-    {
-      const auto&  pc = objVel->point_cloud;
-      const size_t N  = pc.size();
-      for (size_t i = 0; i < N; i++) st.glPc->insertPoint({pc.x[i], pc.y[i], pc.z[i], 0, 0, 0});
-      populated = true;
+      const auto bb = st.glPc->getBoundingBox();
+      st.glPc->recolorizeByCoordinate(static_cast<float>(bb.min.z), static_cast<float>(bb.max.z));
     }
   }
 
-  if (!populated) return;
-
-  if (color_from_z)
+  if (!st.populated)
   {
-    const auto bb = st.glPc->getBoundingBox();
-    st.glPc->recolorizeByCoordinate(static_cast<float>(bb.min.z), static_cast<float>(bb.max.z));
+    return;
   }
 
   if (ImGui::Begin(winId.c_str()))
