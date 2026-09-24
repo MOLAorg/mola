@@ -33,6 +33,7 @@
 #include <mrpt/system/string_utils.h>
 #include <mrpt/system/thread_name.h>
 
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <optional>
@@ -296,18 +297,22 @@ void MolaVizImGui::gui_thread()
 
   const double frame_period = 1.0 / static_cast<double>(std::max(1, core_ptr_->target_fps_));
 
-  // Wall-clock time between consecutive frame starts: what the user perceives
+  // Elapsed time between consecutive frame starts: what the user perceives
   // as GUI (un)responsiveness. Reported by the profiler (mola-cli -p).
-  std::optional<double> last_frame_start;
+  // Measured with a steady clock, since mrpt::Clock may follow simulated time.
+  std::optional<std::chrono::steady_clock::time_point> last_frame_start;
 
   while (!guiThreadShutdown_.load())
   {
-    const double t0 = mrpt::Clock::nowDouble();
+    const double t0          = mrpt::Clock::nowDouble();
+    const auto   frame_start = std::chrono::steady_clock::now();
     if (last_frame_start && profiler_.isEnabled())
     {
-      profiler_.registerUserMeasure("gui_thread.frame_interval", t0 - *last_frame_start);
+      profiler_.registerUserMeasure(
+          "gui_thread.frame_interval",
+          std::chrono::duration<double>(frame_start - *last_frame_start).count());
     }
-    last_frame_start = t0;
+    last_frame_start = frame_start;
 
     glfwPollEvents();
 

@@ -253,6 +253,9 @@ class VizInterface
   /**
    * \brief Inserts a temporary point cloud visible for `decay_time_seconds`.
    *
+   * The visualizer takes over the cloud: it rewrites its alpha channel to fade
+   * it out, so callers must not modify the cloud after inserting it.
+   *
    * \param cloud              Cloud to display.
    * \param decay_time_seconds Lifetime in seconds before the cloud fades out.
    * \param viewportName       Target viewport.
