@@ -434,6 +434,9 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
     std::shared_ptr<mrpt::viz::CPointCloudColoured> cloud;
     mrpt::viz::CSetOfObjects::Ptr                   container;  // owning container at insert time
     float                                           initial_alpha = 1.0f;
+    /** Alpha last written into `cloud`, to skip rewriting (and re-uploading)
+     *  an unchanged one. -1: none yet. */
+    int applied_alpha = -1;
   };
 
   /** One live plot window: which channels it overlays and its display options.
