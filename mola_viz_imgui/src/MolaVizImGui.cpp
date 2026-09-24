@@ -35,6 +35,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -295,9 +296,18 @@ void MolaVizImGui::gui_thread()
 
   const double frame_period = 1.0 / static_cast<double>(std::max(1, core_ptr_->target_fps_));
 
+  // Wall-clock time between consecutive frame starts: what the user perceives
+  // as GUI (un)responsiveness. Reported by the profiler (mola-cli -p).
+  std::optional<double> last_frame_start;
+
   while (!guiThreadShutdown_.load())
   {
     const double t0 = mrpt::Clock::nowDouble();
+    if (last_frame_start && profiler_.isEnabled())
+    {
+      profiler_.registerUserMeasure("gui_thread.frame_interval", t0 - *last_frame_start);
+    }
+    last_frame_start = t0;
 
     glfwPollEvents();
 
@@ -306,10 +316,16 @@ void MolaVizImGui::gui_thread()
       if (wd.glfw_window && !glfwWindowShouldClose(wd.glfw_window)) any_open = true;
     if (!any_open) break;
 
-    for (auto& [name, wd] : core_ptr_->windows_)
     {
-      if (!wd.glfw_window || glfwWindowShouldClose(wd.glfw_window)) continue;
-      core_ptr_->render_frame(name, wd);
+      const ProfilerEntry tle(profiler_, "gui_thread.render_frame");
+      for (auto& [name, wd] : core_ptr_->windows_)
+      {
+        if (!wd.glfw_window || glfwWindowShouldClose(wd.glfw_window))
+        {
+          continue;
+        }
+        core_ptr_->render_frame(name, wd);
+      }
     }
 
     const double elapsed = mrpt::Clock::nowDouble() - t0;
