@@ -1061,6 +1061,12 @@ void MolaViz::dataset_ui_check_new_modules()
     const auto modUI = std::dynamic_pointer_cast<Dataset_UI>(module);
     ASSERT_(modUI);
 
+    // Not an offline dataset (yet): check again on the next call.
+    if (!modUI->datasetUI_enabled())
+    {
+      continue;
+    }
+
     auto& e = datasetUIs_[module->getModuleInstanceName()];
     if (!e.first_time_seen)
     {
