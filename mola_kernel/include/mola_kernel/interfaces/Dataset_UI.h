@@ -27,6 +27,11 @@
  *  may be built against an older mola_kernel where overriding them fails. */
 #define MOLA_KERNEL_DATASET_UI_HAS_TIME 1
 
+/** Feature macro: Dataset_UI exposes datasetUI_enabled(), so a source that
+ *  is only sometimes an offline dataset (e.g. live sensor vs. recorded file)
+ *  can opt out of the playback panel at runtime. */
+#define MOLA_KERNEL_DATASET_UI_HAS_ENABLED 1
+
 namespace mola
 {
 /** Virtual base for offline dataset sources to have a GUI within MolaViz
@@ -38,6 +43,14 @@ class Dataset_UI
 
   /** @name Virtual interface of Dataset_UI
    *{ */
+
+  /** Whether this source currently acts as an offline dataset and should
+   *  get a playback panel. Sources that may also run live (e.g. a sensor
+   *  driver that can replay recordings) return false in live mode.
+   *  GUIs poll this until it becomes true, so it may start as false (e.g.
+   *  before the module is initialized), but a panel already shown is not
+   *  removed if it later turns false. Default: true. */
+  virtual bool datasetUI_enabled() const { return true; }
 
   /** Number of different time steps available to call getObservations() */
   virtual size_t datasetUI_size() const = 0;

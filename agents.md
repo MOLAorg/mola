@@ -134,6 +134,10 @@ All plugin modules derive from these virtual base classes:
   Both default to `std::nullopt` ("unknown"): the
   `mola_viz_imgui` panel omits the time if the position is unknown, and shows
   "t / ???" if the position is known but the total duration is not.
+  `datasetUI_enabled()` (default `true`, feature macro
+  `MOLA_KERNEL_DATASET_UI_HAS_ENABLED`) lets a source that can run both live
+  and from a recording (e.g. `mola_input_ouster`) opt out of the panel in live
+  mode. Both GUI backends poll it until it turns `true`.
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
   `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
   `requestInsertKeyframe()`, decoupled from their own local map/odometry
@@ -164,7 +168,8 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
   rate over a 30 s window stays below 80% of the desired one, not on every
   single late cycle. Modules implementing `OfflineDatasetSource` are exempt:
   they replay at their own pace and catch up on the next cycle, so for them
-  `execution_rate` is just a polling rate.
+  `execution_rate` is just a polling rate. So are `Dataset_UI` modules while
+  `datasetUI_enabled()` returns `true`.
 
 ### `mola_bridge_ros2` — ROS 2 Integration
 - Consumes ROS 2 sensor topics as MOLA `RawDataSource`
@@ -461,6 +466,7 @@ Guard with `#if defined(...)`, never with a version check.
 | `MOLA_KERNEL_VIZ_HAS_METRICS` | `interfaces/MetricChannel.h` | `VizInterface::register_metric()`/`push_metric()` exist |
 | `MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES` | `interfaces/VizInterface.h` | named movable reference frames: `update_3d_object_frame()` and the `parentFrame` argument of `update_3d_object()`, `insert_point_cloud_with_decay()`, `update_viewport_look_at()` |
 | `MOLA_KERNEL_DATASET_UI_HAS_TIME` | `interfaces/Dataset_UI.h` | `datasetUI_time()`/`datasetUI_total_time()` |
+| `MOLA_KERNEL_DATASET_UI_HAS_ENABLED` | `interfaces/Dataset_UI.h` | `datasetUI_enabled()` |
 | `MOLA_KERNEL_NAVSTATE_FILTER_HAS_GEO_REFERENCE` | `interfaces/NavStateFilter.h` | geo-reference accessor |
 | `MOLA_KERNEL_NAVSTATE_FILTER_HAS_TRANSFORM_FRAME` | `interfaces/NavStateFilter.h` | `transform_frame()` |
 | `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD` | CMake (PUBLIC) | `IncrementalPointCloud` is functional (nanoflann >= 1.10) |

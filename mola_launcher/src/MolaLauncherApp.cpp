@@ -21,6 +21,7 @@
  * systems
  */
 
+#include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/interfaces/RawDataSourceBase.h>
 #include <mola_launcher/MolaLauncherApp.h>
@@ -458,9 +459,19 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
 
     // Offline dataset sources replay data at their own pace (they catch up in
     // the next cycle), so for them the launcher rate is just a polling rate and
-    // missing it is not an actual problem:
-    const bool checkExecutionRate =
-        dynamic_cast<const OfflineDatasetSource*>(rds.impl.get()) == nullptr;
+    // missing it is not an actual problem. The same goes for sources with a
+    // playback UI, while they replay a recording rather than a live stream:
+    const bool isOfflineDataset =
+        dynamic_cast<const OfflineDatasetSource*>(rds.impl.get()) != nullptr;
+    const auto* datasetUI          = dynamic_cast<const Dataset_UI*>(rds.impl.get());
+    const auto  checkExecutionRate = [&]()
+    {
+      if (isOfflineDataset)
+      {
+        return false;
+      }
+      return datasetUI == nullptr || !datasetUI->datasetUI_enabled();
+    };
 
     // Rate monitoring: an isolated late cycle is normal (e.g. a one-off costly
     // operation), only a sustained rate loss is worth reporting to the user:
@@ -481,7 +492,7 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
       // Done, cycle:
       const bool ontime = timer.sleep();
 
-      if (!checkExecutionRate)
+      if (!checkExecutionRate())
       {
         continue;
       }
