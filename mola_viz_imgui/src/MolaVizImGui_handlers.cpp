@@ -32,10 +32,13 @@
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRotatingScan.h>
 #include <mrpt/obs/CObservationVelodyneScan.h>
+#include <mrpt/obs/customizable_obs_viz.h>
 #include <mrpt/viz/CPointCloudColoured.h>
 #include <mrpt/viz/Scene.h>
 #include <mrpt/viz/stock_objects.h>
 
+#include <algorithm>
+#include <array>
 #include <cstdio>
 #include <set>
 
@@ -233,7 +236,56 @@ struct PointCloudViewState
   mrpt::rtti::CObject::Ptr lastObs;
   bool                     lastColorFromZ = true;
   bool                     populated      = false;
+
+  // Point fields the user can color by, and the selected one (point clouds only):
+  std::vector<std::string> colorFields;
+  std::string              colorField;
+  std::string              lastColorField;
 };
+
+// Point fields offered for coloring; RGB channel triplets are merged into a single
+// "rgb"/"rgbf" entry, the names mrpt::obs::recolorize3Dpc() understands.
+std::vector<std::string> color_fields_of(const mrpt::maps::CPointsMap& pc)
+{
+  std::set<std::string> fields;
+  for (const auto& names :
+       {pc.getPointFieldNames_float(), pc.getPointFieldNames_double(),
+        pc.getPointFieldNames_uint16(), pc.getPointFieldNames_uint8(),
+        pc.getPointFieldNames_uint32()})
+  {
+    fields.insert(names.begin(), names.end());
+  }
+
+  for (const auto& [merged, r, g, b] :
+       {std::array<const char*, 4>{"rgb", "color_r", "color_g", "color_b"},
+        std::array<const char*, 4>{"rgbf", "color_rf", "color_gf", "color_bf"}})
+  {
+    if (fields.count(r) && fields.count(g) && fields.count(b))
+    {
+      fields.erase(r);
+      fields.erase(g);
+      fields.erase(b);
+      fields.insert(merged);
+    }
+  }
+  return {fields.begin(), fields.end()};
+}
+
+// Initial coloring: height, unless the YAML asks for the cloud's own colors.
+std::string default_color_field(const std::vector<std::string>& fields, bool color_from_z)
+{
+  if (!color_from_z)
+  {
+    for (const char* f : {"rgb", "rgbf"})
+    {
+      if (std::find(fields.begin(), fields.end(), f) != fields.end())
+      {
+        return f;
+      }
+    }
+  }
+  return "z";
+}
 
 void handler_point_cloud(
     const mrpt::rtti::CObject::Ptr& o, void* /*handle*/,
@@ -314,7 +366,7 @@ void handler_point_cloud(
 
   // Rebuilding the cloud is O(points) and forces a new GPU upload, so it is
   // done once per new observation, not on every GUI frame.
-  if (o != st.lastObs || color_from_z != st.lastColorFromZ)
+  if (o != st.lastObs || color_from_z != st.lastColorFromZ || st.colorField != st.lastColorField)
   {
     st.lastObs        = o;
     st.lastColorFromZ = color_from_z;
@@ -334,9 +386,26 @@ void handler_point_cloud(
       objPc->load();
       if (objPc->pointcloud)
       {
-        st.glPc->loadFromPointsMap(objPc->pointcloud.get());
+        const auto* pc = objPc->pointcloud.get();
+        st.glPc->loadFromPointsMap(pc);
         st.glPc->setPose(objPc->sensorPose);
-        populated = true;
+
+        st.colorFields = color_fields_of(*pc);
+        if (std::find(st.colorFields.begin(), st.colorFields.end(), st.colorField) ==
+            st.colorFields.end())
+        {
+          st.colorField = default_color_field(st.colorFields, color_from_z);
+        }
+        st.lastColorField = st.colorField;
+
+        mrpt::obs::PointCloudRecoloringParameters rp;
+        rp.colorizeByField = st.colorField;
+        // Trim the tails, so a few outliers (e.g. retro-reflectors) do not wash out the scale:
+        rp.outlierRejectionPercentile = 0.01f;
+        mrpt::obs::recolorize3Dpc(st.glPc, pc, rp);
+
+        color_from_z = false;
+        populated    = true;
       }
     }
     else if (auto objRS = std::dynamic_pointer_cast<CObservationRotatingScan>(o); objRS)
@@ -429,6 +498,22 @@ void handler_point_cloud(
 
   if (ImGui::Begin(winId.c_str()))
   {
+    if (!st.colorFields.empty())
+    {
+      ImGui::SetNextItemWidth(140);
+      if (ImGui::BeginCombo("Color by", st.colorField.c_str()))
+      {
+        for (const auto& f : st.colorFields)
+        {
+          if (ImGui::Selectable(f.c_str(), f == st.colorField))
+          {
+            st.colorField = f;  // the cloud is recolored on the next frame
+          }
+        }
+        ImGui::EndCombo();
+      }
+    }
+
     show_common_sensor_info(*obs, winId);
 
     if (auto objPc = std::dynamic_pointer_cast<CObservationPointCloud>(o);
