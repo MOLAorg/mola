@@ -494,6 +494,10 @@ void MolaLauncherApp::executor_thread(InfoPerRunningThread& rds)
 
       if (!checkExecutionRate())
       {
+        // Restart the window, so it only spans cycles that are monitored:
+        rateWindowCycles = 0;
+        rateWindowLate   = 0;
+        rateWindowTimer.Tic();
         continue;
       }
 
