@@ -55,38 +55,56 @@ times.
 Making a CLI run bit-identical
 -------------------------------
 
-The CLI removes the pacing problem. Two further sources of run-to-run
-variation remain, and both matter if you intend to compare numbers.
+The CLI removes the pacing problem. ``mola-lidar-odometry-cli`` also turns
+off, by default, the real-time behaviors that would make an offline run depend
+on timing. An explicit setting in your environment still takes precedence:
 
-**Pin the threads.** ``tbb::parallel_reduce`` sums in whatever order the
-threads finish, and floating-point addition is not associative, so the
-schedule changes the result:
+- ``MOLA_ASYNC_BACKEND=false``: the smoother state estimator serves queries
+  synchronously instead of from its non-deterministic asynchronous path. This
+  was measured to be accuracy-neutral across 49 sequences, so it buys
+  reproducibility, not accuracy.
+- ``MOLA_DROP_STALE_SCANS=false``: every scan is processed, none is dropped.
+
+State these yourself only for other offline entry points.
+
+One source of run-to-run variation remains, and the CLI does **not** remove it
+for you.
+
+**Turn off the incremental map's background rebuild** when the local map is
+``mola::IncrementalPointCloud``:
 
 .. code-block:: bash
 
-   taskset -c 0 mola-lo-cli-mulran KAIST01
+   MOLA_INCREMENTAL_MAP_ASYNC_REBUILD=false mola-lo-cli-kitti 00
 
-Confirm it worked rather than assuming it: run twice and compare the output
+With it on, the map rebalances its k-d tree on a background thread that the
+nearest-neighbor queries never wait for. The tree a query sees then depends on
+the scheduler, and ties between equidistant neighbors can resolve differently
+from one run to the next. The pipelines default it to ``true``. The default
+map class, ``mola::KeyframePointCloudMap``, is unaffected, but some dataset
+wrappers switch to the incremental map (``mola-lo-cli-kitti`` does), so check
+``MOLA_LOCALMAP_CLASS`` before assuming it does not apply.
+
+**Thread count does not matter.** The parallel sums in the ICP solver use a
+fixed partition, and pairings are sorted into a fixed order before they reach
+it. The result is therefore bit-identical for any number of threads and any
+scheduling, with no need to pin the process. This holds from mp2p_icp 3.0.0
+and MOLA 3.2.0 onward. With older releases, pin the process to one core
+(``taskset -c 0 ...``).
+
+Confirm it rather than assuming it: run twice and compare the output
 trajectories with ``md5sum``. If they do not match, nothing downstream of
 them is comparable either.
 
-**Turn off asynchronous backend serving** if you are using the smoother state
-estimator, whose async path is non-deterministic:
-
-.. code-block:: bash
-
-   MOLA_ASYNC_BACKEND=false ...
-
-``mola-lidar-odometry-cli`` already defaults this to ``false``, since it is a
-batch tool with no real-time deadline; it only needs stating for other
-offline entry points. It was measured to be accuracy-neutral across 49
-sequences before being adopted, so it buys reproducibility, not accuracy.
-
 .. note::
-   The smoother also needs its plugin loaded explicitly, with
-   ``-l libmola_state_estimation_smoother.so``. The CLI does not load it by
-   default, and without it the class factory fails with ``unknown class
-   name``. See :ref:`troubleshooting`.
+   Since mola_lidar_odometry 3.2.0, ``mola-lidar-odometry-cli`` links the
+   smoother state estimator in at build time whenever
+   ``mola_state_estimation_smoother`` is installed, so
+   ``--state-estimator mola::state_estimation_smoother::StateEstimationSmoother``
+   works without loading a plugin. On older releases, or on a build that did
+   not find that package, add ``-l libmola_state_estimation_smoother.so``, or
+   the class factory fails with ``unknown class name``. See
+   :ref:`troubleshooting`.
 
 
 Before you believe a difference

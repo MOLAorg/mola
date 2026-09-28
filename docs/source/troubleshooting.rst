@@ -18,8 +18,11 @@ Nothing happens, or the odometry stops
 ``unknown class name`` when using the smoother
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The smoother state estimator lives in a plugin that the CLI does not load by
-default, so the class factory cannot find it. Load it explicitly:
+The smoother state estimator lives in its own library. Since
+mola_lidar_odometry 3.2.0, ``mola-lidar-odometry-cli`` links it in at build
+time whenever ``mola_state_estimation_smoother`` is installed, so this error
+means an older release or a build that did not find that package. Rebuild the
+CLI with the smoother installed, or load it explicitly:
 
 .. code-block:: bash
 
@@ -67,9 +70,11 @@ Two runs of the same data give different answers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Expected, if you used the GUI: it paces in real time and drops scans. Use the
-offline CLI, pin it with ``taskset -c N``, and verify with ``md5sum`` that
-two runs are bit-identical before comparing anything. :ref:`gui_vs_cli`
-explains why.
+offline CLI instead. If the local map is ``mola::IncrementalPointCloud``, also
+set ``MOLA_INCREMENTAL_MAP_ASYNC_REBUILD=false``. Then verify with ``md5sum``
+that two runs are bit-identical before comparing anything. Pinning threads is
+only needed with releases older than mp2p_icp 3.0.0 and MOLA 3.2.0.
+:ref:`gui_vs_cli` explains why.
 
 
 ROS 2 frames and topics
