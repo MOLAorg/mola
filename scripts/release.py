@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Release helper for mola.
+"""Release helper for MOLAorg repositories.
 
-Every package.xml listed in PACKAGE_DIRS below is released together and
-must carry the same <version>; each package's own CHANGELOG.rst documents
-that version.
+All packages in the repository are released together and must carry the
+same <version>; each package's own CHANGELOG.rst documents that version.
+Packages are discovered the same way catkin/bloom do: the search does not
+descend into a package directory (so vendored packages inside it are not
+included), nor into hidden, build, install or log directories, nor into
+directories marked with COLCON_IGNORE, CATKIN_IGNORE or AMENT_IGNORE.
+
+This file is identical in every MOLAorg repository: keep it that way, and
+propagate any change to all of them.
 
 Usage:
   scripts/release.py check                  Verify all package.xml versions agree (read only)
@@ -17,11 +23,11 @@ import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Package directories released together from this repository, relative to
-# its root ("." for the repo root itself in a single-package repo).
-PACKAGE_DIRS = ["mola", "mola_bridge_ros2", "mola_demos", "mola_input_lidar_bin_dataset", "mola_input_rawlog", "mola_input_rosbag2", "mola_input_video", "mola_kernel", "mola_launcher", "mola_metric_maps", "mola_msgs", "mola_pose_list", "mola_relocalization", "mola_traj_tools", "mola_viz", "mola_viz_imgui", "mola_yaml"]
+SKIPPED_DIRS = {"build", "install", "log"}
+IGNORE_MARKERS = ("COLCON_IGNORE", "CATKIN_IGNORE", "AMENT_IGNORE")
 
 PACKAGE_VERSION_RE = re.compile(r"(<version>)(\d+\.\d+\.\d+)(</version>)")
+PACKAGE_NAME_RE = re.compile(r"<name>\s*([^<\s]+)\s*</name>")
 CHANGELOG_ENTRY_RE = re.compile(r"^(\d+\.\d+\.\d+) \((\d{4}-\d{2}-\d{2})\)$", re.M)
 RST_LINK_RE = re.compile(r"`([^`<]+?)\s*<([^>]+)>`_")
 
@@ -35,12 +41,25 @@ def read(path):
         return f.read()
 
 
+def package_dirs():
+    """Return the sorted absolute paths of all package directories."""
+    found = []
+    for root, dirs, files in os.walk(REPO_ROOT):
+        if any(marker in files for marker in IGNORE_MARKERS):
+            dirs[:] = []
+            continue
+        if "package.xml" in files:
+            found.append(root)
+            dirs[:] = []
+            continue
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIPPED_DIRS]
+    if not found:
+        raise ReleaseError("No package.xml found under %s" % REPO_ROOT)
+    return sorted(found)
+
+
 def package_xml_files():
-    files = [os.path.join(REPO_ROOT, d, "package.xml") for d in PACKAGE_DIRS]
-    missing = [f for f in files if not os.path.isfile(f)]
-    if missing:
-        raise ReleaseError("Missing package.xml: %s" % ", ".join(missing))
-    return files
+    return [os.path.join(d, "package.xml") for d in package_dirs()]
 
 
 def package_version(path):
@@ -83,14 +102,15 @@ def changelog_entry(changelog_path, version):
 def changelog_notes(version):
     """Concatenate every package's dated entry for one version as Markdown."""
     sections = []
-    for package_dir in PACKAGE_DIRS:
-        changelog_path = os.path.join(REPO_ROOT, package_dir, "CHANGELOG.rst")
+    for package_dir in package_dirs():
+        changelog_path = os.path.join(package_dir, "CHANGELOG.rst")
         if not os.path.isfile(changelog_path):
             continue
         body = changelog_entry(changelog_path, version)
         if not body:
             continue
-        package_name = os.path.basename(os.path.abspath(os.path.join(REPO_ROOT, package_dir)))
+        match = PACKAGE_NAME_RE.search(read(os.path.join(package_dir, "package.xml")))
+        package_name = match.group(1) if match else os.path.basename(package_dir)
         sections.append("### %s\n\n%s" % (package_name, body))
     if not sections:
         raise ReleaseError("No CHANGELOG entry for version %s in any package" % version)
