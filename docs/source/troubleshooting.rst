@@ -70,8 +70,10 @@ Two runs of the same data give different answers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Expected, if you used the GUI: it paces in real time and drops scans. Use the
-offline CLI instead. If the local map is ``mola::IncrementalPointCloud``, also
-set ``MOLA_INCREMENTAL_MAP_ASYNC_REBUILD=false``. Then verify with ``md5sum``
+offline CLI instead. With mola_lidar_odometry 3.3.0 or older and the
+``mola::IncrementalPointCloud`` local map, also set
+``MOLA_INCREMENTAL_MAP_ASYNC_REBUILD=false``, which newer CLIs default to.
+Then verify with ``md5sum``
 that two runs are bit-identical before comparing anything. Pinning threads is
 only needed with releases older than mp2p_icp 3.0.0 and MOLA 3.2.0.
 :ref:`gui_vs_cli` explains why.

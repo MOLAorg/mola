@@ -64,26 +64,22 @@ on timing. An explicit setting in your environment still takes precedence:
   was measured to be accuracy-neutral across 49 sequences, so it buys
   reproducibility, not accuracy.
 - ``MOLA_DROP_STALE_SCANS=false``: every scan is processed, none is dropped.
+- ``MOLA_INCREMENTAL_MAP_ASYNC_REBUILD=false``: when the local map is
+  ``mola::IncrementalPointCloud``, its k-d tree is rebalanced synchronously.
+  With it on, the rebuilds run on a background thread that nearest-neighbor
+  queries never wait for, so the tree a query sees depends on the scheduler,
+  and ties between equidistant neighbors can resolve differently from one run
+  to the next. The pipelines default it to ``true``, the right choice in real
+  time. The default map class, ``mola::KeyframePointCloudMap``, is unaffected,
+  but some dataset wrappers switch to the incremental map
+  (``mola-lo-cli-kitti`` does).
 
-State these yourself only for other offline entry points.
-
-One source of run-to-run variation remains, and the CLI does **not** remove it
-for you.
-
-**Turn off the incremental map's background rebuild** when the local map is
-``mola::IncrementalPointCloud``:
+State these yourself for other offline entry points. The last one is also
+needed with mola_lidar_odometry 3.3.0 and older, whose CLI does not default it:
 
 .. code-block:: bash
 
    MOLA_INCREMENTAL_MAP_ASYNC_REBUILD=false mola-lo-cli-kitti 00
-
-With it on, the map rebalances its k-d tree on a background thread that the
-nearest-neighbor queries never wait for. The tree a query sees then depends on
-the scheduler, and ties between equidistant neighbors can resolve differently
-from one run to the next. The pipelines default it to ``true``. The default
-map class, ``mola::KeyframePointCloudMap``, is unaffected, but some dataset
-wrappers switch to the incremental map (``mola-lo-cli-kitti`` does), so check
-``MOLA_LOCALMAP_CLASS`` before assuming it does not apply.
 
 **Thread count does not matter.** The parallel sums in the ICP solver use a
 fixed partition, and pairings are sorted into a fixed order before they reach
