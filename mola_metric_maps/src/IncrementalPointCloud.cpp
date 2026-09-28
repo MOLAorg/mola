@@ -25,6 +25,7 @@
 #include <mrpt/core/get_env.h>
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/obs/CObservation.h>
+#include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/poses/CPose2D.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
@@ -35,6 +36,7 @@
 #include <chrono>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <sstream>
 
 #include "IncrementalKDTree.h"
@@ -64,6 +66,63 @@ bool sameCoordinate(float a, float b) { return a == b || (std::isnan(a) && std::
 
 /// The value written into blanked (free) storage slots.
 constexpr float NO_POINT = std::numeric_limits<float>::quiet_NaN();
+
+/// Names of the per-point view-direction fields (see TCreationOptions).
+constexpr const char* VIEW_X = "view_x";
+constexpr const char* VIEW_Y = "view_y";
+constexpr const char* VIEW_Z = "view_z";
+
+/// Rotates the view-direction vectors of the points in [from, to) by the
+/// rotation part of `tf`, so they follow the coordinates they belong to. Does
+/// nothing unless all three view fields exist.
+void rotateViewFieldsRange(
+    mrpt::maps::CPointsMap& pts, std::size_t from, std::size_t to, const mrpt::poses::CPose3D& tf)
+{
+  auto* vx = pts.getPointsBufferRef_float_field(VIEW_X);
+  auto* vy = pts.getPointsBufferRef_float_field(VIEW_Y);
+  auto* vz = pts.getPointsBufferRef_float_field(VIEW_Z);
+  if (vx == nullptr || vy == nullptr || vz == nullptr)
+  {
+    return;
+  }
+
+  to = std::min({to, vx->size(), vy->size(), vz->size()});
+
+  const auto& R = tf.getRotationMatrix();
+  for (std::size_t i = from; i < to; i++)
+  {
+    const double x = (*vx)[i];
+    const double y = (*vy)[i];
+    const double z = (*vz)[i];
+    (*vx)[i]       = static_cast<float>(R(0, 0) * x + R(0, 1) * y + R(0, 2) * z);
+    (*vy)[i]       = static_cast<float>(R(1, 0) * x + R(1, 1) * y + R(1, 2) * z);
+    (*vz)[i]       = static_cast<float>(R(2, 0) * x + R(2, 1) * y + R(2, 2) * z);
+  }
+}
+
+/// True if two view directions see the surface of a point with covariance
+/// `cov` from opposite sides, both clearly (not at grazing incidence). A
+/// covariance without a clear normal (not plane-shaped) never qualifies.
+bool seenFromOppositeSides(
+    const Eigen::Matrix3f& cov, const Eigen::Vector3f& v1, const Eigen::Vector3f& v2)
+{
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
+  es.computeDirect(cov);
+  const Eigen::Vector3f& ev = es.eigenvalues();  // ascending
+  if (!(ev(0) < 0.1f * ev(1)))
+  {
+    return false;
+  }
+
+  const Eigen::Vector3f n  = es.eigenvectors().col(0);
+  const float           s1 = v1.dot(n);
+  const float           s2 = v2.dot(n);
+
+  // |v.n| below this is a view within ~6 deg of the surface plane, where a
+  // small error in the normal can flip the sign:
+  constexpr float MIN_ABS_COS = 0.1f;
+  return std::abs(s1) > MIN_ABS_COS && std::abs(s2) > MIN_ABS_COS && (s1 > 0) != (s2 > 0);
+}
 }  // namespace
 
 //  =========== Begin of Map definition ============
@@ -558,6 +617,10 @@ void IncrementalPointCloud::changeCoordinatesReference(const mrpt::poses::CPose3
   // since composePoint() propagates it), and marks the inherited caches dirty:
   CPointsMap::changeCoordinatesReference(b);
 
+  // The base class only moves the coordinates; the view directions, stored in
+  // this map's frame, must turn with them:
+  rotateViewFieldsRange(*this, 0, m_x.size(), b);
+
   // The tree's split planes and bounding boxes were built from the previous
   // coordinates, so none of them survives a global re-map. This also drops the
   // cached per-point covariances, which are expressed in this map's frame.
@@ -621,6 +684,17 @@ bool IncrementalPointCloud::internal_insertObservation(
   // Let the base class do the observation-type-specific work (it also honors
   // the standard insertionOptions, e.g. minDistBetweenLaserPoints):
   const bool ok = CPointsMap::internal_insertObservation(obs, robotPose);
+
+  // The base class moves the coordinates of a point cloud observation by
+  // robotPose + sensorPose but copies its other fields verbatim, so its view
+  // directions arrive in the sensor frame. Turn the new ones into this map's
+  // frame, before the recycling below scatters them into free slots:
+  if (const auto* pc = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs); pc)
+  {
+    const auto        robotPose3D = robotPose.has_value() ? *robotPose : mrpt::poses::CPose3D();
+    const std::size_t firstNew    = insertionOptions.addToExistingPointsMap ? before : 0;
+    rotateViewFieldsRange(*this, firstNew, m_x.size(), robotPose3D + pc->sensorPose);
+  }
 
   if (insertionOptions.addToExistingPointsMap)
   {
@@ -1088,6 +1162,55 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   const auto& l_ys = localPc->m_y;
   const auto& l_zs = localPc->m_z;
 
+  const Eigen::Matrix3f R = localMapPose.getRotationMatrix().cast_float().asEigen();
+
+  // Optional view-direction filter (see TCreationOptions), active only when both
+  // sides carry the three view fields. The query's are in its own frame, hence
+  // rotated by `localMapPose`; this map's are already in its frame.
+  const auto* l_vx = localPc->getPointsBufferRef_float_field(VIEW_X);
+  const auto* l_vy = localPc->getPointsBufferRef_float_field(VIEW_Y);
+  const auto* l_vz = localPc->getPointsBufferRef_float_field(VIEW_Z);
+  const auto* g_vx = getPointsBufferRef_float_field(VIEW_X);
+  const auto* g_vy = getPointsBufferRef_float_field(VIEW_Y);
+  const auto* g_vz = getPointsBufferRef_float_field(VIEW_Z);
+
+  const bool haveViewFields = l_vx != nullptr && l_vy != nullptr && l_vz != nullptr &&
+                              g_vx != nullptr && g_vy != nullptr && g_vz != nullptr;
+  const auto viewFilterMode =
+      haveViewFields ? creationOptions.view_direction_filter : ViewDirectionFilter::None;
+
+  // The surface-side test needs the matched point's covariance, so it runs in
+  // pass 3; the angle test needs nothing else and runs in pass 1.
+  const bool   sideViewFilter  = viewFilterMode == ViewDirectionFilter::SurfaceSide;
+  const double maxViewAngleDeg = std::clamp(creationOptions.max_view_angle_deg, 0.0, 180.0);
+  const bool   angleViewFilter =
+      viewFilterMode == ViewDirectionFilter::MaxAngle && maxViewAngleDeg < 180.0;
+
+  // cos() decreases monotonically on [0, 180] deg, so "angle > max" is "dot < cos(max)":
+  const auto viewCosThreshold = static_cast<float>(std::cos(mrpt::DEG2RAD(maxViewAngleDeg)));
+
+  // View vectors of a local/global pair, both in this map's frame, or nothing
+  // when either point was inserted without view fields (zero vectors):
+  const auto pairViews =
+      [&](uint32_t ls, uint32_t gs) -> std::optional<std::pair<Eigen::Vector3f, Eigen::Vector3f>>
+  {
+    if (ls >= l_vx->size() || gs >= g_vx->size())
+    {
+      return std::nullopt;
+    }
+
+    const Eigen::Vector3f vl((*l_vx)[ls], (*l_vy)[ls], (*l_vz)[ls]);  // in the query's own frame
+    const Eigen::Vector3f vg((*g_vx)[gs], (*g_vy)[gs], (*g_vz)[gs]);
+
+    constexpr float MIN_SQR_NORM = 0.25f;  // unit vectors when present
+    if (vl.squaredNorm() < MIN_SQR_NORM || vg.squaredNorm() < MIN_SQR_NORM)
+    {
+      return std::nullopt;
+    }
+
+    return std::make_pair(Eigen::Vector3f(R * vl), vg);
+  };
+
   // --- Pass 1: nearest-neighbor search (no covariance access) --------------
   struct Match
   {
@@ -1119,6 +1242,17 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     uint32_t gIdx = 0;
     float    d    = 0;
     if (index_->knnSearchWithinRadius(q, 1, max_sqr_dist, &gIdx, &d) == 0) return;
+
+    // Reject a pair seen from too different directions. Like the keyframe
+    // map, only the nearest neighbor is tested, and a rejected query point
+    // gets no pairing at all.
+    if (angleViewFilter)
+    {
+      if (const auto v = pairViews(ls, gIdx); v && v->first.dot(v->second) < viewCosThreshold)
+      {
+        return;
+      }
+    }
 
     out.push_back({ls, gIdx});
   };
@@ -1167,13 +1301,20 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   ensureCovariancesFor(globalSlots);
 
   // --- Pass 3: assemble the pairings --------------------------------------
-  const Eigen::Matrix3f R = localMapPose.getRotationMatrix().cast_float().asEigen();
-
   const std::size_t firstNewPairing = outPairings.size();
 
   outPairings.reserve(outPairings.size() + matches.size());
   for (const auto& m : matches)
   {
+    if (sideViewFilter)
+    {
+      if (const auto v = pairViews(m.local_slot, m.global_slot);
+          v && seenFromOppositeSides(cov_[m.global_slot].asEigen(), v->first, v->second))
+      {
+        continue;
+      }
+    }
+
     auto& p = outPairings.emplace_back();
 
     p.local_idx  = m.local_slot;
@@ -1269,7 +1410,7 @@ const mrpt::maps::CSimplePointsMap* IncrementalPointCloud::getAsSimplePointsMap(
 // Serialization
 // =====================================
 
-uint8_t IncrementalPointCloud::serializeGetVersion() const { return 1; }
+uint8_t IncrementalPointCloud::serializeGetVersion() const { return 2; }
 
 void IncrementalPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
 {
@@ -1335,12 +1476,23 @@ void IncrementalPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
   {
     case 0:
     case 1:
+    case 2:
     {
       auto tmp = mrpt::maps::CGenericPointsMap::Create();
       in >> *tmp;
 
       // Copies points and all per-point fields (clearing us first):
       CPointsMap::operator=(*tmp);
+
+      // v2 only adds a guarantee: view-direction fields are in this map's
+      // frame. Before it they were stored as inserted, i.e. each in the sensor
+      // frame of its own insertion, so they are dropped rather than trusted:
+      if (version < 2)
+      {
+        unregisterField(VIEW_X);
+        unregisterField(VIEW_Y);
+        unregisterField(VIEW_Z);
+      }
 
       creationOptions.readFromStream(in);
       insertionOptions.readFromStream(in);
@@ -1454,6 +1606,8 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(min_correspondences_for_cov, uint64_t, c, s);
   MRPT_LOAD_CONFIG_VAR(max_distance_for_cov, double, c, s);
   MRPT_LOAD_CONFIG_VAR(min_neighbors_to_cache_cov, uint64_t, c, s);
+  view_direction_filter = c.read_enum(s, "view_direction_filter", view_direction_filter);
+  MRPT_LOAD_CONFIG_VAR(max_view_angle_deg, double, c, s);
   MRPT_LOAD_CONFIG_VAR(serialize_kdtree, bool, c, s);
 }
 
@@ -1472,13 +1626,15 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(min_correspondences_for_cov, int);
   LOADABLEOPTS_DUMP_VAR(max_distance_for_cov, double);
   LOADABLEOPTS_DUMP_VAR(min_neighbors_to_cache_cov, int);
+  LOADABLEOPTS_DUMP_VAR(view_direction_filter, int);
+  LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
   LOADABLEOPTS_DUMP_VAR(serialize_kdtree, bool);
 }
 
 void IncrementalPointCloud::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 3;
+  const int8_t version = 4;
   out << version;
   out << remove_points_farther_than << async_rebuild << alpha_balance << alpha_deleted
       << reserve_points << k_correspondences_for_cov << min_correspondences_for_cov
@@ -1486,6 +1642,7 @@ void IncrementalPointCloud::TCreationOptions::writeToStream(
   out << serialize_kdtree;  // v1
   out << max_plane_deviation_for_cov << plane_regularization_lambda;  // v2
   out << min_neighbors_to_cache_cov;  // v3
+  out << static_cast<uint8_t>(view_direction_filter) << max_view_angle_deg;  // v4
 }
 
 void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1502,6 +1659,7 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
     case 1:
     case 2:
     case 3:
+    case 4:
     {
       in >> remove_points_farther_than >> async_rebuild >> alpha_balance >> alpha_deleted >>
           reserve_points >> k_correspondences_for_cov >> min_correspondences_for_cov >>
@@ -1521,6 +1679,11 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
       if (version >= 3)
       {
         in >> min_neighbors_to_cache_cov;
+      }
+      if (version >= 4)
+      {
+        view_direction_filter = static_cast<ViewDirectionFilter>(in.ReadAs<uint8_t>());
+        in >> max_view_angle_deg;
       }
     }
     break;

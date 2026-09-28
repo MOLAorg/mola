@@ -260,6 +260,18 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   resurrect evicted geometry. The storage array itself never shrinks on its own:
   it settles at its high-water mark and slots are recycled; `compact()` releases
   it on demand.
+  Per-point `view_x/y/z` are kept in the **map frame**: `insertObservation()`
+  rotates the new ones by `robotPose + sensorPose` (the base class copies extra
+  fields verbatim) and `changeCoordinatesReference()` turns all of them.
+  `nn_search_cov2cov()` can use them through `view_direction_filter`
+  (`mola::ViewDirectionFilter`): `None` (default, byte-identical to not having
+  the feature), `MaxAngle` (`KeyframePointCloudMap`'s test, with the shared
+  `max_view_angle_deg`) or `SurfaceSide` (opposite sides of the matched point's
+  covariance normal). It is deliberately a different key from KFM's
+  `use_view_direction_filter`, which pipelines set to true in the options block
+  both classes share. Maps serialized before that guarantee (class version < 2)
+  have their view fields dropped on load, since those were stored in
+  per-insertion sensor frames.
   `changeCoordinatesReference()` (all 3 overloads) is shadowed: a global SE(3)
   re-map moves every coordinate, so it applies the transform and then rebuilds
   the index over the *live* slot set (`rebuildIndexInPlace()`), dropping the

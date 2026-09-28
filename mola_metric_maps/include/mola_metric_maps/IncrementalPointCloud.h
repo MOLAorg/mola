@@ -37,6 +37,7 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/math/TPoint3D.h>
+#include <mrpt/typemeta/TEnumType.h>
 
 #include <atomic>
 #include <cstdint>
@@ -51,6 +52,28 @@ namespace internal
 {
 class IncrementalKDTree;
 }
+
+/** How `IncrementalPointCloud::nn_search_cov2cov()` uses per-point view
+ *  directions to reject a cov-to-cov pair, see
+ *  `IncrementalPointCloud::TCreationOptions::view_direction_filter`.
+ */
+enum class ViewDirectionFilter : uint8_t
+{
+  /** No filtering. */
+  None = 0,
+  /** `KeyframePointCloudMap`'s test: reject a pair whose two view directions
+   *  are more than `max_view_angle_deg` apart. Rejects the two faces of a
+   *  thin structure, but also the same surface seen from very different
+   *  directions on the same side, e.g. ground observed from opposite
+   *  azimuths, which is common in a map that keeps the whole area around the
+   *  robot. */
+  MaxAngle,
+  /** Reject a pair only when both views see the matched map point's surface
+   *  clearly (not at grazing incidence) and from opposite sides of it, as
+   *  given by the normal of that point's covariance. Points without a
+   *  plane-shaped covariance are never rejected. */
+  SurfaceSide
+};
 
 /** A single-global-frame, sliding-window point map for LiDAR (inertial)
  *  odometry, backed by **one incremental, self-balancing nanoflann k-d tree**
@@ -73,7 +96,17 @@ class IncrementalKDTree;
  *   `TCreationOptions::remove_points_farther_than`;
  * - nearest-neighbor queries go through `mrpt::maps::NearestNeighborsCapable`;
  * - GICP-style matching goes through `mp2p_icp::NearestPointWithCovCapable`
- *   (per-point, plane-regularized covariances).
+ *   (per-point, plane-regularized covariances), optionally rejecting pairs
+ *   by their view directions, see `TCreationOptions::view_direction_filter`.
+ *
+ * ## View-direction fields are kept in the map frame
+ * When the inserted clouds carry `view_x/y/z` (unit vectors from each point
+ * toward the sensor, as produced by `mp2p_icp_filters::Generator`), they are
+ * rotated along with the point coordinates by `insertObservation()` and by
+ * `changeCoordinatesReference()`, so the stored ones are always expressed in
+ * this map's frame. `insertAnotherMap()` called directly copies them verbatim,
+ * as for any `CGenericPointsMap`, so a caller using that path must rotate them
+ * itself (`mp2p_icp::rotateViewDirectionFields()`).
  *
  * ## Not for loop closure
  * A single global tree cannot cheaply absorb a global SE(3) re-map: every
@@ -400,6 +433,24 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
      *  KeyframePointCloudMap. */
     double plane_regularization_lambda = 1e-3;
 
+    /** Whether and how `nn_search_cov2cov()` uses per-point view directions
+     *  (`view_x`, `view_y`, `view_z`: unit vectors pointing FROM the point
+     *  TOWARD the sensor at acquisition time) to reject a cov-to-cov pair. It
+     *  acts only when both this map and the query cloud carry those fields.
+     *  See ViewDirectionFilter. Default: `None`.
+     *
+     *  This is not `KeyframePointCloudMap::use_view_direction_filter`, which is
+     *  on by default: pipelines that configure both map classes from one block
+     *  of options must opt in to this one explicitly.
+     */
+    ViewDirectionFilter view_direction_filter = ViewDirectionFilter::None;
+
+    /** Maximum allowed angle [degrees] between the view directions of a pair,
+     *  used by `ViewDirectionFilter::MaxAngle` only. Same meaning and default
+     *  as the option of the same name on `KeyframePointCloudMap`.
+     */
+    double max_view_angle_deg = 120.0;
+
     /** If `true`, the k-d tree index is serialized alongside the points (see
      *  `IncrementalPointCloud` serialization), so it does NOT have to be
      *  rebuilt (an O(N log N) bulk build) when the map is loaded. Requires an
@@ -557,3 +608,9 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 };
 
 }  // namespace mola
+
+MRPT_ENUM_TYPE_BEGIN_NAMESPACE(mola, mola::ViewDirectionFilter)
+MRPT_FILL_ENUM(ViewDirectionFilter::None);
+MRPT_FILL_ENUM(ViewDirectionFilter::MaxAngle);
+MRPT_FILL_ENUM(ViewDirectionFilter::SurfaceSide);
+MRPT_ENUM_TYPE_END()
