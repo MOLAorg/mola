@@ -927,19 +927,13 @@ struct ViewFilterSetup
   double                    maxAngleDeg = 120.0;
 };
 
-/// Number of cov-to-cov pairings between a surface mapped as seen with
-/// `mapView` and the same surface observed with `queryViewInMap` (both in the
-/// MAP frame). The query cloud is expressed in its own frame, which
-/// `queryPose` maps onto the map.
-size_t surfacePairings(
-    const mrpt::math::TVector3D& mapView, const mrpt::math::TVector3D& queryViewInMap, bool ground,
-    const ViewFilterSetup& setup)
+/// Number of cov-to-cov pairings between `global` and its surface observed
+/// with `queryViewInMap` (in the MAP frame). The query cloud is expressed in its
+/// own frame, which `queryPose` maps onto the map.
+size_t queryPairings(
+    const mola::IncrementalPointCloud& global, const mrpt::math::TVector3D& queryViewInMap,
+    bool ground)
 {
-  mola::IncrementalPointCloud global;
-  global.creationOptions.view_direction_filter = setup.mode;
-  global.creationOptions.max_view_angle_deg    = setup.maxAngleDeg;
-  global.insertObservation(surfaceObservation(mapView, ground), mrpt::poses::CPose3D::Identity());
-
   // Build the query cloud in its own frame by inserting the wall with the
   // inverse of the pose later given to the search. Insertion turns the view
   // vectors along with the points, so the search has to turn them back.
@@ -952,6 +946,21 @@ size_t surfacePairings(
   mp2p_icp::MatchedPointWithCovList pairings;
   global.nn_search_cov2cov(local, queryPose, 0.5f /*max search distance*/, pairings);
   return pairings.size();
+}
+
+/// Number of cov-to-cov pairings between a surface mapped as seen with
+/// `mapView` and the same surface observed with `queryViewInMap` (both in the
+/// MAP frame).
+size_t surfacePairings(
+    const mrpt::math::TVector3D& mapView, const mrpt::math::TVector3D& queryViewInMap, bool ground,
+    const ViewFilterSetup& setup)
+{
+  mola::IncrementalPointCloud global;
+  global.creationOptions.view_direction_filter = setup.mode;
+  global.creationOptions.max_view_angle_deg    = setup.maxAngleDeg;
+  global.insertObservation(surfaceObservation(mapView, ground), mrpt::poses::CPose3D::Identity());
+
+  return queryPairings(global, queryViewInMap, ground);
 }
 
 /// A wall mapped as seen from +x, observed with `queryViewInMap`.
@@ -1032,6 +1041,57 @@ void test_view_filter_default_and_config()
   ASSERT_NEAR_(opts.max_view_angle_deg, 95.0, 1e-9);
 }
 
+// A re-map through the non-virtual base-class method moves the points without
+// telling the map by how much, so their view directions cannot be turned: they
+// must be dropped, and the filter must then stop rejecting pairs.
+void test_view_fields_cleared_on_base_class_remap()
+{
+  const ViewFilterSetup       angle;
+  mola::IncrementalPointCloud global;
+  global.creationOptions.view_direction_filter = angle.mode;
+  global.insertObservation(wallObservation({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+  ASSERT_EQUAL_(queryPairings(global, {-1.0, 0.0, 0.0}, false /*wall*/), 0U);
+
+  // Out through the base class, back through the map's own method: the
+  // geometry is restored, but the first move could not turn the directions.
+  const mrpt::poses::CPose3D T(1.0, -2.0, 0.5, 0.3, 0.15, -0.2);
+  static_cast<mrpt::maps::CPointsMap&>(global).changeCoordinatesReference(T);
+  global.changeCoordinatesReference(mrpt::poses::CPose3D::Identity() - T);
+
+  ASSERT_(global.hasPointField("view_x"));
+  for (size_t i = 0; i < global.size(); i++)
+  {
+    assertSameVector(storedView(global, i), {0.0, 0.0, 0.0});
+  }
+  ASSERT_EQUAL_(queryPairings(global, {-1.0, 0.0, 0.0}, false /*wall*/), WALL_POINTS);
+}
+
+// A corrupted filter mode in a stream must be rejected, not read as a mode that
+// no filter branch recognizes.
+void test_invalid_view_filter_mode_rejected()
+{
+  mrpt::io::CMemoryStream buf;
+  auto                    arch = mrpt::serialization::archiveFrom(buf);
+  mola::IncrementalPointCloud::TCreationOptions().writeToStream(arch);
+
+  // The mode byte is the last field but one, the angle (a double):
+  const auto modeOffset = buf.getTotalBytesCount() - sizeof(double) - 1;
+  static_cast<uint8_t*>(buf.getRawBufferData())[modeOffset] = 3;
+  buf.Seek(0);
+
+  bool rejected = false;
+  try
+  {
+    mola::IncrementalPointCloud::TCreationOptions loaded;
+    loaded.readFromStream(arch);
+  }
+  catch (const std::exception&)
+  {
+    rejected = true;
+  }
+  ASSERT_(rejected);
+}
+
 /// Gives the tests access to the (protected) versioned serialization entry points.
 struct SerializationProbe : public mola::IncrementalPointCloud
 {
@@ -1093,6 +1153,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_view_filter_surface_side();
     test_view_filter_default_and_config();
     test_legacy_view_fields_dropped_on_load();
+    test_view_fields_cleared_on_base_class_remap();
+    test_invalid_view_filter_mode_rejected();
 
     std::cout << "All tests passed.\n";
   }

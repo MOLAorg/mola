@@ -271,7 +271,8 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   `use_view_direction_filter`, which pipelines set to true in the options block
   both classes share. Maps serialized before that guarantee (class version < 2)
   have their view fields dropped on load, since those were stored in
-  per-insertion sensor frames.
+  per-insertion sensor frames; an in-place coordinate rewrite detected behind
+  the map's back (base-class call) zeroes them, since its rotation is unknown.
   `changeCoordinatesReference()` (all 3 overloads) is shadowed: a global SE(3)
   re-map moves every coordinate, so it applies the transform and then rebuilds
   the index over the *live* slot set (`rebuildIndexInPlace()`), dropping the

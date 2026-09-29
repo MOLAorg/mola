@@ -100,6 +100,19 @@ void rotateViewFieldsRange(
   }
 }
 
+/// Zeroes the view-direction vectors of every point, keeping the fields. A zero
+/// direction never rejects a pairing, so this drops what they say.
+void clearViewFields(mrpt::maps::CPointsMap& pts)
+{
+  for (const char* name : {VIEW_X, VIEW_Y, VIEW_Z})
+  {
+    if (auto* v = pts.getPointsBufferRef_float_field(name); v != nullptr)
+    {
+      std::fill(v->begin(), v->end(), 0.0f);
+    }
+  }
+}
+
 /// True if two view directions see the surface of a point with covariance
 /// `cov` from opposite sides, both clearly (not at grazing incidence). A
 /// covariance without a clear normal (not plane-shaped) never qualifies.
@@ -459,6 +472,9 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
     // old coordinates, so they must force a rebuild instead of going unnoticed.
     if (coordinatesChangedExternally())
     {
+      // The transform behind such a rewrite is unknown, so the stored view
+      // directions can no longer be trusted to be in this map's frame:
+      clearViewFields(*const_cast<IncrementalPointCloud*>(this));
       rebuildIndexInPlace();
       return;
     }
@@ -1682,7 +1698,12 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
       }
       if (version >= 4)
       {
-        view_direction_filter = static_cast<ViewDirectionFilter>(in.ReadAs<uint8_t>());
+        const auto mode = in.ReadAs<uint8_t>();
+        ASSERTMSG_(
+            mode <= static_cast<uint8_t>(ViewDirectionFilter::SurfaceSide),
+            mrpt::format(
+                "Invalid view_direction_filter value in stream: %u", static_cast<unsigned>(mode)));
+        view_direction_filter = static_cast<ViewDirectionFilter>(mode);
         in >> max_view_angle_deg;
       }
     }
