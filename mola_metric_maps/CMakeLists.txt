@@ -97,6 +97,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/SparseTreesPointCloud.h
   include/mola_metric_maps/SparseVoxelPointCloud.h
   include/mola_metric_maps/TSDF.h
+  include/mola_metric_maps/ViewDirectionFilter.h
 )
 
 # The map class is always built; only the k-d tree backend is conditional (see

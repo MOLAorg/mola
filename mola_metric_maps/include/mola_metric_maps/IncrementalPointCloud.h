@@ -31,13 +31,13 @@
 
 #include <mola_metric_maps/MatchingDistanceProfileCompat.h>
 #include <mola_metric_maps/OptionsCapable.h>
+#include <mola_metric_maps/ViewDirectionFilter.h>
 #include <mp2p_icp/NearestPointWithCovCapable.h>
 #include <mrpt/config/CLoadableOptions.h>
 #include <mrpt/maps/CGenericPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/math/TPoint3D.h>
-#include <mrpt/typemeta/TEnumType.h>
 
 #include <atomic>
 #include <cstdint>
@@ -52,28 +52,6 @@ namespace internal
 {
 class IncrementalKDTree;
 }
-
-/** How `IncrementalPointCloud::nn_search_cov2cov()` uses per-point view
- *  directions to reject a cov-to-cov pair, see
- *  `IncrementalPointCloud::TCreationOptions::view_direction_filter`.
- */
-enum class ViewDirectionFilter : uint8_t
-{
-  /** No filtering. */
-  None = 0,
-  /** `KeyframePointCloudMap`'s test: reject a pair whose two view directions
-   *  are more than `max_view_angle_deg` apart. Rejects the two faces of a
-   *  thin structure, but also the same surface seen from very different
-   *  directions on the same side, e.g. ground observed from opposite
-   *  azimuths, which is common in a map that keeps the whole area around the
-   *  robot. */
-  MaxAngle,
-  /** Reject a pair only when both views see the matched map point's surface
-   *  clearly (not at grazing incidence) and from opposite sides of it, as
-   *  given by the normal of that point's covariance. Points without a
-   *  plane-shaped covariance are never rejected. */
-  SurfaceSide
-};
 
 /** A single-global-frame, sliding-window point map for LiDAR (inertial)
  *  odometry, backed by **one incremental, self-balancing nanoflann k-d tree**
@@ -436,15 +414,25 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
      *  KeyframePointCloudMap. */
     double plane_regularization_lambda = 1e-3;
 
+    /** Master switch of the view-direction filter: `false` disables it,
+     *  whatever `view_direction_filter` says. Same option as in
+     *  `KeyframePointCloudMap`, so that a pipeline configuring both classes
+     *  from one block of options switches both at once.
+     */
+    bool use_view_direction_filter = true;
+
     /** Whether and how `nn_search_cov2cov()` uses per-point view directions
      *  (`view_x`, `view_y`, `view_z`: unit vectors pointing FROM the point
      *  TOWARD the sensor at acquisition time) to reject a cov-to-cov pair. It
      *  acts only when both this map and the query cloud carry those fields.
-     *  See ViewDirectionFilter. Default: `None`.
+     *  See ViewDirectionFilter.
      *
-     *  This is not `KeyframePointCloudMap::use_view_direction_filter`, which is
-     *  on by default: pipelines that configure both map classes from one block
-     *  of options must opt in to this one explicitly.
+     *  Default: `None`, unlike `KeyframePointCloudMap` (`MaxAngle`): this map
+     *  keeps the whole area around the robot, where the same surface is often
+     *  seen from very different directions on the same side, which `MaxAngle`
+     *  rejects. Measured end to end, `MaxAngle` was consistently worse on
+     *  hand-held sequences, and `SurfaceSide` not yet reliable enough to be
+     *  the default.
      */
     ViewDirectionFilter view_direction_filter = ViewDirectionFilter::None;
 
@@ -611,9 +599,3 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 };
 
 }  // namespace mola
-
-MRPT_ENUM_TYPE_BEGIN_NAMESPACE(mola, mola::ViewDirectionFilter)
-MRPT_FILL_ENUM(ViewDirectionFilter::None);
-MRPT_FILL_ENUM(ViewDirectionFilter::MaxAngle);
-MRPT_FILL_ENUM(ViewDirectionFilter::SurfaceSide);
-MRPT_ENUM_TYPE_END()

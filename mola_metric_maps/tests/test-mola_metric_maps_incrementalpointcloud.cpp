@@ -921,10 +921,41 @@ void test_view_fields_in_map_frame()
   assertSameVector(storedView(reloaded, 0), expectedAfter);
 }
 
+// Points appended into recycled storage slots are moved there by the map, and
+// their view directions must still end up rotated into the map frame.
+void test_view_fields_in_recycled_slots()
+{
+  const mrpt::math::TVector3D viewInSensor(1.0, 0.0, 0.0);
+
+  mola::IncrementalPointCloud map;
+  map.insertObservation(
+      wallObservation(viewInSensor), mrpt::poses::CPose3D(0, 0, 0, mrpt::DEG2RAD(30.0), 0, 0));
+
+  // Evict everything, so the next insertion reuses the freed slots:
+  map.keepOnlyPointsNear({100.0f, 100.0f, 100.0f}, 1.0);
+  ASSERT_EQUAL_(map.livePointCount(), 0U);
+  ASSERT_(map.recyclableSlotCount() > 0);
+
+  const mrpt::poses::CPose3D robotPose(-1.0, 0.5, 0.2, mrpt::DEG2RAD(-70.0), 0.1, 0.05);
+  map.insertObservation(wallObservation(viewInSensor), robotPose);
+  ASSERT_EQUAL_(map.livePointCount(), WALL_POINTS);
+
+  const auto expected = robotPose.rotateVector(viewInSensor);
+  const auto live     = map.liveCompactedCopy();
+  for (size_t i = 0; i < live->size(); i++)
+  {
+    assertSameVector(
+        {live->getPointField_float(i, "view_x"), live->getPointField_float(i, "view_y"),
+         live->getPointField_float(i, "view_z")},
+        expected);
+  }
+}
+
 struct ViewFilterSetup
 {
   mola::ViewDirectionFilter mode        = mola::ViewDirectionFilter::MaxAngle;
   double                    maxAngleDeg = 120.0;
+  bool                      enabled     = true;  // the master switch
 };
 
 /// Number of cov-to-cov pairings between `global` and its surface observed
@@ -956,8 +987,9 @@ size_t surfacePairings(
     const ViewFilterSetup& setup)
 {
   mola::IncrementalPointCloud global;
-  global.creationOptions.view_direction_filter = setup.mode;
-  global.creationOptions.max_view_angle_deg    = setup.maxAngleDeg;
+  global.creationOptions.view_direction_filter     = setup.mode;
+  global.creationOptions.max_view_angle_deg        = setup.maxAngleDeg;
+  global.creationOptions.use_view_direction_filter = setup.enabled;
   global.insertObservation(surfaceObservation(mapView, ground), mrpt::poses::CPose3D::Identity());
 
   return queryPairings(global, queryViewInMap, ground);
@@ -1004,6 +1036,11 @@ void test_view_filter_surface_side()
 
   // The two faces of a wall: rejected by both tests.
   ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, side), 0U);
+
+  // ...unless the master switch is off:
+  ViewFilterSetup sideDisabled = side;
+  sideDisabled.enabled         = false;
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, sideDisabled), WALL_POINTS);
   ASSERT_EQUAL_(wallPairings({1.0, 0.0, 0.0}, side), WALL_POINTS);
 
   // Ground seen at ~8 deg of elevation from +x and from -x: 164 deg apart.
@@ -1034,10 +1071,19 @@ void test_view_filter_default_and_config()
 
   mrpt::config::CConfigFileMemory cfg;
   cfg.write("opts", "view_direction_filter", "ViewDirectionFilter::SurfaceSide");
+  cfg.write("opts", "use_view_direction_filter", false);
   cfg.write("opts", "max_view_angle_deg", 95.0);
   mola::IncrementalPointCloud::TCreationOptions opts;
   opts.loadFromConfigFile(cfg, "opts");
   ASSERT_(opts.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
+  ASSERT_(!opts.use_view_direction_filter);
+
+  // An empty value, as a pipeline leaving the mode unset writes, keeps the default:
+  mrpt::config::CConfigFileMemory cfgEmpty;
+  cfgEmpty.write("opts", "view_direction_filter", "");
+  mola::IncrementalPointCloud::TCreationOptions optsEmpty;
+  optsEmpty.loadFromConfigFile(cfgEmpty, "opts");
+  ASSERT_(optsEmpty.view_direction_filter == mola::ViewDirectionFilter::None);
   ASSERT_NEAR_(opts.max_view_angle_deg, 95.0, 1e-9);
 }
 
@@ -1149,6 +1195,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_change_coordinates_reference(true /*base-class pointer*/, false /*sync index*/);
     test_change_coordinates_reference_overloads();
     test_view_fields_in_map_frame();
+    test_view_fields_in_recycled_slots();
     test_view_direction_filter();
     test_view_filter_surface_side();
     test_view_filter_default_and_config();

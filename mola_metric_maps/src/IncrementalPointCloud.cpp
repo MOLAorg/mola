@@ -36,12 +36,12 @@
 #include <chrono>
 #include <cmath>
 #include <limits>
-#include <optional>
 #include <sstream>
 
 #include "IncrementalKDTree.h"
 #include "cov_diagnostics.h"
 #include "covariance_shape.h"
+#include "view_direction_test.h"
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
 #include <tbb/enumerable_thread_specific.h>
@@ -111,30 +111,6 @@ void clearViewFields(mrpt::maps::CPointsMap& pts)
       std::fill(v->begin(), v->end(), 0.0f);
     }
   }
-}
-
-/// True if two view directions see the surface of a point with covariance
-/// `cov` from opposite sides, both clearly (not at grazing incidence). A
-/// covariance without a clear normal (not plane-shaped) never qualifies.
-bool seenFromOppositeSides(
-    const Eigen::Matrix3f& cov, const Eigen::Vector3f& v1, const Eigen::Vector3f& v2)
-{
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
-  es.computeDirect(cov);
-  const Eigen::Vector3f& ev = es.eigenvalues();  // ascending
-  if (!(ev(0) < 0.1f * ev(1)))
-  {
-    return false;
-  }
-
-  const Eigen::Vector3f n  = es.eigenvectors().col(0);
-  const float           s1 = v1.dot(n);
-  const float           s2 = v2.dot(n);
-
-  // |v.n| below this is a view within ~6 deg of the surface plane, where a
-  // small error in the normal can flip the sign:
-  constexpr float MIN_ABS_COS = 0.1f;
-  return std::abs(s1) > MIN_ABS_COS && std::abs(s2) > MIN_ABS_COS && (s1 > 0) != (s2 > 0);
 }
 }  // namespace
 
@@ -705,7 +681,9 @@ bool IncrementalPointCloud::internal_insertObservation(
   // robotPose + sensorPose but copies its other fields verbatim, so its view
   // directions arrive in the sensor frame. Turn the new ones into this map's
   // frame, before the recycling below scatters them into free slots:
-  if (const auto* pc = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs); pc)
+  // (The fusing insertion path merges points in place, ignoring the pose.)
+  if (const auto* pc = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs);
+      pc != nullptr && !insertionOptions.fuseWithExisting)
   {
     const auto        robotPose3D = robotPose.has_value() ? *robotPose : mrpt::poses::CPose3D();
     const std::size_t firstNew    = insertionOptions.addToExistingPointsMap ? before : 0;
@@ -1192,38 +1170,20 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
 
   const bool haveViewFields = l_vx != nullptr && l_vy != nullptr && l_vz != nullptr &&
                               g_vx != nullptr && g_vy != nullptr && g_vz != nullptr;
-  const auto viewFilterMode =
-      haveViewFields ? creationOptions.view_direction_filter : ViewDirectionFilter::None;
+  const internal::ViewDirectionTest viewTest(
+      creationOptions.use_view_direction_filter && haveViewFields,
+      creationOptions.view_direction_filter, creationOptions.max_view_angle_deg);
 
-  // The surface-side test needs the matched point's covariance, so it runs in
-  // pass 3; the angle test needs nothing else and runs in pass 1.
-  const bool   sideViewFilter  = viewFilterMode == ViewDirectionFilter::SurfaceSide;
-  const double maxViewAngleDeg = std::clamp(creationOptions.max_view_angle_deg, 0.0, 180.0);
-  const bool   angleViewFilter =
-      viewFilterMode == ViewDirectionFilter::MaxAngle && maxViewAngleDeg < 180.0;
-
-  // cos() decreases monotonically on [0, 180] deg, so "angle > max" is "dot < cos(max)":
-  const auto viewCosThreshold = static_cast<float>(std::cos(mrpt::DEG2RAD(maxViewAngleDeg)));
-
-  // View vectors of a local/global pair, both in this map's frame, or nothing
-  // when either point was inserted without view fields (zero vectors):
-  const auto pairViews =
-      [&](uint32_t ls, uint32_t gs) -> std::optional<std::pair<Eigen::Vector3f, Eigen::Vector3f>>
+  // Both view vectors of a local/global pair, in this map's frame. Zero vectors,
+  // which never reject, if a slot is past the fields (should not happen):
+  const auto pairViews = [&](uint32_t ls, uint32_t gs)
   {
     if (ls >= l_vx->size() || gs >= g_vx->size())
     {
-      return std::nullopt;
+      return std::make_pair(Eigen::Vector3f::Zero().eval(), Eigen::Vector3f::Zero().eval());
     }
-
     const Eigen::Vector3f vl((*l_vx)[ls], (*l_vy)[ls], (*l_vz)[ls]);  // in the query's own frame
     const Eigen::Vector3f vg((*g_vx)[gs], (*g_vy)[gs], (*g_vz)[gs]);
-
-    constexpr float MIN_SQR_NORM = 0.25f;  // unit vectors when present
-    if (vl.squaredNorm() < MIN_SQR_NORM || vg.squaredNorm() < MIN_SQR_NORM)
-    {
-      return std::nullopt;
-    }
-
     return std::make_pair(Eigen::Vector3f(R * vl), vg);
   };
 
@@ -1262,9 +1222,11 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     // Reject a pair seen from too different directions. Like the keyframe
     // map, only the nearest neighbor is tested, and a rejected query point
     // gets no pairing at all.
-    if (angleViewFilter)
+    // The surface-side test needs the matched point's covariance, so it runs
+    // in pass 3 instead.
+    if (viewTest.active() && !viewTest.needsCovariance())
     {
-      if (const auto v = pairViews(ls, gIdx); v && v->first.dot(v->second) < viewCosThreshold)
+      if (const auto [vl, vg] = pairViews(ls, gIdx); viewTest.rejects(vl, vg))
       {
         return;
       }
@@ -1322,10 +1284,11 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   outPairings.reserve(outPairings.size() + matches.size());
   for (const auto& m : matches)
   {
-    if (sideViewFilter)
+    if (viewTest.needsCovariance())
     {
-      if (const auto v = pairViews(m.local_slot, m.global_slot);
-          v && seenFromOppositeSides(cov_[m.global_slot].asEigen(), v->first, v->second))
+      const auto [vl, vg]       = pairViews(m.local_slot, m.global_slot);
+      const Eigen::Matrix3f cov = cov_[m.global_slot].asEigen();
+      if (viewTest.rejects(vl, vg, &cov))
       {
         continue;
       }
@@ -1622,6 +1585,7 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(min_correspondences_for_cov, uint64_t, c, s);
   MRPT_LOAD_CONFIG_VAR(max_distance_for_cov, double, c, s);
   MRPT_LOAD_CONFIG_VAR(min_neighbors_to_cache_cov, uint64_t, c, s);
+  MRPT_LOAD_CONFIG_VAR(use_view_direction_filter, bool, c, s);
   view_direction_filter = c.read_enum(s, "view_direction_filter", view_direction_filter);
   MRPT_LOAD_CONFIG_VAR(max_view_angle_deg, double, c, s);
   MRPT_LOAD_CONFIG_VAR(serialize_kdtree, bool, c, s);
@@ -1642,6 +1606,7 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(min_correspondences_for_cov, int);
   LOADABLEOPTS_DUMP_VAR(max_distance_for_cov, double);
   LOADABLEOPTS_DUMP_VAR(min_neighbors_to_cache_cov, int);
+  LOADABLEOPTS_DUMP_VAR(use_view_direction_filter, bool);
   LOADABLEOPTS_DUMP_VAR(view_direction_filter, int);
   LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
   LOADABLEOPTS_DUMP_VAR(serialize_kdtree, bool);
@@ -1658,7 +1623,8 @@ void IncrementalPointCloud::TCreationOptions::writeToStream(
   out << serialize_kdtree;  // v1
   out << max_plane_deviation_for_cov << plane_regularization_lambda;  // v2
   out << min_neighbors_to_cache_cov;  // v3
-  out << static_cast<uint8_t>(view_direction_filter) << max_view_angle_deg;  // v4
+  out << use_view_direction_filter << static_cast<uint8_t>(view_direction_filter)
+      << max_view_angle_deg;  // v4
 }
 
 void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1698,6 +1664,7 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
       }
       if (version >= 4)
       {
+        in >> use_view_direction_filter;
         const auto mode = in.ReadAs<uint8_t>();
         ASSERTMSG_(
             mode <= static_cast<uint8_t>(ViewDirectionFilter::SurfaceSide),

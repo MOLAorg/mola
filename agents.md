@@ -263,13 +263,14 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   Per-point `view_x/y/z` are kept in the **map frame**: `insertObservation()`
   rotates the new ones by `robotPose + sensorPose` (the base class copies extra
   fields verbatim) and `changeCoordinatesReference()` turns all of them.
-  `nn_search_cov2cov()` can use them through `view_direction_filter`
-  (`mola::ViewDirectionFilter`): `None` (default, byte-identical to not having
-  the feature), `MaxAngle` (`KeyframePointCloudMap`'s test, with the shared
-  `max_view_angle_deg`) or `SurfaceSide` (opposite sides of the matched point's
-  covariance normal). It is deliberately a different key from KFM's
-  `use_view_direction_filter`, which pipelines set to true in the options block
-  both classes share. Maps serialized before that guarantee (class version < 2)
+  `nn_search_cov2cov()` uses them through the view-direction filter options,
+  shared with `KeyframePointCloudMap` (see its bullet below). The default mode
+  here is `None` (byte-identical to not having the feature): `MaxAngle` also
+  rejects the same surface seen from very different azimuths (ground), which
+  this map keeps around the robot, and measured consistently worse on
+  hand-held sequences; `SurfaceSide` is not yet reliable enough to be the
+  default (it doubled the ATE of some runs of an Oxford Spires sequence).
+  Maps serialized before that guarantee (class version < 2)
   have their view fields dropped on load, since those were stored in
   per-insertion sensor frames; an in-place coordinate rewrite detected behind
   the map's back (base-class call) zeroes them, since its rotation is unknown.
@@ -468,6 +469,19 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   lies farther than this from the fitted plane). A rejection deliberately leaves
   the local density estimate untouched, since that feeds the adaptive matching
   threshold.
+- The view-direction filter of cov-to-cov pairs has the same three options in both
+  cov2cov map classes: `use_view_direction_filter` (master switch),
+  `view_direction_filter` (`mola::ViewDirectionFilter` in
+  `include/mola_metric_maps/ViewDirectionFilter.h`: `None`, `MaxAngle`,
+  `SurfaceSide`) and `max_view_angle_deg` (`MaxAngle` only). Defaults differ:
+  `MaxAngle` for KFM (its historical behavior), `None` for `IncrementalPointCloud`.
+  The per-pair test itself is shared, in `src/view_direction_test.h`
+  (`internal::ViewDirectionTest`); `SurfaceSide` needs the matched map point's
+  covariance, which both classes already have in the global frame. A zero
+  (missing) view direction never rejects. `mola_lidar_odometry`'s
+  `localmap-gicp.yaml` exposes them as `MOLA_LOCALMAP_USE_VIEW_DIRECTION_FILTER`,
+  `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER` (empty = each class's default) and
+  `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER_ANGLE_DEG`.
 
 ### Feature macros
 
