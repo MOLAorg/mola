@@ -20,6 +20,7 @@
 
 #include <mola_metric_maps/MatchingDistanceProfileCompat.h>
 #include <mola_metric_maps/OptionsCapable.h>
+#include <mola_metric_maps/ViewDirectionFilter.h>
 #include <mp2p_icp/IcpPrepareCapable.h>
 #include <mp2p_icp/MetricMapMergeCapable.h>
 #include <mp2p_icp/NearestPointWithCovCapable.h>
@@ -489,21 +490,16 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  Must be < max_search_keyframes. */
     uint32_t num_diverse_keyframes = 1;
 
-    /** If true (default), and if both the reference and query point clouds contain
-     *  per-point view-direction fields ("view_x", "view_y", "view_z" - unit vectors
-     *  pointing FROM the point TOWARD the sensor at acquisition time), then a
-     *  cov-to-cov pairing is accepted only when the angle between the two view
-     *  directions is at most `max_view_angle_deg`.
+    /** Master switch of the view-direction filter: if false, no pair is
+     *  rejected, whatever `view_direction_filter` says. Default: true.
      *
-     *  The rationale is that two points on opposite sides of a thin surface (e.g.
-     *  a wall seen from the front vs. the back, or a thin pole) will have nearly
-     *  anti-parallel view vectors.  Pairing them would produce a badly conditioned
-     *  or outright wrong ICP residual.  120° is a reasonable default: it rejects
-     *  pairs whose view directions differ by more than 120° (cos < -0.5) while
-     *  keeping pairs seen from "similar enough" directions.
-     *
-     *  Setting this to `false`, or to a threshold ≥ 180°, effectively disables
-     *  the filter even when view fields are present.
+     *  The filter acts only if both the reference and query point clouds carry
+     *  per-point view-direction fields ("view_x", "view_y", "view_z": unit
+     *  vectors pointing FROM the point TOWARD the sensor at acquisition time).
+     *  Its purpose is to keep points on opposite sides of a thin surface (e.g.
+     *  a wall seen from the front vs. the back, or a thin pole), whose view
+     *  vectors are nearly anti-parallel, from being paired into a badly
+     *  conditioned or outright wrong ICP residual.
      *
      *  Contract: the "view_x/y/z" fields stored in a keyframe's point cloud
      *  (`KeyFrame::pointcloud_`) MUST be expressed in the *local KF frame*,
@@ -514,12 +510,21 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  `mp2p_icp_filters::FilterMerge`) must call the same helper to rotate
      *  the fields alongside the point coordinates, or this filter will
      *  silently compare vectors expressed in inconsistent frames.
+     *
+     *  Same option as in `IncrementalPointCloud`, so a pipeline configuring
+     *  both classes from one block of options switches both at once.
      */
     bool use_view_direction_filter = true;
 
+    /** How the view-direction filter decides, see ViewDirectionFilter.
+     *  Default: `MaxAngle` (the only mode before this option existed).
+     */
+    ViewDirectionFilter view_direction_filter = ViewDirectionFilter::MaxAngle;
+
     /** Maximum allowed angle [degrees] between the view-direction vectors of a
-     *  candidate cov-to-cov pair.  Only used when `use_view_direction_filter`
-     *  is `true` and the view fields are present.  Default: 120°.
+     *  candidate cov-to-cov pair, for `ViewDirectionFilter::MaxAngle`. 120 deg
+     *  rejects pairs whose view directions differ by more than that
+     *  (cos < -0.5); a threshold >= 180 deg rejects nothing. Default: 120.
      */
     double max_view_angle_deg = 120.0;
 

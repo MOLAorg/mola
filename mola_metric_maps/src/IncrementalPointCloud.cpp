@@ -25,6 +25,7 @@
 #include <mrpt/core/get_env.h>
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/obs/CObservation.h>
+#include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/poses/CPose2D.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
@@ -40,6 +41,7 @@
 #include "IncrementalKDTree.h"
 #include "cov_diagnostics.h"
 #include "covariance_shape.h"
+#include "view_direction_test.h"
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
 #include <tbb/enumerable_thread_specific.h>
@@ -64,6 +66,52 @@ bool sameCoordinate(float a, float b) { return a == b || (std::isnan(a) && std::
 
 /// The value written into blanked (free) storage slots.
 constexpr float NO_POINT = std::numeric_limits<float>::quiet_NaN();
+
+/// Names of the per-point view-direction fields (see TCreationOptions).
+constexpr const char* VIEW_X = "view_x";
+constexpr const char* VIEW_Y = "view_y";
+constexpr const char* VIEW_Z = "view_z";
+
+/// Rotates the view-direction vectors of the points in [from, to) by the
+/// rotation part of `tf`, so they follow the coordinates they belong to. Does
+/// nothing unless all three view fields exist.
+void rotateViewFieldsRange(
+    mrpt::maps::CPointsMap& pts, std::size_t from, std::size_t to, const mrpt::poses::CPose3D& tf)
+{
+  auto* vx = pts.getPointsBufferRef_float_field(VIEW_X);
+  auto* vy = pts.getPointsBufferRef_float_field(VIEW_Y);
+  auto* vz = pts.getPointsBufferRef_float_field(VIEW_Z);
+  if (vx == nullptr || vy == nullptr || vz == nullptr)
+  {
+    return;
+  }
+
+  to = std::min({to, vx->size(), vy->size(), vz->size()});
+
+  const auto& R = tf.getRotationMatrix();
+  for (std::size_t i = from; i < to; i++)
+  {
+    const double x = (*vx)[i];
+    const double y = (*vy)[i];
+    const double z = (*vz)[i];
+    (*vx)[i]       = static_cast<float>(R(0, 0) * x + R(0, 1) * y + R(0, 2) * z);
+    (*vy)[i]       = static_cast<float>(R(1, 0) * x + R(1, 1) * y + R(1, 2) * z);
+    (*vz)[i]       = static_cast<float>(R(2, 0) * x + R(2, 1) * y + R(2, 2) * z);
+  }
+}
+
+/// Zeroes the view-direction vectors of every point, keeping the fields. A zero
+/// direction never rejects a pairing, so this drops what they say.
+void clearViewFields(mrpt::maps::CPointsMap& pts)
+{
+  for (const char* name : {VIEW_X, VIEW_Y, VIEW_Z})
+  {
+    if (auto* v = pts.getPointsBufferRef_float_field(name); v != nullptr)
+    {
+      std::fill(v->begin(), v->end(), 0.0f);
+    }
+  }
+}
 }  // namespace
 
 //  =========== Begin of Map definition ============
@@ -255,7 +303,10 @@ void IncrementalPointCloud::rebuildIndexInPlace() const
 
   const std::size_t n = m_x.size();
 
-  if (live.size() == n)
+  // Slots appended after the last indexing are not in the tree yet, but live:
+  const std::size_t appended = n > indexed_up_to_ ? n - indexed_up_to_ : 0;
+
+  if (live.size() + appended == n)
   {
     // No dead slot to preserve: the cheaper bulk path indexes everything.
     me->resetIndex();
@@ -266,6 +317,10 @@ void IncrementalPointCloud::rebuildIndexInPlace() const
   for (const uint32_t slot : live)
   {
     if (slot < n) isLive[slot] = 1;
+  }
+  for (std::size_t i = n - appended; i < n; i++)
+  {
+    isLive[i] = 1;
   }
 
   me->createEmptyIndex();
@@ -320,7 +375,8 @@ bool IncrementalPointCloud::coordinatesChangedExternally() const
 
   for (const auto& [slot, p] : coordinates_watch_)
   {
-    if (slot >= n) return true;
+    // A truncation is handled on its own by ensureIndexUpToDate():
+    if (slot >= n) continue;
 
     if (!sameCoordinate(m_x[slot], p.x) || !sameCoordinate(m_y[slot], p.y) ||
         !sameCoordinate(m_z[slot], p.z))
@@ -383,6 +439,19 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
 {
   const std::size_t n = m_x.size();
 
+  // The point count alone cannot tell an untouched map from one whose
+  // coordinates were rewritten in place by an inherited (non-virtual)
+  // CPointsMap mutator, most notably changeCoordinatesReference() called
+  // through a base-class pointer. Such a rewrite may also be followed by an
+  // append or a truncation before the next query, so it is checked first.
+  const bool rewritten = coordinatesChangedExternally();
+  if (rewritten)
+  {
+    // The transform behind such a rewrite is unknown, so the stored view
+    // directions can no longer be trusted to be in this map's frame:
+    clearViewFields(*const_cast<IncrementalPointCloud*>(this));
+  }
+
   if (n < indexed_up_to_)
   {
     // The storage was replaced or truncated behind our back: the slot
@@ -391,19 +460,16 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
     return;
   }
 
+  if (rewritten)
+  {
+    // The tree indexes the old coordinates: rebuild it over the current ones,
+    // including any tail appended since.
+    rebuildIndexInPlace();
+    return;
+  }
+
   if (n == indexed_up_to_)
   {
-    // The point count alone cannot tell an untouched map from one whose
-    // coordinates were rewritten in place by an inherited (non-virtual)
-    // CPointsMap mutator, most notably changeCoordinatesReference() called
-    // through a base-class pointer. Those rewrites leave the tree indexing the
-    // old coordinates, so they must force a rebuild instead of going unnoticed.
-    if (coordinatesChangedExternally())
-    {
-      rebuildIndexInPlace();
-      return;
-    }
-
     refreshPointBuffers();
     return;
   }
@@ -558,6 +624,10 @@ void IncrementalPointCloud::changeCoordinatesReference(const mrpt::poses::CPose3
   // since composePoint() propagates it), and marks the inherited caches dirty:
   CPointsMap::changeCoordinatesReference(b);
 
+  // The base class only moves the coordinates; the view directions, stored in
+  // this map's frame, must turn with them:
+  rotateViewFieldsRange(*this, 0, m_x.size(), b);
+
   // The tree's split planes and bounding boxes were built from the previous
   // coordinates, so none of them survives a global re-map. This also drops the
   // cached per-point covariances, which are expressed in this map's frame.
@@ -621,6 +691,19 @@ bool IncrementalPointCloud::internal_insertObservation(
   // Let the base class do the observation-type-specific work (it also honors
   // the standard insertionOptions, e.g. minDistBetweenLaserPoints):
   const bool ok = CPointsMap::internal_insertObservation(obs, robotPose);
+
+  // The base class moves the coordinates of a point cloud observation by
+  // robotPose + sensorPose but copies its other fields verbatim, so its view
+  // directions arrive in the sensor frame. Turn the new ones into this map's
+  // frame, before the recycling below scatters them into free slots:
+  // (The fusing insertion path merges points in place, ignoring the pose.)
+  if (const auto* pc = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs);
+      pc != nullptr && !insertionOptions.fuseWithExisting)
+  {
+    const auto        robotPose3D = robotPose.has_value() ? *robotPose : mrpt::poses::CPose3D();
+    const std::size_t firstNew    = insertionOptions.addToExistingPointsMap ? before : 0;
+    rotateViewFieldsRange(*this, firstNew, m_x.size(), robotPose3D + pc->sensorPose);
+  }
 
   if (insertionOptions.addToExistingPointsMap)
   {
@@ -1022,6 +1105,29 @@ void IncrementalPointCloud::ensureCovariancesFor(const std::vector<uint32_t>& sl
 #endif
 }
 
+bool IncrementalPointCloud::neighborhoodIsFlat(uint32_t slot) const
+{
+  // The same neighborhood computeCovariance() fits, before regularization:
+  const std::size_t K          = creationOptions.k_correspondences_for_cov;
+  const auto        maxDistSqr = static_cast<float>(
+      creationOptions.max_distance_for_cov * creationOptions.max_distance_for_cov);
+
+  std::vector<uint32_t> idxs(K);
+  std::vector<float>    dists(K);
+  const float           q[3] = {m_x[slot], m_y[slot], m_z[slot]};
+
+  const std::size_t found =
+      index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs.data(), dists.data());
+  if (found < creationOptions.min_correspondences_for_cov)
+  {
+    return false;
+  }
+
+  return internal::ViewDirectionTest::neighborhoodIsFlat(
+      found,
+      [&](std::size_t i) { return Eigen::Vector3d(m_x[idxs[i]], m_y[idxs[i]], m_z[idxs[i]]); });
+}
+
 std::size_t IncrementalPointCloud::point_count() const { return livePointCount(); }
 
 void IncrementalPointCloud::nn_search_cov2cov(
@@ -1088,6 +1194,37 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   const auto& l_ys = localPc->m_y;
   const auto& l_zs = localPc->m_z;
 
+  const Eigen::Matrix3f R = localMapPose.getRotationMatrix().cast_float().asEigen();
+
+  // Optional view-direction filter (see TCreationOptions), active only when both
+  // sides carry the three view fields. The query's are in its own frame, hence
+  // rotated by `localMapPose`; this map's are already in its frame.
+  const auto* l_vx = localPc->getPointsBufferRef_float_field(VIEW_X);
+  const auto* l_vy = localPc->getPointsBufferRef_float_field(VIEW_Y);
+  const auto* l_vz = localPc->getPointsBufferRef_float_field(VIEW_Z);
+  const auto* g_vx = getPointsBufferRef_float_field(VIEW_X);
+  const auto* g_vy = getPointsBufferRef_float_field(VIEW_Y);
+  const auto* g_vz = getPointsBufferRef_float_field(VIEW_Z);
+
+  const bool haveViewFields = l_vx != nullptr && l_vy != nullptr && l_vz != nullptr &&
+                              g_vx != nullptr && g_vy != nullptr && g_vz != nullptr;
+  const internal::ViewDirectionTest viewTest(
+      creationOptions.use_view_direction_filter && haveViewFields,
+      creationOptions.view_direction_filter, creationOptions.max_view_angle_deg);
+
+  // Both view vectors of a local/global pair, in this map's frame. Zero vectors,
+  // which never reject, if a slot is past the fields (should not happen):
+  const auto pairViews = [&](uint32_t ls, uint32_t gs)
+  {
+    if (ls >= l_vx->size() || gs >= g_vx->size())
+    {
+      return std::make_pair(Eigen::Vector3f::Zero().eval(), Eigen::Vector3f::Zero().eval());
+    }
+    const Eigen::Vector3f vl((*l_vx)[ls], (*l_vy)[ls], (*l_vz)[ls]);  // in the query's own frame
+    const Eigen::Vector3f vg((*g_vx)[gs], (*g_vy)[gs], (*g_vz)[gs]);
+    return std::make_pair(Eigen::Vector3f(R * vl), vg);
+  };
+
   // --- Pass 1: nearest-neighbor search (no covariance access) --------------
   struct Match
   {
@@ -1119,6 +1256,19 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     uint32_t gIdx = 0;
     float    d    = 0;
     if (index_->knnSearchWithinRadius(q, 1, max_sqr_dist, &gIdx, &d) == 0) return;
+
+    // Reject a pair seen from too different directions. Like the keyframe
+    // map, only the nearest neighbor is tested, and a rejected query point
+    // gets no pairing at all.
+    // The surface-side test needs the matched point's covariance, so it runs
+    // in pass 3 instead.
+    if (viewTest.active() && !viewTest.needsCovariance())
+    {
+      if (const auto [vl, vg] = pairViews(ls, gIdx); viewTest.rejects(vl, vg))
+      {
+        return;
+      }
+    }
 
     out.push_back({ls, gIdx});
   };
@@ -1167,13 +1317,21 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   ensureCovariancesFor(globalSlots);
 
   // --- Pass 3: assemble the pairings --------------------------------------
-  const Eigen::Matrix3f R = localMapPose.getRotationMatrix().cast_float().asEigen();
-
   const std::size_t firstNewPairing = outPairings.size();
 
   outPairings.reserve(outPairings.size() + matches.size());
   for (const auto& m : matches)
   {
+    if (viewTest.needsCovariance())
+    {
+      const auto [vl, vg]       = pairViews(m.local_slot, m.global_slot);
+      const Eigen::Matrix3f cov = cov_[m.global_slot].asEigen();
+      if (viewTest.rejects(vl, vg, &cov, [&] { return neighborhoodIsFlat(m.global_slot); }))
+      {
+        continue;
+      }
+    }
+
     auto& p = outPairings.emplace_back();
 
     p.local_idx  = m.local_slot;
@@ -1269,7 +1427,7 @@ const mrpt::maps::CSimplePointsMap* IncrementalPointCloud::getAsSimplePointsMap(
 // Serialization
 // =====================================
 
-uint8_t IncrementalPointCloud::serializeGetVersion() const { return 1; }
+uint8_t IncrementalPointCloud::serializeGetVersion() const { return 2; }
 
 void IncrementalPointCloud::serializeTo(mrpt::serialization::CArchive& out) const
 {
@@ -1335,12 +1493,23 @@ void IncrementalPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
   {
     case 0:
     case 1:
+    case 2:
     {
       auto tmp = mrpt::maps::CGenericPointsMap::Create();
       in >> *tmp;
 
       // Copies points and all per-point fields (clearing us first):
       CPointsMap::operator=(*tmp);
+
+      // v2 only adds a guarantee: view-direction fields are in this map's
+      // frame. Before it they were stored as inserted, i.e. each in the sensor
+      // frame of its own insertion, so they are dropped rather than trusted:
+      if (version < 2)
+      {
+        unregisterField(VIEW_X);
+        unregisterField(VIEW_Y);
+        unregisterField(VIEW_Z);
+      }
 
       creationOptions.readFromStream(in);
       insertionOptions.readFromStream(in);
@@ -1454,6 +1623,9 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(min_correspondences_for_cov, uint64_t, c, s);
   MRPT_LOAD_CONFIG_VAR(max_distance_for_cov, double, c, s);
   MRPT_LOAD_CONFIG_VAR(min_neighbors_to_cache_cov, uint64_t, c, s);
+  MRPT_LOAD_CONFIG_VAR(use_view_direction_filter, bool, c, s);
+  view_direction_filter = c.read_enum(s, "view_direction_filter", view_direction_filter);
+  MRPT_LOAD_CONFIG_VAR(max_view_angle_deg, double, c, s);
   MRPT_LOAD_CONFIG_VAR(serialize_kdtree, bool, c, s);
 }
 
@@ -1472,13 +1644,16 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(min_correspondences_for_cov, int);
   LOADABLEOPTS_DUMP_VAR(max_distance_for_cov, double);
   LOADABLEOPTS_DUMP_VAR(min_neighbors_to_cache_cov, int);
+  LOADABLEOPTS_DUMP_VAR(use_view_direction_filter, bool);
+  LOADABLEOPTS_DUMP_VAR(view_direction_filter, int);
+  LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
   LOADABLEOPTS_DUMP_VAR(serialize_kdtree, bool);
 }
 
 void IncrementalPointCloud::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 3;
+  const int8_t version = 4;
   out << version;
   out << remove_points_farther_than << async_rebuild << alpha_balance << alpha_deleted
       << reserve_points << k_correspondences_for_cov << min_correspondences_for_cov
@@ -1486,6 +1661,8 @@ void IncrementalPointCloud::TCreationOptions::writeToStream(
   out << serialize_kdtree;  // v1
   out << max_plane_deviation_for_cov << plane_regularization_lambda;  // v2
   out << min_neighbors_to_cache_cov;  // v3
+  out << use_view_direction_filter << static_cast<uint8_t>(view_direction_filter)
+      << max_view_angle_deg;  // v4
 }
 
 void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1502,6 +1679,7 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
     case 1:
     case 2:
     case 3:
+    case 4:
     {
       in >> remove_points_farther_than >> async_rebuild >> alpha_balance >> alpha_deleted >>
           reserve_points >> k_correspondences_for_cov >> min_correspondences_for_cov >>
@@ -1521,6 +1699,17 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
       if (version >= 3)
       {
         in >> min_neighbors_to_cache_cov;
+      }
+      if (version >= 4)
+      {
+        in >> use_view_direction_filter;
+        const auto mode = in.ReadAs<uint8_t>();
+        ASSERTMSG_(
+            mode <= static_cast<uint8_t>(ViewDirectionFilter::SurfaceSide),
+            mrpt::format(
+                "Invalid view_direction_filter value in stream: %u", static_cast<unsigned>(mode)));
+        view_direction_filter = static_cast<ViewDirectionFilter>(mode);
+        in >> max_view_angle_deg;
       }
     }
     break;

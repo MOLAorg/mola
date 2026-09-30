@@ -31,6 +31,7 @@
 
 #include <mola_metric_maps/MatchingDistanceProfileCompat.h>
 #include <mola_metric_maps/OptionsCapable.h>
+#include <mola_metric_maps/ViewDirectionFilter.h>
 #include <mp2p_icp/NearestPointWithCovCapable.h>
 #include <mrpt/config/CLoadableOptions.h>
 #include <mrpt/maps/CGenericPointsMap.h>
@@ -73,7 +74,20 @@ class IncrementalKDTree;
  *   `TCreationOptions::remove_points_farther_than`;
  * - nearest-neighbor queries go through `mrpt::maps::NearestNeighborsCapable`;
  * - GICP-style matching goes through `mp2p_icp::NearestPointWithCovCapable`
- *   (per-point, plane-regularized covariances).
+ *   (per-point, plane-regularized covariances), optionally rejecting pairs
+ *   by their view directions, see `TCreationOptions::view_direction_filter`.
+ *
+ * ## View-direction fields are kept in the map frame
+ * When the inserted clouds carry `view_x/y/z` (unit vectors from each point
+ * toward the sensor, as produced by `mp2p_icp_filters::Generator`), they are
+ * rotated along with the point coordinates by `insertObservation()` and by
+ * `changeCoordinatesReference()`, so the stored ones are always expressed in
+ * this map's frame. `insertAnotherMap()` called directly copies them verbatim,
+ * as for any `CGenericPointsMap`, so a caller using that path must rotate them
+ * itself (`mp2p_icp::rotateViewDirectionFields()`). A coordinate rewrite this
+ * class cannot see (a non-virtual `CPointsMap` mutator called through a base
+ * pointer) leaves their frame unknown, so they are zeroed when it is detected,
+ * and a zero direction never rejects a pairing.
  *
  * ## Not for loop closure
  * A single global tree cannot cheaply absorb a global SE(3) re-map: every
@@ -400,6 +414,34 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
      *  KeyframePointCloudMap. */
     double plane_regularization_lambda = 1e-3;
 
+    /** Master switch of the view-direction filter: `false` disables it,
+     *  whatever `view_direction_filter` says. Same option as in
+     *  `KeyframePointCloudMap`, so that a pipeline configuring both classes
+     *  from one block of options switches both at once.
+     */
+    bool use_view_direction_filter = true;
+
+    /** Whether and how `nn_search_cov2cov()` uses per-point view directions
+     *  (`view_x`, `view_y`, `view_z`: unit vectors pointing FROM the point
+     *  TOWARD the sensor at acquisition time) to reject a cov-to-cov pair. It
+     *  acts only when both this map and the query cloud carry those fields.
+     *  See ViewDirectionFilter.
+     *
+     *  Default: `SurfaceSide`, unlike `KeyframePointCloudMap` (`MaxAngle`):
+     *  this map keeps the whole area around the robot, where the same surface
+     *  is often seen from very different directions on the same side, which
+     *  `MaxAngle` rejects. Measured end to end, `MaxAngle` was consistently
+     *  worse on hand-held sequences, while `SurfaceSide` was neutral or better
+     *  on most sequences and much better on a few hard ones.
+     */
+    ViewDirectionFilter view_direction_filter = ViewDirectionFilter::SurfaceSide;
+
+    /** Maximum allowed angle [degrees] between the view directions of a pair,
+     *  used by `ViewDirectionFilter::MaxAngle` only. Same meaning and default
+     *  as the option of the same name on `KeyframePointCloudMap`.
+     */
+    double max_view_angle_deg = 120.0;
+
     /** If `true`, the k-d tree index is serialized alongside the points (see
      *  `IncrementalPointCloud` serialization), so it does NOT have to be
      *  rebuilt (an O(N log N) bulk build) when the map is loaded. Requires an
@@ -545,6 +587,10 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    *  \sa TCreationOptions::min_neighbors_to_cache_cov
    */
   void computeCovariance(uint32_t slot) const;
+
+  /** Whether the raw (not regularized) neighborhood of a live point is flat.
+   *  Used by the SurfaceSide view-direction filter, see ViewDirectionFilter. */
+  [[nodiscard]] bool neighborhoodIsFlat(uint32_t slot) const;
 
   /// Neighbors required to cache a covariance, resolving the "0 = auto" case.
   [[nodiscard]] std::size_t covCacheThreshold() const;

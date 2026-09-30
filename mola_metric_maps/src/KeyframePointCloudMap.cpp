@@ -21,6 +21,7 @@
 
 #include "cov_diagnostics.h"
 #include "covariance_shape.h"
+#include "view_direction_test.h"
 #if __has_include(<mp2p_icp/pointcloud_field_utils.h>)
 #include <mp2p_icp/pointcloud_field_utils.h>
 #define MOLA_MM_HAS_ROTATE_VIEW_HEADER 1
@@ -985,6 +986,46 @@ void KeyframePointCloudMap::nn_search_cov2cov(
 }
 #endif
 
+namespace
+{
+/// Whether the raw (not regularized) neighborhood of point `idx` of `pc` is
+/// flat, over the same neighborhood the per-point covariances are fitted on.
+/// Used by the SurfaceSide view-direction filter.
+bool neighborhoodIsFlat(
+    const mrpt::maps::CPointsMap& pc, size_t idx, size_t K, size_t minK, double maxDist)
+{
+  const float x = pc.getPointsBufferRef_x()[idx];
+  const float y = pc.getPointsBufferRef_y()[idx];
+  const float z = pc.getPointsBufferRef_z()[idx];
+
+  const auto maxDistSqr = static_cast<float>(maxDist * maxDist);
+
+  std::vector<size_t> k_indices;
+  std::vector<float>  k_sq_distances;
+  K = std::min(K, pc.size());
+#if defined(MOLA_MM_HAS_RKNN_SEARCH)
+  pc.kdTreeNClosestPoint3DIdx(x, y, z, K, k_indices, k_sq_distances, maxDistSqr);
+#else
+  // Same neighbor set as the RKNN search, see computeCovariancesAndDensity():
+  pc.kdTreeNClosestPoint3DIdx(x, y, z, K, k_indices, k_sq_distances);
+  k_indices.resize(static_cast<size_t>(std::distance(
+      k_sq_distances.begin(),
+      std::lower_bound(k_sq_distances.begin(), k_sq_distances.end(), maxDistSqr))));
+#endif
+  if (k_indices.size() < minK)
+  {
+    return false;
+  }
+
+  const auto& xs = pc.getPointsBufferRef_x();
+  const auto& ys = pc.getPointsBufferRef_y();
+  const auto& zs = pc.getPointsBufferRef_z();
+  return internal::ViewDirectionTest::neighborhoodIsFlat(
+      k_indices.size(), [&](size_t i)
+      { return Eigen::Vector3d(xs[k_indices[i]], ys[k_indices[i]], zs[k_indices[i]]); });
+}
+}  // namespace
+
 void KeyframePointCloudMap::nn_search_cov2cov_impl(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
     const MatchingDistanceProfile&     matchingDistance,
@@ -1115,14 +1156,9 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
                                 (local_view_z != nullptr) && (global_view_x != nullptr) &&
                                 (global_view_y != nullptr) && (global_view_z != nullptr);
 
-  const double max_view_angle_deg = std::clamp(creationOptions.max_view_angle_deg, 0.0, 180.0);
-  const bool   do_view_filter = try_view_filter && have_view_fields && max_view_angle_deg < 180.0;
-
-  // Pre-compute the cosine threshold once (cos is monotonically decreasing
-  // on [0°, 180°], so angle > threshold  <=>  dot < cos(threshold)).
-  const float view_cos_threshold =
-      do_view_filter ? static_cast<float>(std::cos(mrpt::DEG2RAD(max_view_angle_deg)))
-                     : -2.0f;  // sentinel: never reached when filter is disabled
+  const internal::ViewDirectionTest viewTest(
+      try_view_filter && have_view_fields, creationOptions.view_direction_filter,
+      creationOptions.max_view_angle_deg);
 
   // Pairings are appended, so only the ones added below get reordered, and the
   // optional diagnostic below reads only that range.
@@ -1168,7 +1204,7 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
         // ----------------------------------------------------------
         // View-direction angle filter
         // ----------------------------------------------------------
-        if (do_view_filter)
+        if (viewTest.active())
         {
           // Rotate the local-frame view vector to the global frame.
           const auto v_local_global =
@@ -1178,13 +1214,24 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
                        (*local_view_z)[local_idx]})
                   .cast<float>();
 
-          // dot product with the reference cloud's (already global-frame) view vector
-          const float dot = v_local_global.x * (*global_view_x)[nn_global_idx] +
-                            v_local_global.y * (*global_view_y)[nn_global_idx] +
-                            v_local_global.z * (*global_view_z)[nn_global_idx];
+          // ...and compare it with the reference cloud's (already global-frame) one:
+          const Eigen::Vector3f vq(v_local_global.x, v_local_global.y, v_local_global.z);
+          const Eigen::Vector3f vm(
+              (*global_view_x)[nn_global_idx], (*global_view_y)[nn_global_idx],
+              (*global_view_z)[nn_global_idx]);
+          Eigen::Matrix3f covMap = Eigen::Matrix3f::Zero();
+          if (viewTest.needsCovariance())
+          {
+            covMap = globalKfCov.at(nn_global_idx).asEigen();
+          }
 
-          // dot < cos(max_angle)  =>  angle > max_angle  =>  reject
-          if (dot < view_cos_threshold)
+          const auto lambdaIsFlat = [&]
+          {
+            return neighborhoodIsFlat(
+                *globalPoints, nn_global_idx, creationOptions.k_correspondences_for_cov,
+                creationOptions.min_correspondences_for_cov, creationOptions.max_distance_for_cov);
+          };
+          if (viewTest.rejects(vq, vm, &covMap, lambdaIsFlat))
           {
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
             return;  // exit TBB lambda for this index
@@ -1305,11 +1352,10 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
   const bool have_local_view_fields =
       (local_view_x != nullptr) && (local_view_y != nullptr) && (local_view_z != nullptr);
 
-  const double max_view_angle_deg = std::clamp(creationOptions.max_view_angle_deg, 0.0, 180.0);
-  const bool   do_view_filter =
-      try_view_filter && have_local_view_fields && max_view_angle_deg < 180.0;
-  const float view_cos_threshold =
-      do_view_filter ? static_cast<float>(std::cos(mrpt::DEG2RAD(max_view_angle_deg))) : -2.0f;
+  const internal::ViewDirectionTest viewTest(
+      try_view_filter && have_local_view_fields, creationOptions.view_direction_filter,
+      creationOptions.max_view_angle_deg);
+  const bool do_view_filter = viewTest.active();
 
   // Per-active-KF lookup tables, built once (not per query point).
   //
@@ -1464,11 +1510,24 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
           const auto ref_view_global = entry.pose.rotateVector(mrpt::math::TVector3D(
               (*entry.view_x)[best_idx], (*entry.view_y)[best_idx], (*entry.view_z)[best_idx]));
 
-          const float dot = v_local_global.x * static_cast<float>(ref_view_global.x) +
-                            v_local_global.y * static_cast<float>(ref_view_global.y) +
-                            v_local_global.z * static_cast<float>(ref_view_global.z);
+          const Eigen::Vector3f vq(v_local_global.x, v_local_global.y, v_local_global.z);
+          const Eigen::Vector3f vm(
+              static_cast<float>(ref_view_global.x), static_cast<float>(ref_view_global.y),
+              static_cast<float>(ref_view_global.z));
+          Eigen::Matrix3f covMap = Eigen::Matrix3f::Zero();
+          if (viewTest.needsCovariance())
+          {
+            covMap = (*entry.globalCov)[best_idx].asEigen();
+          }
 
-          if (dot < view_cos_threshold)
+          const auto lambdaIsFlat = [&]
+          {
+            // Flatness is invariant under the rigid KF pose, so the local cloud serves:
+            return neighborhoodIsFlat(
+                *entry.localPoints, best_idx, creationOptions.k_correspondences_for_cov,
+                creationOptions.min_correspondences_for_cov, creationOptions.max_distance_for_cov);
+          };
+          if (viewTest.rejects(vq, vm, &covMap, lambdaIsFlat))
           {
             if (debugMatchStats)
             {
@@ -2548,6 +2607,7 @@ void KeyframePointCloudMap::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR_CS(rotation_distance_weight, double);
   MRPT_LOAD_CONFIG_VAR_CS(num_diverse_keyframes, uint64_t);
   MRPT_LOAD_CONFIG_VAR_CS(use_view_direction_filter, bool);
+  view_direction_filter = c.read_enum(s, "view_direction_filter", view_direction_filter);
   MRPT_LOAD_CONFIG_VAR_CS(max_view_angle_deg, double);
   MRPT_LOAD_CONFIG_VAR_CS(serialize_kdtrees, bool);
   MRPT_LOAD_CONFIG_VAR_CS(serialize_covariances, bool);
@@ -2568,6 +2628,7 @@ void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(rotation_distance_weight, double);
   LOADABLEOPTS_DUMP_VAR(num_diverse_keyframes, int);
   LOADABLEOPTS_DUMP_VAR(use_view_direction_filter, bool);
+  LOADABLEOPTS_DUMP_VAR(view_direction_filter, int);
   LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
   LOADABLEOPTS_DUMP_VAR(serialize_kdtrees, bool);
   LOADABLEOPTS_DUMP_VAR(serialize_covariances, bool);
@@ -2579,7 +2640,7 @@ void KeyframePointCloudMap::TCreationOptions::dumpToTextStream(std::ostream& out
 void KeyframePointCloudMap::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  out.WriteAs<uint8_t>(9);  // version
+  out.WriteAs<uint8_t>(10);  // version
   out << max_search_keyframes << k_correspondences_for_cov;
   out << rotation_distance_weight << num_diverse_keyframes;  // v1
   out << use_view_direction_filter << max_view_angle_deg;  // v2
@@ -2590,6 +2651,7 @@ void KeyframePointCloudMap::TCreationOptions::writeToStream(
   out << density_penalty_min_points << density_penalty_max_m;  // v7
   out << max_plane_deviation_for_cov;  // v8
   out << plane_regularization_lambda;  // v9
+  out << static_cast<uint8_t>(view_direction_filter);  // v10
 }
 
 void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -2609,6 +2671,7 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
     case 7:
     case 8:
     case 9:
+    case 10:
     {
       in >> max_search_keyframes >> k_correspondences_for_cov;
       if (version >= 1)
@@ -2647,6 +2710,15 @@ void KeyframePointCloudMap::TCreationOptions::readFromStream(mrpt::serialization
       if (version >= 9)
       {
         in >> plane_regularization_lambda;
+      }
+      if (version >= 10)
+      {
+        const auto mode = in.ReadAs<uint8_t>();
+        ASSERTMSG_(
+            mode <= static_cast<uint8_t>(ViewDirectionFilter::SurfaceSide),
+            mrpt::format(
+                "Invalid view_direction_filter value in stream: %u", static_cast<unsigned>(mode)));
+        view_direction_filter = static_cast<ViewDirectionFilter>(mode);
       }
     }
     break;

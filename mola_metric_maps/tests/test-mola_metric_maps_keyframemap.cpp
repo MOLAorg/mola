@@ -211,6 +211,7 @@ void test_creation_options_roundtrip()
 {
   mola::KeyframePointCloudMap m;
   m.creationOptions.use_view_direction_filter = false;
+  m.creationOptions.view_direction_filter     = mola::ViewDirectionFilter::SurfaceSide;
   m.creationOptions.max_view_angle_deg        = 75.0;
   m.creationOptions.k_correspondences_for_cov = 12;
   m.creationOptions.max_search_keyframes      = 4;
@@ -231,7 +232,13 @@ void test_creation_options_roundtrip()
   }
 
   ASSERT_EQUAL_(m2.creationOptions.use_view_direction_filter, false);
+  ASSERT_(m2.creationOptions.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
   ASSERT_NEAR_(m2.creationOptions.max_view_angle_deg, 75.0, 1e-9);
+
+  // A default map keeps the angle test, the only one before the mode existed:
+  ASSERT_(
+      mola::KeyframePointCloudMap::TCreationOptions().view_direction_filter ==
+      mola::ViewDirectionFilter::MaxAngle);
   ASSERT_EQUAL_(m2.creationOptions.k_correspondences_for_cov, 12U);
   ASSERT_EQUAL_(m2.creationOptions.max_search_keyframes, 4U);
   ASSERT_NEAR_(m2.creationOptions.rotation_distance_weight, 3.5, 1e-9);
@@ -478,6 +485,55 @@ void test_view_filter_rejects_opposite_view_pairs()
     global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, pairings);
     // All 32 pairs pass
     ASSERT_EQUAL_(pairings.size(), totalPts);
+  }
+}
+
+// ── View filter: SurfaceSide mode, in both cov2cov paths ──────────────────
+// Ground seen at a low elevation from opposite azimuths is the same face of the
+// surface: the angle test rejects it (140 deg apart), the surface-side test must
+// not. The two faces of a surface must be rejected by both.
+void test_view_filter_surface_side()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+
+  const float cElev = std::cos(mrpt::DEG2RAD(20.0f));
+  const float sElev = std::sin(mrpt::DEG2RAD(20.0f));
+
+  for (const bool approximate : {false, true})
+  {
+    const auto lambdaPairings = [&](float vxQuery, float vzQuery, mola::ViewDirectionFilter mode)
+    {
+      // The grid is 1 m apart: a plane fit needs a wider neighborhood than the
+      // default, or the covariance falls back to isotropic, which never
+      // rejects. Set before inserting, since keyframes cache their covariances.
+      mola::KeyframePointCloudMap global_m;
+      global_m.creationOptions.k_correspondences_for_cov = 5;
+      global_m.creationOptions.max_search_keyframes      = 1;
+      global_m.creationOptions.max_distance_for_cov      = 3.0;
+      global_m.creationOptions.view_direction_filter     = mode;
+      global_m.creationOptions.approximate_cov           = approximate;
+      {
+        mrpt::obs::CObservationPointCloud obs;
+        obs.pointcloud = makeCloudWithViews(makeGridPts(0.f, cElev, 0.f, sElev));
+        global_m.insertObservation(obs, mrpt::poses::CPose3D::Identity());
+      }
+      auto local_m = makeMapFromCloud(makeCloudWithViews(makeGridPts(kDz, vxQuery, 0.f, vzQuery)));
+      global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+
+      mp2p_icp::MatchedPointWithCovList pairings;
+      global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, pairings);
+      return pairings.size();
+    };
+    const size_t nPts = makeGridPts().size();
+
+    // Same face, opposite azimuths:
+    ASSERT_EQUAL_(lambdaPairings(-cElev, sElev, mola::ViewDirectionFilter::MaxAngle), 0U);
+    ASSERT_EQUAL_(lambdaPairings(-cElev, sElev, mola::ViewDirectionFilter::SurfaceSide), nPts);
+    ASSERT_EQUAL_(lambdaPairings(-cElev, sElev, mola::ViewDirectionFilter::None), nPts);
+
+    // Opposite faces:
+    ASSERT_EQUAL_(lambdaPairings(0.f, -1.f, mola::ViewDirectionFilter::SurfaceSide), 0U);
   }
 }
 
@@ -1545,6 +1601,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_view_filter_rejects_opposite_view_pairs ...\n";
     test_view_filter_rejects_opposite_view_pairs();
+    test_view_filter_surface_side();
 
     std::cout << "test_view_filter_accepts_aligned_views ...\n";
     test_view_filter_accepts_aligned_views();

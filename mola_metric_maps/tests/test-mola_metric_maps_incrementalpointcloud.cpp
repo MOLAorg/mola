@@ -18,6 +18,7 @@
  */
 
 #include <mola_metric_maps/IncrementalPointCloud.h>
+#include <mrpt/config/CConfigFileMemory.h>
 #include <mrpt/io/CFileInputStream.h>
 #include <mrpt/io/CFileOutputStream.h>
 #include <mrpt/io/CMemoryStream.h>
@@ -819,6 +820,441 @@ void test_change_coordinates_reference_overloads()
   }
 }
 
+// -------------------------------------------------------------------------
+// View-direction fields arrive in the sensor frame of each insertion. The map
+// must keep them in its own frame, turn them with the coordinates, and use them
+// to reject cov-to-cov pairs seen from opposite sides of a surface.
+
+/// A 4x4 m planar patch as a point cloud observation, every point carrying the
+/// same view vector (toward the sensor), in the cloud's frame: a wall on the
+/// plane x=0, or ground on the plane z=0.
+mrpt::obs::CObservationPointCloud surfaceObservation(
+    const mrpt::math::TVector3D& view, bool ground = false)
+{
+  auto pc = mrpt::maps::CGenericPointsMap::Create();
+  pc->registerField_float("view_x");
+  pc->registerField_float("view_y");
+  pc->registerField_float("view_z");
+  for (int i = -20; i <= 20; i++)
+  {
+    for (int j = -20; j <= 20; j++)
+    {
+      const auto a = static_cast<float>(i * 0.1);
+      const auto b = static_cast<float>(j * 0.1);
+      if (ground)
+      {
+        pc->insertPointFast(a, b, 0.0f);
+      }
+      else
+      {
+        pc->insertPointFast(0.0f, a, b);
+      }
+      pc->insertPointField_float("view_x", static_cast<float>(view.x));
+      pc->insertPointField_float("view_y", static_cast<float>(view.y));
+      pc->insertPointField_float("view_z", static_cast<float>(view.z));
+    }
+  }
+  pc->mark_as_modified();
+
+  mrpt::obs::CObservationPointCloud obs;
+  obs.pointcloud = pc;
+  return obs;
+}
+
+mrpt::obs::CObservationPointCloud wallObservation(const mrpt::math::TVector3D& view)
+{
+  return surfaceObservation(view);
+}
+
+constexpr size_t WALL_POINTS = 41 * 41;
+
+/// The view vector stored in storage slot `i`.
+mrpt::math::TVector3D storedView(const mola::IncrementalPointCloud& map, size_t i)
+{
+  return {
+      map.getPointField_float(i, "view_x"), map.getPointField_float(i, "view_y"),
+      map.getPointField_float(i, "view_z")};
+}
+
+void assertSameVector(const mrpt::math::TVector3D& a, const mrpt::math::TVector3D& b)
+{
+  ASSERT_NEAR_(a.x, b.x, 1e-5);
+  ASSERT_NEAR_(a.y, b.y, 1e-5);
+  ASSERT_NEAR_(a.z, b.z, 1e-5);
+}
+
+void test_view_fields_in_map_frame()
+{
+  // Inserted with a robot pose, the stored views must be rotated like the points:
+  const mrpt::poses::CPose3D  robotPose(1.0, 2.0, 0.3, mrpt::DEG2RAD(90.0), 0, 0);
+  const mrpt::math::TVector3D viewInSensor(1.0, 0.0, 0.0);
+
+  mola::IncrementalPointCloud map;
+  map.insertObservation(wallObservation(viewInSensor), robotPose);
+  ASSERT_(map.hasPointField("view_x"));
+  ASSERT_EQUAL_(map.size(), WALL_POINTS);
+
+  const auto expected = robotPose.rotateVector(viewInSensor);  // (0, 1, 0)
+  for (size_t i = 0; i < map.size(); i++)
+  {
+    assertSameVector(storedView(map, i), expected);
+  }
+
+  // A global re-map turns them again:
+  const mrpt::poses::CPose3D T(-2.0, 0.5, 0.0, 0.3, 0.2, -0.1);
+  map.changeCoordinatesReference(T);
+  const auto expectedAfter = T.rotateVector(expected);
+  for (size_t i = 0; i < map.size(); i++)
+  {
+    assertSameVector(storedView(map, i), expectedAfter);
+  }
+
+  // And they survive a serialization round trip, still in the map frame:
+  mrpt::io::CMemoryStream buf;
+  auto                    arch = mrpt::serialization::archiveFrom(buf);
+  arch << map;
+  buf.Seek(0);
+  mola::IncrementalPointCloud reloaded;
+  arch >> reloaded;
+  ASSERT_(reloaded.hasPointField("view_x"));
+  ASSERT_EQUAL_(reloaded.size(), WALL_POINTS);
+  assertSameVector(storedView(reloaded, 0), expectedAfter);
+}
+
+// Points appended into recycled storage slots are moved there by the map, and
+// their view directions must still end up rotated into the map frame.
+void test_view_fields_in_recycled_slots()
+{
+  const mrpt::math::TVector3D viewInSensor(1.0, 0.0, 0.0);
+
+  mola::IncrementalPointCloud map;
+  map.insertObservation(
+      wallObservation(viewInSensor), mrpt::poses::CPose3D(0, 0, 0, mrpt::DEG2RAD(30.0), 0, 0));
+
+  // Evict everything, so the next insertion reuses the freed slots:
+  map.keepOnlyPointsNear({100.0f, 100.0f, 100.0f}, 1.0);
+  ASSERT_EQUAL_(map.livePointCount(), 0U);
+  ASSERT_(map.recyclableSlotCount() > 0);
+
+  const mrpt::poses::CPose3D robotPose(-1.0, 0.5, 0.2, mrpt::DEG2RAD(-70.0), 0.1, 0.05);
+  map.insertObservation(wallObservation(viewInSensor), robotPose);
+  ASSERT_EQUAL_(map.livePointCount(), WALL_POINTS);
+
+  const auto expected = robotPose.rotateVector(viewInSensor);
+  const auto live     = map.liveCompactedCopy();
+  for (size_t i = 0; i < live->size(); i++)
+  {
+    assertSameVector(
+        {live->getPointField_float(i, "view_x"), live->getPointField_float(i, "view_y"),
+         live->getPointField_float(i, "view_z")},
+        expected);
+  }
+}
+
+struct ViewFilterSetup
+{
+  mola::ViewDirectionFilter mode        = mola::ViewDirectionFilter::MaxAngle;
+  double                    maxAngleDeg = 120.0;
+  bool                      enabled     = true;  // the master switch
+};
+
+/// Number of cov-to-cov pairings between `global` and its surface observed
+/// with `queryViewInMap` (in the MAP frame). The query cloud is expressed in its
+/// own frame, which `queryPose` maps onto the map.
+size_t queryPairings(
+    const mola::IncrementalPointCloud& global, const mrpt::math::TVector3D& queryViewInMap,
+    bool ground)
+{
+  // Build the query cloud in its own frame by inserting the wall with the
+  // inverse of the pose later given to the search. Insertion turns the view
+  // vectors along with the points, so the search has to turn them back.
+  const mrpt::poses::CPose3D queryPose(0.2, -0.1, 0.05, mrpt::DEG2RAD(160.0), 0.1, -0.05);
+  const auto                 queryPoseInv = mrpt::poses::CPose3D::Identity() - queryPose;
+
+  mola::IncrementalPointCloud local;
+  local.insertObservation(surfaceObservation(queryViewInMap, ground), queryPoseInv);
+
+  mp2p_icp::MatchedPointWithCovList pairings;
+  global.nn_search_cov2cov(local, queryPose, 0.5f /*max search distance*/, pairings);
+  return pairings.size();
+}
+
+/// Number of cov-to-cov pairings between a surface mapped as seen with
+/// `mapView` and the same surface observed with `queryViewInMap` (both in the
+/// MAP frame).
+size_t surfacePairings(
+    const mrpt::math::TVector3D& mapView, const mrpt::math::TVector3D& queryViewInMap, bool ground,
+    const ViewFilterSetup& setup)
+{
+  mola::IncrementalPointCloud global;
+  global.creationOptions.view_direction_filter     = setup.mode;
+  global.creationOptions.max_view_angle_deg        = setup.maxAngleDeg;
+  global.creationOptions.use_view_direction_filter = setup.enabled;
+  global.insertObservation(surfaceObservation(mapView, ground), mrpt::poses::CPose3D::Identity());
+
+  return queryPairings(global, queryViewInMap, ground);
+}
+
+/// A wall mapped as seen from +x, observed with `queryViewInMap`.
+size_t wallPairings(const mrpt::math::TVector3D& queryViewInMap, const ViewFilterSetup& setup)
+{
+  return surfacePairings({1.0, 0.0, 0.0}, queryViewInMap, false /*wall*/, setup);
+}
+
+void test_view_direction_filter()
+{
+  const ViewFilterSetup angle;  // the keyframe map's test, 120 deg
+  ViewFilterSetup       off;
+  off.mode = mola::ViewDirectionFilter::None;
+  ViewFilterSetup open180;
+  open180.maxAngleDeg = 180.0;
+
+  // Same side: every point pairs.
+  ASSERT_EQUAL_(wallPairings({1.0, 0.0, 0.0}, angle), WALL_POINTS);
+
+  // 60 deg apart, inside the default 120 deg: still paired.
+  const double a60 = mrpt::DEG2RAD(60.0);
+  ASSERT_EQUAL_(wallPairings({std::cos(a60), std::sin(a60), 0.0}, angle), WALL_POINTS);
+
+  // Opposite side: every pair is rejected...
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, angle), 0U);
+
+  // ...unless the filter is off, or its threshold opened to 180 deg:
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, off), WALL_POINTS);
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, open180), WALL_POINTS);
+}
+
+// The surface-side test must reject the two faces of a wall like the angle
+// test does, but keep the same surface seen from very different directions on
+// the same side, which the angle test rejects: ground observed from opposite
+// azimuths, at a low elevation.
+void test_view_filter_surface_side()
+{
+  ViewFilterSetup side;
+  side.mode = mola::ViewDirectionFilter::SurfaceSide;
+  const ViewFilterSetup angle;
+
+  // The two faces of a wall: rejected by both tests.
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, side), 0U);
+
+  // ...unless the master switch is off:
+  ViewFilterSetup sideDisabled = side;
+  sideDisabled.enabled         = false;
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, sideDisabled), WALL_POINTS);
+  ASSERT_EQUAL_(wallPairings({1.0, 0.0, 0.0}, side), WALL_POINTS);
+
+  // Ground seen at 20 deg of elevation from +x and from -x: 140 deg apart.
+  const double                elev = mrpt::DEG2RAD(20.0);
+  const mrpt::math::TVector3D fromPlusX(std::cos(elev), 0.0, std::sin(elev));
+  const mrpt::math::TVector3D fromMinusX(-std::cos(elev), 0.0, std::sin(elev));
+
+  ASSERT_EQUAL_(surfacePairings(fromPlusX, fromMinusX, true /*ground*/, angle), 0U);
+  ASSERT_EQUAL_(surfacePairings(fromPlusX, fromMinusX, true /*ground*/, side), WALL_POINTS);
+
+  // Views near grazing (under ~14.5 deg from the plane) are never judged, from
+  // either side:
+  for (const double deg : {3.0, 10.0})
+  {
+    const double                grazing = mrpt::DEG2RAD(deg);
+    const mrpt::math::TVector3D below(-std::cos(grazing), 0.0, -std::sin(grazing));
+    ASSERT_EQUAL_(surfacePairings(fromPlusX, below, true /*ground*/, side), WALL_POINTS);
+  }
+
+  // A cloud without a flat neighborhood (e.g. foliage) seen from opposite
+  // sides: its regularized covariance still looks like a plane, but the side
+  // test must not trust that normal.
+  const auto lambdaBlob = [](const mrpt::math::TVector3D& view)
+  {
+    mrpt::random::CRandomGenerator blobRng(4321U);
+    auto                           pc = mrpt::maps::CGenericPointsMap::Create();
+    pc->registerField_float("view_x");
+    pc->registerField_float("view_y");
+    pc->registerField_float("view_z");
+    for (size_t i = 0; i < WALL_POINTS; i++)
+    {
+      pc->insertPointFast(
+          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
+          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
+          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)));
+      pc->insertPointField_float("view_x", static_cast<float>(view.x));
+      pc->insertPointField_float("view_y", static_cast<float>(view.y));
+      pc->insertPointField_float("view_z", static_cast<float>(view.z));
+    }
+    pc->mark_as_modified();
+    mrpt::obs::CObservationPointCloud obs;
+    obs.pointcloud = pc;
+    return obs;
+  };
+  for (const auto& [setup, expected] :
+       {std::make_pair(side, WALL_POINTS), std::make_pair(angle, size_t(0))})
+  {
+    mola::IncrementalPointCloud global;
+    global.creationOptions.view_direction_filter = setup.mode;
+    global.insertObservation(lambdaBlob({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+    mola::IncrementalPointCloud local;
+    local.insertObservation(lambdaBlob({-1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global.nn_search_cov2cov(local, mrpt::poses::CPose3D::Identity(), 0.5f, pairings);
+    ASSERT_EQUAL_(pairings.size(), expected);
+  }
+}
+
+// The filter is on by default (SurfaceSide): a default map does not pair the two
+// faces of a wall, and the option loads from its enum name, as a pipeline would.
+void test_view_filter_default_and_config()
+{
+  {
+    mola::IncrementalPointCloud global;
+    ASSERT_(global.creationOptions.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
+  }
+  ViewFilterSetup defaults;
+  defaults.mode = mola::IncrementalPointCloud::TCreationOptions().view_direction_filter;
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, defaults), 0U);  // the two faces of a wall
+  ASSERT_EQUAL_(wallPairings({1.0, 0.0, 0.0}, defaults), WALL_POINTS);
+
+  mrpt::config::CConfigFileMemory cfg;
+  cfg.write("opts", "view_direction_filter", "ViewDirectionFilter::SurfaceSide");
+  cfg.write("opts", "use_view_direction_filter", false);
+  cfg.write("opts", "max_view_angle_deg", 95.0);
+  mola::IncrementalPointCloud::TCreationOptions opts;
+  opts.loadFromConfigFile(cfg, "opts");
+  ASSERT_(opts.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
+  ASSERT_(!opts.use_view_direction_filter);
+
+  // An empty value, as a pipeline leaving the mode unset writes, keeps the default:
+  mrpt::config::CConfigFileMemory cfgEmpty;
+  cfgEmpty.write("opts", "view_direction_filter", "");
+  mola::IncrementalPointCloud::TCreationOptions optsEmpty;
+  optsEmpty.loadFromConfigFile(cfgEmpty, "opts");
+  ASSERT_(optsEmpty.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
+  ASSERT_NEAR_(opts.max_view_angle_deg, 95.0, 1e-9);
+}
+
+// A re-map through the non-virtual base-class method moves the points without
+// telling the map by how much, so their view directions cannot be turned: they
+// must be dropped, and the filter must then stop rejecting pairs.
+void test_view_fields_cleared_on_base_class_remap()
+{
+  const ViewFilterSetup       angle;
+  mola::IncrementalPointCloud global;
+  global.creationOptions.view_direction_filter = angle.mode;
+  global.insertObservation(wallObservation({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+  ASSERT_EQUAL_(queryPairings(global, {-1.0, 0.0, 0.0}, false /*wall*/), 0U);
+
+  // Out through the base class, back through the map's own method: the
+  // geometry is restored, but the first move could not turn the directions.
+  const mrpt::poses::CPose3D T(1.0, -2.0, 0.5, 0.3, 0.15, -0.2);
+  static_cast<mrpt::maps::CPointsMap&>(global).changeCoordinatesReference(T);
+  global.changeCoordinatesReference(mrpt::poses::CPose3D::Identity() - T);
+
+  ASSERT_(global.hasPointField("view_x"));
+  for (size_t i = 0; i < global.size(); i++)
+  {
+    assertSameVector(storedView(global, i), {0.0, 0.0, 0.0});
+  }
+  ASSERT_EQUAL_(queryPairings(global, {-1.0, 0.0, 0.0}, false /*wall*/), WALL_POINTS);
+}
+
+// A base-class re-map followed by an append before the next query: the rewrite
+// must still be noticed, so that both the moved and the appended points are
+// indexed at their current coordinates, and the view directions (now in an
+// unknown frame) are dropped.
+void test_base_class_remap_then_append()
+{
+  mola::IncrementalPointCloud map;
+  map.insertObservation(wallObservation({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+
+  // Leave dead slots behind, so that the rebuild has to preserve them:
+  map.keepOnlyPointsNear({0.0f, 0.0f, 0.0f}, 1.05);
+  ASSERT_(map.livePointCount() < WALL_POINTS);
+
+  const mrpt::poses::CPose3D T(1.0, -2.0, 0.5, 0.3, 0.15, -0.2);
+
+  const auto ref = bruteForceReference(map);
+  ref->changeCoordinatesReference(T);
+
+  static_cast<mrpt::maps::CPointsMap&>(map).changeCoordinatesReference(T);
+
+  // Appended through the inherited API, before any query:
+  for (int i = 0; i < 50; i++)
+  {
+    const auto p = T.composePoint(mrpt::math::TPoint3D(
+        rng.drawUniform(-1.0, 1.0), rng.drawUniform(-1.0, 1.0), rng.drawUniform(0.5, 1.5)));
+    map.insertPoint(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+    ref->insertPoint(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+  }
+  ref->mark_as_modified();
+
+  assertMatchesReference(map, *ref, 300, T.translation().cast<float>(), 2.5);
+
+  for (const char* f : {"view_x", "view_y", "view_z"})
+  {
+    const auto* v = map.getPointsBufferRef_float_field(f);
+    ASSERT_(v != nullptr);
+    for (const float x : *v)
+    {
+      ASSERT_EQUAL_(x, 0.0f);
+    }
+  }
+}
+
+// A corrupted filter mode in a stream must be rejected, not read as a mode that
+// no filter branch recognizes.
+void test_invalid_view_filter_mode_rejected()
+{
+  mrpt::io::CMemoryStream buf;
+  auto                    arch = mrpt::serialization::archiveFrom(buf);
+  mola::IncrementalPointCloud::TCreationOptions().writeToStream(arch);
+
+  // The mode byte is the last field but one, the angle (a double):
+  const auto modeOffset = buf.getTotalBytesCount() - sizeof(double) - 1;
+  static_cast<uint8_t*>(buf.getRawBufferData())[modeOffset] = 3;
+  buf.Seek(0);
+
+  bool rejected = false;
+  try
+  {
+    mola::IncrementalPointCloud::TCreationOptions loaded;
+    loaded.readFromStream(arch);
+  }
+  catch (const std::exception&)
+  {
+    rejected = true;
+  }
+  ASSERT_(rejected);
+}
+
+/// Gives the tests access to the (protected) versioned serialization entry points.
+struct SerializationProbe : public mola::IncrementalPointCloud
+{
+  using mola::IncrementalPointCloud::serializeFrom;
+  using mola::IncrementalPointCloud::serializeTo;
+};
+
+// A map saved before view directions were kept in the map frame cannot tell
+// which frame its stored ones are in, so loading it must drop them.
+void test_legacy_view_fields_dropped_on_load()
+{
+  SerializationProbe map;
+  map.insertObservation(wallObservation({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+  ASSERT_(map.hasPointField("view_x"));
+
+  // A version-1 stream has the same layout, so the current writer can emulate it:
+  mrpt::io::CMemoryStream buf;
+  auto                    arch = mrpt::serialization::archiveFrom(buf);
+  map.serializeTo(arch);
+  buf.Seek(0);
+
+  SerializationProbe reloaded;
+  reloaded.serializeFrom(arch, 1 /*version*/);
+
+  ASSERT_EQUAL_(reloaded.livePointCount(), map.livePointCount());
+  ASSERT_(!reloaded.hasPointField("view_x"));
+  ASSERT_(!reloaded.hasPointField("view_y"));
+  ASSERT_(!reloaded.hasPointField("view_z"));
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -845,6 +1281,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     // construction and is deliberately not exercised here.
     test_change_coordinates_reference(true /*base-class pointer*/, false /*sync index*/);
     test_change_coordinates_reference_overloads();
+    test_view_fields_in_map_frame();
+    test_view_fields_in_recycled_slots();
+    test_view_direction_filter();
+    test_view_filter_surface_side();
+    test_view_filter_default_and_config();
+    test_legacy_view_fields_dropped_on_load();
+    test_view_fields_cleared_on_base_class_remap();
+    test_base_class_remap_then_append();
+    test_invalid_view_filter_mode_rejected();
 
     std::cout << "All tests passed.\n";
   }
