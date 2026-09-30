@@ -427,14 +427,14 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
      *  acts only when both this map and the query cloud carry those fields.
      *  See ViewDirectionFilter.
      *
-     *  Default: `None`, unlike `KeyframePointCloudMap` (`MaxAngle`): this map
-     *  keeps the whole area around the robot, where the same surface is often
-     *  seen from very different directions on the same side, which `MaxAngle`
-     *  rejects. Measured end to end, `MaxAngle` was consistently worse on
-     *  hand-held sequences, and `SurfaceSide` not yet reliable enough to be
-     *  the default.
+     *  Default: `SurfaceSide`, unlike `KeyframePointCloudMap` (`MaxAngle`):
+     *  this map keeps the whole area around the robot, where the same surface
+     *  is often seen from very different directions on the same side, which
+     *  `MaxAngle` rejects. Measured end to end, `MaxAngle` was consistently
+     *  worse on hand-held sequences, while `SurfaceSide` was neutral or better
+     *  on most sequences and much better on a few hard ones.
      */
-    ViewDirectionFilter view_direction_filter = ViewDirectionFilter::None;
+    ViewDirectionFilter view_direction_filter = ViewDirectionFilter::SurfaceSide;
 
     /** Maximum allowed angle [degrees] between the view directions of a pair,
      *  used by `ViewDirectionFilter::MaxAngle` only. Same meaning and default

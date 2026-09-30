@@ -1100,17 +1100,18 @@ void test_view_filter_surface_side()
   }
 }
 
-// The filter is opt-in: a default map pairs the two faces of a wall, and the
-// option loads from its enum name, as a pipeline would set it.
+// The filter is on by default (SurfaceSide): a default map does not pair the two
+// faces of a wall, and the option loads from its enum name, as a pipeline would.
 void test_view_filter_default_and_config()
 {
   {
     mola::IncrementalPointCloud global;
-    ASSERT_(global.creationOptions.view_direction_filter == mola::ViewDirectionFilter::None);
+    ASSERT_(global.creationOptions.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
   }
   ViewFilterSetup defaults;
   defaults.mode = mola::IncrementalPointCloud::TCreationOptions().view_direction_filter;
-  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, defaults), WALL_POINTS);
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, defaults), 0U);  // the two faces of a wall
+  ASSERT_EQUAL_(wallPairings({1.0, 0.0, 0.0}, defaults), WALL_POINTS);
 
   mrpt::config::CConfigFileMemory cfg;
   cfg.write("opts", "view_direction_filter", "ViewDirectionFilter::SurfaceSide");
@@ -1126,7 +1127,7 @@ void test_view_filter_default_and_config()
   cfgEmpty.write("opts", "view_direction_filter", "");
   mola::IncrementalPointCloud::TCreationOptions optsEmpty;
   optsEmpty.loadFromConfigFile(cfgEmpty, "opts");
-  ASSERT_(optsEmpty.view_direction_filter == mola::ViewDirectionFilter::None);
+  ASSERT_(optsEmpty.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
   ASSERT_NEAR_(opts.max_view_angle_deg, 95.0, 1e-9);
 }
 
@@ -1153,6 +1154,49 @@ void test_view_fields_cleared_on_base_class_remap()
     assertSameVector(storedView(global, i), {0.0, 0.0, 0.0});
   }
   ASSERT_EQUAL_(queryPairings(global, {-1.0, 0.0, 0.0}, false /*wall*/), WALL_POINTS);
+}
+
+// A base-class re-map followed by an append before the next query: the rewrite
+// must still be noticed, so that both the moved and the appended points are
+// indexed at their current coordinates, and the view directions (now in an
+// unknown frame) are dropped.
+void test_base_class_remap_then_append()
+{
+  mola::IncrementalPointCloud map;
+  map.insertObservation(wallObservation({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+
+  // Leave dead slots behind, so that the rebuild has to preserve them:
+  map.keepOnlyPointsNear({0.0f, 0.0f, 0.0f}, 1.05);
+  ASSERT_(map.livePointCount() < WALL_POINTS);
+
+  const mrpt::poses::CPose3D T(1.0, -2.0, 0.5, 0.3, 0.15, -0.2);
+
+  const auto ref = bruteForceReference(map);
+  ref->changeCoordinatesReference(T);
+
+  static_cast<mrpt::maps::CPointsMap&>(map).changeCoordinatesReference(T);
+
+  // Appended through the inherited API, before any query:
+  for (int i = 0; i < 50; i++)
+  {
+    const auto p = T.composePoint(mrpt::math::TPoint3D(
+        rng.drawUniform(-1.0, 1.0), rng.drawUniform(-1.0, 1.0), rng.drawUniform(0.5, 1.5)));
+    map.insertPoint(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+    ref->insertPoint(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+  }
+  ref->mark_as_modified();
+
+  assertMatchesReference(map, *ref, 300, T.translation().cast<float>(), 2.5);
+
+  for (const char* f : {"view_x", "view_y", "view_z"})
+  {
+    const auto* v = map.getPointsBufferRef_float_field(f);
+    ASSERT_(v != nullptr);
+    for (const float x : *v)
+    {
+      ASSERT_EQUAL_(x, 0.0f);
+    }
+  }
 }
 
 // A corrupted filter mode in a stream must be rejected, not read as a mode that
@@ -1244,6 +1288,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_view_filter_default_and_config();
     test_legacy_view_fields_dropped_on_load();
     test_view_fields_cleared_on_base_class_remap();
+    test_base_class_remap_then_append();
     test_invalid_view_filter_mode_rejected();
 
     std::cout << "All tests passed.\n";

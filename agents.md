@@ -265,11 +265,12 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   fields verbatim) and `changeCoordinatesReference()` turns all of them.
   `nn_search_cov2cov()` uses them through the view-direction filter options,
   shared with `KeyframePointCloudMap` (see its bullet below). The default mode
-  here is `None` (byte-identical to not having the feature): `MaxAngle` also
-  rejects the same surface seen from very different azimuths (ground), which
-  this map keeps around the robot, and measured consistently worse on
-  hand-held sequences; `SurfaceSide` is not yet reliable enough to be the
-  default (it doubled the ATE of some runs of an Oxford Spires sequence).
+  here is `SurfaceSide`: `MaxAngle` also rejects the same surface seen from very
+  different azimuths (ground), which this map keeps around the robot, and
+  measured consistently worse on hand-held sequences. Known caveat: on one
+  GrandTour mission a few SurfaceSide runs (3 of 29) were not bit-reproducible,
+  while `None` always was; the cause (likely timing, only seen without
+  instrumentation) is not yet found.
   Maps serialized before that guarantee (class version < 2)
   have their view fields dropped on load, since those were stored in
   per-insertion sensor frames; an in-place coordinate rewrite detected behind
@@ -474,7 +475,8 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   `view_direction_filter` (`mola::ViewDirectionFilter` in
   `include/mola_metric_maps/ViewDirectionFilter.h`: `None`, `MaxAngle`,
   `SurfaceSide`) and `max_view_angle_deg` (`MaxAngle` only). Defaults differ:
-  `MaxAngle` for KFM (its historical behavior), `None` for `IncrementalPointCloud`.
+  `MaxAngle` for KFM (its historical behavior), `SurfaceSide` for
+  `IncrementalPointCloud`.
   The per-pair test itself is shared, in `src/view_direction_test.h`
   (`internal::ViewDirectionTest`); `SurfaceSide` needs the matched map point's
   covariance, which both classes already have in the global frame. A zero
