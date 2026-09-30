@@ -478,7 +478,13 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   The per-pair test itself is shared, in `src/view_direction_test.h`
   (`internal::ViewDirectionTest`); `SurfaceSide` needs the matched map point's
   covariance, which both classes already have in the global frame. A zero
-  (missing) view direction never rejects. `mola_lidar_odometry`'s
+  (missing) view direction never rejects. `SurfaceSide` rejects only when both
+  views are more than ~14.5 deg off the plane (|cos| > 0.25) AND the matched
+  point's *raw* neighborhood is flat (re-searched on demand, only for the few
+  pairs it would reject): the stored covariances are plane-regularized, so on
+  foliage/edges/poles they still look like planes with a meaningless normal.
+  Without that gate (and with a 0.1 cutoff) ~74% of its rejections were on
+  non-flat points, and it doubled the ATE of some Oxford Spires runs. `mola_lidar_odometry`'s
   `localmap-gicp.yaml` exposes them as `MOLA_LOCALMAP_USE_VIEW_DIRECTION_FILTER`,
   `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER` (empty = each class's default) and
   `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER_ANGLE_DEG`.

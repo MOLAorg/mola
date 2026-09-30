@@ -44,9 +44,13 @@ enum class ViewDirectionFilter : uint8_t
    *  same side, e.g. ground observed from opposite azimuths. */
   MaxAngle,
   /** Reject a pair only when both views see the matched map point's surface
-   *  clearly (not at grazing incidence) and from opposite sides of it, as
-   *  given by the normal of that point's covariance. Points without a
-   *  plane-shaped covariance are never rejected. */
+   *  clearly (more than ~14.5 deg off its plane) and from opposite sides of
+   *  it, as given by the normal of that point's covariance, and the raw (not
+   *  regularized) neighborhood of that point is actually flat. Points on
+   *  foliage, edges or poles, whose regularized covariance also looks like a
+   *  plane but whose normal says nothing about sides, are never rejected;
+   *  neither is the same surface seen from very different azimuths on the
+   *  same side, e.g. ground. */
   SurfaceSide
 };
 

@@ -1043,18 +1043,61 @@ void test_view_filter_surface_side()
   ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, sideDisabled), WALL_POINTS);
   ASSERT_EQUAL_(wallPairings({1.0, 0.0, 0.0}, side), WALL_POINTS);
 
-  // Ground seen at ~8 deg of elevation from +x and from -x: 164 deg apart.
-  const double                elev = mrpt::DEG2RAD(8.0);
+  // Ground seen at 20 deg of elevation from +x and from -x: 140 deg apart.
+  const double                elev = mrpt::DEG2RAD(20.0);
   const mrpt::math::TVector3D fromPlusX(std::cos(elev), 0.0, std::sin(elev));
   const mrpt::math::TVector3D fromMinusX(-std::cos(elev), 0.0, std::sin(elev));
 
   ASSERT_EQUAL_(surfacePairings(fromPlusX, fromMinusX, true /*ground*/, angle), 0U);
   ASSERT_EQUAL_(surfacePairings(fromPlusX, fromMinusX, true /*ground*/, side), WALL_POINTS);
 
-  // Grazing views (under ~6 deg from the plane) are never judged, from either side:
-  const double                grazing = mrpt::DEG2RAD(3.0);
-  const mrpt::math::TVector3D below(-std::cos(grazing), 0.0, -std::sin(grazing));
-  ASSERT_EQUAL_(surfacePairings(fromPlusX, below, true /*ground*/, side), WALL_POINTS);
+  // Views near grazing (under ~14.5 deg from the plane) are never judged, from
+  // either side:
+  for (const double deg : {3.0, 10.0})
+  {
+    const double                grazing = mrpt::DEG2RAD(deg);
+    const mrpt::math::TVector3D below(-std::cos(grazing), 0.0, -std::sin(grazing));
+    ASSERT_EQUAL_(surfacePairings(fromPlusX, below, true /*ground*/, side), WALL_POINTS);
+  }
+
+  // A cloud without a flat neighborhood (e.g. foliage) seen from opposite
+  // sides: its regularized covariance still looks like a plane, but the side
+  // test must not trust that normal.
+  const auto lambdaBlob = [](const mrpt::math::TVector3D& view)
+  {
+    mrpt::random::CRandomGenerator blobRng(4321U);
+    auto                           pc = mrpt::maps::CGenericPointsMap::Create();
+    pc->registerField_float("view_x");
+    pc->registerField_float("view_y");
+    pc->registerField_float("view_z");
+    for (size_t i = 0; i < WALL_POINTS; i++)
+    {
+      pc->insertPointFast(
+          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
+          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
+          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)));
+      pc->insertPointField_float("view_x", static_cast<float>(view.x));
+      pc->insertPointField_float("view_y", static_cast<float>(view.y));
+      pc->insertPointField_float("view_z", static_cast<float>(view.z));
+    }
+    pc->mark_as_modified();
+    mrpt::obs::CObservationPointCloud obs;
+    obs.pointcloud = pc;
+    return obs;
+  };
+  for (const auto& [setup, expected] :
+       {std::make_pair(side, WALL_POINTS), std::make_pair(angle, size_t(0))})
+  {
+    mola::IncrementalPointCloud global;
+    global.creationOptions.view_direction_filter = setup.mode;
+    global.insertObservation(lambdaBlob({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+    mola::IncrementalPointCloud local;
+    local.insertObservation(lambdaBlob({-1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global.nn_search_cov2cov(local, mrpt::poses::CPose3D::Identity(), 0.5f, pairings);
+    ASSERT_EQUAL_(pairings.size(), expected);
+  }
 }
 
 // The filter is opt-in: a default map pairs the two faces of a wall, and the

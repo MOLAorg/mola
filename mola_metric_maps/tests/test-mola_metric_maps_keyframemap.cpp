@@ -490,15 +490,15 @@ void test_view_filter_rejects_opposite_view_pairs()
 
 // ── View filter: SurfaceSide mode, in both cov2cov paths ──────────────────
 // Ground seen at a low elevation from opposite azimuths is the same face of the
-// surface: the angle test rejects it (164 deg apart), the surface-side test must
+// surface: the angle test rejects it (140 deg apart), the surface-side test must
 // not. The two faces of a surface must be rejected by both.
 void test_view_filter_surface_side()
 {
   constexpr float kDz      = 0.02f;
   constexpr float kMaxDist = 1.0f;
 
-  const float c8 = std::cos(mrpt::DEG2RAD(8.0f));
-  const float s8 = std::sin(mrpt::DEG2RAD(8.0f));
+  const float cElev = std::cos(mrpt::DEG2RAD(20.0f));
+  const float sElev = std::sin(mrpt::DEG2RAD(20.0f));
 
   for (const bool approximate : {false, true})
   {
@@ -515,7 +515,7 @@ void test_view_filter_surface_side()
       global_m.creationOptions.approximate_cov           = approximate;
       {
         mrpt::obs::CObservationPointCloud obs;
-        obs.pointcloud = makeCloudWithViews(makeGridPts(0.f, c8, 0.f, s8));
+        obs.pointcloud = makeCloudWithViews(makeGridPts(0.f, cElev, 0.f, sElev));
         global_m.insertObservation(obs, mrpt::poses::CPose3D::Identity());
       }
       auto local_m = makeMapFromCloud(makeCloudWithViews(makeGridPts(kDz, vxQuery, 0.f, vzQuery)));
@@ -528,9 +528,9 @@ void test_view_filter_surface_side()
     const size_t nPts = makeGridPts().size();
 
     // Same face, opposite azimuths:
-    ASSERT_EQUAL_(lambdaPairings(-c8, s8, mola::ViewDirectionFilter::MaxAngle), 0U);
-    ASSERT_EQUAL_(lambdaPairings(-c8, s8, mola::ViewDirectionFilter::SurfaceSide), nPts);
-    ASSERT_EQUAL_(lambdaPairings(-c8, s8, mola::ViewDirectionFilter::None), nPts);
+    ASSERT_EQUAL_(lambdaPairings(-cElev, sElev, mola::ViewDirectionFilter::MaxAngle), 0U);
+    ASSERT_EQUAL_(lambdaPairings(-cElev, sElev, mola::ViewDirectionFilter::SurfaceSide), nPts);
+    ASSERT_EQUAL_(lambdaPairings(-cElev, sElev, mola::ViewDirectionFilter::None), nPts);
 
     // Opposite faces:
     ASSERT_EQUAL_(lambdaPairings(0.f, -1.f, mola::ViewDirectionFilter::SurfaceSide), 0U);

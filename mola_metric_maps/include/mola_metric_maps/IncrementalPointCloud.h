@@ -588,6 +588,10 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    */
   void computeCovariance(uint32_t slot) const;
 
+  /** Whether the raw (not regularized) neighborhood of a live point is flat.
+   *  Used by the SurfaceSide view-direction filter, see ViewDirectionFilter. */
+  [[nodiscard]] bool neighborhoodIsFlat(uint32_t slot) const;
+
   /// Neighbors required to cache a covariance, resolving the "0 = auto" case.
   [[nodiscard]] std::size_t covCacheThreshold() const;
 

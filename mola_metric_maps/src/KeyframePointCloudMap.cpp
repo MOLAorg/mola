@@ -986,6 +986,46 @@ void KeyframePointCloudMap::nn_search_cov2cov(
 }
 #endif
 
+namespace
+{
+/// Whether the raw (not regularized) neighborhood of point `idx` of `pc` is
+/// flat, over the same neighborhood the per-point covariances are fitted on.
+/// Used by the SurfaceSide view-direction filter.
+bool neighborhoodIsFlat(
+    const mrpt::maps::CPointsMap& pc, size_t idx, size_t K, size_t minK, double maxDist)
+{
+  const float x = pc.getPointsBufferRef_x()[idx];
+  const float y = pc.getPointsBufferRef_y()[idx];
+  const float z = pc.getPointsBufferRef_z()[idx];
+
+  const auto maxDistSqr = static_cast<float>(maxDist * maxDist);
+
+  std::vector<size_t> k_indices;
+  std::vector<float>  k_sq_distances;
+  K = std::min(K, pc.size());
+#if defined(MOLA_MM_HAS_RKNN_SEARCH)
+  pc.kdTreeNClosestPoint3DIdx(x, y, z, K, k_indices, k_sq_distances, maxDistSqr);
+#else
+  // Same neighbor set as the RKNN search, see computeCovariancesAndDensity():
+  pc.kdTreeNClosestPoint3DIdx(x, y, z, K, k_indices, k_sq_distances);
+  k_indices.resize(static_cast<size_t>(std::distance(
+      k_sq_distances.begin(),
+      std::lower_bound(k_sq_distances.begin(), k_sq_distances.end(), maxDistSqr))));
+#endif
+  if (k_indices.size() < minK)
+  {
+    return false;
+  }
+
+  const auto& xs = pc.getPointsBufferRef_x();
+  const auto& ys = pc.getPointsBufferRef_y();
+  const auto& zs = pc.getPointsBufferRef_z();
+  return internal::ViewDirectionTest::neighborhoodIsFlat(
+      k_indices.size(), [&](size_t i)
+      { return Eigen::Vector3d(xs[k_indices[i]], ys[k_indices[i]], zs[k_indices[i]]); });
+}
+}  // namespace
+
 void KeyframePointCloudMap::nn_search_cov2cov_impl(
     const NearestPointWithCovCapable& localMap, const mrpt::poses::CPose3D& localMapPose,
     const MatchingDistanceProfile&     matchingDistance,
@@ -1185,7 +1225,13 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
             covMap = globalKfCov.at(nn_global_idx).asEigen();
           }
 
-          if (viewTest.rejects(vq, vm, &covMap))
+          const auto lambdaIsFlat = [&]
+          {
+            return neighborhoodIsFlat(
+                *globalPoints, nn_global_idx, creationOptions.k_correspondences_for_cov,
+                creationOptions.min_correspondences_for_cov, creationOptions.max_distance_for_cov);
+          };
+          if (viewTest.rejects(vq, vm, &covMap, lambdaIsFlat))
           {
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
             return;  // exit TBB lambda for this index
@@ -1474,7 +1520,14 @@ void KeyframePointCloudMap::nn_search_cov2cov_approximate(
             covMap = (*entry.globalCov)[best_idx].asEigen();
           }
 
-          if (viewTest.rejects(vq, vm, &covMap))
+          const auto lambdaIsFlat = [&]
+          {
+            // Flatness is invariant under the rigid KF pose, so the local cloud serves:
+            return neighborhoodIsFlat(
+                *entry.localPoints, best_idx, creationOptions.k_correspondences_for_cov,
+                creationOptions.min_correspondences_for_cov, creationOptions.max_distance_for_cov);
+          };
+          if (viewTest.rejects(vq, vm, &covMap, lambdaIsFlat))
           {
             if (debugMatchStats)
             {

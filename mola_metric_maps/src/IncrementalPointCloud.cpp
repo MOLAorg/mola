@@ -1090,6 +1090,29 @@ void IncrementalPointCloud::ensureCovariancesFor(const std::vector<uint32_t>& sl
 #endif
 }
 
+bool IncrementalPointCloud::neighborhoodIsFlat(uint32_t slot) const
+{
+  // The same neighborhood computeCovariance() fits, before regularization:
+  const std::size_t K          = creationOptions.k_correspondences_for_cov;
+  const auto        maxDistSqr = static_cast<float>(
+      creationOptions.max_distance_for_cov * creationOptions.max_distance_for_cov);
+
+  std::vector<uint32_t> idxs(K);
+  std::vector<float>    dists(K);
+  const float           q[3] = {m_x[slot], m_y[slot], m_z[slot]};
+
+  const std::size_t found =
+      index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs.data(), dists.data());
+  if (found < creationOptions.min_correspondences_for_cov)
+  {
+    return false;
+  }
+
+  return internal::ViewDirectionTest::neighborhoodIsFlat(
+      found,
+      [&](std::size_t i) { return Eigen::Vector3d(m_x[idxs[i]], m_y[idxs[i]], m_z[idxs[i]]); });
+}
+
 std::size_t IncrementalPointCloud::point_count() const { return livePointCount(); }
 
 void IncrementalPointCloud::nn_search_cov2cov(
@@ -1288,7 +1311,7 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     {
       const auto [vl, vg]       = pairViews(m.local_slot, m.global_slot);
       const Eigen::Matrix3f cov = cov_[m.global_slot].asEigen();
-      if (viewTest.rejects(vl, vg, &cov))
+      if (viewTest.rejects(vl, vg, &cov, [&] { return neighborhoodIsFlat(m.global_slot); }))
       {
         continue;
       }
