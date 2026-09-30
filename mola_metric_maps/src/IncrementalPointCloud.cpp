@@ -303,7 +303,10 @@ void IncrementalPointCloud::rebuildIndexInPlace() const
 
   const std::size_t n = m_x.size();
 
-  if (live.size() == n)
+  // Slots appended after the last indexing are not in the tree yet, but live:
+  const std::size_t appended = n > indexed_up_to_ ? n - indexed_up_to_ : 0;
+
+  if (live.size() + appended == n)
   {
     // No dead slot to preserve: the cheaper bulk path indexes everything.
     me->resetIndex();
@@ -314,6 +317,10 @@ void IncrementalPointCloud::rebuildIndexInPlace() const
   for (const uint32_t slot : live)
   {
     if (slot < n) isLive[slot] = 1;
+  }
+  for (std::size_t i = n - appended; i < n; i++)
+  {
+    isLive[i] = 1;
   }
 
   me->createEmptyIndex();
@@ -368,7 +375,8 @@ bool IncrementalPointCloud::coordinatesChangedExternally() const
 
   for (const auto& [slot, p] : coordinates_watch_)
   {
-    if (slot >= n) return true;
+    // A truncation is handled on its own by ensureIndexUpToDate():
+    if (slot >= n) continue;
 
     if (!sameCoordinate(m_x[slot], p.x) || !sameCoordinate(m_y[slot], p.y) ||
         !sameCoordinate(m_z[slot], p.z))
@@ -431,6 +439,19 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
 {
   const std::size_t n = m_x.size();
 
+  // The point count alone cannot tell an untouched map from one whose
+  // coordinates were rewritten in place by an inherited (non-virtual)
+  // CPointsMap mutator, most notably changeCoordinatesReference() called
+  // through a base-class pointer. Such a rewrite may also be followed by an
+  // append or a truncation before the next query, so it is checked first.
+  const bool rewritten = coordinatesChangedExternally();
+  if (rewritten)
+  {
+    // The transform behind such a rewrite is unknown, so the stored view
+    // directions can no longer be trusted to be in this map's frame:
+    clearViewFields(*const_cast<IncrementalPointCloud*>(this));
+  }
+
   if (n < indexed_up_to_)
   {
     // The storage was replaced or truncated behind our back: the slot
@@ -439,22 +460,16 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
     return;
   }
 
+  if (rewritten)
+  {
+    // The tree indexes the old coordinates: rebuild it over the current ones,
+    // including any tail appended since.
+    rebuildIndexInPlace();
+    return;
+  }
+
   if (n == indexed_up_to_)
   {
-    // The point count alone cannot tell an untouched map from one whose
-    // coordinates were rewritten in place by an inherited (non-virtual)
-    // CPointsMap mutator, most notably changeCoordinatesReference() called
-    // through a base-class pointer. Those rewrites leave the tree indexing the
-    // old coordinates, so they must force a rebuild instead of going unnoticed.
-    if (coordinatesChangedExternally())
-    {
-      // The transform behind such a rewrite is unknown, so the stored view
-      // directions can no longer be trusted to be in this map's frame:
-      clearViewFields(*const_cast<IncrementalPointCloud*>(this));
-      rebuildIndexInPlace();
-      return;
-    }
-
     refreshPointBuffers();
     return;
   }
