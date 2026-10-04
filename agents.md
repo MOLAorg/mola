@@ -186,6 +186,8 @@ module class name; nothing else in the tree may call MRPT GUI functions directly
   GLFW, both vendored under `3rdparty/`. Adds the docking layout, the Console log
   sink, and the metric plots described under `VizInterface` above.
   `MolaVizImGuiCore` is the reusable, MOLA-agnostic half.
+  Always `#define GLFW_INCLUDE_NONE` before `<GLFW/glfw3.h>`: GL headers must
+  first come from `mrpt/opengl/opengl_api.h` (which sets `GL_GLEXT_PROTOTYPES`).
 
 ### `mola_traj_tools` — Trajectory CLI Tools
 
