@@ -21,6 +21,9 @@
  * C++ library for the Dear ImGui MOLA GUI backend
  */
 
+// GL headers come from mrpt/opengl/opengl_api.h, which must define
+// GL_GLEXT_PROTOTYPES before GL/gl.h is first seen.
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
