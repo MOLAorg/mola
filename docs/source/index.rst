@@ -258,20 +258,6 @@ Quick links
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
 
-.. iron badges ------
-
-.. |badgeIrel| image:: https://img.shields.io/ros/v/iron/mola
-   :align: middle
-   :target: https://index.ros.org/?search_packages=true&pkgs=mola
-
-.. |badgeIrel_LO| image:: https://img.shields.io/ros/v/iron/mola_lidar_odometry
-   :align: middle
-   :target: https://index.ros.org/?search_packages=true&pkgs=mola_lidar_odometry
-
-.. |badgeIrel_MP| image:: https://img.shields.io/ros/v/iron/mp2p_icp
-   :align: middle
-   :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
-
 .. jazzy badges ------
 
 .. |badgeJrel| image:: https://img.shields.io/ros/v/jazzy/mola
@@ -287,6 +273,24 @@ Quick links
    :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
 
 .. |badgeJrel_SE| image:: https://img.shields.io/ros/v/jazzy/mola_state_estimation
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
+
+.. lyrical badges ------
+
+.. |badgeLrel| image:: https://img.shields.io/ros/v/lyrical/mola
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mola
+
+.. |badgeLrel_LO| image:: https://img.shields.io/ros/v/lyrical/mola_lidar_odometry
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mola_lidar_odometry
+
+.. |badgeLrel_MP| image:: https://img.shields.io/ros/v/lyrical/mp2p_icp
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
+
+.. |badgeLrel_SE| image:: https://img.shields.io/ros/v/lyrical/mola_state_estimation
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
 
@@ -360,22 +364,18 @@ How to install all MOLA modules:
 
     These are the **versions available** from ROS build farms for each main MOLA component:
 
-    +----------------------+--------------------+----------------+----------------+
-    | Repository           | ROS 2 Humble       | ROS 2 Jazzy    | ROS 2 Rolling  |
-    |                      |  (u22.04)          |   (u24.04)     |    (u24.04)    |
-    +======================+====================+================+================+
-    | MOLA                 | |badgeHrel|        | |badgeJrel|    | |badgeRrel|    |
-    +----------------------+--------------------+----------------+----------------+
-    | mola_lidar_odometry  | |badgeHrel_LO|     | |badgeJrel_LO| | |badgeRrel_LO| |
-    +----------------------+--------------------+----------------+----------------+
-    | mola_state_estimation| |badgeHrel_SE|     | |badgeJrel_SE| | |badgeRrel_SE| |
-    +----------------------+--------------------+----------------+----------------+
-    | mp2p_icp             | |badgeHrel_MP|     | |badgeJrel_MP| | |badgeRrel_MP| |
-    +----------------------+--------------------+----------------+----------------+
-
-    EOL ROS distribution:
-
-     - ROS 2 Iron (u22.04): MOLA |badgeIrel|, mola_lidar_odometry |badgeIrel_LO|, mp2p_icp |badgeIrel_MP|
+    +----------------------+--------------------+----------------+----------------+----------------+
+    | Repository           | ROS 2 Humble       | ROS 2 Jazzy    | ROS 2 Lyrical  | ROS 2 Rolling  |
+    |                      | (u22.04)           | (u24.04)       | (u26.04)       | (u24.04)       |
+    +======================+====================+================+================+================+
+    | MOLA                 | |badgeHrel|        | |badgeJrel|    | |badgeLrel|    | |badgeRrel|    |
+    +----------------------+--------------------+----------------+----------------+----------------+
+    | mola_lidar_odometry  | |badgeHrel_LO|     | |badgeJrel_LO| | |badgeLrel_LO| | |badgeRrel_LO| |
+    +----------------------+--------------------+----------------+----------------+----------------+
+    | mola_state_estimation| |badgeHrel_SE|     | |badgeJrel_SE| | |badgeLrel_SE| | |badgeRrel_SE| |
+    +----------------------+--------------------+----------------+----------------+----------------+
+    | mp2p_icp             | |badgeHrel_MP|     | |badgeJrel_MP| | |badgeLrel_MP| | |badgeRrel_MP| |
+    +----------------------+--------------------+----------------+----------------+----------------+
 
 
 .. dropdown:: Build from sources
