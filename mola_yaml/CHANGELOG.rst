@@ -2,6 +2,9 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.3.0 (2026-09-23)
 ------------------
 * Expand variables in $import/$include paths even with doEnvVars off (`#227 <https://github.com/MOLAorg/mola/issues/227>`_)

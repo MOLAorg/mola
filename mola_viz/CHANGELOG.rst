@@ -2,6 +2,11 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Dataset_UI: skip sources that report datasetUI_enabled() false, polling them again later
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.0 (2026-09-23)
 ------------------
 * Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)

@@ -2,6 +2,16 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Define GLFW_INCLUDE_NONE before including GLFW (fixes `#239 <https://github.com/MOLAorg/mola/issues/239>`_)
+* Dataset_UI: skip sources that report datasetUI_enabled() false, polling them again later
+* Lidar sensor preview windows: add combo to pick the field used for recoloring
+* Do not re-upload unchanged decaying clouds nor rebuild sensor preview clouds every frame
+* Profile GUI frame time and frame interval
+* Viz: measure GUI frame intervals with a steady clock
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.0 (2026-09-23)
 ------------------
 * Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)

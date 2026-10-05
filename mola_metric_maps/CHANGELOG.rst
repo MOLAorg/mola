@@ -2,6 +2,15 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* IncrementalPointCloud: optional view-direction filter (None, MaxAngle, SurfaceSide), now enabled with SurfaceSide by default
+* KeyframePointCloudMap and IncrementalPointCloud share the same view-direction filter options and test
+* SurfaceSide filter only trusts flat neighborhoods
+* Validate the stored filter mode and drop view directions on unseen re-maps; notice base-class re-maps even after appends
+* Serialization: KFM creation options v10, IPC class v2 and creation options v4
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.0 (2026-09-23)
 ------------------
 * Port to MRPT 3.x (`#220 <https://github.com/MOLAorg/mola/issues/220>`_)
