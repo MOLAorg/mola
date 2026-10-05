@@ -3,7 +3,8 @@
 #
 # Publishes noisy wheel odometry, optional visual/LiDAR odometry, IMU, and GNSS
 # messages that match a closed-form ground-truth trajectory.  A ground_truth/pose
-# topic is also published for external checkers.
+# topic is also published for external checkers, plus its trail as a
+# nav_msgs/Path (`gt_path_topic`) for visualization.
 #
 # Trajectory options (parameter `scenario`):
 #   static  :  robot stays still at (30 m E, 50 m N, yaw=60 deg)
@@ -29,7 +30,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
 
 from geometry_msgs.msg import PoseStamped, TransformStamped
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
 from tf2_msgs.msg import TFMessage
 
@@ -212,6 +213,7 @@ class FakeSensorPublisher(Node):
         self.declare_parameter('odom2_topic', '')
         self.declare_parameter('gnss_topic', '')         # off by default
         self.declare_parameter('imu_topic', '/imu')
+        self.declare_parameter('gt_path_topic', '/ground_truth/path')
 
         # --- frame names ---
         self.declare_parameter('odom_frame', 'odom')
@@ -256,6 +258,12 @@ class FakeSensorPublisher(Node):
                          if imu_topic else None)
         self._pub_gt = self.create_publisher(
             PoseStamped, '/ground_truth/pose', 10)
+        gt_path_topic = self.get_parameter('gt_path_topic').value
+        self._pub_gt_path = (self.create_publisher(Path, gt_path_topic, 10)
+                             if gt_path_topic else None)
+        self._gt_path = Path()
+        self._gt_path.header.frame_id = 'enu'
+        self._gt_path_last_t = None
         self._pub_tf_static = self.create_publisher(
             TFMessage, '/tf_static', _TRANSIENT_LOCAL_QOS)
 
@@ -533,6 +541,17 @@ class FakeSensorPublisher(Node):
         msg.pose.orientation.z = qz
         msg.pose.orientation.w = qw
         self._pub_gt.publish(msg)
+
+        # Ground-truth trail, decimated and bounded in length:
+        if self._pub_gt_path is None:
+            return
+        if self._gt_path_last_t is not None and t - self._gt_path_last_t < 0.2:
+            return
+        self._gt_path_last_t = t
+        self._gt_path.poses.append(msg)
+        del self._gt_path.poses[:-5000]
+        self._gt_path.header.stamp = msg.header.stamp
+        self._pub_gt_path.publish(self._gt_path)
 
 
 def main(args=None):
