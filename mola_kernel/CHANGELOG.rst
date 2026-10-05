@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.1 (2026-10-05)
+------------------
 * Dataset_UI: add datasetUI_enabled() so sources can opt out of the playback panel at runtime
 * Viz: measure GUI frame intervals with a steady clock
 * Contributors: Jose Luis Blanco-Claraco

@@ -2,8 +2,8 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.1 (2026-10-05)
+------------------
 * Define GLFW_INCLUDE_NONE before including GLFW (fixes `#239 <https://github.com/MOLAorg/mola/issues/239>`_)
 * Dataset_UI: skip sources that report datasetUI_enabled() false, polling them again later
 * Lidar sensor preview windows: add combo to pick the field used for recoloring

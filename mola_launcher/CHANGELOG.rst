@@ -2,8 +2,8 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.1 (2026-10-05)
+------------------
 * Dataset_UI: do not warn about execution_rate for sources that replay at their own pace
 * Restart the rate window while its check is skipped
 * Contributors: Jose Luis Blanco-Claraco
