@@ -37,6 +37,7 @@ find_package(OpenGL REQUIRED)
 # Dear ImGui + ImPlot: use MRPT's vendored copy if available (MRPT >= 3.3),
 # so all MRPT-based GUIs in one process share it. Otherwise, build the
 # submodules in 3rdparty/. Both define the imgui::imgui target.
+# Not in package.xml on purpose, so dependency resolution does not require it.
 find_package(mrpt_imgui_vendor QUIET)
 if(mrpt_imgui_vendor_FOUND)
   message(STATUS "mola_viz_imgui: using Dear ImGui from mrpt_imgui_vendor")
