@@ -397,7 +397,13 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   glViewport(0, 0, display_w, display_h);
   glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+  {
+#if defined(MRPT_IMGUI_HAS_BACKGROUND_SCENE_VIEW)
+    // The background scene is rendered from within ImGui draw data:
+    std::lock_guard lk(wd.background_scene_mtx);
+#endif
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+  }
   glfwSwapBuffers(wd.glfw_window);
 }
 
@@ -551,12 +557,21 @@ void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
                            ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings;
 
   ImGui::SetNextWindowBgAlpha(0.0f);
-  if (ImGui::Begin("##bg_scene", nullptr, flags))
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  const bool visible = ImGui::Begin("##bg_scene", nullptr, flags);
+  ImGui::PopStyleVar();
+  if (visible)
   {
     while (glGetError() != GL_NO_ERROR)
     {
     }
+#if defined(MRPT_IMGUI_HAS_BACKGROUND_SCENE_VIEW)
+    // Straight into the window framebuffer, behind all windows, without an
+    // intermediary FBO. The actual rendering happens later, in render_frame().
+    wd.background_scene_view->renderAsBackground();
+#else
     wd.background_scene_view->render();
+#endif
 
     const auto& cam      = wd.background_scene_view->cameraController;
     wd.cam_azimuth_deg   = cam.getAzimuthDegrees();
