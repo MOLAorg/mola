@@ -34,7 +34,18 @@ find_package(OpenGL REQUIRED)
 # The helper CMakeLists that builds it as a static lib lives at:
 #   3rdparty/imgui_static/CMakeLists.txt
 #
-add_subdirectory(3rdparty/imgui_static imgui_static_build)
+# Dear ImGui + ImPlot: use MRPT's vendored copy if available (MRPT >= 3.3),
+# so all MRPT-based GUIs in one process share it. Otherwise, build the
+# submodules in 3rdparty/. Both define the imgui::imgui target.
+find_package(mrpt_imgui_vendor QUIET)
+if(mrpt_imgui_vendor_FOUND)
+  message(STATUS "mola_viz_imgui: using Dear ImGui from mrpt_imgui_vendor")
+  set(IMGUI_CMAKE_DEPENDENCY mrpt_imgui_vendor)
+else()
+  message(STATUS "mola_viz_imgui: using Dear ImGui from 3rdparty/ submodules")
+  add_subdirectory(3rdparty/imgui_static imgui_static_build)
+  set(IMGUI_CMAKE_DEPENDENCY "")
+endif()
 # After this, the target  imgui::imgui  is available.
 
 # -- Module sources -----------------------------------------------------------
@@ -73,6 +84,7 @@ mola_add_library(
     mrpt_gui
     mrpt_imgui
     mrpt_viz
+    ${IMGUI_CMAKE_DEPENDENCY}
 )
 
 # -- Compiler options ---------------------------------------------------------

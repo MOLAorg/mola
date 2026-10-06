@@ -18,6 +18,7 @@
   <depend>mrpt_gui</depend>
   <depend>mrpt_viz</depend>
   <depend>mrpt_imgui</depend>
+  <depend>mrpt_imgui_vendor</depend>
 
   <depend>libglfw3-dev</depend>
 
