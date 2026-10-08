@@ -762,7 +762,8 @@ std::optional<mola::TransformTree> BridgeROS2::transform_tree(
 }
 
 bool BridgeROS2::waitForTransform(
-    mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame)
+    mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
+    mrpt::Clock::time_point* stamp)
 {
   try
   {
@@ -772,6 +773,10 @@ bool BridgeROS2::waitForTransform(
     tf2::Transform tf;
     tf2::fromMsg(ref_to_trgFrame.transform, tf);
     des = mrpt::ros2bridge::fromROS(tf);
+    if (stamp)
+    {
+      *stamp = mrpt::ros2bridge::fromROS(ref_to_trgFrame.header.stamp);
+    }
 
     MRPT_LOG_DEBUG_FMT(
         "[waitForTransform] Found pose %s -> %s: %s", referenceFrame.c_str(), frame.c_str(),
@@ -852,9 +857,11 @@ void BridgeROS2::importRosOdometryToMOLA()
   }
 
   // Get pose from tf:
-  mrpt::poses::CPose3D odomPose;
+  mrpt::poses::CPose3D    odomPose;
+  mrpt::Clock::time_point odomStamp;
 
-  bool odom_tf_ok = waitForTransform(odomPose, params_.base_link_frame, params_.odom_frame);
+  bool odom_tf_ok =
+      waitForTransform(odomPose, params_.base_link_frame, params_.odom_frame, &odomStamp);
   if (!odom_tf_ok)
   {
     MRPT_LOG_THROTTLE_WARN_FMT(
@@ -865,11 +872,9 @@ void BridgeROS2::importRosOdometryToMOLA()
     return;
   }
 
-  const auto now = rclcpp::Time();  // last one.
-
   auto obs         = mrpt::obs::CObservationOdometry::Create();
   obs->sensorLabel = "odom";
-  obs->timestamp   = mrpt::ros2bridge::fromROS(now);
+  obs->timestamp   = odomStamp;
   obs->odometry    = mrpt::poses::CPose2D(odomPose);
 
   sendObservationsToFrontEnds(obs);
@@ -913,6 +918,7 @@ void BridgeROS2::callbackOnLaserScan(
 
   auto obs = mrpt::obs::CObservation2DRangeScan::Create();
   mrpt::ros2bridge::fromROS(o, sensorPose, *obs);
+  obs->timestamp = mrpt::ros2bridge::fromROS(o.header.stamp);
 
   obs->sensorLabel = outSensorLabel;
 
@@ -959,6 +965,9 @@ void BridgeROS2::callbackOnImu(
   auto obs = mrpt::obs::CObservationIMU::Create();
   mrpt::ros2bridge::fromROS(o, *obs);
 
+  // Set explicitly, since fromROS(Imu) may not do it (depending on the
+  // mrpt_ros_bridge version), leaving the default wall-clock "now()":
+  obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
   obs->sensorPose  = sensorPose;
   obs->sensorLabel = outSensorLabel;
 
@@ -1005,6 +1014,7 @@ void BridgeROS2::callbackOnNavSatFix(
   auto obs = mrpt::obs::CObservationGPS::Create();
   mrpt::ros2bridge::fromROS(o, *obs);
 
+  obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
   obs->sensorPose  = sensorPose;
   obs->sensorLabel = outSensorLabel;
 
@@ -1056,6 +1066,7 @@ void BridgeROS2::callbackOnGpsMsg(
   THROW_EXCEPTION("Using gps_msgs requires mrpt_ros_bridge>=3.3.0");
 #endif
 
+  obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
   obs->sensorPose  = sensorPose;
   obs->sensorLabel = outSensorLabel;
 

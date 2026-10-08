@@ -329,8 +329,11 @@ class BridgeROS2 : public RawDataSourceBase,
   bool relocalizationPoseInReferenceFrame(
       const geometry_msgs::msg::PoseWithCovarianceStamped& o, mrpt::poses::CPose3DPDFGaussian& out);
 
+  /// Looks up the latest available transform. If \a stamp is not null, it
+  /// receives the timestamp of that transform.
   bool waitForTransform(
-      mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame);
+      mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
+      mrpt::Clock::time_point* stamp = nullptr);
 
   void importRosOdometryToMOLA();
 
