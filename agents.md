@@ -175,6 +175,9 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - Consumes ROS 2 sensor topics as MOLA `RawDataSource`
 - Publishes MOLA outputs (maps, poses) as ROS 2 topics/TF
 - Must have ROS 2 environment sourced before building
+- Input callbacks set `CObservation::timestamp` from `header.stamp` explicitly:
+  never rely on `mrpt::ros2bridge::fromROS()` for it, since some versions leave
+  the default (wall-clock `now()`), which breaks bag replay and sim time.
 
 ### `mola_viz` / `mola_viz_imgui` — GUI Backends
 
