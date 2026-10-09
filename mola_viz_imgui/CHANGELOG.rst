@@ -2,8 +2,8 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.3.2 (2026-10-09)
+------------------
 * Use MRPT's vendored Dear ImGui and render the background scene directly (mrpt_imgui_vendor is optional).
 * Contributors: Jose Luis Blanco-Claraco
 
