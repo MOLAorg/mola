@@ -2,6 +2,9 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.3.1 (2026-10-05)
 ------------------
 * Dataset_UI: skip sources that report datasetUI_enabled() false, polling them again later

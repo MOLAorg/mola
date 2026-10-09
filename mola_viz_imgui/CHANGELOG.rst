@@ -2,6 +2,11 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Use MRPT's vendored Dear ImGui and render the background scene directly (mrpt_imgui_vendor is optional).
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.1 (2026-10-05)
 ------------------
 * Define GLFW_INCLUDE_NONE before including GLFW (fixes `#239 <https://github.com/MOLAorg/mola/issues/239>`_)

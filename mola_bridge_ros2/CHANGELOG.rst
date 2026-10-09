@@ -3,6 +3,11 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Set input observation timestamps explicitly (IMU, LaserScan, NavSatFix, GPSFix, odometry from /tf).
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.1 (2026-10-05)
 ------------------
 
