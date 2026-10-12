@@ -69,6 +69,7 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   // ExecutableBase
   void initialize(const Yaml& cfg) override;
   void spinOnce() override;
+  void onQuit() override;
 
   // =========================================================================
   /** @name mola-viz-imgui main API
@@ -293,6 +294,9 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   // ---------------------------------------------------------------------------
   // GUI thread (host mode only)
   // ---------------------------------------------------------------------------
+  // Ends and joins the GUI thread, releasing its GL resources:
+  void stop_gui_thread();
+
   std::thread       guiThread_;
   std::atomic<bool> guiThreadShutdown_{false};
   ImGuiContext*     imgui_ctx_  = nullptr;

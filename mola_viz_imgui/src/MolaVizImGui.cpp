@@ -109,14 +109,30 @@ MolaVizImGui::MolaVizImGui()
 
 MolaVizImGui::~MolaVizImGui()
 {
-  if (!embed_mode_)
-  {
-    guiThreadShutdown_.store(true);
-    if (guiThread_.joinable()) guiThread_.join();
-  }
+  stop_gui_thread();
 
   std::lock_guard lk(instanceMtx_);
   instance_ = nullptr;
+}
+
+void MolaVizImGui::stop_gui_thread()
+{
+  if (embed_mode_)
+  {
+    return;
+  }
+  guiThreadShutdown_.store(true);
+  if (guiThread_.joinable())
+  {
+    guiThread_.join();
+  }
+}
+
+void MolaVizImGui::onQuit()
+{
+  // Other modules may keep a reference to this one, so its destructor may run
+  // too late (or never), once static GUI state is being destroyed at exit.
+  stop_gui_thread();
 }
 
 // ---------------------------------------------------------------------------
