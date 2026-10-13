@@ -64,17 +64,25 @@ mola::RelocalizationLikelihood_SE2::Output mola::RelocalizationLikelihood_SE2::r
 
         const auto pose = mrpt::poses::CPose3D::FromXYZYawPitchRoll(x, y, 0, phi, 0, 0);
 
+        // Layers are independent observation models: add their log-likelihoods.
+        double logLik = 0;
         for (const auto& [layerName, map] : in.reference_map.layers)
         {
           ASSERT_(map);
-          const double logLik = map->computeObservationsLikelihood(in.observations, pose);
+          logLik += map->computeObservationsLikelihood(in.observations, pose);
+        }
 
-          double* cell = grid.getByIndex(iX, iY, iPhi);
-          ASSERT_(cell);
-          *cell = logLik;
+        double* cell = grid.getByIndex(iX, iY, iPhi);
+        ASSERT_(cell);
+        *cell = logLik;
 
-          if (!minW || logLik < *minW) minW = logLik;
-          if (!maxW || logLik > *maxW) maxW = logLik;
+        if (!minW || logLik < *minW)
+        {
+          minW = logLik;
+        }
+        if (!maxW || logLik > *maxW)
+        {
+          maxW = logLik;
         }
       }
     }

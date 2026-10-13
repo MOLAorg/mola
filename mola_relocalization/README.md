@@ -12,6 +12,12 @@ lattice.
 
 This method is based on [mp2p_icp ICP pipelines](https://docs.mola-slam.org/latest/module-mp2p-icp.html).
 
+Each ICP run whose quality reaches `icp_minimum_quality` is returned in
+`Output::candidates`, best first. `mola::select_relocalization_candidate()`
+groups them into modes (nearby poses) and tells whether the best one is
+unambiguous, i.e. clearly better than any other distinct pose. Repetitive
+scenes (e.g. identical crop rows) give several modes of similar quality.
+
 ## Method #2: mola::RelocalizationLikelihood_SE2
 
 Takes a global metric map, an observation, and a SE(2) ROI, and evaluates
