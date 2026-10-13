@@ -84,6 +84,7 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
   );
   std::vector<std::mutex>        pipelineMtx(nPipelines);
   std::mutex                     resultMtx;
+  std::mutex                     callbackMtx;
   std::vector<std::future<void>> futs;
 
   // evaluate over the grid:
@@ -97,7 +98,8 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
         const auto initGuessPose = mrpt::math::TPose3D(x, y, igl.z, phi, igl.pitch, igl.roll);
 
         auto f = pool.enqueue(
-            [initGuessPose, iGlobal, nCells, nPipelines, &in, &resultMtx, &result, &pipelineMtx]()
+            [initGuessPose, iGlobal, nCells, nPipelines, &in, &resultMtx, &callbackMtx, &result,
+             &pipelineMtx]()
             {
               const size_t threadIdx = iGlobal % nPipelines;
 
@@ -117,7 +119,7 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
                 p.total_cells          = nCells;
                 p.obtained_icp_quality = icpResult.quality;
 
-                auto lck2 = mrpt::lockHelper(resultMtx);
+                auto lck2 = mrpt::lockHelper(callbackMtx);
                 in.on_progress_callback(p);
               }
 

@@ -195,11 +195,6 @@ struct CandidateSelection
   bool unambiguous = false;
 };
 
-/** Picks the best of a set of candidates (e.g. RelocalizationICP_SE2::Output::candidates),
- *  and tells whether it is unambiguous.
- *
- * \ingroup mola_relocalization_grp
- */
 /** Runs ICP again from the best candidate of each mode (at most `max_modes`
  *  of them, best first), and returns the results, best first. The search
  *  ICP must converge from far, so its quality may not tell apart nearby
@@ -215,6 +210,11 @@ auto refine_relocalization_candidates(
     const CandidateSelectionParameters& modes, size_t max_modes = 20)
     -> std::vector<RelocalizationICP_SE2::Candidate>;
 
+/** Picks the best of a set of candidates (e.g. RelocalizationICP_SE2::Output::candidates),
+ *  and tells whether it is unambiguous.
+ *
+ * \ingroup mola_relocalization_grp
+ */
 auto select_relocalization_candidate(
     const std::vector<RelocalizationICP_SE2::Candidate>& candidates,
     const CandidateSelectionParameters&                  params = {}) -> CandidateSelection;

@@ -181,11 +181,11 @@ void test_xy_search()
   const auto out       = mola::RelocalizationICP_SE2::run(in);
   const auto selection = mola::select_relocalization_candidate(out.candidates);
 
+  ASSERT_(selection.best);
   std::cout << "[xy] candidates: " << out.candidates.size() << " modes: " << selection.mode_count
             << " time: " << out.time_cost << " s"
             << " best q=" << selection.best->quality
             << " runner-up q=" << (selection.runner_up ? selection.runner_up->quality : 0) << "\n";
-  ASSERT_(selection.best);
   ASSERT_(selection.unambiguous);
   expect_near(selection.best->pose, truePose);
 }
@@ -200,11 +200,11 @@ void test_xy_yaw_search()
   const auto out       = mola::RelocalizationICP_SE2::run(in);
   const auto selection = mola::select_relocalization_candidate(out.candidates);
 
+  ASSERT_(selection.best);
   std::cout << "[xy+yaw] candidates: " << out.candidates.size()
             << " modes: " << selection.mode_count << " time: " << out.time_cost << " s"
             << " best q=" << selection.best->quality
             << " runner-up q=" << (selection.runner_up ? selection.runner_up->quality : 0) << "\n";
-  ASSERT_(selection.best);
   ASSERT_(selection.unambiguous);
   expect_near(selection.best->pose, truePose);
 }
