@@ -26,6 +26,8 @@
 #include <mrpt/poses/CPosePDFGrid.h>
 
 #include <map>
+#include <optional>
+#include <vector>
 
 namespace mola
 {
@@ -106,11 +108,16 @@ struct RelocalizationICP_SE2
     mp2p_icp::Parameters            icp_parameters;
     double                          icp_minimum_quality = 0.50;
 
+    /** Initial guesses: a regular lattice in (x,y,yaw). If the yaw range
+     *  spans a full turn, its ends are not duplicated. */
     struct InputLattice
     {
       mrpt::math::TPose2D corner_min, corner_max;
       double              resolution_xy  = 1.0;
       double              resolution_phi = mrpt::DEG2RAD(40.0);
+
+      /// Fixed values of the other DOFs, for all initial guesses
+      double z = 0, pitch = 0, roll = 0;
     };
     InputLattice initial_guess_lattice;
 
@@ -128,16 +135,68 @@ struct RelocalizationICP_SE2
     Input() = default;
   };
 
+  /// One ICP result, from one initial guess
+  struct Candidate
+  {
+    mrpt::math::TPose3D pose;  //!< ICP solution
+    double              quality = .0;
+    mrpt::math::TPose3D initial_guess;
+  };
+
   struct Output
   {
     mola::HashedSetSE3 found_poses;
-    double             time_cost = .0;  //!< [s]
+
+    /// ICP results with quality >= icp_minimum_quality, best first
+    std::vector<Candidate> candidates;
+
+    double time_cost = .0;  //!< [s]
 
     Output() = default;
   };
 
   static Output run(const Input& in);
 };
+
+/** Groups relocalization candidates into modes (candidates close to each
+ *  other), to tell whether the best one is clearly better than any other
+ *  distinct pose. See select_relocalization_candidate().
+ *
+ * \ingroup mola_relocalization_grp
+ */
+struct CandidateSelectionParameters
+{
+  /// Candidates closer than these belong to the same mode
+  double same_mode_max_distance = 1.0;  //!< [m]
+  double same_mode_max_yaw      = mrpt::DEG2RAD(15.0);  //!< [rad]
+
+  /// The best mode must beat the second best one by at least this quality
+  double min_quality_margin = 0.05;
+};
+
+struct CandidateSelection
+{
+  std::optional<RelocalizationICP_SE2::Candidate> best;
+
+  /// Best candidate of any other mode, if any
+  std::optional<RelocalizationICP_SE2::Candidate> runner_up;
+
+  /// Number of distinct modes found
+  size_t mode_count = 0;
+
+  /// True if there is a best candidate, and no other mode is close to it in
+  /// quality
+  bool unambiguous = false;
+};
+
+/** Picks the best of a set of candidates (e.g. RelocalizationICP_SE2::Output::candidates),
+ *  and tells whether it is unambiguous.
+ *
+ * \ingroup mola_relocalization_grp
+ */
+auto select_relocalization_candidate(
+    const std::vector<RelocalizationICP_SE2::Candidate>& candidates,
+    const CandidateSelectionParameters&                  params = {}) -> CandidateSelection;
 
 /** Finds the SE(2) poses with the top given percentile likelihood, and returns
  *  them sorted by likelihood (higher values are better matches).
