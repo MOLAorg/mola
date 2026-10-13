@@ -200,6 +200,21 @@ struct CandidateSelection
  *
  * \ingroup mola_relocalization_grp
  */
+/** Runs ICP again from the best candidate of each mode (at most `max_modes`
+ *  of them, best first), and returns the results, best first. The search
+ *  ICP must converge from far, so its quality may not tell apart nearby
+ *  poses: use here a stricter one (e.g. shorter matching distances), whose
+ *  quality does.
+ *
+ * \ingroup mola_relocalization_grp
+ */
+auto refine_relocalization_candidates(
+    const std::vector<RelocalizationICP_SE2::Candidate>& candidates,
+    const mp2p_icp::metric_map_t& local_map, const mp2p_icp::metric_map_t& reference_map,
+    mp2p_icp::ICP& icp, const mp2p_icp::Parameters& icp_parameters,
+    const CandidateSelectionParameters& modes, size_t max_modes = 20)
+    -> std::vector<RelocalizationICP_SE2::Candidate>;
+
 auto select_relocalization_candidate(
     const std::vector<RelocalizationICP_SE2::Candidate>& candidates,
     const CandidateSelectionParameters&                  params = {}) -> CandidateSelection;

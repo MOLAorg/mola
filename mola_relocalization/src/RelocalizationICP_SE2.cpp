@@ -154,12 +154,15 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
   return result;
 }
 
-auto mola::select_relocalization_candidate(
-    const std::vector<RelocalizationICP_SE2::Candidate>& candidates,
-    const CandidateSelectionParameters&                  params) -> CandidateSelection
+namespace
 {
-  using Candidate = RelocalizationICP_SE2::Candidate;
+using Candidate = mola::RelocalizationICP_SE2::Candidate;
 
+// Groups candidates into modes, each represented by its best candidate.
+// Returns the representatives, best first.
+std::vector<const Candidate*> find_modes(
+    const std::vector<Candidate>& candidates, const mola::CandidateSelectionParameters& params)
+{
   std::vector<const Candidate*> sorted;
   sorted.reserve(candidates.size());
   for (const auto& c : candidates)
@@ -170,7 +173,6 @@ auto mola::select_relocalization_candidate(
       sorted.begin(), sorted.end(),
       [](const Candidate* a, const Candidate* b) { return a->quality > b->quality; });
 
-  // Greedy grouping: each mode is represented by its best candidate.
   std::vector<const Candidate*> modes;
   for (const auto* c : sorted)
   {
@@ -188,6 +190,39 @@ auto mola::select_relocalization_candidate(
       modes.push_back(c);
     }
   }
+  return modes;
+}
+}  // namespace
+
+auto mola::refine_relocalization_candidates(
+    const std::vector<RelocalizationICP_SE2::Candidate>& candidates,
+    const mp2p_icp::metric_map_t& local_map, const mp2p_icp::metric_map_t& reference_map,
+    mp2p_icp::ICP& icp, const mp2p_icp::Parameters& icp_parameters,
+    const CandidateSelectionParameters& modes, size_t max_modes)
+    -> std::vector<RelocalizationICP_SE2::Candidate>
+{
+  std::vector<Candidate> refined;
+  for (const auto* m : find_modes(candidates, modes))
+  {
+    if (refined.size() >= max_modes)
+    {
+      break;
+    }
+    mp2p_icp::Results icpResult;
+    icp.align(local_map, reference_map, m->pose, icp_parameters, icpResult);
+    refined.push_back({icpResult.optimal_tf.mean.asTPose(), icpResult.quality, m->initial_guess});
+  }
+  std::sort(
+      refined.begin(), refined.end(),
+      [](const Candidate& a, const Candidate& b) { return a.quality > b.quality; });
+  return refined;
+}
+
+auto mola::select_relocalization_candidate(
+    const std::vector<RelocalizationICP_SE2::Candidate>& candidates,
+    const CandidateSelectionParameters&                  params) -> CandidateSelection
+{
+  const auto modes = find_modes(candidates, params);
 
   CandidateSelection out;
   out.mode_count = modes.size();
