@@ -26,6 +26,10 @@
 #include <mrpt/poses/CPosePDFGrid.h>
 
 #include <map>
+
+/// RelocalizationICP_SE2 returns candidates with their quality, and
+/// select_relocalization_candidate() exists:
+#define MOLA_RELOCALIZATION_HAS_CANDIDATES 1
 #include <optional>
 #include <vector>
 
@@ -102,7 +106,9 @@ struct RelocalizationICP_SE2
     mp2p_icp::metric_map_t local_map;
 
     /** If provided more than one, several ICP runs will be triggered in
-     * parallel threads.
+     * parallel threads. Only do so if the reference map supports concurrent
+     * alignments from different initial guesses (maps that prepare a submap
+     * per ICP run, like mola::KeyframePointCloudMap, do not).
      */
     std::vector<mp2p_icp::ICP::Ptr> icp_pipeline;
     mp2p_icp::Parameters            icp_parameters;
