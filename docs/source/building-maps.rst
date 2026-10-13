@@ -100,7 +100,6 @@ or from the :ref:`UI controls <mola_lo_gui_common_parts>` in the ``mola_lidar_od
 
             .. code-block:: bash
 
-                MOLA_SIMPLEMAP_GENERATE_LAZY_LOAD=true \
                 mola-lidar-odometry-cli \
                   -c $(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/pipelines/lidar3d-default.yaml \
                   --input-rosbag2 /path/to/your/dataset.mcap \
@@ -110,6 +109,11 @@ or from the :ref:`UI controls <mola_lo_gui_common_parts>` in the ``mola_lidar_od
 
             .. note::
                 Remember changing ``--lidar-sensor-label /ouster/points`` to your actual raw (unfiltered) LiDAR topic (``sensor_msgs/PointCloud2``).
+
+            .. warning::
+                ``--output-simplemap`` keeps all scans in RAM and inside the ``.simplemap`` file:
+                ``MOLA_SIMPLEMAP_GENERATE_LAZY_LOAD`` is ignored with it. For lazy-load simplemaps,
+                use the "Large datasets" variant.
 
         .. tab-item:: From a rosbag2 (CLI) (Large datasets)
 
