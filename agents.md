@@ -188,6 +188,9 @@ module class name; nothing else in the tree may call MRPT GUI functions directly
 - `mola_viz_imgui` (`MolaVizImGui`, `MolaVizImGuiCore`): Dear ImGui + ImPlot on
   GLFW, both vendored under `3rdparty/`. Adds the docking layout, the Console log
   sink, and the metric plots described under `VizInterface` above.
+  The GUI thread redraws everything (including the full 3D scene) every frame
+  at `target_fps` (default 30, vsync off); the env var `MOLA_GUI_TARGET_FPS`
+  overrides the YAML value and is the main knob for its GPU load.
   `MolaVizImGuiCore` is the reusable, MOLA-agnostic half.
   Always `#define GLFW_INCLUDE_NONE` before `<GLFW/glfw3.h>`: GL headers must
   first come from `mrpt/opengl/opengl_api.h` (which sets `GL_GLEXT_PROTOTYPES`).

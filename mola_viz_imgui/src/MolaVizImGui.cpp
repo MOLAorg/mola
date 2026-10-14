@@ -39,6 +39,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -163,6 +164,22 @@ void MolaVizImGui::initialize(const Yaml& c)
       cfg.getOrDefault("assumed_sensor_rate_hz", core_ptr_->assumed_sensor_rate_hz_);
   core_ptr_->target_fps_     = cfg.getOrDefault("target_fps", core_ptr_->target_fps_);
   core_ptr_->imgui_app_name_ = cfg.getOrDefault("imgui_app_name", core_ptr_->imgui_app_name_);
+
+  // The environment overrides the YAML, so the GUI refresh rate (the main
+  // driver of its CPU/GPU load) can be tuned without editing launch files.
+  if (const char* env_fps = std::getenv("MOLA_GUI_TARGET_FPS"); env_fps && *env_fps)
+  {
+    const int fps = std::atoi(env_fps);
+    if (fps > 0)
+    {
+      core_ptr_->target_fps_ = fps;
+    }
+    else
+    {
+      MRPT_LOG_WARN_STREAM("Ignoring invalid MOLA_GUI_TARGET_FPS='" << env_fps << "'");
+    }
+  }
+  MRPT_LOG_DEBUG_STREAM("MolaVizImGui: target_fps=" << core_ptr_->target_fps_);
 
   core_ptr_->console_enabled_ = cfg.getOrDefault("console_enabled", core_ptr_->console_enabled_);
   core_ptr_->console_max_entries_ =
