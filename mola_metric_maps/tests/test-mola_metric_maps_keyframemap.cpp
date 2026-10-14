@@ -181,6 +181,19 @@ void test_copy_while_preparing_icp()
         }
       });
 
+  // Joins the thread even if an assertion below throws:
+  struct JoinGuard
+  {
+    std::thread& t;
+    ~JoinGuard()
+    {
+      if (t.joinable())
+      {
+        t.join();
+      }
+    }
+  } joinGuard{icpThread};
+
   for (int i = 0; i < numIters; i++)
   {
     const auto c = std::dynamic_pointer_cast<mola::KeyframePointCloudMap>(m.duplicateGetSmartPtr());
@@ -189,8 +202,6 @@ void test_copy_while_preparing_icp()
     const auto bb = m.boundingBox();
     ASSERT_GT_(bb.max.x, bb.min.x);
   }
-
-  icpThread.join();
 }
 
 // ── 2. clear() empties the map ─────────────────────────────────────────────

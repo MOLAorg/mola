@@ -1064,12 +1064,15 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
     const MatchingDistanceProfile&     matchingDistance,
     mp2p_icp::MatchedPointWithCovList& outPairings) const
 {
-  auto lck = mrpt::lockHelper(*state_mtx_);
-
   // Enforce local map to recompute its covariances to the new pose:
   const auto* localMapKF = dynamic_cast<const KeyframePointCloudMap*>(&localMap);
   ASSERTMSG_(
       localMapKF, "Implementation expects local map to be also of type KeyframePointCloudMap");
+
+  // The local map's keyframe pose is changed below, then restored: hold its
+  // lock too. std::scoped_lock avoids lock-order deadlocks, and both mutexes
+  // being recursive makes it safe if both maps are the same object.
+  std::scoped_lock lck(*state_mtx_, *localMapKF->state_mtx_);
 
   ASSERT_EQUAL_(localMapKF->keyframes_.size(), 1U);
   auto&      localKf             = const_cast<KeyFrame&>(localMapKF->keyframes_.at(0));
@@ -1787,11 +1790,11 @@ bool KeyframePointCloudMap::trySetCreationOptions(
   // icp_get_prepared_as_global() compares cached_.icp_search_built_approximate against the live
   // option, so a change here (even with an unchanged active KF set) is picked up and forces a
   // rebuild on the next call.
+  auto lck = mrpt::lockHelper(*state_mtx_);
+
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
   creationOptions = newOpts;
-
-  auto lck = mrpt::lockHelper(*state_mtx_);
   for (auto& kv : keyframes_)
   {
     kv.second.updateCovarianceParams(
