@@ -52,6 +52,7 @@
 #include <fstream>
 #include <iterator>  // std::distance
 #include <memory>
+#include <mutex>
 #include <numeric>  // std::accumulate
 #include <ostream>
 #include <sstream>
@@ -474,8 +475,40 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
 
 KeyframePointCloudMap::~KeyframePointCloudMap() = default;
 
+KeyframePointCloudMap::KeyframePointCloudMap(const KeyframePointCloudMap& o) : CMetricMap()
+{
+  *this = o;
+}
+
+KeyframePointCloudMap& KeyframePointCloudMap::operator=(const KeyframePointCloudMap& o)
+{
+  if (this == &o)
+  {
+    return *this;
+  }
+
+  std::scoped_lock lck(*state_mtx_, *o.state_mtx_);
+
+  // Keep this list in sync with the data members:
+  genericMapParams          = o.genericMapParams;
+  creationOptions           = o.creationOptions;
+  insertionOptions          = o.insertionOptions;
+  likelihoodOptions         = o.likelihoodOptions;
+  renderOptions             = o.renderOptions;
+  keyframes_                = o.keyframes_;
+  last_inserted_kf_id_      = o.last_inserted_kf_id_;
+  evicted_kf_ids_           = o.evicted_kf_ids_;
+  next_free_kf_id_          = o.next_free_kf_id_;
+  cached_                   = o.cached_;
+  cachedPointsLastReturned_ = o.cachedPointsLastReturned_;
+
+  return *this;
+}
+
 mrpt::math::TBoundingBoxf KeyframePointCloudMap::boundingBox() const
 {
+  auto lck = mrpt::lockHelper(*state_mtx_);
+
   if (cached_.boundingBox)
   {
     return *cached_.boundingBox;
