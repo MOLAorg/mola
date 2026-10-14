@@ -88,11 +88,14 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
 {
   DEFINE_SERIALIZABLE(KeyframePointCloudMap, mola)
  public:
-  // Prevent copying and moving
-  KeyframePointCloudMap(const KeyframePointCloudMap&)            = default;
-  KeyframePointCloudMap& operator=(const KeyframePointCloudMap&) = default;
-  KeyframePointCloudMap(KeyframePointCloudMap&&)                 = default;
-  KeyframePointCloudMap& operator=(KeyframePointCloudMap&&)      = default;
+  /** Copies take the source's internal mutex, so a map can be copied while
+   *  another thread uses it (e.g. ICP preparing its search submap). */
+  KeyframePointCloudMap(const KeyframePointCloudMap& o);
+  KeyframePointCloudMap& operator=(const KeyframePointCloudMap& o);
+
+  /** Moves are not synchronized: the source must not be in use elsewhere. */
+  KeyframePointCloudMap(KeyframePointCloudMap&&)            = default;
+  KeyframePointCloudMap& operator=(KeyframePointCloudMap&&) = default;
 
   /** @name Basic API for construction and main parameters
    *  @{ */

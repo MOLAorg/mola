@@ -34,6 +34,7 @@
 #include <iostream>
 #include <numeric>
 #include <set>
+#include <thread>
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -142,6 +143,65 @@ void test_basic_ops()
 
   const std::string s = m.asString();
   ASSERT_(!s.empty());
+}
+
+// ── 1b. Copies are complete, and safe while ICP prepares the map ──────────
+void test_copy_while_preparing_icp()
+{
+  mola::KeyframePointCloudMap m;
+  m.creationOptions.k_correspondences_for_cov = 5;
+  m.creationOptions.max_search_keyframes      = 2;
+
+  const int numKFs = 8;
+  for (int kf = 0; kf < numKFs; ++kf)
+  {
+    auto obs        = mrpt::obs::CObservationPointCloud::Create();
+    obs->pointcloud = makeCloudWithViews(makeGridPts());
+    m.insertObservation(*obs, mrpt::poses::CPose3D::FromTranslation(kf * 10.0, 0, 0));
+  }
+
+  {
+    const mola::KeyframePointCloudMap c = m;
+    ASSERT_EQUAL_(c.point_count(), m.point_count());
+    ASSERT_EQUAL_(c.nextFreeKeyFrameID_public(), m.nextFreeKeyFrameID_public());
+    ASSERT_EQUAL_(c.creationOptions.max_search_keyframes, m.creationOptions.max_search_keyframes);
+  }
+
+  // One thread keeps rebuilding the ICP search submap at alternating poses,
+  // as ICP does, while another one copies the map (as a GUI render would).
+  // Run under TSan to check for data races.
+  const int   numIters = 200;
+  std::thread icpThread(
+      [&]()
+      {
+        for (int i = 0; i < numIters; i++)
+        {
+          const double x = (i % 2 == 0) ? 0.0 : (numKFs - 1) * 10.0;
+          m.icp_get_prepared_as_global(mrpt::poses::CPose3D::FromTranslation(x, 0, 0));
+        }
+      });
+
+  // Joins the thread even if an assertion below throws:
+  struct JoinGuard
+  {
+    std::thread& t;
+    ~JoinGuard()
+    {
+      if (t.joinable())
+      {
+        t.join();
+      }
+    }
+  } joinGuard{icpThread};
+
+  for (int i = 0; i < numIters; i++)
+  {
+    const auto c = std::dynamic_pointer_cast<mola::KeyframePointCloudMap>(m.duplicateGetSmartPtr());
+    ASSERT_(c);
+    ASSERT_EQUAL_(c->point_count(), m.point_count());
+    const auto bb = m.boundingBox();
+    ASSERT_GT_(bb.max.x, bb.min.x);
+  }
 }
 
 // ── 2. clear() empties the map ─────────────────────────────────────────────
@@ -1568,6 +1628,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     std::cout << "test_basic_ops ...\n";
     test_basic_ops();
+
+    std::cout << "test_copy_while_preparing_icp ...\n";
+    test_copy_while_preparing_icp();
 
     std::cout << "test_clear ...\n";
     test_clear();
