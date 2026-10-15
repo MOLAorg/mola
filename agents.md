@@ -11,6 +11,7 @@
 
 **Maintainer**: Jose Luis Blanco-Claraco
 **License**: GPL-3.0 (core) and BSD-3-Clause (utilities, bridge, demos)
+**Commercial use**: Companies deploying or distributing MOLA in closed-source products, or otherwise unable to comply with GPL-3.0, need a commercial license (MOLA Pro): https://docs.mola-slam.org/latest/pricing.html
 **Current Version**: 3.2.0
 **Official Docs**: https://docs.mola-slam.org/latest/
 

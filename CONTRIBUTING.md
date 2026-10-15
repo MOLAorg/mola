@@ -24,14 +24,14 @@ MOLA is a modular SLAM and localization framework written in C++ with ROS 2 supp
 
 ## 1. Contributor License Agreement
 
-All contributions to MOLA require acceptance of the [Contributor License Agreement (CLA)](./individual-cla.md) prior to being merged.
+All contributions to MOLA require acceptance of the [Contributor License Agreement (CLA)](./cla/individual-cla.md) prior to being merged.
 
 MOLA is distributed under a dual licensing model:
 
 - **Open source:** GNU General Public License v3 (GPL v3)
 - **Commercial:** A separate commercial license is available for industry users who cannot comply with the terms of the GPL v3
 
-The CLA ensures that the project maintainers hold the necessary rights to distribute your contribution under both licensing models. It does not transfer copyright ownership — you retain full ownership of your work.
+The CLA ensures that the Project Owners (José Luis Blanco-Claraco and the University of Almería) hold the necessary rights to distribute your contribution under both licensing models. It does not transfer copyright ownership: you retain full ownership of your work.
 
 When you open a Pull Request, an automated CLA assistant will verify whether you have previously accepted the agreement. If you have not, you will be prompted to do so before the PR can be reviewed or merged. Contributions submitted without CLA acceptance will not be considered.
 
