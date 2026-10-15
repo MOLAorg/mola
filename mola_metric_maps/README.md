@@ -44,6 +44,7 @@ Refer to the [root MOLA repository](https://github.com/MOLAorg/mola).
 
 Copyright (C) 2018-2026 Jose Luis Blanco <jlblanco@ual.es>, University of Almeria
 
-This package is released under the GNU GPL v3 license as open source for research
-and evaluation purposes only. Commercial licenses available upon request, for this
-package alone or in combination with the complete SLAM system.
+This package is released under the GNU GPL v3 license. Companies deploying or
+distributing it in closed-source products, or otherwise unable to comply with the
+GPL v3, can obtain a commercial license ([MOLA Pro](https://docs.mola-slam.org/latest/pricing.html)),
+for this package alone or in combination with the complete SLAM system.
