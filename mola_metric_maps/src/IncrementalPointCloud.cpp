@@ -55,6 +55,14 @@ namespace
 /// Trace live/storage/free-slot counts and the map bbox on every insertion.
 const bool ENV_DEBUG_STATS = mrpt::get_env<bool>("MOLA_INCREMENTAL_MAP_DEBUG_STATS", false);
 
+// States of cov_valid_[]:
+constexpr uint8_t COV_NONE   = 0;  // not computed
+constexpr uint8_t COV_CACHED = 1;  // cached for the life of the point
+// Thin neighborhood: valid until the map content changes:
+constexpr uint8_t COV_PROVISIONAL = 2;
+// As above, computed by the current ensureCovariancesFor() call:
+constexpr uint8_t COV_PROVISIONAL_NEW = 3;
+
 /// How many storage slots are sampled to detect in-place coordinate rewrites.
 constexpr std::size_t COORDINATES_WATCH_SAMPLES = 16;
 
@@ -259,7 +267,8 @@ void IncrementalPointCloud::createEmptyIndex()
 
   const std::size_t n = m_x.size();
   cov_.assign(n, mrpt::math::CMatrixFloat33());
-  cov_valid_.assign(n, 0);
+  cov_valid_.assign(n, COV_NONE);
+  provisional_cov_slots_.clear();
 
   if (creationOptions.reserve_points != 0)
   {
@@ -476,10 +485,10 @@ void IncrementalPointCloud::ensureIndexUpToDate() const
 
   // Points appended through the inherited CPointsMap API: index the new tail.
   cov_.resize(n);
-  cov_valid_.resize(n, 0);
+  cov_valid_.resize(n, COV_NONE);
   for (std::size_t i = indexed_up_to_; i < n; i++)
   {
-    cov_valid_[i] = 0;
+    cov_valid_[i] = COV_NONE;
   }
 
   refreshPointBuffers();
@@ -517,7 +526,7 @@ void IncrementalPointCloud::indexAppendedPointsRecycling(std::size_t firstAppend
   last_insert_batch_ = n - firstAppended;
 
   cov_.resize(n);
-  cov_valid_.resize(n, 0);
+  cov_valid_.resize(n, COV_NONE);
 
   refreshPointBuffers();
 
@@ -531,7 +540,7 @@ void IncrementalPointCloud::indexAppendedPointsRecycling(std::size_t firstAppend
     free_slots_.pop_back();
 
     relocatePoint(n - 1 - moved, slot);
-    cov_valid_[slot] = 0;
+    cov_valid_[slot] = COV_NONE;
     index_->addPoint(slot);
 
     moved++;
@@ -577,7 +586,7 @@ void IncrementalPointCloud::harvestRemovedSlots()
     // drop it instead (it costs one leaked slot until the next compaction).
     if (slot >= m_x.size()) continue;
 
-    if (slot < cov_valid_.size()) cov_valid_[slot] = 0;
+    if (slot < cov_valid_.size()) cov_valid_[slot] = COV_NONE;
 
     m_x[slot] = NO_POINT;
     m_y[slot] = NO_POINT;
@@ -728,7 +737,7 @@ bool IncrementalPointCloud::internal_insertObservation(
         "bbox=[%.1f %.1f %.1f]-[%.1f %.1f %.1f]\n",
         ms, index_->size(), m_x.size(), free_slots_.size(),
         static_cast<unsigned long long>(cov_computations_.load(std::memory_order_relaxed)),
-        static_cast<std::size_t>(std::count(cov_valid_.begin(), cov_valid_.end(), uint8_t(1))),
+        static_cast<std::size_t>(std::count(cov_valid_.begin(), cov_valid_.end(), COV_CACHED)),
         static_cast<double>(bb.min.x), static_cast<double>(bb.min.y), static_cast<double>(bb.min.z),
         static_cast<double>(bb.max.x), static_cast<double>(bb.max.y),
         static_cast<double>(bb.max.z));
@@ -787,7 +796,7 @@ std::size_t IncrementalPointCloud::recyclableSlotCount() const
 std::size_t IncrementalPointCloud::cachedCovarianceCount() const
 {
   auto lck = mrpt::lockHelper(mtx_);
-  return static_cast<std::size_t>(std::count(cov_valid_.begin(), cov_valid_.end(), uint8_t(1)));
+  return static_cast<std::size_t>(std::count(cov_valid_.begin(), cov_valid_.end(), COV_CACHED));
 }
 
 void IncrementalPointCloud::compact()
@@ -1010,13 +1019,14 @@ std::size_t IncrementalPointCloud::covCacheThreshold() const
 
 void IncrementalPointCloud::computeCovariance(uint32_t slot) const
 {
-  if (cov_valid_[slot] != 0) return;
+  if (cov_valid_[slot] != COV_NONE) return;
 
   cov_computations_.fetch_add(1, std::memory_order_relaxed);
 
-  // Left uncached unless the neighborhood turns out to be populated enough to
+  // Provisional unless the neighborhood turns out to be populated enough to
   // be worth freezing, see below.
-  cov_[slot] = mrpt::math::CMatrixFloat33::Identity();
+  cov_[slot]       = mrpt::math::CMatrixFloat33::Identity();
+  cov_valid_[slot] = COV_PROVISIONAL_NEW;
 
   const std::size_t liveCount = index_->size();
   if (liveCount < 3)
@@ -1025,7 +1035,7 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
     // was computed admits this, so that it stays an exact compatibility mode.
     if (covCacheThreshold() <= 1)
     {
-      cov_valid_[slot] = 1;
+      cov_valid_[slot] = COV_CACHED;
     }
     return;
   }
@@ -1045,13 +1055,13 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
       index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs.data(), dists.data());
 
   // The map only ever gains points around an existing one, so a covariance
-  // estimated from a neighborhood this thin is provisional: returning it
-  // without caching it costs one search per query but lets a later query see
-  // the denser neighborhood, instead of asserting forever a plane fitted to
-  // whatever happened to be in the map the first time the point was used.
+  // estimated from a neighborhood this thin is provisional: it is dropped once
+  // the map changes, so a later query sees the denser neighborhood, instead of
+  // asserting forever a plane fitted to whatever happened to be in the map the
+  // first time the point was used.
   if (found >= covCacheThreshold())
   {
-    cov_valid_[slot] = 1;
+    cov_valid_[slot] = COV_CACHED;
   }
 
   // Too few neighbors actually found: a plane fit from this few samples is
@@ -1096,13 +1106,41 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
 
 void IncrementalPointCloud::ensureCovariancesFor(const std::vector<uint32_t>& slots) const
 {
+  // Provisional covariances are only reused while the map content is the one
+  // they were computed from: same neighbors, hence the same result.
+  if (const uint64_t version = index_->contentVersion(); version != provisional_cov_version_)
+  {
+    for (const uint32_t slot : provisional_cov_slots_)
+    {
+      if (slot < cov_valid_.size() && cov_valid_[slot] == COV_PROVISIONAL)
+      {
+        cov_valid_[slot] = COV_NONE;
+      }
+    }
+    provisional_cov_slots_.clear();
+    provisional_cov_version_ = version;
+  }
+
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
   tbb::parallel_for(
       static_cast<std::size_t>(0), slots.size(),
       [&](std::size_t i) { computeCovariance(slots[i]); });
 #else
-  for (const uint32_t slot : slots) computeCovariance(slot);
+  for (const uint32_t slot : slots)
+  {
+    computeCovariance(slot);
+  }
 #endif
+
+  // Registered here, sequentially, since the loop above may run in parallel:
+  for (const uint32_t slot : slots)
+  {
+    if (cov_valid_[slot] == COV_PROVISIONAL_NEW)
+    {
+      cov_valid_[slot] = COV_PROVISIONAL;
+      provisional_cov_slots_.push_back(slot);
+    }
+  }
 }
 
 bool IncrementalPointCloud::neighborhoodIsFlat(uint32_t slot) const
@@ -1603,7 +1641,8 @@ bool IncrementalPointCloud::trySetCreationOptions(
   }
   else if (covParamsChanged)
   {
-    std::fill(cov_valid_.begin(), cov_valid_.end(), 0);
+    std::fill(cov_valid_.begin(), cov_valid_.end(), COV_NONE);
+    provisional_cov_slots_.clear();
   }
 
   return true;

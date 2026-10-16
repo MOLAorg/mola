@@ -120,16 +120,26 @@ class IncrementalKDTreeImpl : public mola::internal::IncrementalKDTree
   {
     index_.reset();  // joins the background worker, if any
     createIndex();
+    markContentChanged();
   }
 
-  void addPoint(uint32_t index) override { index_->addPoint(index); }
+  void addPoint(uint32_t index) override
+  {
+    index_->addPoint(index);
+    markContentChanged();
+  }
 
   void addPoints(uint32_t firstIndex, uint32_t lastIndex) override
   {
     index_->addPoints(firstIndex, lastIndex);
+    markContentChanged();
   }
 
-  void removePoint(uint32_t index) override { index_->removePoint(index); }
+  void removePoint(uint32_t index) override
+  {
+    index_->removePoint(index);
+    markContentChanged();
+  }
 
   void keepOnlyPointsInsideBox(const float minCorner[3], const float maxCorner[3]) override
   {
@@ -141,6 +151,7 @@ class IncrementalKDTreeImpl : public mola::internal::IncrementalKDTree
       keep[d].high = maxCorner[d];
     }
     index_->removeOutsideBox(keep);
+    markContentChanged();
   }
 
   std::vector<uint32_t> acquireRemovedPoints() override { return index_->acquireRemovedPoints(); }
@@ -172,6 +183,7 @@ class IncrementalKDTreeImpl : public mola::internal::IncrementalKDTree
   {
 #if NANOFLANN_VERSION >= 0x010B00
     index_->loadIndex(stream);
+    markContentChanged();
 #else
     (void)stream;
     throw std::runtime_error(

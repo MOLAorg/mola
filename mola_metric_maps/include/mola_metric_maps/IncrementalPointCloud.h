@@ -378,16 +378,17 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
     /** Minimum number of neighbors that must have been found for a computed
      *  per-point covariance to be stored in the cache. A point whose
-     *  neighborhood was still too thin is left uncached and recomputed on the
-     *  next query, by which time the map may have densified around it, so an
-     *  unreliable estimate (in particular the isotropic fallback) is never
-     *  frozen for the whole life of the point.
+     *  neighborhood was still too thin keeps its estimate only until the map
+     *  content changes (e.g. across the iterations of one ICP call), and is
+     *  recomputed after that, by which time the map may have densified around
+     *  it, so an unreliable estimate (in particular the isotropic fallback) is
+     *  never frozen for the whole life of the point.
      *
      *  0 (default) means `k_correspondences_for_cov`, i.e. only a full
      *  neighborhood is trusted. 1 caches every result, which is cheapest but
      *  never revisits an early estimate. A value above
-     *  `k_correspondences_for_cov` can never be met, which disables the cache
-     *  altogether: every query is then exact, at a large cost.
+     *  `k_correspondences_for_cov` can never be met, so every estimate is then
+     *  recomputed after each change of the map, at a large cost.
      *
      *  @note Eviction is not covered: a point that was already well populated
      *  keeps its covariance when its neighbors are trimmed away.
@@ -518,7 +519,13 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
   /// Per-point, plane-regularized covariance cache, in this map's frame.
   mutable std::vector<mrpt::math::CMatrixFloat33> cov_;
-  mutable std::vector<uint8_t>                    cov_valid_;
+  /// One of the COV_* states, see IncrementalPointCloud.cpp.
+  mutable std::vector<uint8_t> cov_valid_;
+
+  /// Slots holding a provisional covariance (one too thin to be cached for
+  /// good), valid only while the index content version stays the same.
+  mutable std::vector<uint32_t> provisional_cov_slots_;
+  mutable uint64_t              provisional_cov_version_ = 0;
 
   /// Diagnostics only: how many times a point covariance has been estimated.
   mutable std::atomic<uint64_t> cov_computations_{0};

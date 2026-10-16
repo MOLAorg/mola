@@ -18,6 +18,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
@@ -141,6 +142,12 @@ class IncrementalKDTree
   /// Number of nodes physically stored (live + not-yet-reclaimed tombstones).
   [[nodiscard]] virtual std::size_t physicalSize() const = 0;
 
+  /** Changes whenever the indexed point set may have changed (insertions,
+   *  removals, clear, load), and is unique across index instances, so a cache
+   *  keyed on it never outlives the content it was computed from.
+   */
+  [[nodiscard]] uint64_t contentVersion() const { return content_version_; }
+
   /// Appends the live point slots into `out`.
   virtual void snapshotLiveIndices(std::vector<uint32_t>& out) const = 0;
 
@@ -171,7 +178,18 @@ class IncrementalKDTree
   /** @} */
 
  protected:
-  IncrementalKDTree() = default;
+  IncrementalKDTree() { markContentChanged(); }
+
+  void markContentChanged() { content_version_ = nextContentVersion(); }
+
+ private:
+  static uint64_t nextContentVersion()
+  {
+    static std::atomic<uint64_t> next{0};
+    return ++next;
+  }
+
+  uint64_t content_version_ = 0;
 };
 
 }  // namespace mola::internal
