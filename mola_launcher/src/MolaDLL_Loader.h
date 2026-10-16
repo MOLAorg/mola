@@ -21,6 +21,7 @@
 
 #include <mrpt/system/COutputLogger.h>
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -37,3 +38,7 @@ void internal_load_lib_modules(
 
 /** Returns the current list of loaded module dyanmic libraries. */
 const std::map<std::string, LoadedModules>& get_loaded_modules();
+
+/** Returns a description of the module libraries that could not be loaded,
+ *  with the reason for each, or an empty string if all of them loaded. */
+std::string failed_module_libs_report();

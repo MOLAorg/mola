@@ -159,6 +159,11 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - **`mola-cli`**: main executable, takes YAML config, loads and orchestrates modules
 - **`mola-yaml-parser`**: standalone tool for testing YAML parsing/variable expansion
 - **`mola-dir`**: directory and environment utilities
+- Module libraries: every `*mola*` shared library in the search paths is
+  `dlopen()`ed at setup, used or not. One that fails to load (e.g. the GUI with
+  missing system libraries on a headless machine) is skipped with a warning;
+  if a module from it is then requested, the factory error lists the failed
+  libraries and their loader errors.
 - Signals: `mola-cli` installs its handler for both `SIGINT` and `SIGTERM` (what
   supervisors, containers, `timeout` and plain `kill` send). The handler is
   async-signal-safe: it only calls `MolaLauncherApp::requestSpinExit()`, which
