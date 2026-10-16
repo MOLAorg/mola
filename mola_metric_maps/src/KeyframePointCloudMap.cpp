@@ -1134,7 +1134,8 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
   // - The reference submap (globalPoints) has them already in the global
   //   frame: icp_get_prepared_as_global() merges the KFs' pointcloud_global()
   //   (which rotates them, see updatePointsGlobal()) into a CGenericPointsMap
-  //   whenever the source clouds carry them.
+  //   if the first contributing cloud carries them (the submap type is chosen
+  //   from it).
   //
   // The filter only runs when both clouds carry all three fields; otherwise
   // it is silently skipped.
