@@ -123,6 +123,21 @@ mola::KeyframePointCloudMap makeMapFromCloud(
 // Tests
 // ---------------------------------------------------------------------------
 
+// Through a CMetricMap reference, the contents are reachable as points
+// (e.g. for the ROS 2 bridge):
+void test_as_points_map()
+{
+#if defined(MRPT_HAS_METRIC_MAP_POINTS_VIEW)
+  const auto                        pts = makeGridPts();
+  const mola::KeyframePointCloudMap m   = makeMapFromCloud(makeCloudWithViews(pts));
+
+  const mrpt::maps::CMetricMap& asMetricMap = m;
+  const auto*                   view        = mrpt::maps::asPointsMap(asMetricMap);
+  ASSERT_(view != nullptr);
+  ASSERT_EQUAL_(view->size(), pts.size());
+#endif
+}
+
 // ── 1. Basic map lifecycle ──────────────────────────────────────────────────
 void test_basic_ops()
 {
@@ -1628,6 +1643,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     std::cout << "test_basic_ops ...\n";
     test_basic_ops();
+
+    std::cout << "test_as_points_map ...\n";
+    test_as_points_map();
 
     std::cout << "test_copy_while_preparing_icp ...\n";
     test_copy_while_preparing_icp();
