@@ -310,15 +310,16 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   `trySetCreationOptions()` for what exactly.) What
   `TCreationOptions::min_neighbors_to_cache_cov` controls is what gets *into*
   the cache. A point whose neighbor search returned fewer than that many neighbors is
-  answered but not cached, so the estimate is redone on the next query, by
-  which time the map may have densified around it. The map only ever gains
+  kept only as *provisional*: reused while the k-d tree's `contentVersion()`
+  is unchanged (e.g. across the iterations of one ICP call, which is exact),
+  and redone after the next change of the map, by which time it may have
+  densified around it. The map only ever gains
   points around an existing one, so this is what keeps a thin-neighborhood
   estimate, in particular the isotropic fallback, from being frozen for the
   point's whole life. 0 (the default) means `k_correspondences_for_cov`, i.e.
   only a full neighborhood is trusted; 1 caches everything, which is the
   historical behavior; any value above `k_correspondences_for_cov` can never be
-  met, which disables the cache altogether and makes every query exact at a
-  large cost. Eviction is out of reach either way: a well-populated point keeps
+  met, so every estimate is redone after each map change, at a large cost. Eviction is out of reach either way: a well-populated point keeps
   its covariance when its neighbors are trimmed away behind the vehicle. Not for
   loop closure (a global SE(3) re-map would force a full rebuild) -- use
   `KeyframePointCloudMap` there. Caveats: point removal is lazy, so the
