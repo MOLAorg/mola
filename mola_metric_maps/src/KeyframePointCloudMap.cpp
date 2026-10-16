@@ -1126,41 +1126,19 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
   // ------------------------------------------------------------------
   // View-direction filter setup
   // ------------------------------------------------------------------
-  // "view_x/y/z" are unit vectors in the *local KF frame* of each cloud,
-  // pointing FROM the point TOWARD the sensor at acquisition time.
+  // "view_x/y/z" are unit vectors pointing FROM each point TOWARD the sensor
+  // at acquisition time.
   //
-  // The merged submap (globalPoints) and localPointsTransf are plain
-  // CSimplePointsMap objects that carry only XYZ - custom fields such as
-  // view_x/y/z are not propagated by insertAnotherMap().  We therefore
-  // read view vectors directly from the original local-frame clouds and
-  // rotate them to the global frame on the fly.
+  // - The local query cloud stores them in its own KF frame, so they are
+  //   rotated by localMapPose on the fly.
+  // - The reference submap (globalPoints) has them already in the global
+  //   frame: icp_get_prepared_as_global() merges the KFs' pointcloud_global()
+  //   (which rotates them, see updatePointsGlobal()) into a CGenericPointsMap
+  //   if the first contributing cloud carries them (the submap type is chosen
+  //   from it).
   //
-  // For the global reference submap we need the view vectors from each
-  // contributing KF.  Because the submap was built by sequentially
-  // appending KF point clouds (see icp_get_prepared_as_global), the
-  // global point index `nn_global_idx` maps directly into that merged
-  // buffer - but we cannot recover which KF it came from without extra
-  // bookkeeping.  As a pragmatic solution we instead use the view
-  // vectors stored in the *reference keyframe's global pointcloud*.
-  //
-  // The reference submap is cached_.icp_search_submap, which is itself
-  // a KeyFrame object.  Its `pointcloud()` holds the merged local cloud
-  // (without view fields) while the individual contributing KFs hold the
-  // original clouds.  Since the submap KF is a synthetic merge, the only
-  // robust approach that does not require index-bookkeeping is to obtain
-  // the global-frame view vectors from the *original* KFs stored in
-  // keyframes_.
-  //
-  // For simplicity - and because this filter is a best-effort heuristic -
-  // we only activate the filter when the *local* query cloud carries view
-  // fields AND the global reference submap's merged pointcloud also does.
-  // The merged submap won't have them unless explicitly populated, so the
-  // effective activation path today is:
-  //
-  //   local KF cloud has view_x/y/z   AND
-  //   globalPoints (the icp_search_submap pointcloud_global()) has view_x/y/z
-  //
-  // If only one side has them the filter is silently skipped.
+  // The filter only runs when both clouds carry all three fields; otherwise
+  // it is silently skipped.
   const bool try_view_filter = creationOptions.use_view_direction_filter;
 
   // Local cloud view buffers - in the *local KF frame* of the query map.
@@ -1169,9 +1147,7 @@ void KeyframePointCloudMap::nn_search_cov2cov_impl(
   const mrpt::aligned_std_vector<float>* local_view_y = nullptr;
   const mrpt::aligned_std_vector<float>* local_view_z = nullptr;
 
-  // Global (reference submap) view buffers - already in global frame if the
-  // submap pointcloud carries them (currently only if the upstream pipeline
-  // populated them via e.g. insertAnotherMap on a CGenericPointsMap).
+  // Global (reference submap) view buffers, already in the global frame.
   const mrpt::aligned_std_vector<float>* global_view_x = nullptr;
   const mrpt::aligned_std_vector<float>* global_view_y = nullptr;
   const mrpt::aligned_std_vector<float>* global_view_z = nullptr;
