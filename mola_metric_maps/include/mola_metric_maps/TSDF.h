@@ -231,6 +231,14 @@ class TSDF : public mrpt::maps::CMetricMap,
   /// MOLA->ROS2 bridge only. Not efficient.
   const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const;
 
+#if defined(MRPT_HAS_METRIC_MAP_POINTS_VIEW)
+  /// Makes the contents above reachable via mrpt::maps::asPointsMap().
+  [[nodiscard]] const mrpt::maps::CPointsMap* asPointsMapView() const override
+  {
+    return getAsSimplePointsMap();
+  }
+#endif
+
   /** @} */
 
   /** Options that configure the map's internal structure. Changing

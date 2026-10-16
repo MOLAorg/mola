@@ -264,6 +264,14 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
   /// Not efficient at all. Only for MOLA->ROS2 bridge.
   const mrpt::maps::CSimplePointsMap* getAsSimplePointsMap() const;
 
+#if defined(MRPT_HAS_METRIC_MAP_POINTS_VIEW)
+  /// Makes the contents above reachable via mrpt::maps::asPointsMap().
+  [[nodiscard]] const mrpt::maps::CPointsMap* asPointsMapView() const override
+  {
+    return getAsSimplePointsMap();
+  }
+#endif
+
   /** @} */
 
   /** @name Offline keyframe regrouping (localization-oriented map optimization)

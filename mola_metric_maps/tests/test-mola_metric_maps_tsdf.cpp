@@ -723,6 +723,9 @@ void test_zero_crossings_are_sub_voxel()
   // The points map exposed to the GUI and to the ROS bridge is the same set:
   const auto* pts = map.getAsSimplePointsMap();
   ASSERT_EQUAL_(pts->size(), n);
+#if defined(MRPT_HAS_METRIC_MAP_POINTS_VIEW)
+  ASSERT_(mrpt::maps::asPointsMap(map) == pts);
+#endif
 }
 
 void test_surface_mesh_is_watertight_around_the_plane()
