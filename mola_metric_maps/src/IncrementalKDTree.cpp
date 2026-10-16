@@ -42,6 +42,11 @@
 #define MOLA_NANOFLANN_HEADER <nanoflann.hpp>
 #endif
 
+// Point distances during searches from the per-node coordinate cache, instead
+// of three random reads into the point buffers per visited node. Same result
+// for the L2 metric used here.
+#define NANOFLANN_INCREMENTAL_INNODE_DISTANCE
+
 #define nanoflann mola_nanoflann
 #include MOLA_NANOFLANN_HEADER
 #undef nanoflann
