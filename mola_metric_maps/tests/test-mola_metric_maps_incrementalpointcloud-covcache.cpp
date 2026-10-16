@@ -22,8 +22,9 @@
  * was still thin is the one worth not keeping: the map only ever gains points
  * around an existing one, so that estimate is provisional, and the isotropic
  * fallback returned when too few neighbors were found would otherwise never be
- * upgraded. The gate leaves such a point uncached, at the price of one
- * neighbor search per query until its neighborhood fills in.
+ * upgraded. The gate keeps such an estimate only while the map is unchanged
+ * (e.g. across the iterations of one ICP call), at the price of one neighbor
+ * search per change of the map until its neighborhood fills in.
  *
  * The tests below pin the direction of that trade: raising the gate must make
  * the covariances the map hands to ICP measurably closer to what a map built
@@ -677,6 +678,55 @@ void test_option_change_drops_the_cache()
   }
 }
 
+/** A provisional (not admitted) covariance must be reused while the map is
+ *  unchanged, e.g. across the iterations of one ICP call, with exactly the
+ *  value a recomputation would give, and recomputed once the map changes.
+ */
+void test_provisional_reused_until_map_changes()
+{
+  std::cout << "[test] provisional covariances are reused until the map changes\n";
+
+  mrpt::random::CRandomGenerator rng;
+  rng.randomize(77U);
+  const auto sparse = mola_test::makeScan(rng, 3000);
+  const auto extra  = mola_test::makeScan(rng, 15000);
+
+  // A gate no neighborhood can meet: every estimate stays provisional.
+  auto m = makeMap(1000U);
+  insertCloud(*m, *sparse);
+
+  const auto probes   = pickSpreadPoints(livePointsOf(*m), 1.5 * kMaxDistForCov, 200);
+  const auto probeMap = makeProbeMap(probes);
+
+  const CovMap   first   = probeCovariances(*m, *probeMap);
+  const uint64_t nFirst  = m->covarianceComputations();
+  const CovMap   second  = probeCovariances(*m, *probeMap);
+  const uint64_t nSecond = m->covarianceComputations();
+
+  ASSERT_(!first.empty());
+  ASSERT_EQUAL_(m->cachedCovarianceCount(), 0UL);
+  ASSERTMSG_(nSecond == nFirst, "an unchanged map must not recompute provisional covariances");
+
+  const CovDiff same = compareCovariances(second, first);
+  ASSERT_EQUAL_(same.compared, first.size());
+  ASSERT_EQUAL_(same.maxFrobenius, 0.0);
+
+  // Any change of the map content invalidates them:
+  insertCloud(*m, *extra);
+  const CovDiff d = stalenessOf(*m, *probeMap);
+  ASSERTMSG_(
+      m->covarianceComputations() > nSecond, "provisional covariances survived a map change");
+  ASSERT_(d.compared > 50);
+  ASSERTMSG_(
+      d.maxFrobenius < 1e-4,
+      mrpt::format("recomputed covariances differ from a fresh map: %.3e", d.maxFrobenius));
+
+  std::cout << mrpt::format(
+      "        computations: first=%llu second=%llu after_insert=%llu maxFrobenius=%.2e\n",
+      static_cast<unsigned long long>(nFirst), static_cast<unsigned long long>(nSecond),
+      static_cast<unsigned long long>(m->covarianceComputations()), d.maxFrobenius);
+}
+
 /** With fewer than three live points there is no neighborhood to search, so
  *  nothing is computed from neighbors. The setting that keeps whatever was
  *  computed must still cache it, or it would not be the exact compatibility
@@ -1067,6 +1117,7 @@ int main(int argc, char** argv)
   {
     test_options_round_trip();
     test_degenerate_map_admission();
+    test_provisional_reused_until_map_changes();
     test_option_change_drops_the_cache();
     test_auto_threshold_resolves_to_k();
     test_densification_improves_the_cache();
