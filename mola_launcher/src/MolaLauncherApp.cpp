@@ -313,14 +313,23 @@ void MolaLauncherApp::setup(
 
       MRPT_LOG_INFO_STREAM(
           "Instantiating module `" << ds_label << "` of type `" << ds_classname << "`");
-      // Create object (needs to be registered):
-      info.impl = sectGenerator(ds_classname);
+      // Create object (needs to be registered). The class may come from a
+      // library that could not be loaded, so report those too:
+      try
+      {
+        info.impl = sectGenerator(ds_classname);
+      }
+      catch (const std::exception& e)
+      {
+        THROW_EXCEPTION_FMT("%s%s", e.what(), failed_module_libs_report().c_str());
+      }
       ASSERTMSG_(
-          info.impl, mrpt::format(
-                         "Error: object for module `%s` of type `%s` couldn't be "
-                         "constructed from the Factory. Check class type spelling, "
-                         "and whether the corresponding MOLA module is loaded.",
-                         ds_label.c_str(), ds_classname.c_str()));
+          info.impl,
+          mrpt::format(
+              "Error: object for module `%s` of type `%s` couldn't be "
+              "constructed from the Factory. Check class type spelling, "
+              "and whether the corresponding MOLA module is loaded.%s",
+              ds_label.c_str(), ds_classname.c_str(), failed_module_libs_report().c_str()));
 
       // Inherit verbosity level:
       auto verb_level = this->getMinLoggingLevel();

@@ -31,7 +31,27 @@
 /** From internal_load_lib_modules() */
 static std::map<std::string, LoadedModules> loaded_lib_handled;
 
+namespace
+{
+/** Libraries that could not be loaded: full path to the loader error. */
+std::map<std::string, std::string> failed_lib_errors;
+}  // namespace
+
 const std::map<std::string, LoadedModules>& get_loaded_modules() { return loaded_lib_handled; }
+
+std::string failed_module_libs_report()
+{
+  if (failed_lib_errors.empty())
+  {
+    return {};
+  }
+  std::string s = "\nThese module libraries could not be loaded:";
+  for (const auto& [path, err] : failed_lib_errors)
+  {
+    s += "\n - `" + path + "`: " + err;
+  }
+  return s;
+}
 
 /** Loads all libs under lib_search_paths_. \sa setup() */
 void internal_load_lib_modules(
@@ -80,11 +100,28 @@ void internal_load_lib_modules(
 #endif
       if (handle == nullptr)
       {
+        // Not fatal: the library may provide modules this system does not use
+        // (e.g. a GUI with missing system dependencies on a headless machine).
+        // If one of its modules is requested, that error lists this one.
+#if defined(__unix__)
         const char* err = dlerror();
-        if (!err) err = "(error calling dlerror())";
-        THROW_EXCEPTION(mrpt::format(
-            "Error loading module: `%s`\ndlerror(): `%s`", lib.wholePath.c_str(), err));
+        if (!err)
+        {
+          err = "(error calling dlerror())";
+        }
+#else
+        const std::string err =
+            mrpt::format("LoadLibrary() failed, error code %lu", ::GetLastError());
+#endif
+        failed_lib_errors[lib.wholePath] = err;
+        app.logStr(
+            mrpt::system::LVL_WARN, mrpt::format(
+                                        "[load modules]: Skipping `%s`, it cannot be loaded: %s",
+                                        lib.wholePath.c_str(), std::string(err).c_str()));
+        continue;
       }
+      // A dependency may have become available since a previous scan:
+      failed_lib_errors.erase(lib.wholePath);
 
       app.logStr(
           LVL_DEBUG, mrpt::format("[load modules]: Successfully loaded: `%s`", lib.name.c_str()));
