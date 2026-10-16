@@ -80,12 +80,8 @@ void internal_load_lib_modules(
     {
       if (lib.name.find("mola") == std::string::npos) continue;  // skip
 
-      // Already loaded, or already known to fail?
+      // Already loaded?
       if (loaded_lib_handled.count(lib.name) != 0) continue;  // skip
-      if (failed_lib_errors.count(lib.wholePath) != 0)
-      {
-        continue;
-      }
 
 #if defined(__unix__)
       // Check if already loaded?
@@ -114,15 +110,18 @@ void internal_load_lib_modules(
           err = "(error calling dlerror())";
         }
 #else
-        const char* err = "LoadLibrary() failed";
+        const std::string err =
+            mrpt::format("LoadLibrary() failed, error code %lu", ::GetLastError());
 #endif
         failed_lib_errors[lib.wholePath] = err;
         app.logStr(
             mrpt::system::LVL_WARN, mrpt::format(
                                         "[load modules]: Skipping `%s`, it cannot be loaded: %s",
-                                        lib.wholePath.c_str(), err));
+                                        lib.wholePath.c_str(), std::string(err).c_str()));
         continue;
       }
+      // A dependency may have become available since a previous scan:
+      failed_lib_errors.erase(lib.wholePath);
 
       app.logStr(
           LVL_DEBUG, mrpt::format("[load modules]: Successfully loaded: `%s`", lib.name.c_str()));
