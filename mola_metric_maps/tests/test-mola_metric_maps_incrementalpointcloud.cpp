@@ -447,6 +447,58 @@ void test_pairing_order_is_canonical()
 }
 
 // -------------------------------------------------------------------------
+// creationOptions.min_distance_between_points: an inserted point closer than
+// that to an existing one is dropped, the rest of the batch is kept.
+void test_min_distance_between_points()
+{
+  const auto makeObs = [](double dx)
+  {
+    auto pc = mrpt::maps::CSimplePointsMap::Create();
+    for (int ix = -10; ix <= 10; ix++)
+    {
+      for (int iy = -10; iy <= 10; iy++)
+      {
+        pc->insertPointFast(static_cast<float>(ix * 0.5 + dx), static_cast<float>(iy * 0.5), 0.f);
+      }
+    }
+    pc->mark_as_modified();
+    mrpt::obs::CObservationPointCloud obs;
+    obs.pointcloud = pc;
+    return obs;
+  };
+  const std::size_t nGrid = 21 * 21;
+
+  for (const double minDist : {0.0, 0.1})
+  {
+    mola::IncrementalPointCloud map;
+    map.creationOptions.min_distance_between_points = minDist;
+
+    map.insertObservation(makeObs(0.0));
+    ASSERT_EQUAL_(map.livePointCount(), nGrid);
+
+    // Every point within 0.05 m of an existing one:
+    map.insertObservation(makeObs(0.05));
+    ASSERT_EQUAL_(map.livePointCount(), minDist > 0 ? nGrid : 2 * nGrid);
+
+    // Every point farther than the threshold from the existing ones:
+    map.insertObservation(makeObs(0.25));
+    ASSERT_EQUAL_(map.livePointCount(), minDist > 0 ? 2 * nGrid : 3 * nGrid);
+
+    // The kept points are the right ones, and indexed:
+    float                 d  = 0;
+    uint64_t              id = 0;
+    mrpt::math::TPoint3Df nn;
+    ASSERT_(map.nn_single_search({0.25f, 0.f, 0.f}, nn, d, id));
+    ASSERT_NEAR_(d, 0.f, 1e-6f);
+    if (minDist > 0)
+    {
+      ASSERT_(map.nn_single_search({0.05f, 0.f, 0.f}, nn, d, id));
+      ASSERT_NEAR_(nn.x, 0.f, 1e-6f);
+    }
+  }
+}
+
+// -------------------------------------------------------------------------
 // Compares NN query results between two maps expected to hold the same set of
 // points (used by the k-d tree baking tests below).
 void assertSameNNResults(
@@ -1207,8 +1259,9 @@ void test_invalid_view_filter_mode_rejected()
   auto                    arch = mrpt::serialization::archiveFrom(buf);
   mola::IncrementalPointCloud::TCreationOptions().writeToStream(arch);
 
-  // The mode byte is the last field but one, the angle (a double):
-  const auto modeOffset = buf.getTotalBytesCount() - sizeof(double) - 1;
+  // The mode byte is followed by two doubles, the angle and (v5) the minimum
+  // distance between points:
+  const auto modeOffset = buf.getTotalBytesCount() - 2 * sizeof(double) - 1;
   static_cast<uint8_t*>(buf.getRawBufferData())[modeOffset] = 3;
   buf.Seek(0);
 
@@ -1269,6 +1322,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_serialization_and_copy();
     test_cov2cov();
     test_pairing_order_is_canonical();
+    test_min_distance_between_points();
     test_kdtree_bake_roundtrip_memory();
     test_kdtree_bake_roundtrip_file();
     test_kdtree_bake_then_clear_and_reinsert();

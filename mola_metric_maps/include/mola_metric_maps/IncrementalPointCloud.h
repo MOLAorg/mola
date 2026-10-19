@@ -332,6 +332,13 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
      */
     double remove_points_farther_than = .0;
 
+    /** If !=0, an inserted point closer than this distance [m] to a point
+     *  already in the map is dropped, which caps the map density where scans
+     *  overlap (in LO, almost everywhere). Points inserted in the same batch
+     *  are not compared with each other. 0 (default) keeps every point.
+     */
+    double min_distance_between_points = .0;
+
     /** Perform the k-d tree balancing rebuilds on a background thread. Bounds
      *  the mapping-thread tail latency (on a LiDAR-odometry local map this
      *  turns ~300 ms insertion spikes into a flat ~10 ms), at the cost of
@@ -607,6 +614,11 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    *  never write to the same cache entry.
    */
   void ensureCovariancesFor(const std::vector<uint32_t>& slots) const;
+
+  /** Drops the points appended from `firstAppended` on (not indexed yet) that
+   *  lie closer than `min_distance_between_points` to an indexed point.
+   */
+  void dropAppendedPointsNearExisting(std::size_t firstAppended);
 };
 
 }  // namespace mola

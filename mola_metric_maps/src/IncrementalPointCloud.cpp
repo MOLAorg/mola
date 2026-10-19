@@ -566,6 +566,43 @@ void IncrementalPointCloud::indexAppendedPointsRecycling(std::size_t firstAppend
   refreshCoordinatesWatch();
 }
 
+void IncrementalPointCloud::dropAppendedPointsNearExisting(std::size_t firstAppended)
+{
+  const std::size_t n = m_x.size();
+  if (firstAppended != indexed_up_to_ || n <= firstAppended || index_->size() == 0)
+  {
+    return;
+  }
+
+  refreshPointBuffers();
+
+  const auto minDistSqr =
+      static_cast<float>(mrpt::square(creationOptions.min_distance_between_points));
+
+  // Compacts the kept points towards the start of the appended range:
+  std::size_t kept = firstAppended;
+  for (std::size_t i = firstAppended; i < n; i++)
+  {
+    const float q[3] = {m_x[i], m_y[i], m_z[i]};
+    uint32_t    idx  = 0;
+    float       dSqr = 0;
+    if (index_->knnSearchWithinRadius(q, 1, minDistSqr, &idx, &dSqr) != 0)
+    {
+      continue;  // an existing point is close enough
+    }
+    if (kept != i)
+    {
+      relocatePoint(i, kept);
+    }
+    kept++;
+  }
+
+  if (kept != n)
+  {
+    resize(kept);
+  }
+}
+
 void IncrementalPointCloud::harvestRemovedSlots()
 {
   // A freed slot keeps the coordinates of the evicted point until some later
@@ -716,6 +753,10 @@ bool IncrementalPointCloud::internal_insertObservation(
 
   if (insertionOptions.addToExistingPointsMap)
   {
+    if (creationOptions.min_distance_between_points > 0)
+    {
+      dropAppendedPointsNearExisting(before);
+    }
     indexAppendedPointsRecycling(before);
   }
   else
@@ -1652,6 +1693,7 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
     const mrpt::config::CConfigFileBase& c, const std::string& s)
 {
   MRPT_LOAD_CONFIG_VAR(remove_points_farther_than, double, c, s);
+  MRPT_LOAD_CONFIG_VAR(min_distance_between_points, double, c, s);
   MRPT_LOAD_CONFIG_VAR(async_rebuild, bool, c, s);
   MRPT_LOAD_CONFIG_VAR(alpha_balance, float, c, s);
   MRPT_LOAD_CONFIG_VAR(alpha_deleted, float, c, s);
@@ -1673,6 +1715,7 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
   out << "\n------ [IncrementalPointCloud::TCreationOptions] ------- \n\n";
 
   LOADABLEOPTS_DUMP_VAR(remove_points_farther_than, double);
+  LOADABLEOPTS_DUMP_VAR(min_distance_between_points, double);
   LOADABLEOPTS_DUMP_VAR(async_rebuild, bool);
   LOADABLEOPTS_DUMP_VAR(alpha_balance, float);
   LOADABLEOPTS_DUMP_VAR(alpha_deleted, float);
@@ -1692,7 +1735,7 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
 void IncrementalPointCloud::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 4;
+  const int8_t version = 5;
   out << version;
   out << remove_points_farther_than << async_rebuild << alpha_balance << alpha_deleted
       << reserve_points << k_correspondences_for_cov << min_correspondences_for_cov
@@ -1702,6 +1745,7 @@ void IncrementalPointCloud::TCreationOptions::writeToStream(
   out << min_neighbors_to_cache_cov;  // v3
   out << use_view_direction_filter << static_cast<uint8_t>(view_direction_filter)
       << max_view_angle_deg;  // v4
+  out << min_distance_between_points;  // v5
 }
 
 void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1719,6 +1763,7 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
     case 2:
     case 3:
     case 4:
+    case 5:
     {
       in >> remove_points_farther_than >> async_rebuild >> alpha_balance >> alpha_deleted >>
           reserve_points >> k_correspondences_for_cov >> min_correspondences_for_cov >>
@@ -1749,6 +1794,10 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
                 "Invalid view_direction_filter value in stream: %u", static_cast<unsigned>(mode)));
         view_direction_filter = static_cast<ViewDirectionFilter>(mode);
         in >> max_view_angle_deg;
+      }
+      if (version >= 5)
+      {
+        in >> min_distance_between_points;
       }
     }
     break;
