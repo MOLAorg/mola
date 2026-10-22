@@ -10,7 +10,7 @@ command line, and the expected ``/tf`` tree.
 
 .. admonition:: Live parameter editor
 
-   The form at :ref:`§3 <mola_ros2_cookbook_form>` lets you set your own
+   The :ref:`parameter editor <mola_ros2_cookbook_form>` lets you set your own
    robot frame, topic names, bag path, and namespace; the command blocks
    below will be rewritten automatically and persisted in your browser.
 
@@ -27,7 +27,7 @@ ____________________________________________
 
 .. _mola_ros2_cookbook_axes:
 
-1. The five axes of configuration
+The five axes of configuration
 ------------------------------------
 
 A MOLA ROS 2 deployment is defined by five independent choices:
@@ -40,7 +40,7 @@ A MOLA ROS 2 deployment is defined by five independent choices:
      - Choices
      - What it affects
    * - **1. Input**
-     - Offline ``rosbag2`` (``mola-lidar-odometry-cli`` or
+     - Offline ``rosbag2`` (``mola-lo-cli-rosbag2`` or
        ``mola-lo-gui-rosbag2``) vs live **ROS 2 node**
      - Which module provides sensor data:
        :ref:`Rosbag2Dataset <doxid-classmola_1_1_rosbag2_dataset>` vs
@@ -59,7 +59,8 @@ A MOLA ROS 2 deployment is defined by five independent choices:
        **REP-105 is only compatible with the Simple estimator.**
    * - **5. Extra sensors**
      - IMU (for LIO / gravity), GNSS (logging, live geo-ref, relocalization),
-       multiple odometry sources (Smoother only)
+       attitude-only IMU (map geo-referencing), multiple odometry
+       sources (Smoother only)
      - Topics subscribed, factors added, output TFs.
 
 .. hint::
@@ -71,29 +72,33 @@ A MOLA ROS 2 deployment is defined by five independent choices:
 
 .. _mola_ros2_cookbook_decision:
 
-2. Decision flowchart
+Choosing a configuration
 -------------------------
+
+Each box names a section below.
 
 .. mermaid::
 
    flowchart TD
      Start([Where does your data come from?]) --> Q1{Live ROS 2<br/>or rosbag file?}
-     Q1 -- rosbag --> QO1{GUI or fastest<br/>offline run?}
-     Q1 -- Live --> Q2{Namespaced<br/>topics/tf?}
-     QO1 -- GUI --> QO2[§5.1 mola-lo-gui-rosbag2]
-     QO1 -- fastest --> QO3[§5.3 mola-lidar-odometry-cli]
-     Q2 -- yes --> Q3ns[§4.3 namespaced online]
-     Q2 -- no --> Q3{Need sensor fusion<br/>GNSS / multi-odom?}
-     Q3 -- no --> Q4{Wheel / external<br/>odometry available?}
-     Q3 -- yes --> Q5[§4.4 … §4.6]
-     Q4 -- yes --> Q4a[§4.1 Simple + REP-105]
-     Q4 -- no --> Q4b[§4.2 Simple, no REP-105]
+     Q1 -- rosbag --> Off[Offline rosbag2:<br/>GUI or batch CLI]
+     Q1 -- live --> Q2{Namespaced<br/>topics / tf?}
+     Q2 -- yes --> NS[Namespaced robot]
+     Q2 -- no --> Q3{Using GNSS?}
+     Q3 -- live geo-referencing --> LG[Smoother + live<br/>geo-referencing]
+     Q3 -- localize in a<br/>geo-referenced map --> RL[Smoother +<br/>relocalization]
+     Q3 -- build a map to<br/>geo-reference later --> Geo[Recording a map for<br/>later geo-referencing]
+     Q3 -- no --> Q4{External wheel / VIO<br/>odometry?}
+     Q4 -- no --> S2[Simple estimator,<br/>no external odometry]
+     Q4 -- yes, on /tf --> S1[Simple estimator<br/>+ REP-105]
+     Q4 -- yes, as topics --> SM[Smoother + external<br/>odometry fusion]
+     Off -. GNSS + AHRS .-> Geo
 
 |
 
 .. _mola_ros2_cookbook_form:
 
-3. Parameter editor
+Parameter editor
 ----------------------
 
 .. raw:: html
@@ -103,49 +108,75 @@ A MOLA ROS 2 deployment is defined by five independent choices:
      the commands below show default placeholder values.</em></p>
    </div>
 
+Each knob below has two spellings: a ``ros2 launch`` argument for the live
+node, and an environment variable read by both offline tools
+(``mola-lo-gui-rosbag2`` and ``mola-lo-cli-rosbag2``).
+
 .. list-table::
    :header-rows: 1
-   :widths: 28 22 50
+   :widths: 22 16 31 31
 
    * - Concept
-     - Typical value
-     - Where it is set
+     - Default
+     - Live: ``ros2 launch`` argument
+     - Offline: environment variable
    * - Robot base frame
      - ``base_link``
-     - ``mola_tf_base_link:=`` (online) / ``MOLA_TF_BASE_LINK`` (offline)
+     - ``mola_tf_base_link:=``
+     - ``MOLA_TF_BASE_LINK``
    * - Map frame
      - ``map``
-     - ``mola_state_estimator_reference_frame:=`` / ``MOLA_TF_MAP``
+     - ``mola_state_estimator_reference_frame:=``
+     - (no ``/tf`` is published)
    * - Odom frame (REP-105 only)
      - ``odom``
-     - ``mola_lo_reference_frame:=`` / ``MOLA_TF_ESTIMATED_ODOMETRY``
+     - ``mola_bridge_odometry_frame:=``
+     - (no ``/tf`` is published)
    * - LiDAR topic
      - ``/ouster/points``
-     - ``lidar_topic_name:=`` / ``MOLA_LIDAR_TOPIC``
+     - ``lidar_topic_name:=`` (+ ``lidar_topic_type:=LaserScan`` for 2D)
+     - ``MOLA_LIDAR_TOPIC``
    * - IMU topic
      - ``/imu``
-     - ``imu_topic_name:=`` / ``MOLA_IMU_TOPIC``
-   * - GNSS topic (NavSatFix)
+     - ``imu_topic_name:=``
+     - ``MOLA_IMU_TOPIC``
+   * - GNSS topic
      - ``/gps``
-     - ``gnss_topic_name:=`` / ``MOLA_GNSS_TOPIC``
+     - ``gnss_topic_name:=`` (``NavSatFix``),
+       ``gpsfix_topic_name:=`` (``gps_msgs/GPSFix``)
+     - ``MOLA_GNSS_TOPIC`` (either type, auto-detected)
+   * - Attitude-only IMU (AHRS), see :ref:`mola_ros2_cookbook_5_4`
+     - (off)
+     - ``attitude_imu_topic_name:=``
+     - ``MOLA_ATTITUDE_IMU_TOPIC``
    * - External odom (``/tf``)
      - (off)
-     - ``forward_ros_tf_odom_to_mola:=True`` / ``MOLA_FORWARD_ROS_TF_ODOM_TO_MOLA``
+     - ``forward_ros_tf_odom_to_mola:=True``
+     - (not available)
    * - External odom (topic)
-     - ``/wheel_odom``
-     - ``odom_topic_name:=`` / ``MOLA_ODOM_TOPIC`` (+ ``odom_sensor_label:=`` / ``MOLA_ODOM_SENSOR_LABEL``)
-   * - ``/tf`` topic in bag
-     - ``/tf``
-     - ``MOLA_TF_TOPIC`` (rosbag2 YAML ``tf_topic``)
-   * - ``/tf_static`` topic in bag
-     - ``/tf_static``
-     - ``MOLA_TF_STATIC_TOPIC`` (rosbag2 YAML ``tf_static_topic``)
+     - (off)
+     - ``odom_topic_name:=`` (+ ``odom_sensor_label:=``)
+     - ``MOLA_ODOMETRY_TOPIC`` (+ ``MOLA_ODOM_SENSOR_LABEL``,
+       ``MOLA_ODOMETRY_OBS_CLASS``)
+   * - Ignore sensor pose from ``/tf``
+     - ``false``
+     - ``ignore_lidar_pose_from_tf:=``, ``ignore_imu_pose_from_tf:=``
+     - ``MOLA_USE_FIXED_LIDAR_POSE``, ``MOLA_USE_FIXED_IMU_POSE``,
+       ``MOLA_USE_FIXED_GNSS_POSE`` (pose in ``LIDAR_POSE_X``... ``_ROLL``, etc.)
+   * - ``/tf`` and ``/tf_static`` topics
+     - ``/tf``, ``/tf_static``
+     - ``use_namespace:=True`` (see :ref:`mola_ros2_cookbook_4_3`)
+     - ``MOLA_TF_TOPIC``, ``MOLA_TF_STATIC_TOPIC``
+   * - Save a ``.simplemap``
+     - (off)
+     - ``generate_simplemap:=True``
+     - CLI: ``--output-simplemap``; GUI: ``MOLA_GENERATE_SIMPLEMAP=true``
+       (+ ``MOLA_SIMPLEMAP_OUTPUT``)
    * - LiDAR/IMU subscription QoS
      - ``best_effort`` / depth ``50``
-     - ``lidar_qos_reliability:=`` / ``MOLA_LIDAR_QOS_RELIABILITY``,
-       ``lidar_qos_depth:=`` / ``MOLA_LIDAR_QOS_DEPTH``,
-       ``imu_qos_reliability:=`` / ``MOLA_IMU_QOS_RELIABILITY``,
-       ``imu_qos_depth:=`` / ``MOLA_IMU_QOS_DEPTH``
+     - ``lidar_qos_reliability:=``, ``lidar_qos_depth:=``,
+       ``imu_qos_reliability:=``, ``imu_qos_depth:=``
+     - (not applicable)
 
 .. note::
 
@@ -162,7 +193,7 @@ A MOLA ROS 2 deployment is defined by five independent choices:
 
 .. _mola_ros2_cookbook_online:
 
-4. Live ROS 2 node
+Live ROS 2 node
 ------------------------
 
 All sections in this group use
@@ -171,8 +202,8 @@ All sections in this group use
 
 .. _mola_ros2_cookbook_4_1:
 
-4.1. Simple SE, LO or LIO, REP-105 (wheel / external odometry available)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Simple estimator + REP-105 (external odometry on /tf)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use this when the robot already publishes a high-frequency
 ``odom → base_link`` transform from wheel encoders (or any other odometry
@@ -182,7 +213,7 @@ source). MOLA-LO only corrects long-term drift by publishing ``map → odom``.
 
    flowchart LR
      subgraph ROS2[ROS 2 topics / tf]
-       lidar[/"__LIDAR_TOPIC__"/]
+       lidar[/"LiDAR topic"/]
        odomtf[/'tf: odom → base_link'/]
        mapodom[/'tf: map → odom'/]
      end
@@ -223,8 +254,8 @@ Resulting ``/tf`` tree::
    .. mermaid::
 
       flowchart LR
-        lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
-        imu[/"__IMU_TOPIC__"/] --> bridge
+        lidar[/"LiDAR topic"/] --> bridge[BridgeROS2]
+        imu[/"IMU topic"/] --> bridge
         bridge --> lo[mola::LidarOdometry]
         lo --> bridge
         lo --> se[StateEstimationSimple]
@@ -249,8 +280,8 @@ Resulting ``/tf`` tree::
 
 .. _mola_ros2_cookbook_4_2:
 
-4.2. Simple SE, no REP-105: LO or LIO, no external wheels odometry
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Simple estimator, no external odometry
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When no external odometry exists (e.g. handheld mapping, drone), MOLA-LO
 publishes ``map → base_link`` directly.
@@ -258,7 +289,7 @@ publishes ``map → base_link`` directly.
 .. mermaid::
 
    flowchart LR
-     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
+     lidar[/"LiDAR topic"/] --> bridge[BridgeROS2]
      bridge --> lo[mola::LidarOdometry]
      lo --> se[StateEstimationSimple]
      lo --> bridge
@@ -288,8 +319,8 @@ Resulting ``/tf`` tree::
    .. mermaid::
 
       flowchart LR
-        lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
-        imu[/"__IMU_TOPIC__"/] --> bridge
+        lidar[/"LiDAR topic"/] --> bridge[BridgeROS2]
+        imu[/"IMU topic"/] --> bridge
         bridge --> lo[mola::LidarOdometry]
         bridge -->|imu| se[StateEstimationSimple]
         lo --> se
@@ -332,7 +363,7 @@ Resulting ``/tf`` tree::
 
 .. _mola_ros2_cookbook_4_3:
 
-4.3. Namespaced robot (``/robot1/tf``, ``/robot1/scan``, …)
+Namespaced robot (``/robot1/tf``, ``/robot1/scan``, ...)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When your robot publishes everything under a ROS 2 namespace, the launch
@@ -342,8 +373,8 @@ file pushes the whole MOLA system into that namespace and remaps ``/tf`` /
 .. mermaid::
 
    flowchart LR
-     subgraph NS["namespace: __NS__"]
-       lidar[/"__LIDAR_TOPIC__"/]
+     subgraph NS["robot namespace"]
+       lidar[/"LiDAR topic"/]
        tfns["/tf (namespaced)/"]
        bridge[BridgeROS2]
        lo[mola::LidarOdometry]
@@ -368,14 +399,16 @@ file pushes the whole MOLA system into that namespace and remaps ``/tf`` /
    The ``lidar_topic_name`` should be given **relative** (no leading ``/``).
    It gets prefixed by the namespace automatically. The launch file remaps
    ``/tf`` ↔ ``tf`` internally so tf2 subscribes to
-   ``/__NS__/tf`` without any extra configuration.
+   ``/__NS__/tf`` without any extra configuration. If only the sensor
+   topics are namespaced but ``/tf`` is global, add
+   ``use_namespaced_tf:=False``.
 
 |
 
 .. _mola_ros2_cookbook_4_4:
 
-4.4. Smoother SE + external (wheel / VIO) odometry fusion
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Smoother + external odometry fusion (wheels, VIO)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Adds an external odometry source to the smoother. The smoother estimates
 a distinct ``T_map_to_odom`` per source and fuses their deltas with LO
@@ -383,16 +416,12 @@ a distinct ``T_map_to_odom`` per source and fuses their deltas with LO
 
 .. important::
 
-   With the Smoother, external odometry **must** be consumed via a
-   ``nav_msgs/Odometry`` topic (``odom_topic_name:=...``).
-   ``forward_ros_tf_odom_to_mola:=True`` (the /tf pathway) is only valid
-   with the Simple estimator + REP-105 (§4.1), where the bridge splits
-   its output into ``map → odom``. The Smoother instead publishes
-   ``map → base_link`` directly, so an external ``odom → base_link`` on
-   /tf would give ``base_link`` two parents and break the tf2 tree.
-   The launch file enforces this and fails fast if both
-   ``forward_ros_tf_odom_to_mola:=True`` and ``use_state_estimator:=True``
-   are set.
+   With the Smoother, external odometry must arrive as a
+   ``nav_msgs/Odometry`` topic (``odom_topic_name:=``). The Smoother
+   publishes ``map → base_link`` itself, so an external ``odom → base_link``
+   on ``/tf`` would give ``base_link`` two parents; the launch file rejects
+   ``forward_ros_tf_odom_to_mola:=True`` together with
+   ``use_state_estimator:=True``.
 
 The upstream driver publishes a ``nav_msgs/Odometry`` message on a topic.
 BridgeROS2 subscribes directly, converts each message to a 3D
@@ -403,8 +432,8 @@ BridgeROS2 subscribes directly, converts each message to a 3D
 .. mermaid::
 
    flowchart LR
-     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
-     imu[/"__IMU_TOPIC__"/] --> bridge
+     lidar[/"LiDAR topic"/] --> bridge[BridgeROS2]
+     imu[/"IMU topic"/] --> bridge
      wheel[/wheel odom topic/] --> bridge
      bridge --> lo[mola::LidarOdometry]
      bridge --> smoother[StateEstimationSmoother]
@@ -429,25 +458,7 @@ For multiple external sources (e.g. wheels + VIO), add extra
 ``subscribe`` entries to ``lidar_odometry_ros2.yaml`` with distinct
 ``output_sensor_label`` values.
 
-.. dropdown:: Why not the /tf pathway here?
-   :icon: question
-
-   ``forward_ros_tf_odom_to_mola:=True`` makes BridgeROS2 query
-   ``odom → base_link`` from /tf at its execution rate and inject a 2D
-   ``CObservationOdometry``. That pathway **relies on an external
-   publisher** (wheel driver, ``robot_state_publisher``) putting
-   ``odom → base_link`` on /tf. With the Simple estimator in REP-105
-   mode, the bridge publishes ``map → odom`` and the tree is well
-   formed: ``map → odom → base_link``.
-
-   With the Smoother, the bridge publishes ``map → base_link`` directly.
-   Adding an external ``odom → base_link`` on top means two edges
-   pointing at ``base_link`` (from ``map`` and from ``odom``), which
-   violates the tf2 tree invariant. For Smoother fusion the only
-   viable pathway is the ``/odom`` topic, whose observations do not
-   participate in /tf.
-
-.. list-table:: Odometry ingress — when to use which
+.. list-table:: Odometry ingress: when to use which
    :header-rows: 1
    :widths: 28 36 36
 
@@ -473,9 +484,9 @@ For multiple external sources (e.g. wheels + VIO), add extra
      - BridgeROS2 ``execution_rate`` (20 Hz)
      - Publisher rate
    * - Compatible with
-     - **Simple SE + REP-105 only** (§4.1). Incompatible with Smoother —
-       rejected by the launch file.
-     - Simple SE (no REP-105) and **Smoother SE** (recommended).
+     - **Simple estimator + REP-105 only**
+       (:ref:`mola_ros2_cookbook_4_1`). Rejected with the Smoother.
+     - Simple estimator (no REP-105) and **Smoother** (recommended).
 
 See the :ref:`"Fusing two Odometry sources" tutorial <mola_sta_est_index>`
 for a full worked example with fake publishers.
@@ -484,8 +495,8 @@ for a full worked example with fake publishers.
 
 .. _mola_ros2_cookbook_4_5:
 
-4.5. Smoother SE + live geo-referencing (GNSS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Smoother + live geo-referencing (GNSS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The smoother estimates the ``enu → map`` transform online from incoming
 GNSS fixes. It publishes ``enu`` and ``utm`` TFs once convergence is
@@ -494,9 +505,9 @@ reached.
 .. mermaid::
 
    flowchart LR
-     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
-     imu[/"__IMU_TOPIC__"/] --> bridge
-     gnss[/"__GNSS_TOPIC__"/] --> bridge
+     lidar[/"LiDAR topic"/] --> bridge[BridgeROS2]
+     imu[/"IMU topic"/] --> bridge
+     gnss[/"GNSS topic"/] --> bridge
      bridge --> lo[mola::LidarOdometry]
      bridge --> smoother[StateEstimationSmoother]
      lo --> smoother
@@ -520,8 +531,8 @@ reached.
 
 .. _mola_ros2_cookbook_4_6:
 
-4.6. Smoother SE + relocalization in a geo-referenced map
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Smoother + relocalization in a geo-referenced map
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Load a previously built geo-referenced ``.mm`` map. MOLA-LO stays idle
 until the smoother has converged on an initial pose from GNSS, then
@@ -530,10 +541,10 @@ switches to localization-only mapping.
 .. mermaid::
 
    flowchart LR
-     mm[(__MM_PATH__ .mm map)] --> lo
-     lidar[/"__LIDAR_TOPIC__"/] --> bridge[BridgeROS2]
-     imu[/"__IMU_TOPIC__"/] --> bridge
-     gnss[/"__GNSS_TOPIC__"/] --> bridge
+     mm[(.mm map)] --> lo
+     lidar[/"LiDAR topic"/] --> bridge[BridgeROS2]
+     imu[/"IMU topic"/] --> bridge
+     gnss[/"GNSS topic"/] --> bridge
      bridge --> lo[mola::LidarOdometry]
      bridge --> smoother[StateEstimationSmoother]
      lo --> smoother
@@ -559,195 +570,275 @@ switches to localization-only mapping.
 
 .. _mola_ros2_cookbook_offline:
 
-5. Offline rosbag2
+Offline rosbag2
 ------------------------
 
 .. _mola_ros2_cookbook_5_1:
+.. _mola_ros2_cookbook_5_2:
+.. _mola_ros2_cookbook_5_3:
 
-5.1. mola-lo-gui-rosbag2 (Simple SE, the default)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Odometry and mapping from a bag (GUI or batch CLI)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-GUI replay of a bag. All configuration is via environment variables.
+Two wrappers replay a bag, configured through the **same environment
+variables** (see the offline column of the
+:ref:`parameter table <mola_ros2_cookbook_form>`):
+
+- ``mola-lo-gui-rosbag2``: replay with the MolaViz GUI, to watch and
+  control the run.
+- ``mola-lo-cli-rosbag2``: no GUI, as fast as the CPU allows. Best for long
+  bags, batch runs and reproducible benchmarks. Extra arguments after the
+  bag path go to ``mola-lidar-odometry-cli`` (run it with ``--help`` for
+  all output options).
 
 .. mermaid::
 
    flowchart LR
-     bag[(__BAG_PATH__)] --> ds[Rosbag2Dataset]
+     bag[(rosbag2)] --> ds[Rosbag2Dataset]
      ds --> lo[mola::LidarOdometry]
-     lo --> se[StateEstimationSimple]
-     ds --> se
+     ds --> se[StateEstimationSimple / Smoother]
+     lo --> se
      se --> lo
-     lo --> gui[MolaViz GUI]
+     lo --> out[[GUI, trajectory.tum, map.simplemap]]
 
 .. tab-set::
 
-    .. tab-item:: Lidar only (LO)
+    .. tab-item:: mola-lo-gui-rosbag2 (GUI)
+        :sync: gui
 
-        .. container:: mola-tpl
+        .. tab-set::
 
-          .. code-block:: bash
+            .. tab-item:: Lidar only (LO)
+                :sync: lo
 
-              MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
-              MOLA_TF_BASE_LINK=__BASE_LINK__ \
-                mola-lo-gui-rosbag2 __BAG_PATH__
+                .. container:: mola-tpl
 
-    .. tab-item:: Lidar-Inertial (LIO)
-      :selected:
+                  .. code-block:: bash
+
+                      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+                      MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                        mola-lo-gui-rosbag2 __BAG_PATH__
+
+            .. tab-item:: Lidar-Inertial (LIO)
+                :sync: lio
+                :selected:
+
+                .. container:: mola-tpl
+
+                  .. code-block:: bash
+
+                      MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
+                      MOLA_LO_INITIAL_LOCALIZATION_METHOD=InitLocalization::PitchAndRollFromIMU \
+                      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+                      MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+                      MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                        mola-lo-gui-rosbag2 __BAG_PATH__
+
+            .. tab-item:: LIO + Smoother
+                :sync: smoother
+
+                .. container:: mola-tpl
+
+                  .. code-block:: bash
+
+                      MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
+                      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+                      MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+                      MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                      MOLA_STATE_ESTIMATOR=mola::state_estimation_smoother::StateEstimationSmoother \
+                      MOLA_STATE_ESTIMATOR_YAML="$(ros2 pkg prefix mola_state_estimation_smoother)/share/mola_state_estimation_smoother/params/state-estimation-smoother.yaml" \
+                        mola-lo-gui-rosbag2 __BAG_PATH__
+
+    .. tab-item:: mola-lo-cli-rosbag2 (batch, no GUI)
+        :sync: cli
+
+        .. tab-set::
+
+            .. tab-item:: Lidar only (LO)
+                :sync: lo
+
+                .. container:: mola-tpl
+
+                  .. code-block:: bash
+
+                      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+                      MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                        mola-lo-cli-rosbag2 __BAG_PATH__ \
+                          --output-tum-path trajectory.tum \
+                          --output-simplemap map.simplemap
+
+            .. tab-item:: Lidar-Inertial (LIO)
+                :sync: lio
+                :selected:
+
+                .. container:: mola-tpl
+
+                  .. code-block:: bash
+
+                      MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
+                      MOLA_LO_INITIAL_LOCALIZATION_METHOD=InitLocalization::PitchAndRollFromIMU \
+                      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+                      MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+                      MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                        mola-lo-cli-rosbag2 __BAG_PATH__ \
+                          --output-tum-path trajectory.tum \
+                          --output-simplemap map.simplemap
+
+            .. tab-item:: LIO + Smoother
+                :sync: smoother
+
+                .. container:: mola-tpl
+
+                  .. code-block:: bash
+
+                      MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
+                      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+                      MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+                      MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                      MOLA_STATE_ESTIMATOR=mola::state_estimation_smoother::StateEstimationSmoother \
+                      MOLA_STATE_ESTIMATOR_YAML="$(ros2 pkg prefix mola_state_estimation_smoother)/share/mola_state_estimation_smoother/params/state-estimation-smoother.yaml" \
+                        mola-lo-cli-rosbag2 __BAG_PATH__ \
+                          --output-tum-path trajectory.tum \
+                          --output-simplemap map.simplemap
+
+
+.. dropdown:: Variant: bag recorded with a ROS 2 namespace
+   :icon: alert
+
+   Rosbag2Dataset looks up topics by their literal name (there is no tf2
+   remap as in the :ref:`live node <mola_ros2_cookbook_4_3>`), so both the
+   sensor topics and the ``/tf`` topics must carry the namespace. Enter the
+   sensor topics with their prefix in the form above (e.g.
+   ``/__NS__/ouster/points``) and add the two ``/tf`` variables to any
+   command above:
+
+   .. container:: mola-tpl
+
+      .. code-block:: bash
+
+         MOLA_TF_TOPIC=/__NS__/tf \
+         MOLA_TF_STATIC_TOPIC=/__NS__/tf_static \
+         MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+         MOLA_TF_BASE_LINK=__BASE_LINK__ \
+           mola-lo-gui-rosbag2 __BAG_PATH__
+
+   ``MOLA_TF_BASE_LINK`` is a **frame id** inside the TF messages, so it is
+   **not** namespaced. Requires ``mola_input_rosbag2 >= 1.12``.
+
+.. dropdown:: Variant: calling ``mola-lidar-odometry-cli`` directly
+   :icon: code-review
+
+   ``mola-lo-cli-rosbag2`` is a thin wrapper that fills in the pipeline and
+   state estimator files. The equivalent raw call, with every input given
+   as a flag, is:
+
+   .. container:: mola-tpl
+
+      .. code-block:: bash
+
+         mola-lidar-odometry-cli \
+           -c $(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/pipelines/lidar3d-default.yaml \
+           --state-estimator-param-file $(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/state-estimator-params/state-estimation-simple.yaml \
+           --input-rosbag2 __BAG_PATH__ \
+           --lidar-sensor-label __LIDAR_TOPIC__ \
+           --base-link-frame-id __BASE_LINK__ \
+           --output-tum-path trajectory.tum
+
+|
+
+.. _mola_ros2_cookbook_5_4:
+
+Recording a map for later geo-referencing (GNSS + attitude IMU)
+--------------------------------------------------------------------
+
+To :ref:`geo-reference <geo-referencing>` a map afterwards with
+``mola-sm-georeferencing``, each ``.simplemap`` keyframe must carry the
+nearest GNSS fix and IMU reading. The IMU reading gives the azimuth
+observation, so it must hold an **absolute orientation**: the IMU built
+into most LiDARs is fine for de-skew but has none.
+
+If the robot has a separate AHRS (or a dual-antenna GNSS publishing a
+``sensor_msgs/Imu`` attitude), name it as the attitude IMU topic. Its
+readings are then the ones stored into keyframes, while the main IMU keeps
+doing de-skew and gravity alignment. Without it, keyframes store readings
+from the main IMU, which is the right choice when that IMU already reports
+an absolute orientation.
+
+.. mermaid::
+
+   flowchart LR
+     src[(rosbag2 or live topics)] -->|LiDAR| lo[mola::LidarOdometry]
+     src -->|IMU: deskew| lo
+     src -->|attitude IMU| lo
+     src -->|GNSS| lo
+     lo --> sm[[map.simplemap]]
+     sm --> geo[mola-sm-georeferencing]
+
+.. tab-set::
+
+    .. tab-item:: mola-lo-gui-rosbag2 (GUI)
+        :sync: gui
 
         .. container:: mola-tpl
 
           .. code-block:: bash
 
               MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
-              MOLA_LO_INITIAL_LOCALIZATION_METHOD=InitLocalization::PitchAndRollFromIMU \
               MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
               MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+              MOLA_GNSS_TOPIC=__GNSS_TOPIC__ \
+              MOLA_ATTITUDE_IMU_TOPIC=__ATTITUDE_IMU_TOPIC__ \
               MOLA_TF_BASE_LINK=__BASE_LINK__ \
+              MOLA_GENERATE_SIMPLEMAP=true \
+              MOLA_SIMPLEMAP_OUTPUT=map.simplemap \
                 mola-lo-gui-rosbag2 __BAG_PATH__
 
-.. dropdown:: Variant: bag recorded with a ROS 2 namespace
-   :icon: alert
+    .. tab-item:: mola-lo-cli-rosbag2 (batch, no GUI)
+        :sync: cli
 
-   When the bag was recorded from a namespaced robot, **both** the sensor
-   topics and the ``/tf`` topics are prefixed with the namespace. Unlike
-   the live ROS 2 node (§4.3), there is no tf2 remap at play here:
-   Rosbag2Dataset looks up topics by literal name, so you must set them
-   explicitly.
+        .. container:: mola-tpl
 
-   Requires ``mola_input_rosbag2 ≥ 1.12`` (exposes ``tf_topic`` /
-   ``tf_static_topic`` params). Edit the live form above so
-   ``LiDAR topic`` (and ``IMU topic`` / ``GNSS topic`` if used) already
-   carry the namespace prefix, e.g. ``/__NS__/ouster/points``:
+          .. code-block:: bash
 
-   .. container:: mola-tpl
+              MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
+              MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+              MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+              MOLA_GNSS_TOPIC=__GNSS_TOPIC__ \
+              MOLA_ATTITUDE_IMU_TOPIC=__ATTITUDE_IMU_TOPIC__ \
+              MOLA_TF_BASE_LINK=__BASE_LINK__ \
+                mola-lo-cli-rosbag2 __BAG_PATH__ \
+                  --output-simplemap map.simplemap
 
-      .. code-block:: bash
+    .. tab-item:: Live ROS 2 node
+        :sync: live
 
-         MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
-         MOLA_IMU_TOPIC=__IMU_TOPIC__ \
-         MOLA_TF_BASE_LINK=__BASE_LINK__ \
-         MOLA_TF_TOPIC=/__NS__/tf \
-         MOLA_TF_STATIC_TOPIC=/__NS__/tf_static \
-           mola-lo-gui-rosbag2 __BAG_PATH__
+        .. container:: mola-tpl
 
-   .. note::
+          .. code-block:: bash
 
-      ``MOLA_TF_BASE_LINK`` is the **frame id** inside the TF messages
-      (e.g. ``base_link``); it is **not** namespaced. Only the bag
-      *topic names* carry the namespace.
+              MOLA_SIMPLEMAP_OUTPUT=map.simplemap \
+              ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
+                lidar_topic_name:=__LIDAR_TOPIC__ \
+                imu_topic_name:=__IMU_TOPIC__ \
+                gnss_topic_name:=__GNSS_TOPIC__ \
+                attitude_imu_topic_name:=__ATTITUDE_IMU_TOPIC__ \
+                mola_tf_base_link:=__BASE_LINK__ \
+                use_imu_for_lio:=True \
+                generate_simplemap:=True
 
-|
+        The map file is written when the node shuts down.
 
-.. _mola_ros2_cookbook_5_2:
+.. note::
 
-5.2. mola-lo-gui-rosbag2 (Smoother SE)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Same as §5.1 but force the smoother and LIO-style deskew:
-
-.. container:: mola-tpl
-
-   .. code-block:: bash
-
-      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
-      MOLA_IMU_TOPIC=__IMU_TOPIC__ \
-      MOLA_TF_BASE_LINK=__BASE_LINK__ \
-      MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
-      MOLA_STATE_ESTIMATOR=mola::state_estimation_smoother::StateEstimationSmoother \
-      MOLA_STATE_ESTIMATOR_YAML="$(ros2 pkg prefix mola_state_estimation_smoother)/share/mola_state_estimation_smoother/params/state-estimation-smoother.yaml" \
-        mola-lo-gui-rosbag2 __BAG_PATH__
-
-.. dropdown:: Variant: bag recorded with a ROS 2 namespace
-   :icon: alert
-
-   Same caveat as §5.1: Rosbag2Dataset resolves topics by literal name,
-   so namespaced bags need explicit ``MOLA_TF_TOPIC`` /
-   ``MOLA_TF_STATIC_TOPIC``, and the sensor topics in the form above
-   must already carry the namespace prefix (e.g.
-   ``/__NS__/ouster/points``, ``/__NS__/imu``):
-
-   .. container:: mola-tpl
-
-      .. code-block:: bash
-
-         MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
-         MOLA_IMU_TOPIC=__IMU_TOPIC__ \
-         MOLA_TF_BASE_LINK=__BASE_LINK__ \
-         MOLA_TF_TOPIC=/__NS__/tf \
-         MOLA_TF_STATIC_TOPIC=/__NS__/tf_static \
-         MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
-         MOLA_STATE_ESTIMATOR=mola::state_estimation_smoother::StateEstimationSmoother \
-         MOLA_STATE_ESTIMATOR_YAML="$(ros2 pkg prefix mola_state_estimation_smoother)/share/mola_state_estimation_smoother/params/state-estimation-smoother.yaml" \
-           mola-lo-gui-rosbag2 __BAG_PATH__
-
-|
-
-.. _mola_ros2_cookbook_5_3:
-
-5.3. mola-lidar-odometry-cli (fastest, no GUI)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Best option for large batch runs and reproducible benchmarks.
-
-.. mermaid::
-
-   flowchart LR
-     bag[(__BAG_PATH__)] --> ds[Rosbag2Dataset]
-     ds --> lo[mola::LidarOdometry]
-     lo --> se[StateEstimationSimple / Smoother]
-     se --> trj[[trajectory.tum]]
-     se --> sm[[map.simplemap]]
-
-.. container:: mola-tpl
-
-   .. code-block:: bash
-
-      mola-lidar-odometry-cli \
-        -c $(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/pipelines/lidar3d-default.yaml \
-        --input-rosbag2 __BAG_PATH__ \
-        --lidar-sensor-label __LIDAR_TOPIC__ \
-        --base-link-frame-id __BASE_LINK__ \
-        --output-tum-path trajectory.tum \
-        --output-simplemap map.simplemap
-
-.. dropdown:: Variant: bag with a ROS 2 namespace
-   :icon: alert
-
-   .. container:: mola-tpl
-
-      .. code-block:: bash
-
-         mola-lidar-odometry-cli \
-           -c $(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/pipelines/lidar3d-default.yaml \
-           --input-rosbag2 __BAG_PATH__ \
-           --lidar-sensor-label __LIDAR_TOPIC__ \
-           --base-link-frame-id __BASE_LINK__ \
-           --tf-topic /__NS__/tf \
-           --tf-static-topic /__NS__/tf_static \
-           --output-tum-path trajectory.tum
-
-.. dropdown:: Variant: use the Smoother
-   :icon: code-review
-
-   .. container:: mola-tpl
-
-      .. code-block:: bash
-
-         mola-lidar-odometry-cli \
-           -c $(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/pipelines/lidar3d-default.yaml \
-           --state-estimator "mola::state_estimation_smoother::StateEstimationSmoother" \
-           --state-estimator-param-file $(ros2 pkg prefix mola_state_estimation_smoother)/share/mola_state_estimation_smoother/params/state-estimation-smoother.yaml \
-           --load-plugins libmola_state_estimation_smoother.so \
-           --input-rosbag2 __BAG_PATH__ \
-           --lidar-sensor-label __LIDAR_TOPIC__ \
-           --base-link-frame-id __BASE_LINK__ \
-           --output-tum-path trajectory.tum
+   The attitude IMU also reaches the state estimator. With the Smoother,
+   exclude its label ``imu_attitude`` via ``do_process_imu_labels_re``
+   unless fusing its absolute attitude is intended.
 
 |
 
 .. _mola_ros2_cookbook_fixes:
 
-6. Troubleshooting
+Troubleshooting
 ------------------------
 
 Moved to its own page: :ref:`troubleshooting`. It covers the frame and topic

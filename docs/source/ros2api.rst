@@ -224,7 +224,7 @@ for the different situations listed above:
          driver also broadcasts ``odom → base_link`` to /tf while the
          state estimator publishes ``map → base_link``, ``base_link``
          ends up with two parents and tf2 rejects the tree. See the
-         :ref:`cookbook §4.4 <mola_ros2_cookbook_4_4>`.
+         :ref:`mola_ros2_cookbook_4_4`.
 
 .. note::
 

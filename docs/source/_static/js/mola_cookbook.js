@@ -13,6 +13,7 @@
     { key: 'LIDAR_TOPIC', label: 'LiDAR topic',       def: '/ouster/points' },
     { key: 'IMU_TOPIC',   label: 'IMU topic',         def: '/imu' },
     { key: 'GNSS_TOPIC',  label: 'GNSS topic',        def: '/gps' },
+    { key: 'ATTITUDE_IMU_TOPIC', label: 'Attitude IMU topic (AHRS)', def: '/ahrs/imu' },
     { key: 'ODOM_TOPIC',  label: 'External odom topic', def: '/wheel_odom' },
     { key: 'BASE_LINK',   label: 'base_link frame',   def: 'base_link' },
     { key: 'NS',          label: 'ROS 2 namespace',   def: 'robot1' },

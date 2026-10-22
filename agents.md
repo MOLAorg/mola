@@ -688,3 +688,12 @@ own PRs are checked against the real doc set.
 other `.rst` files) just because a package moved to a different repo — the entry will
 still resolve correctly at build time as long as the new repo is cloned alongside this
 one. Add the new repo's root to `docs/source/Doxyfile` `INPUT` instead.
+
+**ROS 2 configurations page** (`docs/source/mola_ros2_configurations.rst`):
+a recipe page with a live form (`_static/js/mola_cookbook.js`) that replaces
+`__KEY__` placeholders inside `.mola-tpl` code blocks (not inside mermaid
+diagrams). Each `__KEY__` used needs an entry in the JS `FIELDS` list. Its
+parameter table mirrors the launch arguments and env vars defined in
+`mola_lidar_odometry`: keep both in sync following the "Sync rule" section
+of `mola_lidar_odometry/agents.md`. Headings are unnumbered: link sections
+with `:ref:` to their `mola_ros2_cookbook_*` anchor, never by number.
