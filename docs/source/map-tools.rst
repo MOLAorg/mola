@@ -31,6 +31,7 @@ Inspection and filtering
    app_mm-info
    app_mm-filter
    app_mm-georef
+   app_mm-merge
 
 |
 

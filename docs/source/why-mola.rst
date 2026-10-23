@@ -49,6 +49,7 @@ MOLA's ``.mm`` metric map format comes with a full set of CLI tools:
 - :ref:`mm2las <app_mm2las>`, :ref:`mm2ply <app_mm2ply>`, :ref:`mm2txt <app_mm2txt>`: Export to LAS, PLY, TXT for GIS/surveying workflows
 - :ref:`mm-filter <app_mm-filter>`: Filter and transform maps
 - :ref:`mm-georef <app_mm-georef>`: Georeference maps
+- :ref:`mm-merge <app_mm-merge>`: Merge the layers of several maps into one
 - :ref:`mm-info <app_mm-info>`: Inspect map metadata
 
 This makes MOLA maps **interoperable with industry-standard tools** like CloudCompare,
