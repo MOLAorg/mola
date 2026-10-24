@@ -42,14 +42,14 @@
 
 #include <cmath>
 
+#include "closest_matches.h"
+
 // #define USE_DEBUG_PROFILER
 
 #ifdef USE_DEBUG_PROFILER
 #include <mrpt/system/CTimeLogger.h>
 static mrpt::system::CTimeLogger profiler(true, "NDT");
 #endif
-
-constexpr size_t HARD_MAX_MATCHES = 3;
 
 using namespace mola;
 
@@ -1243,7 +1243,7 @@ bool NDT::nn_single_search(
   std::vector<mrpt::math::TPoint3Df> r;
   std::vector<float>                 dist_sqr;
   std::vector<uint64_t>              resultIndices;
-  nn_multiple_search_impl<1>(query, 1, r, dist_sqr, resultIndices);
+  nn_multiple_search_impl(query, 1, r, dist_sqr, resultIndices);
   if (r.empty())
   {
     return false;  // none found
@@ -1258,10 +1258,9 @@ void NDT::nn_multiple_search(
     const mrpt::math::TPoint3Df& query, const size_t N, std::vector<mrpt::math::TPoint3Df>& results,
     std::vector<float>& out_dists_sqr, std::vector<uint64_t>& resultIndicesOrIDs) const
 {
-  nn_multiple_search_impl<HARD_MAX_MATCHES>(query, N, results, out_dists_sqr, resultIndicesOrIDs);
+  nn_multiple_search_impl(query, N, results, out_dists_sqr, resultIndicesOrIDs);
 }
 
-template <size_t MAX_KNN>
 void NDT::nn_multiple_search_impl(
     const mrpt::math::TPoint3Df& query, const size_t N, std::vector<mrpt::math::TPoint3Df>& results,
     std::vector<float>& out_dists_sqr, std::vector<uint64_t>& resultIndicesOrIDs) const
@@ -1275,51 +1274,7 @@ void NDT::nn_multiple_search_impl(
   const global_index3d_t idxs0 = coordToGlobalIdx(query) - global_index3d_t(1, 1, 1);
   const global_index3d_t idxs1 = coordToGlobalIdx(query) + global_index3d_t(1, 1, 1);
 
-  // Data structures to avoid ANY heap memory allocation and keep working
-  // on the stack at all time:
-  struct Match
-  {
-    mrpt::math::TPoint3Df globalPt;
-    float                 sqrDist = 0;
-    uint64_t              id      = 0;
-  };
-  std::array<Match, MAX_KNN> matches;  // sorted by sqrDist!
-  size_t                     foundMatches = 0;
-
-  auto lambdaProcessCandidate =
-      [&](const float sqrDist, const mrpt::math::TPoint3Df& pt, const global_plain_index_t& id)
-  {
-    // bubble sort (yes, really!)
-    // found its position in the list:
-    size_t i = 0;
-    for (i = 0; i < foundMatches; i++)
-    {
-      if (sqrDist < matches[i].sqrDist)
-      {
-        break;
-      }
-    }
-    if (i >= MAX_KNN)
-    {
-      return;
-    }
-
-    // insert new one at [i], shift [i+1:end] one position.
-    const size_t last = std::min(foundMatches + 1, MAX_KNN);
-    for (size_t j = i + 1; j < last; j++)
-    {
-      matches[j] = matches[j - 1];
-    }
-
-    matches[i].globalPt = pt;
-    matches[i].id       = id;
-    matches[i].sqrDist  = sqrDist;
-
-    if (foundMatches < MAX_KNN)
-    {
-      foundMatches++;
-    }
-  };
+  internal::ClosestMatches matches(N);
 
   auto lambdaCheckCell = [&](const global_index3d_t& p)
   {
@@ -1332,7 +1287,7 @@ void NDT::nn_multiple_search_impl(
         float       distSqr = (pt - query).sqrNorm();
         const auto  id      = g2plain(p, i);
 
-        lambdaProcessCandidate(distSqr, pt, id);
+        matches.add(distSqr, pt, id);
       }
     }
   };
@@ -1348,14 +1303,7 @@ void NDT::nn_multiple_search_impl(
     }
   }
 
-  for (size_t i = 0; i < std::min<size_t>(N, foundMatches); i++)
-  {
-    const auto& m = matches[i];
-
-    out_dists_sqr.push_back(m.sqrDist);
-    results.push_back(m.globalPt);
-    resultIndicesOrIDs.push_back(m.id);
-  }
+  matches.appendTo(results, out_dists_sqr, resultIndicesOrIDs);
 }
 
 void NDT::nn_radius_search(
@@ -1378,51 +1326,7 @@ void NDT::nn_radius_search(
   const global_index3d_t idxs0 = coordToGlobalIdx(query - diagonal);
   const global_index3d_t idxs1 = coordToGlobalIdx(query + diagonal);
 
-  // Data structures to avoid ANY heap memory allocation and keep working
-  // on the stack at all time:
-  struct Match
-  {
-    mrpt::math::TPoint3Df globalPt;
-    float                 sqrDist = 0;
-    uint64_t              id      = 0;
-  };
-  std::array<Match, HARD_MAX_MATCHES> matches;  // sorted by sqrDist!
-  size_t                              foundMatches = 0;
-
-  auto lambdaProcessCandidate =
-      [&](const float sqrDist, const mrpt::math::TPoint3Df& pt, const global_plain_index_t& id)
-  {
-    // bubble sort (yes, really!)
-    // found its position in the list:
-    size_t i = 0;
-    for (i = 0; i < foundMatches; i++)
-    {
-      if (sqrDist < matches[i].sqrDist)
-      {
-        break;
-      }
-    }
-    if (i >= HARD_MAX_MATCHES)
-    {
-      return;
-    }
-
-    // insert new one at [i], shift [i+1:end] one position.
-    const size_t last = std::min(foundMatches + 1, HARD_MAX_MATCHES);
-    for (size_t j = i + 1; j < last; j++)
-    {
-      matches[j] = matches[j - 1];
-    }
-
-    matches[i].globalPt = pt;
-    matches[i].id       = id;
-    matches[i].sqrDist  = sqrDist;
-
-    if (foundMatches < HARD_MAX_MATCHES)
-    {
-      foundMatches++;
-    }
-  };
+  internal::ClosestMatches matches(maxPoints);
 
   auto lambdaCheckCell = [&](const global_index3d_t& p)
   {
@@ -1443,7 +1347,7 @@ void NDT::nn_radius_search(
         if (maxPoints != 0)
         {
           // temporary list:
-          lambdaProcessCandidate(distSqr, pt, id);
+          matches.add(distSqr, pt, id);
         }
         else
         {
@@ -1470,13 +1374,6 @@ void NDT::nn_radius_search(
   if (maxPoints != 0)
   {
     // we saved results in a temporary buffer, save them out now:
-    for (size_t i = 0; i < std::min<size_t>(maxPoints, foundMatches); i++)
-    {
-      const auto& m = matches[i];
-
-      out_dists_sqr.push_back(m.sqrDist);
-      results.push_back(m.globalPt);
-      resultIndicesOrIDs.push_back(m.id);
-    }
+    matches.appendTo(results, out_dists_sqr, resultIndicesOrIDs);
   }
 }
