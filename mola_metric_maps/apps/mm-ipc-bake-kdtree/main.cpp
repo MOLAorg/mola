@@ -65,6 +65,15 @@ void run_bake(const Args& args)
                   << " (when enabled, a throwaway index is built during save over the "
                      "compacted points that are written)."
                   << std::endl;
+        if (ipcMap->creationOptions.serialize_kdtree &&
+            ipcMap->creationOptions.index_type != mola::PointIndexType::KDTree)
+        {
+          std::cout << "[mm-ipc-bake-kdtree] NOTE: layer '" << layerName
+                    << "' uses the voxel-hash index (index_type), which is rebuilt in linear "
+                       "time on load and is not baked: nothing is cached for it unless its "
+                       "index_type is set to PointIndexType::KDTree."
+                    << std::endl;
+        }
       });
 
   std::cout << "[mm-ipc-bake-kdtree] Writing output map to: '" << args.output << "'..."

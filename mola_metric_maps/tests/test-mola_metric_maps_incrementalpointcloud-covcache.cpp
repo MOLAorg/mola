@@ -297,6 +297,11 @@ IncrementalPointCloud::Ptr makeMap(uint32_t threshold, bool async = false)
   m->creationOptions.max_distance_for_cov       = kMaxDistForCov;
   m->creationOptions.min_neighbors_to_cache_cov = threshold;
   m->creationOptions.async_rebuild              = async;
+  if (async)
+  {
+    // Background rebuilds only exist in the k-d tree:
+    m->creationOptions.index_type = mola::PointIndexType::KDTree;
+  }
   return m;
 }
 

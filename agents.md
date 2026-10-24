@@ -247,10 +247,14 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   colors each triangle. Tests: `tests/test-mola_metric_maps_tsdf.cpp`.
 - `KeyframePointCloudMap`
 - `IncrementalPointCloud` (new 2026): sliding-window LIO local map derived from
-  `mrpt::maps::CGenericPointsMap`, backed by **one** incremental self-balancing
-  nanoflann k-d tree (`KDTreeSingleIndexIncrementalAdaptor`, or the `…MT`
-  variant with background rebuilds) instead of rebuilding a static tree on every
-  scan. Insertion goes through the inherited `CPointsMap` entry points (the
+  `mrpt::maps::CGenericPointsMap`, backed by **one** incremental spatial index
+  instead of rebuilding a static tree on every scan, chosen by
+  `TCreationOptions::index_type` (`mola::PointIndexType`): `VoxelHash` (default,
+  `src/VoxelHashIndex.cpp`) or `KDTree`, the nanoflann incremental self-balancing
+  k-d tree (`KDTreeSingleIndexIncrementalAdaptor`, or the `…MT` variant with
+  background rebuilds). Both implement `internal::IncrementalKDTree` (the name
+  predates the voxel index) and are exact: same neighbors up to the order of
+  equidistant ones. Insertion goes through the inherited `CPointsMap` entry points (the
   index picks up appended points lazily); `creationOptions.remove_points_farther_than`
   trims a cube around the robot on each `insertObservation()`, and the slots
   freed by the index are recycled, keeping storage bounded under churn.
@@ -259,6 +263,27 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   centres like KFM's `remove_frames_farther_than`: every point inside it is kept
   in a single tree and rendered, so it needs a far tighter budget than KFM's
   equivalent -- around the sensor range, not several times it.
+  The voxel index keeps, per voxel (`index_voxel_size`, default 1 m), a
+  contiguous copy of its points and their slots; queries visit Chebyshev rings
+  of voxels around the query, prune each voxel by its box distance before any
+  hash lookup, and stop when no unvisited voxel can be closer. Exactness
+  depends on two conservative margins, don't remove them: every voxel box is
+  widened by `slack_` (bucketing divides in double) and box bounds are shrunk
+  by `PRUNE_SHRINK` before being compared with float distances. A query far
+  from the map, or a radius covering much of it, switches to scanning the
+  occupied voxels once the cells examined outnumber them, so no query is
+  O(rings^3). Points that are non-finite or more than 2^30 voxels from the
+  origin are not indexed. Removal is immediate (no tombstones), so slots are
+  freed right away and results are deterministic, with no rebuild latency to
+  hide in a thread. On KITTI-07 LO, against the k-d tree with background
+  rebuilds: 56 vs 75 ms mean per scan, local-map update max 30 vs 131 ms, 31%
+  less CPU, same accuracy. Trajectories differ only where exactly equidistant
+  neighbors are resolved in another order (both indices matched brute force on
+  5.7M queries over real KITTI maps).
+  `src/IncrementalKDTree.h` must stay free of MRPT headers (see the nanoflann
+  note below), so `Params::Type` mirrors `PointIndexType` instead of including it.
+  `async_rebuild`, `alpha_balance`, `alpha_deleted` and `serialize_kdtree` only
+  apply to the k-d tree.
   `async_rebuild` (the `…MT` index) moves the balancing rebuilds off the mapping
   thread and is what keeps insertion latency flat -- on Oxford Spires it takes
   local-map insertion from mean 28 ms / max 371 ms to mean 10 ms / max 38 ms with
@@ -322,8 +347,9 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   met, so every estimate is redone after each map change, at a large cost. Eviction is out of reach either way: a well-populated point keeps
   its covariance when its neighbors are trimmed away behind the vehicle. Not for
   loop closure (a global SE(3) re-map would force a full rebuild) -- use
-  `KeyframePointCloudMap` there. Caveats: point removal is lazy, so the
-  inherited `size()` counts live + not-yet-reclaimed slots (use
+  `KeyframePointCloudMap` there. Caveats: with the k-d tree point removal is
+  lazy, and with either index freed slots wait for reuse, so the
+  inherited `size()` counts more than the live slots (use
   `livePointCount()`, or `compact()` to drop them); `nn_*` indices are storage
   slots; 2D `nn_*` queries throw.
   The *other* k-d tree every `CPointsMap` carries, the cached static index of
@@ -357,6 +383,10 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   builds a throwaway index over that exact order rather than reusing the live
   `index_` (whose slots may not match after tombstones/recycling). CLI tool
   `mm-ipc-bake-kdtree` (in `apps/`), analogous to `mm-kf-bake-kdtrees`.
+  Baking only happens for `index_type: KDTree`; a baked blob read into a map
+  using the voxel index is skipped. Creation options before v6 carry no
+  `index_type`, so such maps load with the default, `VoxelHash`, and ignore
+  any baked k-d tree.
   **nanoflann is included by `src/IncrementalKDTree.cpp` alone, by absolute path
   (`MOLA_NANOFLANN_HEADER`, set by CMake) and with its namespace renamed**,
   because MRPT bundles its own, usually older, copy of the same header and

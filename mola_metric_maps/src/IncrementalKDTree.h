@@ -12,7 +12,8 @@
 
 /**
  * @file   IncrementalKDTree.h
- * @brief  Opaque wrapper over nanoflann's incremental (self-balancing) k-d tree
+ * @brief  Incremental spatial index of mola::IncrementalPointCloud: nanoflann's
+ *         incremental (self-balancing) k-d tree, or a hashed voxel grid
  * @author Jose Luis Blanco Claraco
  * @date   Jul 25, 2026
  */
@@ -27,9 +28,11 @@
 
 namespace mola::internal
 {
-/** Abstract facade over the nanoflann incremental k-d tree index
- *  (`KDTreeSingleIndexIncrementalAdaptor` and its multi-threaded variant),
- *  used by mola::IncrementalPointCloud.
+/** Abstract facade over the incremental spatial index used by
+ *  mola::IncrementalPointCloud. Despite the name, Create() returns either of
+ *  two implementations, see Params::type: the nanoflann incremental k-d tree
+ *  (`KDTreeSingleIndexIncrementalAdaptor` and its multi-threaded variant,
+ *  IncrementalKDTree.cpp) or a hashed voxel grid (VoxelHashIndex.cpp).
  *
  *  This header intentionally exposes no nanoflann type: the whole library is
  *  included by a single implementation file that pulls in no MRPT header.
@@ -46,14 +49,26 @@ namespace mola::internal
 class IncrementalKDTree
 {
  public:
+  /// Mirrors mola::PointIndexType, whose header cannot be included here.
+  enum class Type : uint8_t
+  {
+    KDTree = 0,
+    VoxelHash
+  };
+
   struct Params
   {
-    /// Run the balancing rebuilds on a background thread.
+    Type type = Type::KDTree;
+
+    /// k-d tree only: run the balancing rebuilds on a background thread.
     bool async_rebuild = false;
 
-    /// Weight-balance and tombstone-fraction rebuild thresholds.
+    /// k-d tree only: weight-balance and tombstone-fraction rebuild thresholds.
     float alpha_balance = 0.75f;
     float alpha_deleted = 0.5f;
+
+    /// Voxel hash only: voxel side length.
+    float voxel_size = 1.0f;
   };
 
   struct Neighbor
@@ -100,8 +115,9 @@ class IncrementalKDTree
   virtual void keepOnlyPointsInsideBox(const float minCorner[3], const float maxCorner[3]) = 0;
 
   /** Point slots that became physically free since the last call, so the
-   *  owner can recycle them. Removal is lazy (tombstones), so slots only show
-   *  up here once an actual rebuild reclaimed them.
+   *  owner can recycle them. In the k-d tree removal is lazy (tombstones), so
+   *  slots only show up here once an actual rebuild reclaimed them; in the
+   *  voxel hash, right after their removal.
    */
   [[nodiscard]] virtual std::vector<uint32_t> acquireRemovedPoints() = 0;
 
@@ -116,7 +132,8 @@ class IncrementalKDTree
 
   /** Serializes the tree topology to a binary stream, so it does not have to
    *  be rebuilt (an O(N log N) bulk build) the next time this same point set
-   *  is indexed. Requires nanoflann >= 1.11.0 (the release that added
+   *  is indexed. k-d tree only: the voxel hash, built in O(N), throws
+   *  std::logic_error from both methods. Requires nanoflann >= 1.11.0 (the release that added
    *  saveIndex()/loadIndex() to the incremental index); throws
    *  std::runtime_error on older builds. Blocks on any in-flight background
    *  rebuild first (see waitForPendingRebuilds()).
@@ -171,7 +188,7 @@ class IncrementalKDTree
       const float query[3], std::size_t k, float maxDistSqr, uint32_t* outIndices,
       float* outDistsSqr) const = 0;
 
-  /// Appends every neighbor closer than `radiusSqr` (squared distance).
+  /// Appends every neighbor closer than `radiusSqr` (squared distance), closest first.
   virtual void radiusSearch(
       const float query[3], float radiusSqr, std::vector<Neighbor>& out) const = 0;
 

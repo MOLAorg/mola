@@ -65,13 +65,16 @@ on timing. An explicit setting in your environment still takes precedence:
   reproducibility, not accuracy.
 - ``MOLA_DROP_STALE_SCANS=false``: every scan is processed, none is dropped.
 - ``MOLA_INCREMENTAL_MAP_ASYNC_REBUILD=false``: when the local map is
-  ``mola::IncrementalPointCloud``, its k-d tree is rebalanced synchronously.
-  With it on, the rebuilds run on a background thread that nearest-neighbor
-  queries never wait for, so the tree a query sees depends on the scheduler,
-  and ties between equidistant neighbors can resolve differently from one run
-  to the next. The pipelines default it to ``true``, the right choice in real
-  time. The default map class, ``mola::KeyframePointCloudMap``, is unaffected,
-  but some dataset wrappers switch to the incremental map
+  ``mola::IncrementalPointCloud`` with its k-d tree index
+  (``MOLA_INCREMENTAL_MAP_INDEX_TYPE=PointIndexType::KDTree``), the tree is
+  rebalanced synchronously. With it on, the rebuilds run on a background thread
+  that nearest-neighbor queries never wait for, so the tree a query sees
+  depends on the scheduler, and ties between equidistant neighbors can resolve
+  differently from one run to the next. The pipelines default it to ``true``,
+  the right choice in real time. The default index of that map, the voxel hash,
+  has no rebuilds at all, so it is deterministic either way and ignores this
+  option. The default map class, ``mola::KeyframePointCloudMap``, is
+  unaffected, but some dataset wrappers switch to the incremental map
   (``mola-lo-cli-kitti`` does).
 
 State these yourself for other offline entry points. The last one is also
