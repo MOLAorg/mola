@@ -28,6 +28,13 @@ mola_add_test(
 )
 
 mola_add_test(
+  TARGET  test-mola_metric_maps_voxel_indexing
+  SOURCES test-mola_metric_maps_voxel_indexing.cpp
+  LINK_LIBRARIES
+  mola_metric_maps
+)
+
+mola_add_test(
   TARGET  test-mola_metric_maps_index3d_hash
   SOURCES test-mola_metric_maps_index3d_hash.cpp
   LINK_LIBRARIES

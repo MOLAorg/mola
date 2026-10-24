@@ -35,20 +35,24 @@ class HashedSetSE3
   /** @name Indices and coordinates
    *  @{ */
 
+  /// Global index of the voxel containing a pose: along each dimension, voxel
+  /// `i` is centered at `i*size`. Rounds to the nearest index, so every voxel has
+  /// the same size (truncation toward zero made the voxel around zero twice as
+  /// large) and a value that only jitters around zero, like z, pitch and roll of
+  /// a planar robot, does not get split across a voxel boundary.
   inline global_index3d_t coordToGlobalIdx(const mrpt::math::TPose3D& p) const
   {
     return global_index3d_t(
-        static_cast<int32_t>(p.x * voxel_xyz_size_inv_),  //
-        static_cast<int32_t>(p.y * voxel_xyz_size_inv_),  //
-        static_cast<int32_t>(p.z * voxel_xyz_size_inv_),  //
-        static_cast<int32_t>(p.yaw * voxel_yaw_size_inv_),  //
-        static_cast<int32_t>(p.pitch * voxel_pitch_size_inv_),  //
-        static_cast<int32_t>(p.roll * voxel_roll_size_inv_)  //
-
+        mrpt::round(p.x * voxel_xyz_size_inv_),  //
+        mrpt::round(p.y * voxel_xyz_size_inv_),  //
+        mrpt::round(p.z * voxel_xyz_size_inv_),  //
+        mrpt::round(p.yaw * voxel_yaw_size_inv_),  //
+        mrpt::round(p.pitch * voxel_pitch_size_inv_),  //
+        mrpt::round(p.roll * voxel_roll_size_inv_)  //
     );
   }
 
-  /// returns the coordinate of the voxel "bottom" corner
+  /// returns the coordinate of the voxel center
   inline mrpt::math::TPose3D globalIdxToCoord(const global_index3d_t idx) const
   {
     return {

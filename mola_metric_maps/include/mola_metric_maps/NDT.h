@@ -33,6 +33,7 @@
 #include <tsl/robin_map.h>
 
 #include <array>
+#include <cmath>
 #include <functional>
 #include <optional>
 
@@ -87,12 +88,16 @@ class NDT : public mrpt::maps::CMetricMap,
   constexpr static std::size_t GLOBAL_ID_SUBVOXEL_BITCOUNT = 5;
   static_assert(MAX_POINTS_PER_VOXEL <= (1 << GLOBAL_ID_SUBVOXEL_BITCOUNT));
 
+  /// Global index of the voxel containing a point: voxel `i` spans
+  /// `[i*voxel_size, (i+1)*voxel_size)` along each axis. Rounds down (`floor`),
+  /// not toward zero, so the voxels on both sides of an axis plane are not
+  /// merged into one of double size.
   inline global_index3d_t coordToGlobalIdx(const mrpt::math::TPoint3Df& pt) const
   {
     return global_index3d_t(
-        static_cast<int32_t>(pt.x * voxel_size_inv_),  //
-        static_cast<int32_t>(pt.y * voxel_size_inv_),  //
-        static_cast<int32_t>(pt.z * voxel_size_inv_));
+        static_cast<int32_t>(std::floor(pt.x * voxel_size_inv_)),  //
+        static_cast<int32_t>(std::floor(pt.y * voxel_size_inv_)),  //
+        static_cast<int32_t>(std::floor(pt.z * voxel_size_inv_)));
   }
 
   /// returns the coordinate of the voxel "bottom" corner

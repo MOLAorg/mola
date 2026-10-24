@@ -140,21 +140,21 @@ void HashedVoxelPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
       likelihoodOptions.readFromStream(in);
       renderOptions.readFromStream(in);
 
-      // data:
+      // data. Each point goes to the voxel its coordinates map to, not to the
+      // stored index: maps saved while indices were rounded toward zero (instead
+      // of down) have other indices for negative coordinates.
       const auto nGrids = in.ReadAs<uint32_t>();
       for (uint32_t i = 0; i < nGrids; i++)
       {
-        global_index3d_t idx;
-        in >> idx.cx >> idx.cy >> idx.cz;
-
-        auto& grid = voxels_[idx];
+        global_index3d_t storedIdx;
+        in >> storedIdx.cx >> storedIdx.cy >> storedIdx.cz;
 
         const auto nPts = in.ReadAs<uint16_t>();
         for (size_t j = 0; j < nPts; j++)
         {
           mrpt::math::TPoint3Df pt;
           in >> pt;
-          grid.insertPoint(pt);
+          voxels_[coordToGlobalIdx(pt)].insertPoint(pt);
         }
       }
     }
