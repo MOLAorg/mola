@@ -33,6 +33,7 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <limits>
@@ -1089,11 +1090,24 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
 
   const float q[3] = {m_x[slot], m_y[slot], m_z[slot]};
 
-  std::vector<uint32_t> idxs(K);
-  std::vector<float>    dists(K);
+  // No heap allocation for the usual neighborhood sizes: this runs once per
+  // point (and per thread), so it is a hot path.
+  constexpr std::size_t           K_STACK = 64;
+  std::array<uint32_t, K_STACK>   idxsStack{};
+  std::array<float, K_STACK>      distsStack{};
+  std::vector<uint32_t>           idxsHeap;
+  std::vector<float>              distsHeap;
+  uint32_t*                       idxs  = idxsStack.data();
+  float*                          dists = distsStack.data();
+  if (K > K_STACK)
+  {
+    idxsHeap.resize(K);
+    distsHeap.resize(K);
+    idxs  = idxsHeap.data();
+    dists = distsHeap.data();
+  }
 
-  const std::size_t found =
-      index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs.data(), dists.data());
+  const std::size_t found = index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs, dists);
 
   // The map only ever gains points around an existing one, so a covariance
   // estimated from a neighborhood this thin is provisional: it is dropped once
@@ -1110,20 +1124,19 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
   // over-confident, possibly degenerate regularized one.
   if (found < minK) return;
 
-  Eigen::Matrix<double, 3, -1> neighbors(3, static_cast<Eigen::Index>(found));
-  for (std::size_t j = 0; j < found; j++)
-  {
-    const uint32_t nIdx                        = idxs[j];
-    neighbors(0, static_cast<Eigen::Index>(j)) = static_cast<double>(m_x[nIdx]);
-    neighbors(1, static_cast<Eigen::Index>(j)) = static_cast<double>(m_y[nIdx]);
-    neighbors(2, static_cast<Eigen::Index>(j)) = static_cast<double>(m_z[nIdx]);
-  }
-  neighbors.colwise() -= Eigen::Vector3d(m_x[slot], m_y[slot], m_z[slot]);
-
   // Planarity gate, off when the threshold is zero: do not assert a plane on a
   // neighborhood that is not one. See KeyframePointCloudMap for the rationale.
   if (creationOptions.max_plane_deviation_for_cov > 0)
   {
+    Eigen::Matrix<double, 3, -1> neighbors(3, static_cast<Eigen::Index>(found));
+    for (std::size_t j = 0; j < found; j++)
+    {
+      const uint32_t nIdx                        = idxs[j];
+      neighbors(0, static_cast<Eigen::Index>(j)) = static_cast<double>(m_x[nIdx]);
+      neighbors(1, static_cast<Eigen::Index>(j)) = static_cast<double>(m_y[nIdx]);
+      neighbors(2, static_cast<Eigen::Index>(j)) = static_cast<double>(m_z[nIdx]);
+    }
+    neighbors.colwise() -= Eigen::Vector3d(m_x[slot], m_y[slot], m_z[slot]);
     const Eigen::Vector3d              centroid = neighbors.rowwise().mean();
     const Eigen::Matrix<double, 3, -1> centered = neighbors.colwise() - centroid;
 
@@ -1138,7 +1151,17 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
     }
   }
 
-  const Eigen::Matrix3d cov = neighbors * neighbors.transpose() / static_cast<double>(found);
+  // Second moment of the neighbors about the query point, accumulated in a
+  // fixed-size matrix (no dynamic-size GEMM, no allocation):
+  const double    px = m_x[slot], py = m_y[slot], pz = m_z[slot];
+  Eigen::Matrix3d M  = Eigen::Matrix3d::Zero();
+  for (std::size_t j = 0; j < found; j++)
+  {
+    const uint32_t        nIdx = idxs[j];
+    const Eigen::Vector3d d(m_x[nIdx] - px, m_y[nIdx] - py, m_z[nIdx] - pz);
+    M.noalias() += d * d.transpose();
+  }
+  const Eigen::Matrix3d cov = M / static_cast<double>(found);
 
   // Plane regularization of the singular values (see DLIO'2023, or Segal's
   // GICP paper), or the eigenvalues as found when it is switched off:

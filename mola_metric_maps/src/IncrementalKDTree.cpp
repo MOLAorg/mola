@@ -62,6 +62,8 @@
 #include <ostream>
 #include <stdexcept>
 #include <type_traits>
+#include <cstdlib>
+#include <string>
 
 namespace
 {
@@ -268,8 +270,16 @@ namespace mola::internal
 {
 IncrementalKDTree::~IncrementalKDTree() = default;
 
+// EXPERIMENTAL: see VoxelHashIndex.cpp
+std::unique_ptr<IncrementalKDTree> CreateVoxelHashIndex(float voxelSize);
+
 std::unique_ptr<IncrementalKDTree> IncrementalKDTree::Create(const Params& p)
 {
+  if (const char* e = ::getenv("MOLA_IPC_INDEX"); e != nullptr && std::string(e) == "voxhash")
+  {
+    const char* vs = ::getenv("MOLA_IPC_VOXEL_SIZE");
+    return CreateVoxelHashIndex(vs != nullptr ? std::stof(vs) : 1.0f);
+  }
   if (p.async_rebuild)
   {
     return std::make_unique<IncrementalKDTreeImpl<async_index_t>>(p);

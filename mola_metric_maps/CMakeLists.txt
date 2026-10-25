@@ -106,7 +106,7 @@ list(APPEND LIB_SRCS src/IncrementalPointCloud.cpp)
 list(APPEND LIB_PUBLIC_HDRS include/mola_metric_maps/IncrementalPointCloud.h)
 
 if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
-  list(APPEND LIB_SRCS src/IncrementalKDTree.cpp)
+  list(APPEND LIB_SRCS src/IncrementalKDTree.cpp src/VoxelHashIndex.cpp)
 else()
   list(APPEND LIB_SRCS src/IncrementalKDTree_stub.cpp)
 endif()
