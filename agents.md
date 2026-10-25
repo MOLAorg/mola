@@ -385,6 +385,13 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   rounds to the *nearest* index instead (voxels centered at `i*size`), so that z, pitch
   and roll jittering around zero stay in one voxel.
 - All support MRPT serialization
+- `HashedVoxelPointCloud` and `NDT` k-NN (`nn_multiple_search`) and capped radius
+  (`nn_radius_search` with `maxPoints != 0`) searches keep their best candidates in
+  `src/closest_matches.h`: any `k`/`maxPoints` is honored (matchers such as
+  `Matcher_Points_KnnPlane` ask for more than 3), the first 32 matches stay on the stack,
+  and insertion shifts from the back. k-NN only visits the 3x3x3 voxels around the query,
+  so it is exact only when the k-th neighbor is within one voxel. Tests:
+  `tests/test-mola_metric_maps_voxel_knn.cpp`.
 - `NDT` implements `mp2p_icp::NearestPlaneCapable` twice over: `nn_search_pt2pl()`
   returns the single closest cell plane, and `nn_visit_pt2pl_candidates()` reports
   every cell plane in the same search window, for matchers that combine candidates

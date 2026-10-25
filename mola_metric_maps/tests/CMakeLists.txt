@@ -21,6 +21,13 @@ mola_add_test(
 )
 
 mola_add_test(
+  TARGET  test-mola_metric_maps_voxel_knn
+  SOURCES test-mola_metric_maps_voxel_knn.cpp
+  LINK_LIBRARIES
+  mola_metric_maps
+)
+
+mola_add_test(
   TARGET  test-mola_metric_maps_ndt
   SOURCES test-mola_metric_maps_ndt.cpp
   LINK_LIBRARIES
