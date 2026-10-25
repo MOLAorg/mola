@@ -45,6 +45,7 @@
 #include "view_direction_test.h"
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
+#include <tbb/blocked_range.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
 #endif
@@ -1421,20 +1422,28 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   // --- Pass 3: assemble the pairings --------------------------------------
   const std::size_t firstNewPairing = outPairings.size();
 
-  outPairings.reserve(outPairings.size() + matches.size());
-  for (const auto& m : matches)
+  // Each pair is independent, so they are assembled in parallel into a
+  // pre-sized buffer indexed like `matches`, then compacted in that same
+  // (canonical) order: the output does not depend on the thread count.
+  const std::size_t                            nMatches = matches.size();
+  std::vector<mp2p_icp::point_with_cov_pair_t> assembled(nMatches);
+  std::vector<uint8_t>                         keepPair(nMatches, 1);
+
+  const auto lambdaAssemble = [&](std::size_t i)
   {
+    const auto& m = matches[i];
     if (viewTest.needsCovariance())
     {
       const auto [vl, vg]       = pairViews(m.local_slot, m.global_slot);
       const Eigen::Matrix3f cov = cov_[m.global_slot].asEigen();
       if (viewTest.rejects(vl, vg, &cov, [&] { return neighborhoodIsFlat(m.global_slot); }))
       {
-        continue;
+        keepPair[i] = 0;
+        return;
       }
     }
 
-    auto& p = outPairings.emplace_back();
+    auto& p = assembled[i];
 
     p.local_idx  = m.local_slot;
     p.global_idx = m.global_slot;
@@ -1448,6 +1457,23 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     const Eigen::Matrix3f w = cov_[m.global_slot].asEigen() + covLocalGlobalFrame;
 
     p.cov_inv.asEigen() = w.inverse();
+  };
+
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+  tbb::parallel_for(
+      tbb::blocked_range<std::size_t>(0, nMatches, 256),
+      [&](const tbb::blocked_range<std::size_t>& r)
+      {
+        for (std::size_t i = r.begin(); i < r.end(); i++) lambdaAssemble(i);
+      });
+#else
+  for (std::size_t i = 0; i < nMatches; i++) lambdaAssemble(i);
+#endif
+
+  outPairings.reserve(outPairings.size() + nMatches);
+  for (std::size_t i = 0; i < nMatches; i++)
+  {
+    if (keepPair[i] != 0) outPairings.push_back(assembled[i]);
   }
 
   // Optional diagnostic; see cov_diagnostics.h. The local covariance is stored
