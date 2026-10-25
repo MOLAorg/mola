@@ -1710,6 +1710,15 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
   MRPT_LOAD_CONFIG_VAR(min_distance_between_points, double, c, s);
   index_type = c.read_enum(s, "index_type", index_type);
   MRPT_LOAD_CONFIG_VAR(index_voxel_size, float, c, s);
+  if (index_type == PointIndexType::VoxelHash)
+  {
+    if (!std::isfinite(index_voxel_size) || index_voxel_size <= 0.0f)
+    {
+      THROW_EXCEPTION_FMT(
+          "index_voxel_size must be positive and finite, got %f",
+          static_cast<double>(index_voxel_size));
+    }
+  }
   MRPT_LOAD_CONFIG_VAR(async_rebuild, bool, c, s);
   MRPT_LOAD_CONFIG_VAR(alpha_balance, float, c, s);
   MRPT_LOAD_CONFIG_VAR(alpha_deleted, float, c, s);

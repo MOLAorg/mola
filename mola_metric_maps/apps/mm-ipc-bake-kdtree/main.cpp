@@ -61,10 +61,14 @@ void run_bake(const Args& args)
       {
         ipcMap->creationOptions.serialize_kdtree = !args.disable && args.kdtree;
         std::cout << "[mm-ipc-bake-kdtree] Layer '" << layerName << "': serialize_kdtree -> "
-                  << (ipcMap->creationOptions.serialize_kdtree ? "true" : "false")
-                  << " (when enabled, a throwaway index is built during save over the "
-                     "compacted points that are written)."
-                  << std::endl;
+                  << (ipcMap->creationOptions.serialize_kdtree ? "true" : "false");
+        if (ipcMap->creationOptions.serialize_kdtree &&
+            ipcMap->creationOptions.index_type == mola::PointIndexType::KDTree)
+        {
+          std::cout << " (a throwaway index is built during save over the compacted points "
+                       "that are written)";
+        }
+        std::cout << std::endl;
         if (ipcMap->creationOptions.serialize_kdtree &&
             ipcMap->creationOptions.index_type != mola::PointIndexType::KDTree)
         {
