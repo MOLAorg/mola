@@ -139,6 +139,9 @@ All plugin modules derive from these virtual base classes:
   `MOLA_KERNEL_DATASET_UI_HAS_ENABLED`) lets a source that can run both live
   and from a recording (e.g. `mola_input_ouster`) opt out of the panel in live
   mode. Both GUI backends poll it until it turns `true`.
+  ImGui layout: fixed-size controls first (pause, rate combo, progress text),
+  then the progress slider filling the rest of the row (`SliderFloat::fixed_width < 0`),
+  so the rate combo stays visible in narrow subwindows.
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
   `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
   `requestInsertKeyframe()`, decoupled from their own local map/odometry

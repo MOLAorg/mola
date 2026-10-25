@@ -488,23 +488,6 @@ void MolaVizImGui::dataset_ui_check_new_modules()
           if (auto m = weakMod.lock()) m->datasetUI_paused(v);
         }});
 
-    row.widgets.emplace_back(mola::gui::Label{e.lbPlaybackPosition});
-
-    {
-      mola::gui::SliderFloat sf;
-      sf.label         = "";
-      sf.initial_value = static_cast<float>(modUI->datasetUI_lastQueriedTimestep());
-      sf.min_value     = 0.0f;
-      sf.max_value     = static_cast<float>(std::max<size_t>(1u, modUI->datasetUI_size()));
-      sf.format_string = "%.0f";
-      sf.live_value    = e.liveSliderPos;
-      sf.on_change     = [weakMod](float v)
-      {
-        if (auto m = weakMod.lock()) m->datasetUI_teleport(static_cast<size_t>(v));
-      };
-      row.widgets.emplace_back(std::move(sf));
-    }
-
     row.widgets.emplace_back(
         mola::gui::Label{std::make_shared<mola::gui::LiveString>("Playback rate:")});
 
@@ -520,6 +503,24 @@ void MolaVizImGui::dataset_ui_check_new_modules()
       };
       cb.fixed_width = 80;
       row.widgets.emplace_back(std::move(cb));
+    }
+
+    row.widgets.emplace_back(mola::gui::Label{e.lbPlaybackPosition});
+
+    {
+      mola::gui::SliderFloat sf;
+      sf.label         = "";
+      sf.initial_value = static_cast<float>(modUI->datasetUI_lastQueriedTimestep());
+      sf.min_value     = 0.0f;
+      sf.max_value     = static_cast<float>(std::max<size_t>(1u, modUI->datasetUI_size()));
+      sf.format_string = "%.0f";
+      sf.live_value    = e.liveSliderPos;
+      sf.fixed_width   = -1;  // fill the rest of the row
+      sf.on_change     = [weakMod](float v)
+      {
+        if (auto m = weakMod.lock()) m->datasetUI_teleport(static_cast<size_t>(v));
+      };
+      row.widgets.emplace_back(std::move(sf));
     }
 
     tab.widgets.emplace_back(std::move(row));

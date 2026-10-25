@@ -412,8 +412,8 @@ struct SliderFloat
   float                      max_value     = 1.0f;
   std::string                format_string = "%.2f";
   std::function<void(float)> on_change;
-  int                        fixed_width = 0;  ///< 0 = auto (nanogui: setFixedWidth on slider)
-  LiveFloat::Ptr             live_value;  ///< optional; ImGui backend polls each frame
+  int            fixed_width = 0;  ///< 0 = auto, <0 = fill the rest of the row (ImGui only)
+  LiveFloat::Ptr live_value;  ///< optional; ImGui backend polls each frame
 };
 
 /**

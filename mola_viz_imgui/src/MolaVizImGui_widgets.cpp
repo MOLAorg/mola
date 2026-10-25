@@ -162,6 +162,14 @@ void MolaVizImGuiCore::render_leaf_widget(const mola::gui::LeafWidget& w, const 
           const std::string key  = ctx + "##" + widget.label;
           auto              it   = vals.find(key);
           if (it == vals.end()) it = vals.emplace(key, widget.initial_value).first;
+          if (widget.fixed_width > 0)
+          {
+            ImGui::SetNextItemWidth(static_cast<float>(widget.fixed_width));
+          }
+          else if (widget.fixed_width < 0)
+          {
+            ImGui::SetNextItemWidth(-FLT_MIN);
+          }
           const bool userChanged = ImGui::SliderFloat(
               widget.label.c_str(), &it->second, widget.min_value, widget.max_value,
               widget.format_string.c_str());
