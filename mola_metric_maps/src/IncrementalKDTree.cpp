@@ -63,6 +63,8 @@
 #include <stdexcept>
 #include <type_traits>
 
+#include "VoxelHashIndex.h"
+
 namespace
 {
 /** nanoflann dataset adaptor over three externally-owned coordinate arrays. */
@@ -270,6 +272,10 @@ IncrementalKDTree::~IncrementalKDTree() = default;
 
 std::unique_ptr<IncrementalKDTree> IncrementalKDTree::Create(const Params& p)
 {
+  if (p.type == Type::VoxelHash)
+  {
+    return CreateVoxelHashIndex(p.voxel_size);
+  }
   if (p.async_rebuild)
   {
     return std::make_unique<IncrementalKDTreeImpl<async_index_t>>(p);

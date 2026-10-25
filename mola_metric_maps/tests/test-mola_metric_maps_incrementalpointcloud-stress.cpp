@@ -207,14 +207,17 @@ void checkQueryIndicesAddressTheirPoints(const mola::IncrementalPointCloud& map,
  *  @param reservePoints as in TCreationOptions; 0 exercises the storage growth
  *         path, a large value the production configuration.
  */
-void stress_odometry_like(size_t nFrames, bool asyncRebuild, uint64_t reservePoints)
+void stress_odometry_like(
+    size_t nFrames, mola::PointIndexType index, bool asyncRebuild, uint64_t reservePoints)
 {
-  std::cout << "[stress] odometry-like: frames=" << nFrames << " async=" << asyncRebuild
-            << " reserve=" << reservePoints << "\n";
+  std::cout << "[stress] odometry-like: frames=" << nFrames
+            << " index=" << (index == mola::PointIndexType::VoxelHash ? "voxel" : "kdtree")
+            << " async=" << asyncRebuild << " reserve=" << reservePoints << "\n";
 
   auto map = mola::IncrementalPointCloud::Create();
 
   map->creationOptions.remove_points_farther_than = kKeepHalfSide;
+  map->creationOptions.index_type                 = index;
   map->creationOptions.async_rebuild              = asyncRebuild;
   map->creationOptions.reserve_points             = reservePoints;
   map->compact();  // apply the structural options above
@@ -301,14 +304,16 @@ void stress_odometry_like(size_t nFrames, bool asyncRebuild, uint64_t reservePoi
 /** The documented threading contract: "a mapping thread and an ICP thread may
  *  use the map concurrently".
  */
-void stress_concurrent_mapping_and_icp(size_t nFrames)
+void stress_concurrent_mapping_and_icp(size_t nFrames, mola::PointIndexType index)
 {
-  std::cout << "[stress] concurrent mapping + ICP threads: frames=" << nFrames << "\n";
+  std::cout << "[stress] concurrent mapping + ICP threads: frames=" << nFrames
+            << " index=" << (index == mola::PointIndexType::VoxelHash ? "voxel" : "kdtree") << "\n";
 
   auto map = mola::IncrementalPointCloud::Create();
 
   map->creationOptions.remove_points_farther_than = kKeepHalfSide;
-  map->creationOptions.async_rebuild              = true;
+  map->creationOptions.index_type                 = index;
+  map->creationOptions.async_rebuild              = true;  // k-d tree only
   map->compact();
 
   std::atomic_bool           done{false};
@@ -372,14 +377,17 @@ void stress_concurrent_mapping_and_icp(size_t nFrames)
  *  practice, out-of-bounds accesses). Real datasets do carry invalid returns,
  *  and the map itself writes NaN into recycled storage slots.
  */
-void stress_nonfinite_input()
+void stress_nonfinite_input(mola::PointIndexType index)
 {
-  std::cout << "[stress] non-finite input coordinates\n";
+  std::cout << "[stress] non-finite input coordinates, "
+            << (index == mola::PointIndexType::VoxelHash ? "voxel" : "kdtree") << " index\n";
 
   const float nan = std::numeric_limits<float>::quiet_NaN();
   const float inf = std::numeric_limits<float>::infinity();
 
   mola::IncrementalPointCloud map;
+  map.creationOptions.index_type = index;
+  map.compact();
 
   // Enough points for the tree to actually be built and rebuilt:
   for (size_t i = 0; i < 30000; i++)
@@ -430,8 +438,11 @@ void stress_generic_pointsmap_kdtree()
 {
   std::cout << "[stress] generic CPointsMap k-d tree over a map with recycled slots\n";
 
+  // The holes come from not-yet-reclaimed tombstones, hence the k-d tree: the
+  // voxel index frees slots right away, and the next scan refills them all.
   mola::IncrementalPointCloud map;
   map.creationOptions.remove_points_farther_than = kKeepHalfSide;
+  map.creationOptions.index_type                 = mola::PointIndexType::KDTree;
   map.creationOptions.async_rebuild              = true;
   map.compact();
 
@@ -518,6 +529,7 @@ void stress_teardown_during_background_rebuild(size_t rounds)
   for (size_t r = 0; r < rounds; r++)
   {
     auto map                           = mola::IncrementalPointCloud::Create();
+    map->creationOptions.index_type    = mola::PointIndexType::KDTree;  // has the worker
     map->creationOptions.async_rebuild = true;
     map->compact();
 
@@ -555,15 +567,20 @@ int main(int argc, char** argv)
 
     rng.randomize(seed);
 
-    stress_nonfinite_input();
+    stress_nonfinite_input(mola::PointIndexType::VoxelHash);
+    stress_nonfinite_input(mola::PointIndexType::KDTree);
     stress_generic_pointsmap_kdtree();
     stress_teardown_during_background_rebuild(30);
 
-    stress_odometry_like(nFrames, true /*async rebuilds*/, 0 /*no pre-reserve*/);
-    stress_odometry_like(nFrames, true /*async rebuilds*/, 2000000 /*as in the LO pipelines*/);
-    stress_odometry_like(nFrames, false /*synchronous rebuilds*/, 0);
+    using mola::PointIndexType;
+    stress_odometry_like(nFrames, PointIndexType::VoxelHash, false, 0 /*no pre-reserve*/);
+    stress_odometry_like(nFrames, PointIndexType::VoxelHash, false, 2000000 /*as in LO*/);
+    stress_odometry_like(nFrames, PointIndexType::KDTree, true /*async rebuilds*/, 0);
+    stress_odometry_like(nFrames, PointIndexType::KDTree, true /*async rebuilds*/, 2000000);
+    stress_odometry_like(nFrames, PointIndexType::KDTree, false /*synchronous rebuilds*/, 0);
 
-    stress_concurrent_mapping_and_icp(nFrames);
+    stress_concurrent_mapping_and_icp(nFrames, PointIndexType::VoxelHash);
+    stress_concurrent_mapping_and_icp(nFrames, PointIndexType::KDTree);
 
     std::cout << "All tests passed.\n";
     return 0;

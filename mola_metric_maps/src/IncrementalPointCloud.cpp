@@ -176,7 +176,7 @@ mrpt::maps::CMetricMap::Ptr IncrementalPointCloud::internal_CreateFromMapDefinit
   obj->likelihoodOptions = def->likelihoodOpts;
   obj->renderOptions     = def->renderOpts;
 
-  // Apply the (possibly changed) k-d tree parameters:
+  // Apply the (possibly changed) index parameters:
   obj->resetIndex();
 
   return obj;
@@ -256,6 +256,10 @@ IncrementalPointCloud& IncrementalPointCloud::operator=(const IncrementalPointCl
 void IncrementalPointCloud::createEmptyIndex()
 {
   internal::IncrementalKDTree::Params p;
+  p.type          = creationOptions.index_type == PointIndexType::VoxelHash
+                        ? internal::IncrementalKDTree::Type::VoxelHash
+                        : internal::IncrementalKDTree::Type::KDTree;
+  p.voxel_size    = creationOptions.index_voxel_size;
   p.async_rebuild = creationOptions.async_rebuild;
   p.alpha_balance = creationOptions.alpha_balance;
   p.alpha_deleted = creationOptions.alpha_deleted;
@@ -1530,12 +1534,15 @@ void IncrementalPointCloud::serializeTo(mrpt::serialization::CArchive& out) cons
   uint8_t     hasKdTree = 0;
   std::string kdBlob;
 #if defined(MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE)
-  if (creationOptions.serialize_kdtree)
+  // Only a k-d tree has a topology worth caching: the voxel index of a map
+  // using it is rebuilt in linear time on load.
+  if (creationOptions.serialize_kdtree && creationOptions.index_type == PointIndexType::KDTree)
   {
     // A throwaway index bound to `compacted`'s own buffers: `index_` (the
     // live one) was built over the possibly-uncompacted storage, whose slot
     // numbers do not match the renumbered order just serialized.
     internal::IncrementalKDTree::Params p;
+    p.type          = internal::IncrementalKDTree::Type::KDTree;
     p.async_rebuild = false;  // baking is synchronous, one-shot offline work
     p.alpha_balance = creationOptions.alpha_balance;
     p.alpha_deleted = creationOptions.alpha_deleted;
@@ -1609,19 +1616,24 @@ void IncrementalPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
           // Points were just installed above (in the very same, compacted
           // order the blob was baked over): build an empty index over them
           // and install the baked topology instead of bulk-rebuilding it.
-          try
+          // A map using the voxel index (e.g. one written before that option
+          // existed, which now defaults to it) has no use for it.
+          if (creationOptions.index_type == PointIndexType::KDTree)
           {
-            createEmptyIndex();
-            std::istringstream ss(kdBlob, std::ios::binary);
-            index_->loadIndex(ss);
-            indexed_up_to_   = m_x.size();
-            loadedBakedIndex = true;
-          }
-          catch (const std::exception&)
-          {
-            // A corrupt or incompatible blob must not lose the map: the points
-            // are already installed, so fall back to a normal bulk rebuild
-            // below (loadedBakedIndex stays false).
+            try
+            {
+              createEmptyIndex();
+              std::istringstream ss(kdBlob, std::ios::binary);
+              index_->loadIndex(ss);
+              indexed_up_to_   = m_x.size();
+              loadedBakedIndex = true;
+            }
+            catch (const std::exception&)
+            {
+              // A corrupt or incompatible blob must not lose the map: the
+              // points are already installed, so fall back to a normal bulk
+              // rebuild below (loadedBakedIndex stays false).
+            }
           }
 #endif
         }
@@ -1660,7 +1672,9 @@ bool IncrementalPointCloud::trySetCreationOptions(
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
 
-  const bool treeParamsChanged = newOpts.async_rebuild != creationOptions.async_rebuild ||
+  const bool treeParamsChanged = newOpts.index_type != creationOptions.index_type ||
+                                 newOpts.index_voxel_size != creationOptions.index_voxel_size ||
+                                 newOpts.async_rebuild != creationOptions.async_rebuild ||
                                  newOpts.alpha_balance != creationOptions.alpha_balance ||
                                  newOpts.alpha_deleted != creationOptions.alpha_deleted ||
                                  newOpts.reserve_points != creationOptions.reserve_points;
@@ -1694,6 +1708,17 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
 {
   MRPT_LOAD_CONFIG_VAR(remove_points_farther_than, double, c, s);
   MRPT_LOAD_CONFIG_VAR(min_distance_between_points, double, c, s);
+  index_type = c.read_enum(s, "index_type", index_type);
+  MRPT_LOAD_CONFIG_VAR(index_voxel_size, float, c, s);
+  if (index_type == PointIndexType::VoxelHash)
+  {
+    if (!std::isfinite(index_voxel_size) || index_voxel_size <= 0.0f)
+    {
+      THROW_EXCEPTION_FMT(
+          "index_voxel_size must be positive and finite, got %f",
+          static_cast<double>(index_voxel_size));
+    }
+  }
   MRPT_LOAD_CONFIG_VAR(async_rebuild, bool, c, s);
   MRPT_LOAD_CONFIG_VAR(alpha_balance, float, c, s);
   MRPT_LOAD_CONFIG_VAR(alpha_deleted, float, c, s);
@@ -1716,6 +1741,8 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
 
   LOADABLEOPTS_DUMP_VAR(remove_points_farther_than, double);
   LOADABLEOPTS_DUMP_VAR(min_distance_between_points, double);
+  LOADABLEOPTS_DUMP_VAR(index_type, int);
+  LOADABLEOPTS_DUMP_VAR(index_voxel_size, float);
   LOADABLEOPTS_DUMP_VAR(async_rebuild, bool);
   LOADABLEOPTS_DUMP_VAR(alpha_balance, float);
   LOADABLEOPTS_DUMP_VAR(alpha_deleted, float);
@@ -1735,7 +1762,7 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
 void IncrementalPointCloud::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 5;
+  const int8_t version = 6;
   out << version;
   out << remove_points_farther_than << async_rebuild << alpha_balance << alpha_deleted
       << reserve_points << k_correspondences_for_cov << min_correspondences_for_cov
@@ -1746,6 +1773,7 @@ void IncrementalPointCloud::TCreationOptions::writeToStream(
   out << use_view_direction_filter << static_cast<uint8_t>(view_direction_filter)
       << max_view_angle_deg;  // v4
   out << min_distance_between_points;  // v5
+  out << static_cast<uint8_t>(index_type) << index_voxel_size;  // v6
 }
 
 void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1764,6 +1792,7 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
     case 3:
     case 4:
     case 5:
+    case 6:
     {
       in >> remove_points_farther_than >> async_rebuild >> alpha_balance >> alpha_deleted >>
           reserve_points >> k_correspondences_for_cov >> min_correspondences_for_cov >>
@@ -1798,6 +1827,18 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
       if (version >= 5)
       {
         in >> min_distance_between_points;
+      }
+      // Before v6 the index was always a k-d tree. Such maps now get the
+      // default, the voxel index: same neighbors, faster, and nothing in the
+      // stream depends on the index type (a baked k-d tree is skipped).
+      if (version >= 6)
+      {
+        const auto type = in.ReadAs<uint8_t>();
+        ASSERTMSG_(
+            type <= static_cast<uint8_t>(PointIndexType::VoxelHash),
+            mrpt::format("Invalid index_type value in stream: %u", static_cast<unsigned>(type)));
+        index_type = static_cast<PointIndexType>(type);
+        in >> index_voxel_size;
       }
     }
     break;

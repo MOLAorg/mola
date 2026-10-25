@@ -35,11 +35,12 @@ if(TBB_FOUND)
   option(MOLA_METRIC_MAPS_USE_TBB "If found TBB, this option controls whether to use it or not" ON)
 endif()
 
-# mola::IncrementalPointCloud needs nanoflann's incremental (self-balancing)
-# k-d tree index, added in nanoflann 1.10.0. On ROS distributions shipping an
-# older nanoflann the build still succeeds: the class is compiled and registered
-# as usual, but its k-d tree factory is replaced by a stub that throws an
-# explanatory error if anything actually tries to instantiate the map.
+# mola::IncrementalPointCloud's k-d tree index needs nanoflann's incremental
+# (self-balancing) k-d tree, added in nanoflann 1.10.0. On ROS distributions
+# shipping an older nanoflann the build still succeeds: the class is compiled and
+# registered as usual, and the voxel hash index (the default) keeps working, but
+# the k-d tree factory is replaced by a stub that throws an explanatory error if
+# anything actually tries to instantiate a map with `index_type: KDTree`.
 find_package(nanoflann QUIET)
 if(nanoflann_FOUND AND nanoflann_VERSION VERSION_GREATER_EQUAL 1.10)
   set(MOLA_HAS_INCREMENTAL_POINT_CLOUD ON)
@@ -52,9 +53,10 @@ else()
     set(MOLA_NANOFLANN_FOUND_VERSION "not found")
   endif()
   message(WARNING
-    "mola_metric_maps: nanoflann >=1.10 is required by mola::IncrementalPointCloud, "
-    "but the available version is '${MOLA_NANOFLANN_FOUND_VERSION}'. The class will be "
-    "built as a stub that throws at runtime; everything else is unaffected.")
+    "mola_metric_maps: nanoflann >=1.10 is required by the k-d tree index of mola::IncrementalPointCloud, "
+    "but the available version is '${MOLA_NANOFLANN_FOUND_VERSION}'. The k-d tree index "
+    "will be built as a stub that throws at runtime (the voxel hash index and "
+    "everything else are unaffected).")
 endif()
 
 # mola::IncrementalPointCloud's k-d tree *baking* (TCreationOptions::serialize_kdtree,
@@ -100,10 +102,14 @@ set(LIB_PUBLIC_HDRS
   include/mola_metric_maps/ViewDirectionFilter.h
 )
 
-# The map class is always built; only the k-d tree backend is conditional (see
-# the nanoflann version check above).
-list(APPEND LIB_SRCS src/IncrementalPointCloud.cpp)
-list(APPEND LIB_PUBLIC_HDRS include/mola_metric_maps/IncrementalPointCloud.h)
+# The map class and its voxel hash index are always built (the latter does not
+# need nanoflann); only the k-d tree backend is conditional (see the nanoflann
+# version check above).
+list(APPEND LIB_SRCS src/IncrementalPointCloud.cpp src/VoxelHashIndex.cpp)
+list(APPEND LIB_PUBLIC_HDRS
+  include/mola_metric_maps/IncrementalPointCloud.h
+  include/mola_metric_maps/PointIndexType.h
+)
 
 if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
   list(APPEND LIB_SRCS src/IncrementalKDTree.cpp)
