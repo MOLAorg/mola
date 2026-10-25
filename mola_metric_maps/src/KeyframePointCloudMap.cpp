@@ -3025,8 +3025,12 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
   for (size_t i = 0; i < point_count; i++)
 #endif
       {
-        std::vector<size_t> k_indices;
-        std::vector<float>  k_sq_distances;
+        // Per-thread buffers, reused across points and calls: this runs for
+        // every point of every new keyframe, and allocating them per point
+        // made up nearly all the heap allocations of a LO run.
+        thread_local std::vector<size_t> k_indices;
+        thread_local std::vector<float>  k_sq_distances;
+        thread_local std::vector<double> neighbors_buf;
 
 #if defined(MOLA_MM_HAS_RKNN_SEARCH)
         pointcloud_->kdTreeNClosestPoint3DIdx(
@@ -3066,7 +3070,9 @@ void KeyframePointCloudMap::KeyFrame::computeCovariancesAndDensity() const
         sum_k_sq_distances[i] =
             std::accumulate(k_sq_distances.begin() + 1, k_sq_distances.end(), 0.0f) / normalization;
 
-        Eigen::Matrix<double, 3, -1> neighbors(3, k_indices.size());
+        neighbors_buf.resize(3 * k_indices.size());
+        Eigen::Map<Eigen::Matrix<double, 3, -1>> neighbors(
+            neighbors_buf.data(), 3, static_cast<Eigen::Index>(k_indices.size()));
         for (size_t j = 0; j < k_indices.size(); j++)
         {
           neighbors(0, static_cast<Eigen::Index>(j)) = static_cast<double>(xs[k_indices[j]]);

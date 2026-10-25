@@ -1093,8 +1093,13 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
 
   const float q[3] = {m_x[slot], m_y[slot], m_z[slot]};
 
-  std::vector<uint32_t> idxs(K);
-  std::vector<float>    dists(K);
+  // Per-thread buffers, reused across points and calls, instead of three heap
+  // allocations per point:
+  thread_local std::vector<uint32_t> idxs;
+  thread_local std::vector<float>    dists;
+  thread_local std::vector<double>   neighbors_buf;
+  idxs.resize(K);
+  dists.resize(K);
 
   const std::size_t found =
       index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs.data(), dists.data());
@@ -1114,7 +1119,9 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
   // over-confident, possibly degenerate regularized one.
   if (found < minK) return;
 
-  Eigen::Matrix<double, 3, -1> neighbors(3, static_cast<Eigen::Index>(found));
+  neighbors_buf.resize(3 * found);
+  Eigen::Map<Eigen::Matrix<double, 3, -1>> neighbors(
+      neighbors_buf.data(), 3, static_cast<Eigen::Index>(found));
   for (std::size_t j = 0; j < found; j++)
   {
     const uint32_t nIdx                        = idxs[j];
