@@ -31,6 +31,7 @@
 #include <mrpt/math/TPoint3D.h>
 
 #include <array>
+#include <cmath>
 #include <functional>
 #include <map>
 #include <optional>
@@ -84,15 +85,19 @@ class SparseTreesPointCloud : public mrpt::maps::CMetricMap,
   /** @name Indices and coordinates
    *  @{ */
 
+  /// Outer index of the grid containing a point: grid `i` is centered at
+  /// `i*grid_size`, spanning `[(i-1/2)*grid_size, (i+1/2)*grid_size)` along each
+  /// axis. Rounds down (`floor`), not toward zero, so the grid straddling an
+  /// axis plane is not one of double size.
   inline outer_index3d_t coordToOuterIdx(const mrpt::math::TPoint3Df& pt) const
   {
     return outer_index3d_t(
-        static_cast<int32_t>((pt.x + grid_size_half_) * grid_size_inv_),  //
-        static_cast<int32_t>((pt.y + grid_size_half_) * grid_size_inv_),  //
-        static_cast<int32_t>((pt.z + grid_size_half_) * grid_size_inv_));
+        static_cast<int32_t>(std::floor((pt.x + grid_size_half_) * grid_size_inv_)),  //
+        static_cast<int32_t>(std::floor((pt.y + grid_size_half_) * grid_size_inv_)),  //
+        static_cast<int32_t>(std::floor((pt.z + grid_size_half_) * grid_size_inv_)));
   }
 
-  /// returns the coordinate of the voxel center
+  /// returns the coordinate of the grid "bottom" (minimum) corner
   inline mrpt::math::TPoint3Df outerIdxToCoord(const outer_index3d_t idx) const
   {
     return {

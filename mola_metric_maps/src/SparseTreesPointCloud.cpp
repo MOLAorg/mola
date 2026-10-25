@@ -135,15 +135,23 @@ void SparseTreesPointCloud::serializeFrom(mrpt::serialization::CArchive& in, uin
       likelihoodOptions.readFromStream(in);
       renderOptions.readFromStream(in);
 
-      // data:
+      // data. Each point goes to the grid its coordinates map to, not to the
+      // stored index: maps saved while indices were rounded toward zero (instead
+      // of down) have other indices for negative coordinates.
       const auto nGrids = in.ReadAs<uint32_t>();
       for (uint32_t i = 0; i < nGrids; i++)
       {
-        outer_index3d_t idx;
-        in >> idx.cx >> idx.cy >> idx.cz;
+        outer_index3d_t storedIdx;
+        in >> storedIdx.cx >> storedIdx.cy >> storedIdx.cz;
 
-        auto& grid = grids_[idx];
-        in >> grid.points();
+        mrpt::maps::CSimplePointsMap pts;
+        in >> pts;
+        for (size_t j = 0; j < pts.size(); j++)
+        {
+          mrpt::math::TPoint3Df pt;
+          pts.getPointFast(j, pt.x, pt.y, pt.z);
+          grids_[coordToOuterIdx(pt)].insertPoint(pt);
+        }
       }
     }
     break;
@@ -276,11 +284,11 @@ void SparseTreesPointCloud::getVisualizationInto(mrpt::viz::CSetOfObjects& outOb
   {
     auto lambdaForEachGrid = [this, &outObj](const outer_index3d_t& idxs, const GridData&)
     {
-      const mrpt::math::TPoint3Df gridCenter = outerIdxToCoord(idxs);
+      const mrpt::math::TPoint3Df gridCorner = outerIdxToCoord(idxs);
 
       auto glBox = mrpt::viz::CBox::Create();
       glBox->setWireframe(true);
-      const auto org = gridCenter.cast<double>();
+      const auto org = gridCorner.cast<double>();
       glBox->setBoxCorners(org, org + gridVector_);
 
       outObj.insert(glBox);

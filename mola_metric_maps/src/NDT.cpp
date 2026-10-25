@@ -145,14 +145,14 @@ void NDT::serializeFrom(mrpt::serialization::CArchive& in, uint8_t version)
       likelihoodOptions.readFromStream(in);
       renderOptions.readFromStream(in);
 
-      // data:
+      // data. Each point goes to the voxel its coordinates map to, not to the
+      // stored index: maps saved while indices were rounded toward zero (instead
+      // of down) have other indices for negative coordinates.
       const auto nGrids = in.ReadAs<uint32_t>();
       for (uint32_t i = 0; i < nGrids; i++)
       {
-        global_index3d_t idx;
-        in >> idx.cx >> idx.cy >> idx.cz;
-
-        auto& grid = voxels_[idx];
+        global_index3d_t storedIdx;
+        in >> storedIdx.cx >> storedIdx.cy >> storedIdx.cz;
 
         const auto            nPts = in.ReadAs<uint16_t>();
         mrpt::math::TPoint3Df sensorPose(0, 0, 0);
@@ -162,7 +162,7 @@ void NDT::serializeFrom(mrpt::serialization::CArchive& in, uint8_t version)
         {
           mrpt::math::TPoint3Df pt;
           in >> pt;
-          grid.insertPoint(pt, sensorPose);
+          voxels_[coordToGlobalIdx(pt)].insertPoint(pt, sensorPose);
         }
       }
     }

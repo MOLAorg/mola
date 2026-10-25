@@ -375,6 +375,15 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   functor reorders the iteration of every voxel map, and with it the summation
   order of anything accumulating over one. Tests:
   `tests/test-mola_metric_maps_index3d_hash.cpp`.
+- Voxel indices round **down** (`std::floor`): voxel `i` spans `[i*size, (i+1)*size)`
+  (`SparseTreesPointCloud` grids are offset by half a grid, centered at `i*grid_size`),
+  and `globalIdxToCoord()` is its minimum corner. A plain integer cast rounds toward zero
+  and makes the voxel straddling each axis plane twice as large. `serializeFrom()` puts
+  each point into the voxel its coordinates map to, not the stored index, so maps saved
+  while indices were truncated load consistently. Tests:
+  `tests/test-mola_metric_maps_voxel_indexing.cpp`. `mola_pose_list::HashedSetSE3`
+  rounds to the *nearest* index instead (voxels centered at `i*size`), so that z, pitch
+  and roll jittering around zero stay in one voxel.
 - All support MRPT serialization
 - `NDT` implements `mp2p_icp::NearestPlaneCapable` twice over: `nn_search_pt2pl()`
   returns the single closest cell plane, and `nn_visit_pt2pl_candidates()` reports
