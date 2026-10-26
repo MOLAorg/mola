@@ -292,19 +292,14 @@ Community vs. Pro
          <td class="pro-col"><span class="check-icon">&#10004;</span></td>
        </tr>
        <tr class="data-row">
-         <td>2D mapper <span class="badge-wip">in development</span></td>
+         <td>mola_mapper <span class="badge-wip">in development</span></td>
          <td class="comm-col"><span class="dash-icon">&mdash;</span></td>
          <td class="pro-col">Early access</td>
        </tr>
        <tr class="data-row">
-         <td>3D mapper <span class="badge-wip">in development</span></td>
+         <td>Visual odometry <span class="badge-wip">in development</span></td>
          <td class="comm-col"><span class="dash-icon">&mdash;</span></td>
          <td class="pro-col">Early access</td>
-       </tr>
-       <tr class="data-row">
-         <td>Visual odometry <span class="badge-road">roadmap</span></td>
-         <td class="comm-col"><span class="dash-icon">&mdash;</span></td>
-         <td class="pro-col">Early access when available</td>
        </tr>
 
        <!-- ── Support ── -->
