@@ -26,8 +26,10 @@
 #include <mrpt/obs/CObservationVelodyneScan.h>
 #include <mrpt/serialization/CArchive.h>
 
+#include <chrono>
 #include <iostream>
 #include <sstream>
+#include <thread>
 
 using namespace mola;
 
@@ -60,6 +62,7 @@ RawDataSourceBase::~RawDataSourceBase()
     MRPT_LOG_THROTTLE_INFO_STREAM(
         1.0, "Dtor called while worker_pool_export_rawlog_ still has "
                  << worker_pool_export_rawlog_.pendingTasks() << " tasks. Waiting for them...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
 }
 

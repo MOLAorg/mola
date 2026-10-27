@@ -46,6 +46,7 @@
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
+#include <tbb/task_arena.h>
 #endif
 
 using namespace mola;
@@ -1167,9 +1168,15 @@ void IncrementalPointCloud::ensureCovariancesFor(const std::vector<uint32_t>& sl
   }
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
-  tbb::parallel_for(
-      static_cast<std::size_t>(0), slots.size(),
-      [&](std::size_t i) { computeCovariance(slots[i]); });
+  // Isolated: the caller holds the (recursive) map mutex, so this thread must
+  // not steal an unrelated task that could re-enter this map while waiting.
+  tbb::this_task_arena::isolate(
+      [&]
+      {
+        tbb::parallel_for(
+            static_cast<std::size_t>(0), slots.size(),
+            [&](std::size_t i) { computeCovariance(slots[i]); });
+      });
 #else
   for (const uint32_t slot : slots)
   {
@@ -1359,9 +1366,14 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
   tbb::enumerable_thread_specific<std::vector<Match>> tls;
 
-  tbb::parallel_for(
-      static_cast<std::size_t>(0), localLive.size(),
-      [&](std::size_t i) { lambdaMatchOne(localLive[i], tls.local()); });
+  // Isolated, since the map mutex is held: see ensureCovariancesFor().
+  tbb::this_task_arena::isolate(
+      [&]
+      {
+        tbb::parallel_for(
+            static_cast<std::size_t>(0), localLive.size(),
+            [&](std::size_t i) { lambdaMatchOne(localLive[i], tls.local()); });
+      });
 
   for (auto& perThread : tls)
   {
