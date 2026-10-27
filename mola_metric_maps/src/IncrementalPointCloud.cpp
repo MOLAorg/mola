@@ -33,6 +33,7 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <limits>
@@ -44,6 +45,7 @@
 #include "view_direction_test.h"
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
+#include <tbb/blocked_range.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
 #endif
@@ -1093,11 +1095,24 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
 
   const float q[3] = {m_x[slot], m_y[slot], m_z[slot]};
 
-  std::vector<uint32_t> idxs(K);
-  std::vector<float>    dists(K);
+  // No heap allocation for the usual neighborhood sizes: this runs once per
+  // point, so it is a hot path.
+  constexpr std::size_t         K_STACK = 64;
+  std::array<uint32_t, K_STACK> idxsStack{};
+  std::array<float, K_STACK>    distsStack{};
+  std::vector<uint32_t>         idxsHeap;
+  std::vector<float>            distsHeap;
+  uint32_t*                     idxs  = idxsStack.data();
+  float*                        dists = distsStack.data();
+  if (K > K_STACK)
+  {
+    idxsHeap.resize(K);
+    distsHeap.resize(K);
+    idxs  = idxsHeap.data();
+    dists = distsHeap.data();
+  }
 
-  const std::size_t found =
-      index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs.data(), dists.data());
+  const std::size_t found = index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs, dists);
 
   // The map only ever gains points around an existing one, so a covariance
   // estimated from a neighborhood this thin is provisional: it is dropped once
@@ -1114,20 +1129,20 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
   // over-confident, possibly degenerate regularized one.
   if (found < minK) return;
 
-  Eigen::Matrix<double, 3, -1> neighbors(3, static_cast<Eigen::Index>(found));
-  for (std::size_t j = 0; j < found; j++)
-  {
-    const uint32_t nIdx                        = idxs[j];
-    neighbors(0, static_cast<Eigen::Index>(j)) = static_cast<double>(m_x[nIdx]);
-    neighbors(1, static_cast<Eigen::Index>(j)) = static_cast<double>(m_y[nIdx]);
-    neighbors(2, static_cast<Eigen::Index>(j)) = static_cast<double>(m_z[nIdx]);
-  }
-  neighbors.colwise() -= Eigen::Vector3d(m_x[slot], m_y[slot], m_z[slot]);
-
   // Planarity gate, off when the threshold is zero: do not assert a plane on a
   // neighborhood that is not one. See KeyframePointCloudMap for the rationale.
   if (creationOptions.max_plane_deviation_for_cov > 0)
   {
+    Eigen::Matrix<double, 3, -1> neighbors(3, static_cast<Eigen::Index>(found));
+    for (std::size_t j = 0; j < found; j++)
+    {
+      const uint32_t nIdx                        = idxs[j];
+      neighbors(0, static_cast<Eigen::Index>(j)) = static_cast<double>(m_x[nIdx]);
+      neighbors(1, static_cast<Eigen::Index>(j)) = static_cast<double>(m_y[nIdx]);
+      neighbors(2, static_cast<Eigen::Index>(j)) = static_cast<double>(m_z[nIdx]);
+    }
+    neighbors.colwise() -= Eigen::Vector3d(m_x[slot], m_y[slot], m_z[slot]);
+
     const Eigen::Vector3d              centroid = neighbors.rowwise().mean();
     const Eigen::Matrix<double, 3, -1> centered = neighbors.colwise() - centroid;
 
@@ -1142,7 +1157,19 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
     }
   }
 
-  const Eigen::Matrix3d cov = neighbors * neighbors.transpose() / static_cast<double>(found);
+  // Second moment of the neighbors about the query point, accumulated in a
+  // fixed-size matrix (no dynamic-size GEMM, no allocation):
+  const double    px = m_x[slot];
+  const double    py = m_y[slot];
+  const double    pz = m_z[slot];
+  Eigen::Matrix3d M  = Eigen::Matrix3d::Zero();
+  for (std::size_t j = 0; j < found; j++)
+  {
+    const uint32_t        nIdx = idxs[j];
+    const Eigen::Vector3d d(m_x[nIdx] - px, m_y[nIdx] - py, m_z[nIdx] - pz);
+    M.noalias() += d * d.transpose();
+  }
+  const Eigen::Matrix3d cov = M / static_cast<double>(found);
 
   // Plane regularization of the singular values (see DLIO'2023, or Segal's
   // GICP paper), or the eigenvalues as found when it is switched off:
@@ -1402,20 +1429,28 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   // --- Pass 3: assemble the pairings --------------------------------------
   const std::size_t firstNewPairing = outPairings.size();
 
-  outPairings.reserve(outPairings.size() + matches.size());
-  for (const auto& m : matches)
+  // Each pair is independent, so they are assembled in parallel into a
+  // buffer indexed like `matches`, then compacted in that same (canonical)
+  // order: the output does not depend on the thread count.
+  const std::size_t                            nMatches = matches.size();
+  std::vector<mp2p_icp::point_with_cov_pair_t> assembled(nMatches);
+  std::vector<uint8_t>                         keepPair(nMatches, 1);
+
+  const auto assemblePair = [&](std::size_t i)
   {
+    const auto& m = matches[i];
     if (viewTest.needsCovariance())
     {
       const auto [vl, vg]       = pairViews(m.local_slot, m.global_slot);
       const Eigen::Matrix3f cov = cov_[m.global_slot].asEigen();
       if (viewTest.rejects(vl, vg, &cov, [&] { return neighborhoodIsFlat(m.global_slot); }))
       {
-        continue;
+        keepPair[i] = 0;
+        return;
       }
     }
 
-    auto& p = outPairings.emplace_back();
+    auto& p = assembled[i];
 
     p.local_idx  = m.local_slot;
     p.global_idx = m.global_slot;
@@ -1429,6 +1464,32 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     const Eigen::Matrix3f w = cov_[m.global_slot].asEigen() + covLocalGlobalFrame;
 
     p.cov_inv.asEigen() = w.inverse();
+  };
+
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+  tbb::parallel_for(
+      tbb::blocked_range<std::size_t>(0, nMatches, 256),
+      [&](const tbb::blocked_range<std::size_t>& r)
+      {
+        for (std::size_t i = r.begin(); i < r.end(); i++)
+        {
+          assemblePair(i);
+        }
+      });
+#else
+  for (std::size_t i = 0; i < nMatches; i++)
+  {
+    assemblePair(i);
+  }
+#endif
+
+  outPairings.reserve(outPairings.size() + nMatches);
+  for (std::size_t i = 0; i < nMatches; i++)
+  {
+    if (keepPair[i] != 0)
+    {
+      outPairings.push_back(assembled[i]);
+    }
   }
 
   // Optional diagnostic; see cov_diagnostics.h. The local covariance is stored

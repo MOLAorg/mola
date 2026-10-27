@@ -63,11 +63,14 @@ inline Eigen::Matrix3d shapePointCovariance(const Eigen::Matrix3d& cov, double l
 {
   if (lambda > 0)
   {
-    // The shipped form, kept verbatim. SVD sorts the values in decreasing
-    // order, so the last one is the normal of a plane.
-    const Eigen::JacobiSVD<Eigen::Matrix3d> svd(cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    const Eigen::Vector3d                   values(1.0, 1.0, lambda);
-    return svd.matrixU() * values.asDiagonal() * svd.matrixV().transpose();
+    // U*diag(1,1,lambda)*U^T of a symmetric PSD matrix only depends on its
+    // smallest-eigenvalue eigenvector n (the plane normal):
+    //   I - (1 - lambda) * n * n^T
+    // so a closed-form 3x3 eigen-decomposition replaces the Jacobi SVD.
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es;
+    es.computeDirect(cov);
+    const Eigen::Vector3d n = es.eigenvectors().col(0);  // ascending order
+    return Eigen::Matrix3d::Identity() - (1.0 - lambda) * n * n.transpose();
   }
 
   // Keeping the values found needs the decomposition of a symmetric matrix
