@@ -70,6 +70,18 @@ int main()
       ASSERT_NEAR_((a - b).norm(), 0.0, 1e-9);
     }
 
+    // A lambda below the double epsilon must not be lost to rounding: along
+    // the normal of an axis-aligned plane the variance is still lambda, and
+    // the covariance stays invertible.
+    {
+      const double          lambda = 1e-20;
+      const Eigen::Matrix3d c =
+          shapePointCovariance(Eigen::Vector3d(4.0, 2.0, 0.05).asDiagonal(), lambda);
+      ASSERT_GT_(c(2, 2), 0.0);
+      ASSERT_NEAR_(c(2, 2) / lambda, 1.0, 1e-6);
+      ASSERT_(c.inverse().allFinite());
+    }
+
     // 2) Unregularized: the eigenvalues found are kept, so a broad
     //    neighborhood stays broad and carries less information.
     {
