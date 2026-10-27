@@ -26,6 +26,7 @@
 #include <mrpt/serialization/CArchive.h>
 
 #include <list>
+#include <map>
 
 // forward decls to isolate build dependencies downstream:
 namespace tf2
@@ -149,6 +150,18 @@ class Rosbag2Dataset : public RawDataSourceBase,
 
   /// Message count per bag; sum == bagMessageCount_.
   std::vector<size_t> per_bag_msg_counts_;
+
+  /// Message count per topic, per bag, from the bag metadata.
+  std::vector<std::map<std::string, size_t>> per_bag_topic_msg_counts_;
+
+  /// If not empty, the bags are read with a filter, so only these topics (the
+  /// ones with a handler) are read. See applyTopicFilter().
+  std::vector<std::string> topics_to_read_;
+
+  /// Restricts reading to the topics with a handler, when some do not have one
+  /// and the bag metadata gives a count per topic. Called at the end of
+  /// initialize(), before anything is read.
+  void applyTopicFilter();
 
   std::string rosbag_serialization_ = "cdr";
   std::string base_link_frame_id_   = "base_link";

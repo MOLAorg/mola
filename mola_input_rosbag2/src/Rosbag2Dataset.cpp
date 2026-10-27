@@ -72,6 +72,7 @@
 #include <rclcpp/serialization.hpp>
 #include <rosbag2_cpp/converter_options.hpp>
 #include <rosbag2_cpp/readers/sequential_reader.hpp>
+#include <rosbag2_storage/storage_filter.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -203,6 +204,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   // Validate all bag paths, auto-detect storage ids, and count total messages.
   bagMessageCount_ = 0;
   per_bag_msg_counts_.clear();
+  per_bag_topic_msg_counts_.clear();
   rosbag_storage_ids_.clear();
   std::map<std::string, rosbag2_storage::TopicMetadata> all_topics_by_name;
 
@@ -240,6 +242,11 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       const auto&  md  = tmpReader->get_metadata();
       const size_t cnt = static_cast<size_t>(md.message_count);
       per_bag_msg_counts_.push_back(cnt);
+      auto& topicCounts = per_bag_topic_msg_counts_.emplace_back();
+      for (const auto& tc : md.topics_with_message_count)
+      {
+        topicCounts[tc.topic_metadata.name] += static_cast<size_t>(tc.message_count);
+      }
       bagMessageCount_ += cnt;
 
       // Accumulate the total time span covered by all input bags:
@@ -660,6 +667,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
 
   }  // end for each "sensor"
 
+  applyTopicFilter();
+
   initialized_ = true;
   MRPT_END
 }  // end initialize()
@@ -915,6 +924,77 @@ void Rosbag2Dataset::openBag(size_t bag_idx)
 
   reader_ = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
   reader_->open(storage_options, converter_options);
+
+  if (!topics_to_read_.empty())
+  {
+    rosbag2_storage::StorageFilter filter;
+    filter.topics = topics_to_read_;
+    reader_->set_filter(filter);
+  }
+}
+
+void Rosbag2Dataset::applyTopicFilter()
+{
+  std::set<std::string> handled;
+  for (const auto& [topic, callbacks] : lookup_)
+  {
+    if (!topic.empty() && !callbacks.empty())
+    {
+      handled.insert(topic);
+    }
+  }
+
+  // The dataset indices are message indices, so a filter needs the exact count
+  // of what it lets through: only use it when every bag's metadata adds up.
+  std::vector<size_t>   filteredCounts;
+  std::set<std::string> skipped;
+  for (size_t i = 0; i < per_bag_topic_msg_counts_.size(); i++)
+  {
+    size_t all  = 0;
+    size_t kept = 0;
+    for (const auto& [topic, cnt] : per_bag_topic_msg_counts_[i])
+    {
+      all += cnt;
+      if (handled.count(topic) != 0)
+      {
+        kept += cnt;
+      }
+      else if (cnt > 0)
+      {
+        skipped.insert(topic);
+      }
+    }
+    if (all != per_bag_msg_counts_.at(i))
+    {
+      return;  // per-topic counts not available: read everything
+    }
+    filteredCounts.push_back(kept);
+  }
+  if (skipped.empty())
+  {
+    return;  // every topic is used anyway
+  }
+
+  topics_to_read_.assign(handled.begin(), handled.end());
+  per_bag_msg_counts_ = filteredCounts;
+  bagMessageCount_    = 0;
+  for (const auto c : filteredCounts)
+  {
+    bagMessageCount_ += c;
+  }
+  read_ahead_.clear();
+  read_ahead_.resize(bagMessageCount_);
+
+  for (const auto& t : skipped)
+  {
+    MRPT_LOG_INFO_STREAM("Topic '" << t << "' has no handler: it will not be read.");
+  }
+  MRPT_LOG_INFO_STREAM("Messages to read: " << bagMessageCount_);
+
+  // The reader of the first bag is already open; nothing was read from it yet:
+  rosbag2_storage::StorageFilter filter;
+  filter.topics = topics_to_read_;
+  reader_->set_filter(filter);
 }
 
 void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bool skipBufferAhead)
