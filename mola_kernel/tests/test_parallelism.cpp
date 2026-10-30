@@ -43,7 +43,7 @@ void test_env_var()
   ASSERT_EQUAL_(mola::max_parallel_threads(), 3U);
 
   // Invalid values fall back to the physical cores:
-  for (const char* bad : {"0", "-2", "abc", "4x", ""})
+  for (const char* bad : {"0", "-2", "abc", "4x", "", "99999999999"})
   {
     ::setenv("MOLA_MAX_THREADS", bad, 1);
     ASSERT_EQUAL_(mola::max_parallel_threads(), mola::physical_core_count());

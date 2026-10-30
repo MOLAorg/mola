@@ -21,6 +21,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <limits>
 #include <set>
 #include <string>
 #include <thread>
@@ -69,7 +70,8 @@ unsigned int mola::physical_core_count()
     int               core    = 0;
     if (!read_int(dir + "physical_package_id", package) || !read_int(dir + "core_id", core))
     {
-      return fallback_count();
+      // Unknown topology: at least respect the affinity mask.
+      return static_cast<unsigned int>(CPU_COUNT(&mask));
     }
     cores.emplace(package, core);
   }
@@ -85,7 +87,7 @@ unsigned int mola::max_parallel_threads()
   {
     char*      end = nullptr;
     const long n   = std::strtol(env, &end, 10);
-    if (end != env && *end == '\0' && n > 0)
+    if (end != env && *end == '\0' && n > 0 && n <= std::numeric_limits<int>::max())
     {
       return static_cast<unsigned int>(n);
     }

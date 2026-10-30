@@ -22,8 +22,8 @@ namespace mola
 {
 /** Number of physical CPU cores this process may run on (its CPU affinity
  *  mask), counting the hardware threads of one core (SMT, Hyper-Threading)
- *  once. Falls back to std::thread::hardware_concurrency() where the CPU
- *  topology is unknown. Always >= 1.
+ *  once. Where the CPU topology is unknown, the number of CPUs in the affinity
+ *  mask, or std::thread::hardware_concurrency() without one. Always >= 1.
  */
 unsigned int physical_core_count();
 
