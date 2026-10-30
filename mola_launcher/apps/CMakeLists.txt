@@ -10,6 +10,7 @@
 find_package(mrpt_core REQUIRED)
 find_package(CLI11 REQUIRED)
 find_package(mrpt_containers REQUIRED)
+find_package(TBB QUIET)  # optional: to cap the threads of parallel algorithms
 
 mola_add_executable(
   TARGET  mola-cli
@@ -20,6 +21,10 @@ mola_add_executable(
     mrpt::mrpt_core
     CLI11::CLI11
 )
+if(TBB_FOUND)
+  target_link_libraries(mola-cli TBB::tbb)
+  target_compile_definitions(mola-cli PRIVATE MOLA_CLI_HAS_TBB)
+endif()
 
 mola_add_executable(
   TARGET  mola-dir

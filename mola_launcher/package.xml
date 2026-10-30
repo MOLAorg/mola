@@ -18,6 +18,7 @@
 
   <depend>mrpt_core</depend>
   <depend>cli11</depend>
+  <depend>tbb</depend>
 
   <doc_depend>doxygen</doc_depend>
 

@@ -182,6 +182,11 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 
 ### `mola_launcher` — CLI Entry Point
 - **`mola-cli`**: main executable, takes YAML config, loads and orchestrates modules
+  - Caps TBB (`tbb::global_control`, whole process) to `mola::max_parallel_threads()`
+    (`mola_kernel/utils/parallelism.h`): `MOLA_MAX_THREADS`, or the physical cores. Idle TBB
+    workers spin between the short ICP loops: at 10 Hz on 8 cores/16 threads, 16 threads cost
+    5.4-6.3 cores vs 2.1 (scans 23 vs 28 ms, only from cores kept awake). Grain sizes of the
+    loops made no measurable difference; results are bit-identical for any thread count.
 - **`mola-yaml-parser`**: standalone tool for testing YAML parsing/variable expansion
 - **`mola-dir`**: directory and environment utilities
 - Module libraries: every `*mola*` shared library in the search paths is

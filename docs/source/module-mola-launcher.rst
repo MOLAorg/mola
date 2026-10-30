@@ -109,6 +109,22 @@ Example: To list all known ICP algorithms:
   mp2p_icp::ICP_OLAE
 
 
+Number of threads
+-----------------
+
+The parallel algorithms of all modules (TBB) use, at most, as many threads as
+**physical CPU cores** the process may run on, not one per hardware thread.
+Idle TBB workers spin (yielding in a loop) between the many short parallel
+loops of each ICP iteration, so every extra worker burns CPU that the rest of
+the robot software needs, while the extra hardware threads of a core (SMT,
+Hyper-Threading) add no computing power. Measured on an 8-core, 16-thread CPU,
+LiDAR localization at 10 Hz: 16 threads used 5.4 to 6.3 cores, 8 threads 2.1
+cores, with the same results (parallel sums are deterministic). The scans took
+23 ms instead of 28 ms with 16 threads, only because the spinning workers keep
+every core awake. Set the environment variable ``MOLA_MAX_THREADS`` to another
+positive number to change it. ``mola-lidar-odometry-cli`` does the same.
+
+
 ----
 
 .. index::
