@@ -163,6 +163,14 @@ All plugin modules derive from these virtual base classes:
   ImGui layout: fixed-size controls first (pause, rate combo, progress text),
   then the progress slider filling the rest of the row (`SliderFloat::fixed_width < 0`),
   so the rate combo stays visible in narrow subwindows.
+- `LogHub` (`mola_kernel/LogHub.h`, not an interface): process-wide fan-out of
+  the mrpt-logger output of all modules (and their `child_loggers()`) to "sinks":
+  the `mola_viz_imgui` Console and the `BridgeROS2` `/rosout` forwarder. Consumers
+  call `add_sink()` once and `attach_modules()` periodically. Each logger gets one
+  forwarding callback referring only to the leaked singleton, plus a no-op
+  function-pointer marker that tells whether it is hooked already; so loggers may
+  outlive consumers. Sinks run on the logging thread: they must only queue, and
+  only capture state they co-own. Never call ROS from a logger callback directly.
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
   `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
   `requestInsertKeyframe()`, decoupled from their own local map/odometry
@@ -210,6 +218,12 @@ Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 - Consumes ROS 2 sensor topics as MOLA `RawDataSource`
 - Publishes MOLA outputs (maps, poses) as ROS 2 topics/TF
 - Must have ROS 2 environment sourced before building
+- Publishes the log messages of all MOLA modules on `/rosout` (loggers
+  `<node>.<module label>`; params `forward_mola_logs_to_rosout`, default `true`,
+  and `rosout_min_level`) via a `LogHub` sink that only queues; the ROS node
+  thread publishes the queue with its own `/rosout` publisher, never through
+  `RCLCPP_*`/rcutils (no global logging mutex, no second terminal print, no
+  publishing after `rclcpp::shutdown()` from a module destructor).
 - Input callbacks set `CObservation::timestamp` from `header.stamp` explicitly:
   never rely on `mrpt::ros2bridge::fromROS()` for it, since some versions leave
   the default (wall-clock `now()`), which breaks bag replay and sim time.

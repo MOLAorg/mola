@@ -20,6 +20,7 @@
 
 // MOLA virtual interfaces:
 #include <mola_kernel/Georeferencing.h>
+#include <mola_kernel/LogHub.h>
 #include <mola_kernel/interfaces/ExecutableBase.h>
 #include <mola_kernel/interfaces/LocalizationSourceBase.h>
 #include <mola_kernel/interfaces/MapServer.h>
@@ -38,8 +39,10 @@
 
 // ROS & others
 #include <atomic>
+#include <deque>
 #include <nav_msgs/msg/odometry.hpp>
 #include <optional>
+#include <rcl_interfaces/msg/log.hpp>
 #include <rclcpp/node.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -100,6 +103,9 @@ namespace mola
  * For all sensors, the mrpt::obs::CObservation::sensorPose will be also
  * broadcasted to `/tf` with respect to the vehicle frame (default:
  * `base_link`).
+ *
+ * The log messages of all MOLA modules are also published on `/rosout` (see
+ * `forward_mola_logs_to_rosout`), so they show up in `rqt_console`, bags, etc.
  *
  * See example launch files in `mola_demos` and in `mola_lidar_odometry`.
  *
@@ -251,6 +257,17 @@ class BridgeROS2 : public RawDataSourceBase,
     /// If false, they are converted to mrpt::obs::CObservationOdometry (2D pose, no covariance),
     /// which is more appropriate for 2D SLAM/mapping pipelines.
     bool odometry_as_robot_pose_observation = true;
+
+    /// If true (default), the log messages of all MOLA modules are also published on
+    /// ``/rosout``, from loggers named ``<node>.<module>`` (e.g. ``mola_bridge_ros2.lidar_odom``,
+    /// or ``mola_bridge_ros2.<module>.<child>`` for a module's child loggers).
+    /// What MOLA prints to the terminal is not affected.
+    bool forward_mola_logs_to_rosout = true;
+
+    /// Minimum level of the MOLA log messages published on ``/rosout``, independent of the
+    /// modules' own verbosity level (``DEBUG`` makes all modules format their debug messages).
+    /// YAML values: ``DEBUG``, ``INFO``, ``WARN``, ``ERROR``.
+    mrpt::system::VerbosityLevel rosout_min_level = mrpt::system::LVL_INFO;
   };
 
   Params params_;
@@ -507,8 +524,51 @@ class BridgeROS2 : public RawDataSourceBase,
 
   void publishStaticTFs();
   void publishDiagnostics();
-  void publishMetricMapGeoreferencingData(
-      const mola::Georeferencing& g, const std::string& georefTopic);
+
+  /// MOLA log messages waiting to be published on /rosout. Shared with our
+  /// LogHub sink, which may run on any thread and outlive this module, so it
+  /// only queues messages; the ROS node thread publishes them.
+  struct RosoutQueue
+  {
+    struct Item
+    {
+      mrpt::Clock::time_point      timestamp;
+      mrpt::system::VerbosityLevel level = mrpt::system::LVL_INFO;
+      std::string                  source;
+      std::string                  text;
+
+      [[nodiscard]] size_t bytes() const { return source.size() + text.size(); }
+    };
+
+    /// Longer message texts are truncated, which also bounds the memory
+    /// that /rosout history (1000 messages) may hold.
+    static constexpr size_t MAX_TEXT_BYTES = 16 * 1024;
+
+    /// Bound memory if ROS is not keeping up: the oldest messages are dropped.
+    static constexpr size_t MAX_SIZE  = 5000;
+    static constexpr size_t MAX_BYTES = 8 * 1024 * 1024;
+
+    /// Messages published per spin of the ROS node thread, so a backlog does
+    /// not hold up the sensor subscriptions.
+    static constexpr size_t MAX_PER_DRAIN = 500;
+
+    std::mutex       mtx;
+    std::deque<Item> items;
+    size_t           bytes   = 0;  //!< Sum of Item::bytes() in `items`
+    size_t           dropped = 0;
+    bool             closed  = false;  //!< No more messages are accepted
+  };
+  std::shared_ptr<RosoutQueue>  rosoutQueue_ = std::make_shared<RosoutQueue>();
+  std::shared_ptr<LogHub::Sink> rosoutSink_;
+
+  /// Only used from the ROS node thread.
+  rclcpp::Publisher<rcl_interfaces::msg::Log>::SharedPtr rosoutPub_;
+
+  /// Publishes up to RosoutQueue::MAX_PER_DRAIN queued messages, returning
+  /// how many were taken from the queue. Only called from the ROS node thread.
+  size_t publishQueuedRosoutLogs();
+  void   publishMetricMapGeoreferencingData(
+        const mola::Georeferencing& g, const std::string& georefTopic);
 };
 
 }  // namespace mola

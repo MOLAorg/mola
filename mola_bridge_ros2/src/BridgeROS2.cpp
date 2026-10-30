@@ -65,6 +65,7 @@
 #include <mrpt_nav_interfaces/msg/georeferencing_metadata.hpp>
 
 // ROS 2:
+#include <algorithm>
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <geographic_msgs/msg/geo_pose_stamped.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
@@ -210,12 +211,28 @@ BridgeROS2::~BridgeROS2()
 {
   try
   {
+    // No more MOLA log messages for /rosout from now on. The ROS node thread
+    // publishes those already queued before it exits.
+    {
+      std::lock_guard<std::mutex> lck(rosoutQueue_->mtx);
+      rosoutQueue_->closed = true;
+    }
+    rosoutSink_.reset();
+
     shouldExit_ = true;
 
     // Wait briefly for thread to start spinning (if it hasn't yet)
     for (int i = 0; i < 50 && !isSpinning_ && rosNodeThread_.joinable(); i++)
     {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Once spinning, the thread ends by itself (shouldExit_), so let it finish
+    // publishing before shutting down ROS. Otherwise, shutting down first
+    // is what unblocks it.
+    if (isSpinning_ && rosNodeThread_.joinable())
+    {
+      rosNodeThread_.join();
     }
 
     if (owned_rclcpp_ && rclcpp::ok())
@@ -282,6 +299,17 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     {
       auto lck   = mrpt::lockHelper(ros_clock_mtx_);
       ros_clock_ = rosNode_->get_clock();
+    }
+
+    if (params_.forward_mola_logs_to_rosout)
+    {
+      // Same QoS as the /rosout publisher rcl creates for each node (spelled
+      // out, since the name of rcl's constant changed across ROS versions):
+      rosoutPub_ = rosNode_->create_publisher<rcl_interfaces::msg::Log>(
+          "/rosout", rclcpp::QoS(rclcpp::KeepLast(1000))
+                         .reliable()
+                         .transient_local()
+                         .lifespan(rclcpp::Duration(10, 0)));
     }
 
     // TF buffer + listener -- pass rosNode_ so the listener's /tf and
@@ -430,6 +458,11 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     {
       executor.spin_once(IDLE_WAIT);
       executor.spin_all(DRAIN_LIMIT);
+      publishQueuedRosoutLogs();
+    }
+    // Last queued MOLA log messages, e.g. from modules being destroyed:
+    while (rclcpp::ok() && publishQueuedRosoutLogs() > 0)
+    {
     }
     if (owned_rclcpp_ && rclcpp::ok())
     {
@@ -440,6 +473,123 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
   {
     mola::pretty_print_exception(e, "BridgeROS2::ros_node_thread_main");
   }
+}
+
+namespace
+{
+uint8_t to_ros_log_level(mrpt::system::VerbosityLevel level)
+{
+  switch (level)
+  {
+    case mrpt::system::LVL_DEBUG:
+      return rcl_interfaces::msg::Log::DEBUG;
+    case mrpt::system::LVL_WARN:
+      return rcl_interfaces::msg::Log::WARN;
+    case mrpt::system::LVL_ERROR:
+      return rcl_interfaces::msg::Log::ERROR;
+    default:
+      return rcl_interfaces::msg::Log::INFO;
+  }
+}
+
+// LogRecord::source is "<Class>:<label>" (module instance names given by
+// mola-cli), optionally followed by "/<child>". ROS logger names use dots for
+// their hierarchy, so this becomes "<label>" or "<label>.<child>".
+std::string to_ros_logger_suffix(const std::string& source)
+{
+  const auto slash = source.find('/');
+  const auto colon = source.rfind(':', slash);
+
+  std::string ret = colon == std::string::npos ? source : source.substr(colon + 1);
+  std::replace(ret.begin(), ret.end(), '/', '.');
+  return ret;
+}
+
+// Log messages often end with a newline, which /rosout readers do not expect.
+// Leading whitespace is kept: it may be meaningful indentation.
+std::string without_trailing_whitespace(const std::string& s)
+{
+  const auto last = s.find_last_not_of(" \t\r\n");
+  return last == std::string::npos ? std::string() : s.substr(0, last + 1);
+}
+
+// Cuts \a text to at most maxBytes, at a UTF-8 character boundary, marking it.
+std::string truncated_log_text(std::string_view text, size_t maxBytes)
+{
+  if (text.size() <= maxBytes)
+  {
+    return std::string(text);
+  }
+  size_t n = maxBytes;
+  while (n > 0 && (static_cast<unsigned char>(text[n]) & 0xC0U) == 0x80U)
+  {
+    n--;
+  }
+  std::string ret(text.substr(0, n));
+  ret += " [...]";
+  return ret;
+}
+}  // namespace
+
+size_t BridgeROS2::publishQueuedRosoutLogs()
+{
+  if (!rosoutPub_)
+  {
+    return 0;
+  }
+
+  std::vector<RosoutQueue::Item> items;
+  size_t                         dropped = 0;
+  {
+    std::lock_guard<std::mutex> lck(rosoutQueue_->mtx);
+    auto&                       q = *rosoutQueue_;
+    while (!q.items.empty() && items.size() < RosoutQueue::MAX_PER_DRAIN)
+    {
+      q.bytes -= q.items.front().bytes();
+      items.push_back(std::move(q.items.front()));
+      q.items.pop_front();
+    }
+    std::swap(dropped, q.dropped);
+  }
+  if (items.empty() && dropped == 0)
+  {
+    return 0;
+  }
+
+  const std::string nodeLoggerName = rosNode_->get_logger().get_name();
+
+  try
+  {
+    rcl_interfaces::msg::Log msg;
+    for (const auto& it : items)
+    {
+      msg.stamp = mrpt::ros2bridge::toROS(it.timestamp);
+      msg.level = to_ros_log_level(it.level);
+      msg.name  = nodeLoggerName + "." + to_ros_logger_suffix(it.source);
+      msg.msg   = without_trailing_whitespace(it.text);
+      rosoutPub_->publish(msg);
+    }
+
+    if (dropped != 0)
+    {
+      msg.stamp = rosNode_->get_clock()->now();
+      msg.level = rcl_interfaces::msg::Log::WARN;
+      msg.name  = nodeLoggerName;
+      msg.msg   = std::to_string(dropped) +
+                " MOLA log messages were not published on /rosout: too many messages.";
+      rosoutPub_->publish(msg);
+    }
+  }
+  catch (const std::exception& e)
+  {
+    // Expected while ROS is shutting down. Otherwise, the warning below is
+    // forwarded to /rosout again, hence the throttling.
+    if (rclcpp::ok())
+    {
+      MRPT_LOG_THROTTLE_WARN_STREAM(10.0, "Error publishing on /rosout: " << e.what());
+    }
+  }
+  return items.size();
 }
 
 void BridgeROS2::initialize_rds(const Yaml& c)
@@ -512,6 +662,45 @@ void BridgeROS2::initialize_rds(const Yaml& c)
   YAML_LOAD_OPT(params_, publish_tf_from_robot_pose_observations, bool);
   YAML_LOAD_OPT(params_, relocalize_from_topic, std::string);
 
+  YAML_LOAD_OPT(params_, forward_mola_logs_to_rosout, bool);
+  if (cfg.has("rosout_min_level"))
+  {
+    params_.rosout_min_level = mrpt::typemeta::TEnumType<mrpt::system::VerbosityLevel>::name2value(
+        cfg["rosout_min_level"].as<std::string>());
+  }
+
+  if (params_.forward_mola_logs_to_rosout)
+  {
+    rosoutSink_ = LogHub::Instance().add_sink(
+        params_.rosout_min_level,
+        [q = rosoutQueue_](const LogRecord& r)
+        {
+          // Copied before taking the lock, to keep it short:
+          RosoutQueue::Item item{
+              r.timestamp, r.level, std::string(r.source),
+              truncated_log_text(r.text, RosoutQueue::MAX_TEXT_BYTES)};
+          const size_t itemBytes = item.bytes();
+
+          std::lock_guard<std::mutex> lck(q->mtx);
+          if (q->closed)
+          {
+            return;
+          }
+          q->items.push_back(std::move(item));
+          q->bytes += itemBytes;
+          while (q->items.size() > RosoutQueue::MAX_SIZE || q->bytes > RosoutQueue::MAX_BYTES)
+          {
+            q->bytes -= q->items.front().bytes();
+            q->items.pop_front();
+            q->dropped++;
+          }
+        });
+
+    // All modules exist by now: hook them, so their messages from now on
+    // (e.g. while initializing) are not missed.
+    LogHub::Instance().attach_modules(*this);
+  }
+
   // Launch ROS node:
   rosNodeThread_ = std::thread(&BridgeROS2::ros_node_thread_main, this, cfgCopy);
 
@@ -532,6 +721,13 @@ void BridgeROS2::spinOnce()
   if (mrpt::Clock::nowDouble() - lastTimeCheckMolaSubs_ > params_.period_check_new_mola_subs)
   {
     lastTimeCheckMolaSubs_ = mrpt::Clock::nowDouble();
+
+    // Hooks the loggers of modules created since the last call:
+    if (rosoutSink_)
+    {
+      LogHub::Instance().attach_modules(*this);
+    }
+
     doLookForNewMolaSubs();
   }
 
