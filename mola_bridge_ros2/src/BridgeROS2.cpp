@@ -512,6 +512,23 @@ std::string without_trailing_whitespace(const std::string& s)
   const auto last = s.find_last_not_of(" \t\r\n");
   return last == std::string::npos ? std::string() : s.substr(0, last + 1);
 }
+
+// Cuts \a text to at most maxBytes, at a UTF-8 character boundary, marking it.
+std::string truncated_log_text(std::string_view text, size_t maxBytes)
+{
+  if (text.size() <= maxBytes)
+  {
+    return std::string(text);
+  }
+  size_t n = maxBytes;
+  while (n > 0 && (static_cast<unsigned char>(text[n]) & 0xC0U) == 0x80U)
+  {
+    n--;
+  }
+  std::string ret(text.substr(0, n));
+  ret += " [...]";
+  return ret;
+}
 }  // namespace
 
 size_t BridgeROS2::publishQueuedRosoutLogs()
@@ -528,7 +545,7 @@ size_t BridgeROS2::publishQueuedRosoutLogs()
     auto&                       q = *rosoutQueue_;
     while (!q.items.empty() && items.size() < RosoutQueue::MAX_PER_DRAIN)
     {
-      q.bytes -= q.items.front().text.size();
+      q.bytes -= q.items.front().bytes();
       items.push_back(std::move(q.items.front()));
       q.items.pop_front();
     }
@@ -658,16 +675,22 @@ void BridgeROS2::initialize_rds(const Yaml& c)
         params_.rosout_min_level,
         [q = rosoutQueue_](const LogRecord& r)
         {
+          // Copied before taking the lock, to keep it short:
+          RosoutQueue::Item item{
+              r.timestamp, r.level, std::string(r.source),
+              truncated_log_text(r.text, RosoutQueue::MAX_TEXT_BYTES)};
+          const size_t itemBytes = item.bytes();
+
           std::lock_guard<std::mutex> lck(q->mtx);
           if (q->closed)
           {
             return;
           }
-          q->items.push_back({r.timestamp, r.level, std::string(r.source), std::string(r.text)});
-          q->bytes += r.text.size();
+          q->items.push_back(std::move(item));
+          q->bytes += itemBytes;
           while (q->items.size() > RosoutQueue::MAX_SIZE || q->bytes > RosoutQueue::MAX_BYTES)
           {
-            q->bytes -= q->items.front().text.size();
+            q->bytes -= q->items.front().bytes();
             q->items.pop_front();
             q->dropped++;
           }

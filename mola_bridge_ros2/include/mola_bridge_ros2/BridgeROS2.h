@@ -536,7 +536,13 @@ class BridgeROS2 : public RawDataSourceBase,
       mrpt::system::VerbosityLevel level = mrpt::system::LVL_INFO;
       std::string                  source;
       std::string                  text;
+
+      [[nodiscard]] size_t bytes() const { return source.size() + text.size(); }
     };
+
+    /// Longer message texts are truncated, which also bounds the memory
+    /// that /rosout history (1000 messages) may hold.
+    static constexpr size_t MAX_TEXT_BYTES = 16 * 1024;
 
     /// Bound memory if ROS is not keeping up: the oldest messages are dropped.
     static constexpr size_t MAX_SIZE  = 5000;
@@ -548,7 +554,7 @@ class BridgeROS2 : public RawDataSourceBase,
 
     std::mutex       mtx;
     std::deque<Item> items;
-    size_t           bytes   = 0;  //!< Text bytes in `items`
+    size_t           bytes   = 0;  //!< Sum of Item::bytes() in `items`
     size_t           dropped = 0;
     bool             closed  = false;  //!< No more messages are accepted
   };
