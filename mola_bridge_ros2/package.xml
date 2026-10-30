@@ -35,6 +35,7 @@
   <depend>nav_msgs</depend>
   <depend>geographic_msgs</depend>
   <depend>gps_msgs</depend>  <!-- optional -->
+  <depend>rcl_interfaces</depend>
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2</depend>

@@ -198,6 +198,36 @@ void MolaVizImGui::initialize(const Yaml& c)
   core_ptr_->console_sink_->max_entries    = core_ptr_->console_max_entries_;
   core_ptr_->console_sink_->window_seconds = core_ptr_->console_window_seconds_;
 
+  if (core_ptr_->console_enabled_)
+  {
+    // The sink only co-owns console_sink_, so it is safe to call even after
+    // this module is gone. Our own messages are left out, as they used to be.
+    consoleHubSink_ = LogHub::Instance().add_sink(
+        core_ptr_->console_capture_level_.load(),
+        [sink = core_ptr_->console_sink_, self = getModuleInstanceName()](const LogRecord& r)
+        {
+          if (r.source == self)
+          {
+            return;
+          }
+          std::vector<std::string> lines;
+          mrpt::system::tokenize(std::string(r.text), "\r\n", lines);
+          if (lines.empty())
+          {
+            lines.emplace_back(r.text);
+          }
+          for (const auto& line : lines)
+          {
+            ConsoleLogEntry e;
+            e.timestamp = r.timestamp;
+            e.level     = r.level;
+            e.source    = std::string(r.source);
+            e.text      = line;
+            sink->push(e);
+          }
+        });
+  }
+
   {
     std::lock_guard lk(instanceMtx_);
     instance_ = this;
@@ -562,89 +592,14 @@ void MolaVizImGui::dataset_ui_update()
 
 void MolaVizImGui::console_check_new_modules()
 {
-  auto sink = core_ptr_->console_sink_;
-  if (!sink) return;
-
+  if (!consoleHubSink_)
+  {
+    return;
+  }
   // Read once per tick: the user may have changed it at runtime via the
   // Console window's "Capture" combo (MolaVizImGuiCore::render_console_window).
-  const auto captureLevel = core_ptr_->console_capture_level_.load();
+  consoleHubSink_->set_min_level(core_ptr_->console_capture_level_.load());
 
-  for (auto& module : findService<ExecutableBase>())
-  {
-    if (module.get() == this) continue;  // never hook ourselves (recursion)
-
-    // Re-applied every tick (not just at hook time) so a runtime change to
-    // the capture level propagates to already-hooked modules too. Does not
-    // change what actually prints to the terminal, only what's forwarded to
-    // the console callback -- see setVerbosityLevelForCallbacks() docs.
-    module->setVerbosityLevelForCallbacks(captureLevel);
-
-    const std::string name = module->getModuleInstanceName();
-    if (!consoleHookedModules_.count(name))
-    {
-      consoleHookedModules_.insert(name);
-      sink->note_source(name);
-
-      // shared_ptr capture keeps the sink alive as long as the module's
-      // logger holds this callback; 'name' (not loggerName) is captured for
-      // a stable id.
-      module->logRegisterCallback(
-          [sink, name](
-              std::string_view msg, mrpt::system::VerbosityLevel       level,
-              std::string_view /*loggerName*/, mrpt::Clock::time_point timestamp)
-          {
-            std::vector<std::string> lines;
-            mrpt::system::tokenize(std::string(msg), "\r\n", lines);
-            if (lines.empty()) lines.push_back(std::string(msg));
-
-            for (const auto& line : lines)
-            {
-              ConsoleLogEntry e;
-              e.timestamp = timestamp;
-              e.level     = level;
-              e.source    = name;
-              e.text      = line;
-              sink->push(e);
-            }
-          });
-    }
-
-    // Sub-loggers the module owns but does not log through itself (e.g. a
-    // library engine run on its own background thread). Hooked the same
-    // way, tagged with their own source name, so their output shows up in
-    // the console window without the module having to relay each message.
-    for (const auto& [childName, childLogger] : module->child_loggers())
-    {
-      if (!childLogger) continue;
-
-      // Re-applied every tick, same reasoning as for the module above.
-      childLogger->setVerbosityLevelForCallbacks(captureLevel);
-
-      if (consoleHookedChildLoggers_.count(childLogger)) continue;
-      consoleHookedChildLoggers_.insert(childLogger);
-
-      const std::string fullName = name + "/" + childName;
-      sink->note_source(fullName);
-
-      childLogger->logRegisterCallback(
-          [sink, fullName](
-              std::string_view msg, mrpt::system::VerbosityLevel       level,
-              std::string_view /*loggerName*/, mrpt::Clock::time_point timestamp)
-          {
-            std::vector<std::string> lines;
-            mrpt::system::tokenize(std::string(msg), "\r\n", lines);
-            if (lines.empty()) lines.push_back(std::string(msg));
-
-            for (const auto& line : lines)
-            {
-              ConsoleLogEntry e;
-              e.timestamp = timestamp;
-              e.level     = level;
-              e.source    = fullName;
-              e.text      = line;
-              sink->push(e);
-            }
-          });
-    }
-  }
+  // Hooks modules (and their child_loggers()) created since the last call:
+  LogHub::Instance().attach_modules(*this);
 }

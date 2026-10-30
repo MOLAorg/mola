@@ -69,7 +69,6 @@ class ConsoleLogSink
   void                        push(const ConsoleLogEntry& e);
   std::deque<ConsoleLogEntry> snapshot() const;
   void                        clear();
-  void                        note_source(const std::string& s);
   std::vector<std::string>    sources() const;
 
   /** Bumped on every push()/clear(). Lock-free, so callers that re-render

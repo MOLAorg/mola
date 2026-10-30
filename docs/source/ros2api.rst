@@ -317,6 +317,23 @@ Example:
 --------------------------------------
 Write me!
 
+6.1. Log messages (``/rosout``)
+======================================================
+
+``BridgeROS2`` publishes the log messages of all MOLA modules on ``/rosout``
+(``rcl_interfaces/msg/Log``), so they can be inspected with ``rqt_console``,
+``ros2 topic echo /rosout``, or recorded into bags, like those of any other ROS 2 node.
+Each module appears as a logger named ``<node>.<module>``, e.g. ``mola_bridge_ros2.lidar_odom``.
+What MOLA prints to the terminal is not affected.
+
+``BridgeROS2`` YAML parameters:
+
+- ``forward_mola_logs_to_rosout`` (default: ``true``): set to ``false`` to disable it.
+- ``rosout_min_level`` (default: ``INFO``): minimum level of the forwarded messages
+  (``DEBUG``, ``INFO``, ``WARN``, ``ERROR``). This is independent of the modules'
+  ``verbosity_level`` (what they print), but note that ``DEBUG`` makes all modules
+  format their debug messages, at some CPU cost.
+
 |
 
 ----

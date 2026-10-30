@@ -23,6 +23,12 @@ find_package(mrpt_maps REQUIRED)
 find_package(mrpt_topography REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 
+# LogHub hooks loggers while other threads may be logging through them:
+if(mrpt_obs_VERSION VERSION_LESS "3.3.1")
+  message(WARNING "mola_kernel: MRPT ${mrpt_obs_VERSION} found, >= 3.3.1 is recommended: "
+    "older versions do not guard COutputLogger callback registration against concurrent logging.")
+endif()
+
 # define lib:
 set(LIB_SRCS
   src/interfaces/ExecutableBase.cpp
@@ -34,6 +40,7 @@ set(LIB_SRCS
   src/interfaces/SharedKeyframeMap.cpp
   src/interfaces/TransformTreeSource.cpp
   src/interfaces/VizInterface.cpp
+  src/LogHub.cpp
   src/utils/parallelism.cpp
   src/utils/Synchronizer.cpp
   src/MinimalModuleContainer.cpp
@@ -63,6 +70,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/interfaces/SharedKeyframeMap.h
   include/mola_kernel/interfaces/TransformTreeSource.h
   include/mola_kernel/interfaces/VizInterface.h
+  include/mola_kernel/LogHub.h
   include/mola_kernel/MinimalModuleContainer.h
   include/mola_kernel/pretty_print_exception.h
   include/mola_kernel/utils/parallelism.h

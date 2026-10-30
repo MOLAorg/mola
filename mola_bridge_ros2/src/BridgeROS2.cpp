@@ -50,6 +50,7 @@
 #include <mrpt/ros2bridge/pose.h>
 #include <mrpt/ros2bridge/time.h>
 #include <mrpt/system/filesystem.h>
+#include <mrpt/system/string_utils.h>
 #include <mrpt/topography/conversions.h>
 #include <mrpt/version.h>  // For MRPT_VERSION
 
@@ -65,6 +66,7 @@
 #include <mrpt_nav_interfaces/msg/georeferencing_metadata.hpp>
 
 // ROS 2:
+#include <algorithm>
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <geographic_msgs/msg/geo_pose_stamped.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
@@ -210,6 +212,9 @@ BridgeROS2::~BridgeROS2()
 {
   try
   {
+    // No more MOLA log messages for /rosout from now on:
+    rosoutSink_.reset();
+
     shouldExit_ = true;
 
     // Wait briefly for thread to start spinning (if it hasn't yet)
@@ -282,6 +287,15 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     {
       auto lck   = mrpt::lockHelper(ros_clock_mtx_);
       ros_clock_ = rosNode_->get_clock();
+    }
+
+    if (params_.forward_mola_logs_to_rosout)
+    {
+      // Same QoS as the /rosout publisher rcl creates for each node:
+      rosoutPub_ = rosNode_->create_publisher<rcl_interfaces::msg::Log>(
+          "/rosout", rclcpp::QoS(
+                         rclcpp::QoSInitialization::from_rmw(rcl_qos_profile_rosout_default),
+                         rcl_qos_profile_rosout_default));
     }
 
     // TF buffer + listener -- pass rosNode_ so the listener's /tf and
@@ -430,6 +444,7 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
     {
       executor.spin_once(IDLE_WAIT);
       executor.spin_all(DRAIN_LIMIT);
+      publishQueuedRosoutLogs();
     }
     if (owned_rclcpp_ && rclcpp::ok())
     {
@@ -439,6 +454,91 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
   catch (const std::exception& e)
   {
     mola::pretty_print_exception(e, "BridgeROS2::ros_node_thread_main");
+  }
+}
+
+namespace
+{
+uint8_t to_ros_log_level(mrpt::system::VerbosityLevel level)
+{
+  switch (level)
+  {
+    case mrpt::system::LVL_DEBUG:
+      return rcl_interfaces::msg::Log::DEBUG;
+    case mrpt::system::LVL_WARN:
+      return rcl_interfaces::msg::Log::WARN;
+    case mrpt::system::LVL_ERROR:
+      return rcl_interfaces::msg::Log::ERROR;
+    default:
+      return rcl_interfaces::msg::Log::INFO;
+  }
+}
+
+// LogRecord::source is "<Class>:<label>" (module instance names given by
+// mola-cli), optionally followed by "/<child>". ROS logger names use dots for
+// their hierarchy, so this becomes "<label>" or "<label>.<child>".
+std::string to_ros_logger_suffix(const std::string& source)
+{
+  const auto slash = source.find('/');
+  const auto colon = source.rfind(':', slash);
+
+  std::string ret = colon == std::string::npos ? source : source.substr(colon + 1);
+  std::replace(ret.begin(), ret.end(), '/', '.');
+  return ret;
+}
+}  // namespace
+
+void BridgeROS2::publishQueuedRosoutLogs()
+{
+  if (!rosoutPub_)
+  {
+    return;
+  }
+
+  std::deque<RosoutQueue::Item> items;
+  size_t                        dropped = 0;
+  {
+    std::lock_guard<std::mutex> lck(rosoutQueue_->mtx);
+    items.swap(rosoutQueue_->items);
+    std::swap(dropped, rosoutQueue_->dropped);
+  }
+  if (items.empty() && dropped == 0)
+  {
+    return;
+  }
+
+  const std::string nodeLoggerName = rosNode_->get_logger().get_name();
+
+  try
+  {
+    rcl_interfaces::msg::Log msg;
+    for (const auto& it : items)
+    {
+      msg.stamp = mrpt::ros2bridge::toROS(it.timestamp);
+      msg.level = to_ros_log_level(it.level);
+      msg.name  = nodeLoggerName + "." + to_ros_logger_suffix(it.source);
+      msg.msg   = mrpt::system::trim(it.text);
+      rosoutPub_->publish(msg);
+    }
+
+    if (dropped != 0)
+    {
+      msg.stamp = rosNode_->get_clock()->now();
+      msg.level = rcl_interfaces::msg::Log::WARN;
+      msg.name  = nodeLoggerName;
+      msg.msg   = std::to_string(dropped) +
+                " MOLA log messages were not published on /rosout: too many messages.";
+      rosoutPub_->publish(msg);
+    }
+  }
+  catch (const std::exception& e)
+  {
+    // Expected while ROS is shutting down. Otherwise, the warning below is
+    // forwarded to /rosout again, hence the throttling.
+    if (rclcpp::ok())
+    {
+      MRPT_LOG_THROTTLE_WARN_STREAM(10.0, "Error publishing on /rosout: " << e.what());
+    }
   }
 }
 
@@ -512,6 +612,33 @@ void BridgeROS2::initialize_rds(const Yaml& c)
   YAML_LOAD_OPT(params_, publish_tf_from_robot_pose_observations, bool);
   YAML_LOAD_OPT(params_, relocalize_from_topic, std::string);
 
+  YAML_LOAD_OPT(params_, forward_mola_logs_to_rosout, bool);
+  if (cfg.has("rosout_min_level"))
+  {
+    params_.rosout_min_level = mrpt::typemeta::TEnumType<mrpt::system::VerbosityLevel>::name2value(
+        cfg["rosout_min_level"].as<std::string>());
+  }
+
+  if (params_.forward_mola_logs_to_rosout)
+  {
+    rosoutSink_ = LogHub::Instance().add_sink(
+        params_.rosout_min_level,
+        [q = rosoutQueue_](const LogRecord& r)
+        {
+          std::lock_guard<std::mutex> lck(q->mtx);
+          if (q->items.size() >= RosoutQueue::MAX_SIZE)
+          {
+            q->items.pop_front();
+            q->dropped++;
+          }
+          q->items.push_back({r.timestamp, r.level, std::string(r.source), std::string(r.text)});
+        });
+
+    // All modules exist by now: hook them, so their messages from now on
+    // (e.g. while initializing) are not missed.
+    LogHub::Instance().attach_modules(*this);
+  }
+
   // Launch ROS node:
   rosNodeThread_ = std::thread(&BridgeROS2::ros_node_thread_main, this, cfgCopy);
 
@@ -532,6 +659,13 @@ void BridgeROS2::spinOnce()
   if (mrpt::Clock::nowDouble() - lastTimeCheckMolaSubs_ > params_.period_check_new_mola_subs)
   {
     lastTimeCheckMolaSubs_ = mrpt::Clock::nowDouble();
+
+    // Hooks the loggers of modules created since the last call:
+    if (rosoutSink_)
+    {
+      LogHub::Instance().attach_modules(*this);
+    }
+
     doLookForNewMolaSubs();
   }
 

@@ -58,12 +58,6 @@ void ConsoleLogSink::clear()
   version_.fetch_add(1, std::memory_order_relaxed);
 }
 
-void ConsoleLogSink::note_source(const std::string& s)
-{
-  std::lock_guard<std::mutex> lk(mtx_);
-  sources_.insert(s);
-}
-
 std::vector<std::string> ConsoleLogSink::sources() const
 {
   std::lock_guard<std::mutex> lk(mtx_);

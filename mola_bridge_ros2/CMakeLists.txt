@@ -33,6 +33,7 @@ mola_find_package_or_return(ament_cmake)
 mola_find_package_or_return(diagnostic_msgs)
 mola_find_package_or_return(geometry_msgs)
 mola_find_package_or_return(nav_msgs)
+mola_find_package_or_return(rcl_interfaces)
 mola_find_package_or_return(rclcpp)
 mola_find_package_or_return(sensor_msgs)
 mola_find_package_or_return(geographic_msgs)
@@ -67,6 +68,7 @@ mola_add_library(
   PUBLIC_LINK_LIBRARIES
     rclcpp::rclcpp
     tf2::tf2
+    ${rcl_interfaces_TARGETS}
     ${diagnostic_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${geographic_msgs_TARGETS}
