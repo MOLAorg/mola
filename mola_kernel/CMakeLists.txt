@@ -34,6 +34,7 @@ set(LIB_SRCS
   src/interfaces/SharedKeyframeMap.cpp
   src/interfaces/TransformTreeSource.cpp
   src/interfaces/VizInterface.cpp
+  src/utils/parallelism.cpp
   src/utils/Synchronizer.cpp
   src/MinimalModuleContainer.cpp
   src/pretty_print_exception.cpp
@@ -64,6 +65,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/interfaces/VizInterface.h
   include/mola_kernel/MinimalModuleContainer.h
   include/mola_kernel/pretty_print_exception.h
+  include/mola_kernel/utils/parallelism.h
   include/mola_kernel/utils/RegexCache.h
   include/mola_kernel/utils/Synchronizer.h
   include/mola_kernel/variant_helper.h

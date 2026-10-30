@@ -18,12 +18,17 @@
  */
 
 #include <mola_kernel/pretty_print_exception.h>
+#include <mola_kernel/utils/parallelism.h>
 #include <mola_launcher/MolaLauncherApp.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/rtti/CObject.h>
 #include <mrpt/system/filesystem.h>
 #include <unistd.h>  // write()
+
+#if defined(MOLA_CLI_HAS_TBB)
+#include <tbb/global_control.h>
+#endif
 
 #include <CLI/CLI.hpp>
 #include <atomic>
@@ -212,6 +217,15 @@ int mola_cli_list_module_shared_dirs()
 
 int main(int argc, char** argv)
 {
+#if defined(MOLA_CLI_HAS_TBB)
+  // Process-wide cap of the TBB threads used by all modules (see
+  // mola::max_parallel_threads()), alive until main() returns.
+  const unsigned int        nThreads = mola::max_parallel_threads();
+  const tbb::global_control tbbThreads(tbb::global_control::max_allowed_parallelism, nThreads);
+  std::cout << "[mola-cli] Parallel algorithms use up to " << nThreads
+            << " threads (MOLA_MAX_THREADS to change it)\n";
+#endif
+
   try
   {
     CLI::App cli{"mola-cli"};
