@@ -24,8 +24,8 @@ find_package(mrpt_topography REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 
 # LogHub hooks loggers while other threads may be logging through them:
-if(mrpt_obs_VERSION VERSION_LESS "3.3.1")
-  message(WARNING "mola_kernel: MRPT ${mrpt_obs_VERSION} found, >= 3.3.1 is recommended: "
+if(mrpt_obs_VERSION VERSION_LESS "3.1.0")
+  message(WARNING "mola_kernel: MRPT ${mrpt_obs_VERSION} found, >= 3.1.0 is recommended: "
     "older versions do not guard COutputLogger callback registration against concurrent logging.")
 endif()
 

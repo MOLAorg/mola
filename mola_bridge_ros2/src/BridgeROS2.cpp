@@ -50,7 +50,6 @@
 #include <mrpt/ros2bridge/pose.h>
 #include <mrpt/ros2bridge/time.h>
 #include <mrpt/system/filesystem.h>
-#include <mrpt/system/string_utils.h>
 #include <mrpt/topography/conversions.h>
 #include <mrpt/version.h>  // For MRPT_VERSION
 
@@ -212,7 +211,12 @@ BridgeROS2::~BridgeROS2()
 {
   try
   {
-    // No more MOLA log messages for /rosout from now on:
+    // No more MOLA log messages for /rosout from now on. The ROS node thread
+    // publishes those already queued before it exits.
+    {
+      std::lock_guard<std::mutex> lck(rosoutQueue_->mtx);
+      rosoutQueue_->closed = true;
+    }
     rosoutSink_.reset();
 
     shouldExit_ = true;
@@ -221,6 +225,14 @@ BridgeROS2::~BridgeROS2()
     for (int i = 0; i < 50 && !isSpinning_ && rosNodeThread_.joinable(); i++)
     {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Once spinning, the thread ends by itself (shouldExit_), so let it finish
+    // publishing before shutting down ROS. Otherwise, shutting down first
+    // is what unblocks it.
+    if (isSpinning_ && rosNodeThread_.joinable())
+    {
+      rosNodeThread_.join();
     }
 
     if (owned_rclcpp_ && rclcpp::ok())
@@ -291,11 +303,13 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
 
     if (params_.forward_mola_logs_to_rosout)
     {
-      // Same QoS as the /rosout publisher rcl creates for each node:
+      // Same QoS as the /rosout publisher rcl creates for each node (spelled
+      // out, since the name of rcl's constant changed across ROS versions):
       rosoutPub_ = rosNode_->create_publisher<rcl_interfaces::msg::Log>(
-          "/rosout", rclcpp::QoS(
-                         rclcpp::QoSInitialization::from_rmw(rcl_qos_profile_rosout_default),
-                         rcl_qos_profile_rosout_default));
+          "/rosout", rclcpp::QoS(rclcpp::KeepLast(1000))
+                         .reliable()
+                         .transient_local()
+                         .lifespan(rclcpp::Duration(10, 0)));
     }
 
     // TF buffer + listener -- pass rosNode_ so the listener's /tf and
@@ -446,6 +460,10 @@ void BridgeROS2::ros_node_thread_main(Yaml cfg)
       executor.spin_all(DRAIN_LIMIT);
       publishQueuedRosoutLogs();
     }
+    // Last queued MOLA log messages, e.g. from modules being destroyed:
+    while (rclcpp::ok() && publishQueuedRosoutLogs() > 0)
+    {
+    }
     if (owned_rclcpp_ && rclcpp::ok())
     {
       rclcpp::shutdown();
@@ -486,25 +504,39 @@ std::string to_ros_logger_suffix(const std::string& source)
   std::replace(ret.begin(), ret.end(), '/', '.');
   return ret;
 }
+
+// Log messages often end with a newline, which /rosout readers do not expect.
+// Leading whitespace is kept: it may be meaningful indentation.
+std::string without_trailing_whitespace(const std::string& s)
+{
+  const auto last = s.find_last_not_of(" \t\r\n");
+  return last == std::string::npos ? std::string() : s.substr(0, last + 1);
+}
 }  // namespace
 
-void BridgeROS2::publishQueuedRosoutLogs()
+size_t BridgeROS2::publishQueuedRosoutLogs()
 {
   if (!rosoutPub_)
   {
-    return;
+    return 0;
   }
 
-  std::deque<RosoutQueue::Item> items;
-  size_t                        dropped = 0;
+  std::vector<RosoutQueue::Item> items;
+  size_t                         dropped = 0;
   {
     std::lock_guard<std::mutex> lck(rosoutQueue_->mtx);
-    items.swap(rosoutQueue_->items);
-    std::swap(dropped, rosoutQueue_->dropped);
+    auto&                       q = *rosoutQueue_;
+    while (!q.items.empty() && items.size() < RosoutQueue::MAX_PER_DRAIN)
+    {
+      q.bytes -= q.items.front().text.size();
+      items.push_back(std::move(q.items.front()));
+      q.items.pop_front();
+    }
+    std::swap(dropped, q.dropped);
   }
   if (items.empty() && dropped == 0)
   {
-    return;
+    return 0;
   }
 
   const std::string nodeLoggerName = rosNode_->get_logger().get_name();
@@ -517,7 +549,7 @@ void BridgeROS2::publishQueuedRosoutLogs()
       msg.stamp = mrpt::ros2bridge::toROS(it.timestamp);
       msg.level = to_ros_log_level(it.level);
       msg.name  = nodeLoggerName + "." + to_ros_logger_suffix(it.source);
-      msg.msg   = mrpt::system::trim(it.text);
+      msg.msg   = without_trailing_whitespace(it.text);
       rosoutPub_->publish(msg);
     }
 
@@ -540,6 +572,7 @@ void BridgeROS2::publishQueuedRosoutLogs()
       MRPT_LOG_THROTTLE_WARN_STREAM(10.0, "Error publishing on /rosout: " << e.what());
     }
   }
+  return items.size();
 }
 
 void BridgeROS2::initialize_rds(const Yaml& c)
@@ -626,12 +659,18 @@ void BridgeROS2::initialize_rds(const Yaml& c)
         [q = rosoutQueue_](const LogRecord& r)
         {
           std::lock_guard<std::mutex> lck(q->mtx);
-          if (q->items.size() >= RosoutQueue::MAX_SIZE)
+          if (q->closed)
           {
+            return;
+          }
+          q->items.push_back({r.timestamp, r.level, std::string(r.source), std::string(r.text)});
+          q->bytes += r.text.size();
+          while (q->items.size() > RosoutQueue::MAX_SIZE || q->bytes > RosoutQueue::MAX_BYTES)
+          {
+            q->bytes -= q->items.front().text.size();
             q->items.pop_front();
             q->dropped++;
           }
-          q->items.push_back({r.timestamp, r.level, std::string(r.source), std::string(r.text)});
         });
 
     // All modules exist by now: hook them, so their messages from now on

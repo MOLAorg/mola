@@ -127,6 +127,10 @@ void test_delivery_and_levels()
   hub.attach_logger(lg, "srcA");
   ASSERT_EQUAL_(lg.getMinLoggingLevelForCallbacks(), LVL_INFO);
 
+  // INFO is below the raised sink level, so the live sink must not receive it:
+  lg.logStr(LVL_INFO, "info");
+  ASSERT_EQUAL_(cInfo->size(), 1U);
+
   // A released sink receives nothing:
   sInfo.reset();
   lg.logStr(LVL_ERROR, "err");
@@ -181,6 +185,24 @@ void test_new_logger_at_reused_address()
   ASSERT_EQUAL_(c->size(), 2U);
   ASSERT_EQUAL_(c->lines.at(0), std::string("src0|1|msg"));
   ASSERT_EQUAL_(c->lines.at(1), std::string("src1|1|msg"));
+}
+
+void test_attach_unenrolled_self()
+{
+  mola::MockLogModule mod;  // no name server
+  mod.setModuleInstanceName("lonely");
+  mod.logging_enable_console_output = false;
+
+  auto c = std::make_shared<Collected>();
+  auto s = collect_into(c, LVL_INFO);
+
+  mola::LogHub::Instance().attach_modules(mod);
+  mod.logStr(LVL_INFO, "m");
+  mod.child_.logStr(LVL_INFO, "c");
+
+  ASSERT_EQUAL_(c->size(), 2U);
+  ASSERT_EQUAL_(c->lines.at(0), std::string("lonely|1|m"));
+  ASSERT_EQUAL_(c->lines.at(1), std::string("lonely/engine|1|c"));
 }
 
 void test_attach_modules()
@@ -288,6 +310,7 @@ int main()
     test_delivery_and_levels();
     test_recursion_and_exceptions();
     test_new_logger_at_reused_address();
+    test_attach_unenrolled_self();
     test_attach_modules();
     test_concurrency();
     std::cout << "All LogHub tests passed.\n";

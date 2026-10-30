@@ -67,10 +67,12 @@ struct LogRecord
  *
  * The callback verbosity threshold of each hooked logger is set to the lowest
  * level among the live sinks, but never above the logger's own console level,
- * so callbacks registered by modules themselves keep receiving what they did.
+ * so callbacks registered by modules themselves keep receiving at least what
+ * the logger prints. Hence, a module must not set that threshold itself
+ * (mrpt::system::COutputLogger::setVerbosityLevelForCallbacks()) while hooked.
  *
  * \note Thread-safe hooking of loggers that are concurrently logging requires
- *       MRPT >= 3.3.1.
+ *       MRPT >= 3.1.0.
  * \ingroup mola_kernel_grp
  */
 class LogHub
@@ -112,10 +114,10 @@ class LogHub
   [[nodiscard]] std::shared_ptr<Sink> add_sink(
       mrpt::system::VerbosityLevel minLevel, SinkFunction f);
 
-  /** Hooks all modules reachable from \a self via its name server (including
-   *  \a self), plus their ExecutableBase::child_loggers(), and updates their
-   *  callback verbosity thresholds. Cheap for already-hooked loggers. */
-  void attach_modules(const ExecutableBase& self);
+  /** Hooks \a self and all modules reachable from it via its name server,
+   *  plus their ExecutableBase::child_loggers(), and updates their callback
+   *  verbosity thresholds. Cheap for already-hooked loggers. */
+  void attach_modules(ExecutableBase& self);
 
   /** Hooks a single logger, with \a source as the LogRecord::source of its
    *  messages, and updates its callback verbosity threshold. Hooking the same

@@ -538,12 +538,19 @@ class BridgeROS2 : public RawDataSourceBase,
       std::string                  text;
     };
 
-    /// Bounds memory if ROS is not keeping up: the oldest messages are dropped.
-    static constexpr size_t MAX_SIZE = 5000;
+    /// Bound memory if ROS is not keeping up: the oldest messages are dropped.
+    static constexpr size_t MAX_SIZE  = 5000;
+    static constexpr size_t MAX_BYTES = 8 * 1024 * 1024;
+
+    /// Messages published per spin of the ROS node thread, so a backlog does
+    /// not hold up the sensor subscriptions.
+    static constexpr size_t MAX_PER_DRAIN = 500;
 
     std::mutex       mtx;
     std::deque<Item> items;
+    size_t           bytes   = 0;  //!< Text bytes in `items`
     size_t           dropped = 0;
+    bool             closed  = false;  //!< No more messages are accepted
   };
   std::shared_ptr<RosoutQueue>  rosoutQueue_ = std::make_shared<RosoutQueue>();
   std::shared_ptr<LogHub::Sink> rosoutSink_;
@@ -551,9 +558,11 @@ class BridgeROS2 : public RawDataSourceBase,
   /// Only used from the ROS node thread.
   rclcpp::Publisher<rcl_interfaces::msg::Log>::SharedPtr rosoutPub_;
 
-  void publishQueuedRosoutLogs();
-  void publishMetricMapGeoreferencingData(
-      const mola::Georeferencing& g, const std::string& georefTopic);
+  /// Publishes up to RosoutQueue::MAX_PER_DRAIN queued messages, returning
+  /// how many were taken from the queue. Only called from the ROS node thread.
+  size_t publishQueuedRosoutLogs();
+  void   publishMetricMapGeoreferencingData(
+        const mola::Georeferencing& g, const std::string& georefTopic);
 };
 
 }  // namespace mola

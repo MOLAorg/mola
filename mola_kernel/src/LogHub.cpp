@@ -195,14 +195,14 @@ void LogHub::attach_logger(mrpt::system::COutputLogger& logger, const std::strin
   logger.setVerbosityLevelForCallbacks(sinksLevel ? std::min(*sinksLevel, ownLevel) : ownLevel);
 }
 
-void LogHub::attach_modules(const ExecutableBase& self)
+void LogHub::attach_modules(ExecutableBase& self)
 {
-  for (const auto& module : self.findService<ExecutableBase>())
+  const auto attachWithChildren = [this](ExecutableBase& module)
   {
-    const std::string name = module->getModuleInstanceName();
-    attach_logger(*module, name);
+    const std::string name = module.getModuleInstanceName();
+    attach_logger(module, name);
 
-    for (const auto& [childName, childLogger] : module->child_loggers())
+    for (const auto& [childName, childLogger] : module.child_loggers())
     {
       if (childLogger != nullptr)
       {
@@ -211,6 +211,17 @@ void LogHub::attach_modules(const ExecutableBase& self)
         childSource += childName;
         attach_logger(*childLogger, childSource);
       }
+    }
+  };
+
+  // Directly, in case it is not reachable via its own name server:
+  attachWithChildren(self);
+
+  for (const auto& module : self.findService<ExecutableBase>())
+  {
+    if (module.get() != &self)
+    {
+      attachWithChildren(*module);
     }
   }
 }
