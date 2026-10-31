@@ -29,6 +29,7 @@
 #include <mrpt/poses/CPose2D.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/serialization/CArchive.h>
+#include <mrpt/version.h>
 #include <mrpt/viz/CSetOfObjects.h>
 
 #include <Eigen/Dense>
@@ -745,11 +746,13 @@ bool IncrementalPointCloud::internal_insertObservation(
   // the standard insertionOptions, e.g. minDistBetweenLaserPoints):
   const bool ok = CPointsMap::internal_insertObservation(obs, robotPose);
 
-  // The base class moves the coordinates of a point cloud observation by
-  // robotPose + sensorPose but copies its other fields verbatim, so its view
-  // directions arrive in the sensor frame. Turn the new ones into this map's
-  // frame, before the recycling below scatters them into free slots:
+  // Before MRPT 3.6.0, the base class moves the coordinates of a point cloud
+  // observation by robotPose + sensorPose but copies its other fields
+  // verbatim, so its view directions arrive in the sensor frame. Turn the new
+  // ones into this map's frame, before the recycling below scatters them into
+  // free slots. Since MRPT 3.6.0 its insertAnotherMap() rotates them already.
   // (The fusing insertion path merges points in place, ignoring the pose.)
+#if MRPT_VERSION < 0x030600
   if (const auto* pc = dynamic_cast<const mrpt::obs::CObservationPointCloud*>(&obs);
       pc != nullptr && !insertionOptions.fuseWithExisting)
   {
@@ -757,6 +760,7 @@ bool IncrementalPointCloud::internal_insertObservation(
     const std::size_t firstNew    = insertionOptions.addToExistingPointsMap ? before : 0;
     rotateViewFieldsRange(*this, firstNew, m_x.size(), robotPose3D + pc->sensorPose);
   }
+#endif
 
   if (insertionOptions.addToExistingPointsMap)
   {

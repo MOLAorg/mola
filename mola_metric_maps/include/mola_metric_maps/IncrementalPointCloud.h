@@ -86,12 +86,13 @@ class IncrementalKDTree;
  * toward the sensor, as produced by `mp2p_icp_filters::Generator`), they are
  * rotated along with the point coordinates by `insertObservation()` and by
  * `changeCoordinatesReference()`, so the stored ones are always expressed in
- * this map's frame. `insertAnotherMap()` called directly copies them verbatim,
- * as for any `CGenericPointsMap`, so a caller using that path must rotate them
- * itself (`mp2p_icp::rotateViewDirectionFields()`). A coordinate rewrite this
- * class cannot see (a non-virtual `CPointsMap` mutator called through a base
- * pointer) leaves their frame unknown, so they are zeroed when it is detected,
- * and a zero direction never rejects a pairing.
+ * this map's frame. `insertAnotherMap()` called directly treats them as for any
+ * `CGenericPointsMap`: it rotates them since MRPT 3.6.0, and copies them
+ * verbatim before that, so with older versions a caller using that path must
+ * rotate them itself (`mp2p_icp::rotateViewDirectionFields()`). A coordinate
+ * rewrite this class cannot see (a non-virtual `CPointsMap` mutator called
+ * through a base pointer) leaves their frame unknown, so they are zeroed when
+ * it is detected, and a zero direction never rejects a pairing.
  *
  * ## Not for loop closure
  * A single global index cannot cheaply absorb a global SE(3) re-map: every
