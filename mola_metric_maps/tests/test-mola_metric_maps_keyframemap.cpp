@@ -886,6 +886,57 @@ void test_view_filter_heading_sweep_pairing_accepted()
   }
 }
 
+// ── 18. View filter with a rotated *global* keyframe ──────────────────────
+//
+// Same geometry as the sweep above, but now it is the reference (global)
+// map whose keyframe has a non-identity heading. Its view vectors are stored
+// in the KF frame and turned into the map frame by `updatePointsGlobal()`;
+// rotating them twice there (e.g. once by `insertAnotherMap()` and once more
+// explicitly) leaves P's view off by the KF heading, rejecting the pair.
+void test_view_filter_global_keyframe_heading_sweep()
+{
+  constexpr float kDz      = 0.02f;
+  constexpr float kMaxDist = 1.0f;
+
+  const mrpt::math::TPoint3D  P_global_pt{50.0, 0.0, 0.0};
+  const mrpt::math::TVector3D P_global_view{0.0, 1.0, 0.0};
+
+  // Local (query) map at the identity: Q near P, seen from the same side.
+  auto local_pts = makeGridPts(kDz, 0.f, 0.f, 1.f);
+  appendPt(local_pts, 50.f, 0.f, kDz, 0.f, +1.f, 0.f);
+  auto local_m = makeMapFromCloud(makeCloudWithViews(local_pts));
+
+  for (const double heading_deg : {0.0, 90.0, 180.0, 270.0})
+  {
+    const auto kfPose = mrpt::poses::CPose3D::FromXYZYawPitchRoll(
+        0.0, 0.0, 0.0, mrpt::DEG2RAD(heading_deg), 0.0, 0.0);
+
+    // P and its view, expressed in the global KF's local frame:
+    const mrpt::math::TPoint3D  P_local_pt = kfPose.inverseComposePoint(P_global_pt);
+    const mrpt::math::TVector3D localView  = kfPose.inverseRotateVector(P_global_view);
+
+    auto global_pts = makeGridPts(0.f, 0.f, 0.f, 1.f);
+    appendPt(
+        global_pts, static_cast<float>(P_local_pt.x), static_cast<float>(P_local_pt.y),
+        static_cast<float>(P_local_pt.z), static_cast<float>(localView.x),
+        static_cast<float>(localView.y), static_cast<float>(localView.z));
+
+    auto global_m = makeMapFromCloud(makeCloudWithViews(global_pts), kfPose);
+    global_m.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+    global_m.creationOptions.use_view_direction_filter = true;
+    global_m.creationOptions.max_view_angle_deg        = 60.0;  // tight
+
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global_m.nn_search_cov2cov(local_m, mrpt::poses::CPose3D::Identity(), kMaxDist, pairings);
+
+    const mrpt::math::TPoint3Df Q_local{50.f, 0.f, kDz};
+    const mrpt::math::TPoint3Df P_global{50.f, 0.f, 0.f};
+    ASSERTMSG_(
+        hasPairing(pairings, Q_local, P_global),
+        mrpt::format("Pair rejected with the global KF at heading %.0f deg", heading_deg));
+  }
+}
+
 // ── 19. Per-KF pose plumbing ──────────────────────────────────────────────
 //
 // Covers:
@@ -1698,6 +1749,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_view_filter_heading_sweep_pairing_accepted ...\n";
     test_view_filter_heading_sweep_pairing_accepted();
+
+    std::cout << "test_view_filter_global_keyframe_heading_sweep ...\n";
+    test_view_filter_global_keyframe_heading_sweep();
 
     std::cout << "test_kf_pose_plumbing ...\n";
     test_kf_pose_plumbing();
