@@ -519,9 +519,11 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  before it, `mp2p_icp::rotateViewDirectionFields()`, see
      *  `mp2p_icp/pointcloud_field_utils.h`). Any code that inserts
      *  points carrying these fields into a keyframe (e.g.
-     *  `mp2p_icp_filters::FilterMerge`) must call the same helper to rotate
-     *  the fields alongside the point coordinates, or this filter will
-     *  silently compare vectors expressed in inconsistent frames.
+     *  `mp2p_icp_filters::FilterMerge`) must rotate the fields alongside the
+     *  point coordinates exactly once: `insertAnotherMap()` already does it
+     *  since MRPT 3.6.0, older versions need that helper. Rotating them twice,
+     *  or not at all, makes this filter silently compare vectors expressed in
+     *  inconsistent frames.
      *
      *  Same option as in `IncrementalPointCloud`, so a pipeline configuring
      *  both classes from one block of options switches both at once.
