@@ -58,6 +58,14 @@ namespace mola
  *       $import: shared-params.yaml   # base (a path, or a sequence of paths)
  *       max_rate_hz: 10.0             # override one entry of the imported base
  *     ```
+ *     A sibling sequence replaces the imported one, unless it is given as a
+ *     map with **`$append`** and/or **`$prepend`** keys, whose items are then
+ *     added to the end/start of the imported sequence (also across the files of
+ *     an `$import` sequence):
+ *     ```
+ *     filters:
+ *       $append: [ {class_name: MyFilter} ]  # keep the imported filters
+ *     ```
  *     Also resolved in this pass: the **`$define`** map directive, which binds
  *     `${NAME}` variables for the subtree of the map it appears in, INCLUDING
  *     the files pulled in by a sibling `$import` / `$include{}`. This lets a

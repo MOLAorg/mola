@@ -70,8 +70,8 @@ is run through a lightweight pre-processor that expands special ``$``\ -prefixed
 expressions.  The three expansion passes are always applied in the following
 fixed order:
 
-1. :ref:`yaml_include` - ``$include{path}``, plus the :ref:`yaml_import` and
-   :ref:`yaml_define` map directives
+1. :ref:`yaml_include` - ``$include{path}``, plus the :ref:`yaml_import`,
+   :ref:`yaml_append` and :ref:`yaml_define` map directives
 2. :ref:`yaml_cmd` - ``$(command)``
 3. :ref:`yaml_vars` - ``${VAR}`` / ``${VAR|default}``
 
@@ -160,7 +160,7 @@ replaced by the **deep-merge** of the imported file(s) with the map's
 - The **sibling** keys of ``$import`` are then overlaid and therefore **override**
   the imported base.  Nested maps are merged **deeply**, so you can override a
   single deep key without restating its whole subtree; scalars and sequences are
-  replaced wholesale.
+  replaced wholesale (use :ref:`yaml_append` to add items to a sequence instead).
 - Paths follow the same rules as ``$include{}`` (absolute or relative to the
   current file's directory; the path expression itself is pre-processed by the
   ``$()`` / ``${}`` passes), and the same **circular-reference detection** applies.
@@ -195,6 +195,48 @@ Equivalent multi-file base, where ``overrides.yaml`` wins over ``base.yaml``:
    ``$import`` is resolved in the same (first) pass as ``$include{}``.  Use
    ``$include{}`` when a node *is* the file; use ``$import`` when you want the
    file as a base **plus** local overrides.
+
+
+.. _yaml_append:
+
+Add items to an imported sequence: ``$append`` / ``$prepend``
+---------------------------------------------------------------
+
+Since ``$import`` replaces sequences wholesale, overriding a list (e.g. a
+filter pipeline) to add one entry would otherwise force you to copy the whole
+imported list.  Instead, give the sibling key a map with an ``$append`` and/or
+``$prepend`` key holding the **new items only**: they are added to the end /
+start of the imported sequence, and the original items are kept.
+
+.. code-block:: yaml
+
+    $import: lidar3d-default.yaml
+
+    # The imported filters are kept, and this one runs after them:
+    observations_filter_1st_pass:
+      $append:
+        - class_name: mp2p_icp_filters::FilterDecimateAdaptive
+          params:
+            input_pointcloud_layer: "decimated_for_map"
+            output_pointcloud_layer: "decimated_for_viz"
+
+    # Both at once: [first, <imported items...>, last]
+    some_list:
+      $prepend: [first]
+      $append: [last]
+
+Key properties:
+
+- A file later in an ``$import`` **sequence** can append to a list of an
+  **earlier** one, and the sibling keys can append again on top of that.
+- With no sequence to edit (the key is missing in the base, or there is no
+  ``$import`` at all), the directive simply becomes its own list.
+- The directive map may contain **only** ``$append`` / ``$prepend``, each with a
+  sequence value.  It is an error to mix them with other keys, or to apply them
+  over a scalar or a map.
+- A plain sequence still **replaces** the imported one, as before.
+- Items are added as they are: to change a field of an *existing* item, see the
+  ``$define`` tip below.
 
 
 .. _yaml_define:
@@ -244,8 +286,9 @@ Key properties:
 
    ``$define`` is the way to patch a value that lives **inside a YAML sequence**
    of an imported file.  ``$import``'s deep-merge replaces sequences *wholesale*
-   (see :ref:`yaml_import`), so overriding one field of one list item otherwise
-   forces you to duplicate the entire sequence verbatim.  If the imported file
+   (see :ref:`yaml_import`), and :ref:`yaml_append` can only add new items, so
+   overriding one field of one existing list item otherwise forces you to
+   duplicate the entire sequence verbatim.  If the imported file
    exposes that field as a ``${VAR|default}`` hook, a one-line ``$define``
    replaces the whole copy-paste.
 
