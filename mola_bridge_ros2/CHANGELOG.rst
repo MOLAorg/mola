@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.4.0 (2026-11-01)
+------------------
 * Forward the log messages of all MOLA modules to /rosout, with truncation of long texts (`#261 <https://github.com/MOLAorg/mola/issues/261>`_)
 * Contributors: Jose Luis Blanco-Claraco
 

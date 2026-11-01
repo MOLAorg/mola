@@ -3,8 +3,8 @@ Changelog for package mola_relocalization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.4.0 (2026-11-01)
+------------------
 * ICP candidates with their quality, ambiguity check, and per-mode refinement with a stricter ICP (`#244 <https://github.com/MOLAorg/mola/issues/244>`_)
 * Contributors: Jose Luis Blanco-Claraco
 

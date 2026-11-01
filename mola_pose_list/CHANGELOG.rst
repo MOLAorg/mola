@@ -2,8 +2,8 @@
 Changelog for package mola_pose_list
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.4.0 (2026-11-01)
+------------------
 * Round voxel indices down instead of toward zero (`#254 <https://github.com/MOLAorg/mola/issues/254>`_)
 * Contributors: Jose Luis Blanco-Claraco
 

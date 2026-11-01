@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.4.0 (2026-11-01)
+------------------
 * New LogHub, to forward the log messages of all MOLA modules (`#261 <https://github.com/MOLAorg/mola/issues/261>`_)
 * Cap TBB threads to the physical CPU cores (MOLA_MAX_THREADS to change it), respecting the affinity mask (`#260 <https://github.com/MOLAorg/mola/issues/260>`_)
 * RawDataSourceBase: do not spin at 100% CPU waiting for pending rawlog exports (`#257 <https://github.com/MOLAorg/mola/issues/257>`_)
