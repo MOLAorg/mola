@@ -357,7 +357,7 @@ constexpr const char* kPrependKey = "$prepend";
 
 /**
  * Whether `n` is a sequence-edit directive: a non-empty map whose only keys are
- * `$append` and/or `$prepend`, each holding a sequence. Throws on a map that
+ * `$append` and/or `$prepend`, each holding a sequence (or an empty value). Throws on a map that
  * mixes them with other keys, or gives them a non-sequence value, since that is
  * always a typo rather than a regular map.
  */
@@ -377,7 +377,11 @@ constexpr const char* kPrependKey = "$prepend";
     const auto k = key.as<std::string>();
     if (k == kAppendKey || k == kPrependKey)
     {
-      if (!value.isSequence())
+      // An empty value counts as an empty list: an empty sequence is written
+      // back to text as an empty value, so this keeps it across the round trip.
+      const bool isEmptyValue =
+          value.isNullNode() || (value.isScalar() && value.as<std::string>().empty());
+      if (!value.isSequence() && !isEmptyValue)
       {
         THROW_EXCEPTION_FMT("`%s` value must be a sequence.", k.c_str());
       }
@@ -400,7 +404,7 @@ constexpr const char* kPrependKey = "$prepend";
 {
   for (const auto& [k, value] : directive.asMap())
   {
-    if (k.isScalar() && k.as<std::string>() == key)
+    if (k.isScalar() && k.as<std::string>() == key && value.isSequence())
     {
       return value.asSequence();
     }
@@ -422,6 +426,12 @@ constexpr const char* kPrependKey = "$prepend";
 {
   yaml::node_t               out = yaml::Map();
   mrpt::containers::yaml_ref outRef(out);
+  if (prepend.empty() && append.empty())
+  {
+    // Keep an empty edit recognizable as a directive, not as an empty map.
+    outRef[kAppendKey] = yaml(yaml::Sequence());
+    return out;
+  }
   if (!prepend.empty())
   {
     outRef[kPrependKey] = yaml(seqNode(prepend));

@@ -1,0 +1,3 @@
+# base with a null-valued key, for `$append` tests
+---
+items: ~

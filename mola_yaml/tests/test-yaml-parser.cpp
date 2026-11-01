@@ -936,6 +936,20 @@ void test_parseImportAppendPrepend()
     ASSERT_EQUAL_(seqAsString(y["list"]), "z"s);
   }
 
+  // --- an empty edit over a null key in the base is still an empty list ---
+  {
+    const auto y = parse(
+        "params:\n"
+        "  $import: test_import_null_list.yaml\n"
+        "  items:\n"
+        "    $append: []\n");
+    // Not a `{}` map. An empty list is written to text as an empty value, so
+    // that is what comes back, as for a plain `items: []`:
+    const auto items = y["params"]["items"];
+    ASSERT_(!items.isMap());
+    ASSERT_(items.isNullNode() || items.as<std::string>().empty());
+  }
+
   // --- a plain sequence still replaces the base wholesale ---
   {
     const auto y = parse(
