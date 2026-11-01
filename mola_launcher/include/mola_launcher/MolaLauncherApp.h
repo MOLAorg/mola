@@ -27,6 +27,7 @@
 #include <condition_variable>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -115,6 +116,7 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
   std::vector<std::shared_ptr<T>> findModulesOfType() const
   {
     std::vector<std::shared_ptr<T>> ret;
+    std::lock_guard<std::mutex>     lck(running_threads_mtx_);
     for (const auto& th : running_threads_)
     {
       if (auto p = std::dynamic_pointer_cast<T>(th.second.impl); p)
@@ -189,6 +191,12 @@ class MolaLauncherApp : public mrpt::system::COutputLogger
   };
   /** Indexed by `name` */
   std::map<std::string, InfoPerRunningThread> running_threads_;
+
+  /** Protects the structure of running_threads_ (not the modules), for module
+   * lookups from other threads while shutdown() empties it. Never hold it
+   * while destroying modules: their destructors may join threads that are
+   * doing a lookup. */
+  mutable std::mutex running_threads_mtx_;
 
   /** Used to enforce a one-by-one module initialization */
   std::condition_variable thread_launch_condition_;
