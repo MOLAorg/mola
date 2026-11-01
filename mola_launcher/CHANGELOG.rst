@@ -2,6 +2,13 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Do not destroy modules while other threads look them up (`#264 <https://github.com/MOLAorg/mola/issues/264>`_)
+* Skip and retry module libraries that cannot be loaded; report the Windows loader error code (`#246 <https://github.com/MOLAorg/mola/issues/246>`_)
+* mola-cli: cap TBB threads to the physical CPU cores (`#260 <https://github.com/MOLAorg/mola/issues/260>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.2 (2026-10-09)
 ------------------
 

@@ -3,6 +3,11 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Forward the log messages of all MOLA modules to /rosout, with truncation of long texts (`#261 <https://github.com/MOLAorg/mola/issues/261>`_)
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.2 (2026-10-09)
 ------------------
 * Set input observation timestamps explicitly (IMU, LaserScan, NavSatFix, GPSFix, odometry from /tf).

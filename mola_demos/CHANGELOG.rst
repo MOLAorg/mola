@@ -2,6 +2,9 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.3.2 (2026-10-09)
 ------------------
 * fake_sensor_publisher: publish the ground-truth trail as nav_msgs/Path (parameter gt_path_topic).

@@ -2,6 +2,17 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* IncrementalPointCloud: exact voxel-hash index, now the default (`#256 <https://github.com/MOLAorg/mola/issues/256>`_)
+* IncrementalPointCloud: allocation-free covariances, provisional covariance reuse, optional minimum point distance (`#252 <https://github.com/MOLAorg/mola/issues/252>`_)
+* Fix k-NN and capped radius search of HashedVoxelPointCloud and NDT; round voxel indices down (`#255 <https://github.com/MOLAorg/mola/issues/255>`_)
+* Expose map contents via CMetricMap::asPointsMapView() (`#247 <https://github.com/MOLAorg/mola/issues/247>`_)
+* KeyframePointCloudMap: thread-safe copies and option updates (`#245 <https://github.com/MOLAorg/mola/issues/245>`_)
+* Do not rotate view directions twice with MRPT >= 3.6.0 (`#262 <https://github.com/MOLAorg/mola/issues/262>`_)
+* Fix license note
+* Contributors: Jose Luis Blanco-Claraco
+
 3.3.2 (2026-10-09)
 ------------------
 
