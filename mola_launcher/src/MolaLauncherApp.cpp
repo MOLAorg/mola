@@ -156,7 +156,17 @@ void MolaLauncherApp::shutdown()
     }
   }
   MRPT_LOG_INFO("shutdown(): Done.");
-  running_threads_.clear();
+
+  // Destroy the modules out of the map, and with the lock released: a module
+  // thread still running until its own destructor (e.g. a ROS node spinner)
+  // may look up other modules meanwhile, and must then find none.
+  {
+    std::map<std::string, InfoPerRunningThread> modules;
+    {
+      std::lock_guard<std::mutex> lck(running_threads_mtx_);
+      modules.swap(running_threads_);
+    }
+  }
 
   threads_must_end_ = true;
   // we need to wait for the end of spin, only if we are now in a different
@@ -571,6 +581,7 @@ ExecutableBase::Ptr MolaLauncherApp::nameServerImpl(const std::string& name)
   // If the requested name has the format: "[" + <i>, return the i-th
   // module, or nullptr if out of range.
   // This is used by ExecutableBase::findService()
+  std::lock_guard<std::mutex> lck(running_threads_mtx_);
   if (name.size() >= 2 && name[0] == '[')
   {
     const auto idx = std::stoul(name.substr(1));
