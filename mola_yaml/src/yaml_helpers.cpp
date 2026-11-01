@@ -352,11 +352,171 @@ struct IncludeGuard
   IncludeGuard& operator=(const IncludeGuard&) = delete;
 };
 
+constexpr const char* kAppendKey  = "$append";
+constexpr const char* kPrependKey = "$prepend";
+
+/**
+ * Whether `n` is a sequence-edit directive: a non-empty map whose only keys are
+ * `$append` and/or `$prepend`, each holding a sequence. Throws on a map that
+ * mixes them with other keys, or gives them a non-sequence value, since that is
+ * always a typo rather than a regular map.
+ */
+[[nodiscard]] bool isSeqEditDirective(const yaml::node_t& n)
+{
+  if (!n.isMap() || n.asMap().empty())
+  {
+    return false;
+  }
+  size_t numDirectives = 0;
+  for (const auto& [key, value] : n.asMap())
+  {
+    if (!key.isScalar())
+    {
+      continue;
+    }
+    const auto k = key.as<std::string>();
+    if (k == kAppendKey || k == kPrependKey)
+    {
+      if (!value.isSequence())
+      {
+        THROW_EXCEPTION_FMT("`%s` value must be a sequence.", k.c_str());
+      }
+      numDirectives++;
+    }
+  }
+  if (numDirectives == 0)
+  {
+    return false;
+  }
+  if (numDirectives != n.asMap().size())
+  {
+    THROW_EXCEPTION("`$append` / `$prepend` cannot be mixed with other keys in the same map.");
+  }
+  return true;
+}
+
+/** The `$append` or `$prepend` list of a directive map, or an empty sequence. */
+[[nodiscard]] yaml::sequence_t seqEditList(const yaml::node_t& directive, const char* key)
+{
+  for (const auto& [k, value] : directive.asMap())
+  {
+    if (k.isScalar() && k.as<std::string>() == key)
+    {
+      return value.asSequence();
+    }
+  }
+  return {};
+}
+
+/** A sequence node holding a copy of `elements`. */
+[[nodiscard]] yaml::node_t seqNode(const yaml::sequence_t& elements)
+{
+  yaml::node_t n = yaml::Sequence();
+  n.asSequence() = elements;
+  return n;
+}
+
+/** Builds a directive map from its two lists, omitting an empty one. */
+[[nodiscard]] yaml::node_t makeSeqEditDirective(
+    const yaml::sequence_t& prepend, const yaml::sequence_t& append)
+{
+  yaml::node_t               out = yaml::Map();
+  mrpt::containers::yaml_ref outRef(out);
+  if (!prepend.empty())
+  {
+    outRef[kPrependKey] = yaml(seqNode(prepend));
+  }
+  if (!append.empty())
+  {
+    outRef[kAppendKey] = yaml(seqNode(append));
+  }
+  return out;
+}
+
+/**
+ * Apply a sequence-edit directive `overlay` onto `base` (in place):
+ *  - base is a sequence: `prepend + base + append`.
+ *  - base is another (unresolved) directive: both are combined, so a later
+ *    edit appends after (or prepends before) the earlier one.
+ *  - base is null: same as an empty sequence.
+ */
+void applySeqEditDirective(yaml::node_t& base, const yaml::node_t& overlay)
+{
+  const auto prepend = seqEditList(overlay, kPrependKey);
+  const auto append  = seqEditList(overlay, kAppendKey);
+
+  if (base.isNullNode())
+  {
+    base = makeSeqEditDirective(prepend, append);
+    return;
+  }
+  if (isSeqEditDirective(base))
+  {
+    auto newPrepend = prepend;
+    for (const auto& e : seqEditList(base, kPrependKey))
+    {
+      newPrepend.push_back(e);
+    }
+    auto newAppend = seqEditList(base, kAppendKey);
+    for (const auto& e : append)
+    {
+      newAppend.push_back(e);
+    }
+    base = makeSeqEditDirective(newPrepend, newAppend);
+    return;
+  }
+  if (!base.isSequence())
+  {
+    THROW_EXCEPTION("`$append` / `$prepend` can only be applied over a sequence.");
+  }
+  yaml::sequence_t out = prepend;
+  for (const auto& e : base.asSequence())
+  {
+    out.push_back(e);
+  }
+  for (const auto& e : append)
+  {
+    out.push_back(e);
+  }
+  base = seqNode(out);
+}
+
+/**
+ * Replace any sequence-edit directive left in the tree (one with no sequence
+ * underneath to edit) by its plain list, so it never reaches the output.
+ */
+void resolveLeftoverSeqEdits(yaml::node_t& n)
+{
+  if (isSeqEditDirective(n))
+  {
+    yaml::node_t empty = yaml::Sequence();
+    applySeqEditDirective(empty, n);
+    n = empty;
+  }
+  if (n.isSequence())
+  {
+    for (auto& e : n.asSequence())
+    {
+      resolveLeftoverSeqEdits(e);
+    }
+  }
+  else if (n.isMap())
+  {
+    for (auto& [key, value] : n.asMap())
+    {
+      resolveLeftoverSeqEdits(value);
+    }
+  }
+}
+
 /**
  * Recursively deep-merge `overlay` on top of `base` (in place).
  *
  *  - When both nodes are maps, keys are merged recursively: a key present only
  *    in `overlay` is added; a key present in both is merged by recursing.
+ *  - When `overlay` is a `$append` / `$prepend` directive map, its lists are
+ *    added to the end / start of the `base` sequence (see
+ *    applySeqEditDirective()).
  *  - For any other combination (scalar, sequence, or type mismatch), `overlay`
  *    REPLACES `base` wholesale.
  *
@@ -366,7 +526,11 @@ struct IncludeGuard
  */
 void deepMergeNode(yaml::node_t& base, const yaml::node_t& overlay)
 {
-  if (base.isMap() && overlay.isMap())
+  if (isSeqEditDirective(overlay))
+  {
+    applySeqEditDirective(base, overlay);
+  }
+  else if (base.isMap() && overlay.isMap())
   {
     // `yaml::map_t` is a vector-backed, insertion-order structure (not
     // associative), so lookups go through the `yaml_ref` wrapper's has()/
@@ -705,6 +869,14 @@ void recursiveProcessIncludes(yaml::node_t& n, const mola::YAMLParseOptions& opt
 
   yaml root = yaml::FromText(text);
   recursiveProcessIncludes(root.node(), opts);
+
+  // `$append` / `$prepend` directives stay unresolved inside an imported file,
+  // so they can still edit a list of an EARLIER file of the same `$import`
+  // sequence. Only the outermost document turns any leftover into a plain list.
+  if (g_activeIncludes.empty())
+  {
+    resolveLeftoverSeqEdits(root.node());
+  }
   return mola::yaml_to_string(root);
 
   MRPT_TRY_END

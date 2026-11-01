@@ -823,6 +823,138 @@ void test_parseDefine()
 
 }  // namespace
 
+// ---------------------------------------------------------------------------
+// 14. `$append` / `$prepend`: edit a sequence of the `$import`ed base instead
+// of replacing it wholesale.
+// ---------------------------------------------------------------------------
+void test_parseImportAppendPrepend()
+{
+  using mrpt::containers::yaml;
+
+  mola::YAMLParseOptions opts;
+  opts.includesBasePath = MOLA_MODULE_SOURCE_DIR;
+
+  const auto seqAsString = [](const yaml& seq)
+  {
+    std::string s;
+    for (const auto& e : seq.asSequence())
+    {
+      s += e.as<std::string>();
+    }
+    return s;
+  };
+
+  const auto parse = [&](const std::string& input)
+  { return mola::parse_yaml(yaml::FromText(input), opts); };
+
+  const auto throws = [&](const std::string& input)
+  {
+    try
+    {
+      (void)parse(input);
+    }
+    catch (const std::exception&)
+    {
+      return true;
+    }
+    return false;
+  };
+
+  // --- append to an imported list (base list: [p, q]) ---
+  {
+    const auto y = parse(
+        "params:\n"
+        "  $import: test_import_base.yaml\n"
+        "  list:\n"
+        "    $append: [r, s]\n");
+    ASSERT_EQUAL_(seqAsString(y["params"]["list"]), "pqrs"s);
+    ASSERT_EQUAL_(y["params"]["a"].as<int>(), 1);  // rest of the base kept
+  }
+
+  // --- prepend and append at once ---
+  {
+    const auto y = parse(
+        "params:\n"
+        "  $import: test_import_base.yaml\n"
+        "  list:\n"
+        "    $prepend: [o]\n"
+        "    $append: [r]\n");
+    ASSERT_EQUAL_(seqAsString(y["params"]["list"]), "opqr"s);
+  }
+
+  // --- list elements may be maps (e.g. a filter pipeline entry) ---
+  {
+    const auto y = parse(
+        "params:\n"
+        "  $import: test_import_base.yaml\n"
+        "  list:\n"
+        "    $append:\n"
+        "      - class_name: Foo\n"
+        "        params: {k: 3}\n");
+    ASSERT_EQUAL_(y["params"]["list"].asSequence().size(), 3U);
+    ASSERT_EQUAL_(y["params"]["list"](2)["class_name"].as<std::string>(), "Foo"s);
+    ASSERT_EQUAL_(y["params"]["list"](2)["params"]["k"].as<int>(), 3);
+  }
+
+  // --- a key missing in the base, or no `$import` at all: just the list ---
+  {
+    const auto y = parse(
+        "params:\n"
+        "  $import: test_import_base.yaml\n"
+        "  new_list:\n"
+        "    $append: [x]\n"
+        "other:\n"
+        "  $prepend: [a]\n"
+        "  $append: [b]\n");
+    ASSERT_EQUAL_(seqAsString(y["params"]["new_list"]), "x"s);
+    ASSERT_EQUAL_(seqAsString(y["other"]), "ab"s);
+  }
+
+  // --- a later file of an `$import` sequence edits an earlier one's list,
+  //     and the sibling keys edit the result again ---
+  {
+    const auto y = parse(
+        "params:\n"
+        "  $import:\n"
+        "    - test_import_base.yaml\n"
+        "    - test_import_append.yaml\n"
+        "  list:\n"
+        "    $append: [w]\n");
+    ASSERT_EQUAL_(seqAsString(y["params"]["list"]), "pqzw"s);
+  }
+
+  // --- importing the overlay file alone resolves it to a plain list ---
+  {
+    const auto y = parse("params:\n  $import: test_import_append.yaml\n");
+    ASSERT_(y["params"]["list"].isSequence());
+    ASSERT_EQUAL_(seqAsString(y["params"]["list"]), "z"s);
+  }
+
+  // --- via load_yaml_file() too ---
+  {
+    const auto y = mola::load_yaml_file(MOLA_MODULE_SOURCE_DIR + "/test_import_append.yaml"s);
+    ASSERT_EQUAL_(seqAsString(y["list"]), "z"s);
+  }
+
+  // --- a plain sequence still replaces the base wholesale ---
+  {
+    const auto y = parse(
+        "params:\n"
+        "  $import: test_import_base.yaml\n"
+        "  list: [k]\n");
+    ASSERT_EQUAL_(seqAsString(y["params"]["list"]), "k"s);
+  }
+
+  // --- errors ---
+  // Over a scalar or a map:
+  ASSERT_(throws("p:\n  $import: test_import_base.yaml\n  a:\n    $append: [1]\n"));
+  ASSERT_(throws("p:\n  $import: test_import_base.yaml\n  nested:\n    $append: [1]\n"));
+  // Mixed with other keys:
+  ASSERT_(throws("p:\n  $append: [1]\n  other: 2\n"));
+  // Not a sequence:
+  ASSERT_(throws("p:\n  $append: 1\n"));
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
   try
@@ -845,6 +977,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_parseImportMissingFile();
     test_parseImportPathVarsWithEnvVarsDisabled();
     test_parseDefine();
+    test_parseImportAppendPrepend();
 
     std::cout << "Test successful.\n";
   }

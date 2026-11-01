@@ -1,0 +1,6 @@
+# overlay file for `$append` tests: edits the `list` of an EARLIER file in the
+# same `$import` sequence, instead of replacing it
+---
+list:
+  $append:
+    - z
