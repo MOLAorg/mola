@@ -408,6 +408,10 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    *  object of every window, if it exists. */
   void apply_ground_truth_visibility();
 
+  /** GUI thread only: sets ground_truth_available_ from whether the
+   *  ground-truth object exists in any window, then applies its visibility. */
+  void refresh_ground_truth_state();
+
   /** Default rolling-history cap (seconds) for a newly-registered channel. */
   double plots_default_retention_seconds_ = 10.0;
 

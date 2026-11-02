@@ -200,9 +200,9 @@ void MolaVizImGui::initialize(const Yaml& c)
   core_ptr_->menu_bar_enabled_ = cfg.getOrDefault("menu_bar_enabled", core_ptr_->menu_bar_enabled_);
   ground_truth_corner_spacing_ =
       cfg.getOrDefault("ground_truth_corner_spacing", ground_truth_corner_spacing_);
-  if (ground_truth_corner_spacing_ <= 0)
+  if (!std::isfinite(ground_truth_corner_spacing_) || ground_truth_corner_spacing_ <= 0)
   {
-    MRPT_LOG_WARN("ground_truth_corner_spacing must be positive: using 10 m.");
+    MRPT_LOG_WARN("ground_truth_corner_spacing must be a positive number: using 10 m.");
     ground_truth_corner_spacing_ = 10.0;
   }
   ground_truth_corner_scale_ =
@@ -642,9 +642,13 @@ void MolaVizImGui::ground_truth_check_new_modules()
     lines->setColor_u8(0xff, 0x00, 0xff);
     lines->setLineWidth(2.0f);
 
-    const double spacing   = ground_truth_corner_spacing_;
-    const auto   addCorner = [&](const mrpt::math::TPose3D& p)
+    const double spacing = ground_truth_corner_spacing_;
+    // Bounds the work and memory for very long trajectories or a tiny spacing:
+    constexpr size_t MAX_CORNERS = 10000;
+    size_t           nCorners    = 0;
+    const auto       addCorner   = [&](const mrpt::math::TPose3D& p)
     {
+      nCorners++;
       auto corner = mrpt::viz::stock_objects::CornerXYZSimple(
           static_cast<float>(ground_truth_corner_scale_), 2.0f);
       corner->setPose(p);
@@ -669,7 +673,7 @@ void MolaVizImGui::ground_truth_check_new_modules()
       lines->appendLine(mrpt::math::TSegment3D(a, b));
 
       double along = spacing - distSinceCorner;
-      while (along <= segLen)
+      while (along <= segLen && nCorners < MAX_CORNERS)
       {
         mrpt::math::TPose3D c = *last;
         const double        f = along / segLen;
@@ -686,15 +690,17 @@ void MolaVizImGui::ground_truth_check_new_modules()
 
     update_3d_object(MolaVizImGuiCore::GROUND_TRUTH_OBJECT_NAME, obj);
 
-    // Runs on the GUI thread right after the insertion above (same FIFO
-    // queue), so the menu item only appears once the object exists, and the
-    // object takes the checkbox state it was given in the meantime.
-    auto core = core_ptr_;
+    // Runs on the GUI thread after the insertion above (same FIFO queue): the
+    // menu item reflects whether the object exists by then (a clear queued in
+    // between removes it), and the object takes the current checkbox state.
+    std::weak_ptr<MolaVizImGuiCore> weakCore = core_ptr_;
     core_ptr_->enqueue_custom_gui_code(
-        [core]()
+        [weakCore]()
         {
-          core->ground_truth_available_ = true;
-          core->apply_ground_truth_visibility();
+          if (auto core = weakCore.lock(); core)
+          {
+            core->refresh_ground_truth_state();
+          }
         });
     ground_truth_shown_ = true;
 

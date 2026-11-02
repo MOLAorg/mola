@@ -510,6 +510,21 @@ void MolaVizImGuiCore::apply_ground_truth_visibility()
   }
 }
 
+void MolaVizImGuiCore::refresh_ground_truth_state()
+{
+  bool exists = false;
+  for (auto& [name, wd] : windows_)
+  {
+    std::lock_guard lk(wd.background_scene_mtx);
+    if (wd.background_scene && wd.background_scene->getByName(GROUND_TRUTH_OBJECT_NAME))
+    {
+      exists = true;
+    }
+  }
+  ground_truth_available_ = exists;
+  apply_ground_truth_visibility();
+}
+
 void MolaVizImGuiCore::render_view_menu(PerWindowData& wd)
 {
   if (!ImGui::BeginMenu("View"))
