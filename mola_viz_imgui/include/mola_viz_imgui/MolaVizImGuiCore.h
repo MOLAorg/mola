@@ -404,6 +404,10 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   /** GUI thread only: state of the "View > Ground truth" checkbox. */
   bool ground_truth_visible_ = true;
 
+  /** GUI thread only: applies ground_truth_visible_ to the ground-truth
+   *  object of every window, if it exists. */
+  void apply_ground_truth_visibility();
+
   /** Default rolling-history cap (seconds) for a newly-registered channel. */
   double plots_default_retention_seconds_ = 10.0;
 

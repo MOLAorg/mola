@@ -494,6 +494,22 @@ void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
   }
 }
 
+void MolaVizImGuiCore::apply_ground_truth_visibility()
+{
+  for (auto& [name, wd] : windows_)
+  {
+    std::lock_guard lk(wd.background_scene_mtx);
+    if (!wd.background_scene)
+    {
+      continue;
+    }
+    if (auto o = wd.background_scene->getByName(GROUND_TRUTH_OBJECT_NAME); o)
+    {
+      o->setVisibility(ground_truth_visible_);
+    }
+  }
+}
+
 void MolaVizImGuiCore::render_view_menu(PerWindowData& wd)
 {
   if (!ImGui::BeginMenu("View"))
@@ -505,14 +521,7 @@ void MolaVizImGuiCore::render_view_menu(PerWindowData& wd)
   {
     if (ImGui::MenuItem("Ground truth", nullptr, &ground_truth_visible_))
     {
-      std::lock_guard lk(wd.background_scene_mtx);
-      if (wd.background_scene)
-      {
-        if (auto o = wd.background_scene->getByName(GROUND_TRUTH_OBJECT_NAME); o)
-        {
-          o->setVisibility(ground_truth_visible_);
-        }
-      }
+      apply_ground_truth_visibility();
     }
   }
 
@@ -1302,6 +1311,12 @@ std::future<bool> MolaVizImGuiCore::clear_background_scene(
         }
 
         viewport->clear();
+
+        // A full clear also removes the ground truth: drop its menu item.
+        if (!scene->getByName(GROUND_TRUTH_OBJECT_NAME))
+        {
+          ground_truth_available_ = false;
+        }
 
         // Also drop the decaying-clouds bookkeeping: their backing
         // CSetOfObjects container just got cleared above, so keeping these

@@ -200,6 +200,11 @@ void MolaVizImGui::initialize(const Yaml& c)
   core_ptr_->menu_bar_enabled_ = cfg.getOrDefault("menu_bar_enabled", core_ptr_->menu_bar_enabled_);
   ground_truth_corner_spacing_ =
       cfg.getOrDefault("ground_truth_corner_spacing", ground_truth_corner_spacing_);
+  if (ground_truth_corner_spacing_ <= 0)
+  {
+    MRPT_LOG_WARN("ground_truth_corner_spacing must be positive: using 10 m.");
+    ground_truth_corner_spacing_ = 10.0;
+  }
   ground_truth_corner_scale_ =
       cfg.getOrDefault("ground_truth_corner_scale", ground_truth_corner_scale_);
 
@@ -637,31 +642,61 @@ void MolaVizImGui::ground_truth_check_new_modules()
     lines->setColor_u8(0xff, 0x00, 0xff);
     lines->setLineWidth(2.0f);
 
-    std::optional<mrpt::math::TPoint3D> lastPt;
-    double                              distSinceCorner = 0;
+    const double spacing   = ground_truth_corner_spacing_;
+    const auto   addCorner = [&](const mrpt::math::TPose3D& p)
+    {
+      auto corner = mrpt::viz::stock_objects::CornerXYZSimple(
+          static_cast<float>(ground_truth_corner_scale_), 2.0f);
+      corner->setPose(p);
+      obj->insert(corner);
+    };
+
+    // Corners go at exact arc-length multiples of the spacing, interpolated
+    // along each segment, with the attitude of the segment's first pose.
+    std::optional<mrpt::math::TPose3D> last;
+    double                             distSinceCorner = 0;
     for (const auto& [t, p] : gt)
     {
-      const auto pt = p.translation();
-      if (lastPt)
+      if (!last)
       {
-        lines->appendLine(mrpt::math::TSegment3D(*lastPt, pt));
-        distSinceCorner += (pt - *lastPt).norm();
+        addCorner(p);
+        last = p;
+        continue;
       }
-      if (!lastPt || distSinceCorner >= ground_truth_corner_spacing_)
+      const auto   a      = last->translation();
+      const auto   b      = p.translation();
+      const double segLen = (b - a).norm();
+      lines->appendLine(mrpt::math::TSegment3D(a, b));
+
+      double along = spacing - distSinceCorner;
+      while (along <= segLen)
       {
-        auto corner = mrpt::viz::stock_objects::CornerXYZSimple(
-            static_cast<float>(ground_truth_corner_scale_), 2.0f);
-        corner->setPose(p);
-        obj->insert(corner);
-        distSinceCorner = 0;
+        mrpt::math::TPose3D c = *last;
+        const double        f = along / segLen;
+        c.x                   = a.x + f * (b.x - a.x);
+        c.y                   = a.y + f * (b.y - a.y);
+        c.z                   = a.z + f * (b.z - a.z);
+        addCorner(c);
+        along += spacing;
       }
-      lastPt = pt;
+      distSinceCorner = segLen - (along - spacing);
+      last            = p;
     }
     obj->insert(lines);
 
     update_3d_object(MolaVizImGuiCore::GROUND_TRUTH_OBJECT_NAME, obj);
-    core_ptr_->ground_truth_available_ = true;
-    ground_truth_shown_                = true;
+
+    // Runs on the GUI thread right after the insertion above (same FIFO
+    // queue), so the menu item only appears once the object exists, and the
+    // object takes the checkbox state it was given in the meantime.
+    auto core = core_ptr_;
+    core_ptr_->enqueue_custom_gui_code(
+        [core]()
+        {
+          core->ground_truth_available_ = true;
+          core->apply_ground_truth_visibility();
+        });
+    ground_truth_shown_ = true;
 
     MRPT_LOG_INFO_STREAM(
         "Showing ground-truth trajectory (" << gt.size() << " poses) from module '"
