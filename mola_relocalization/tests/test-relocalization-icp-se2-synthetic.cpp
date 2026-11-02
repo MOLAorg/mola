@@ -24,6 +24,7 @@
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/random/RandomGenerators.h>
 
+#include <atomic>
 #include <iostream>
 
 namespace
@@ -182,6 +183,7 @@ void test_xy_search()
   const auto selection = mola::select_relocalization_candidate(out.candidates);
 
   ASSERT_(selection.best);
+  ASSERT_(!out.aborted);
   std::cout << "[xy] candidates: " << out.candidates.size() << " modes: " << selection.mode_count
             << " time: " << out.time_cost << " s"
             << " best q=" << selection.best->quality
@@ -201,6 +203,7 @@ void test_xy_yaw_search()
   const auto selection = mola::select_relocalization_candidate(out.candidates);
 
   ASSERT_(selection.best);
+  ASSERT_(!out.aborted);
   std::cout << "[xy+yaw] candidates: " << out.candidates.size()
             << " modes: " << selection.mode_count << " time: " << out.time_cost << " s"
             << " best q=" << selection.best->quality
@@ -228,6 +231,7 @@ void test_ambiguous_rows()
             << " best q=" << (selection.best ? selection.best->quality : 0)
             << " runner-up q=" << (selection.runner_up ? selection.runner_up->quality : 0) << "\n";
   ASSERT_(selection.best);
+  ASSERT_(!out.aborted);
   ASSERT_GE_(selection.mode_count, 2U);
   ASSERT_(!selection.unambiguous);
 }
@@ -255,6 +259,23 @@ void test_full_turn_lattice()
   ASSERT_EQUAL_(cells, 4U);
 }
 
+// Once abort_requested() returns true, no more initial guesses are tried.
+void test_abort()
+{
+  const auto world    = make_world(unique_room());
+  const auto truePose = mrpt::poses::CPose3D::FromXYZYawPitchRoll(11.0, 10.0, 0, 0.3, 0, 0);
+  auto       in       = make_input(world, truePose, mrpt::math::TPose2D(11.0, 10.0, 0.3), 3.0, 0.0);
+
+  std::atomic<size_t> runs = 0;
+  in.on_progress_callback  = [&](const auto&) { runs++; };
+  in.abort_requested       = [&]() { return runs >= 2; };
+  const auto out           = mola::RelocalizationICP_SE2::run(in);
+
+  // 49 initial guesses, but each parallel pipeline may finish the one it had started:
+  ASSERT_(out.aborted);
+  ASSERT_LT_(runs.load(), 5U);
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -263,6 +284,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
   {
     mrpt::random::getRandomGenerator().randomize(1234);
     test_full_turn_lattice();
+    test_abort();
     test_xy_search();
     test_xy_yaw_search();
     test_ambiguous_rows();

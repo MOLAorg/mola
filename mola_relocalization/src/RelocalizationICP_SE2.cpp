@@ -23,6 +23,7 @@
 #include <mrpt/version.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 
 namespace
@@ -86,6 +87,7 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
   std::mutex                     resultMtx;
   std::mutex                     callbackMtx;
   std::vector<std::future<void>> futs;
+  std::atomic_bool               aborted = false;
 
   // evaluate over the grid:
   size_t iGlobal = 0;
@@ -99,11 +101,24 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
 
         auto f = pool.enqueue(
             [initGuessPose, iGlobal, nCells, nPipelines, &in, &resultMtx, &callbackMtx, &result,
-             &pipelineMtx]()
+             &pipelineMtx, &aborted]()
             {
+              if (aborted || (in.abort_requested && in.abort_requested()))
+              {
+                aborted = true;
+                return;
+              }
+
               const size_t threadIdx = iGlobal % nPipelines;
 
               auto lck1 = mrpt::lockHelper(pipelineMtx.at(threadIdx));
+
+              // A request may have arrived while waiting for the pipeline:
+              if (aborted || (in.abort_requested && in.abort_requested()))
+              {
+                aborted = true;
+                return;
+              }
 
               mp2p_icp::Results icpResult;
 
@@ -152,6 +167,7 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
       [](const Candidate& a, const Candidate& b) { return a.quality > b.quality; });
 
   result.time_cost = mrpt::Clock::nowDouble() - t0;
+  result.aborted   = aborted;
 
   return result;
 }

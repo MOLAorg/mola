@@ -30,6 +30,9 @@
 /// RelocalizationICP_SE2 returns candidates with their quality, and
 /// select_relocalization_candidate() exists:
 #define MOLA_RELOCALIZATION_HAS_CANDIDATES 1
+
+/// RelocalizationICP_SE2::Input has abort_requested, and Output has aborted:
+#define MOLA_RELOCALIZATION_HAS_ABORT 1
 #include <optional>
 #include <vector>
 
@@ -138,6 +141,11 @@ struct RelocalizationICP_SE2
 
     std::function<void(const ProgressFeedback&)> on_progress_callback;
 
+    /** If provided, checked before each ICP run: once it returns true, the
+     *  remaining initial guesses are skipped (e.g. on shutdown), and the
+     *  output is marked as aborted. */
+    std::function<bool()> abort_requested;
+
     Input() = default;
   };
 
@@ -157,6 +165,9 @@ struct RelocalizationICP_SE2
     std::vector<Candidate> candidates;
 
     double time_cost = .0;  //!< [s]
+
+    /// True if Input::abort_requested stopped the search before its end
+    bool aborted = false;
 
     Output() = default;
   };
