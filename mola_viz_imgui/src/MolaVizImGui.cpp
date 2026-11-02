@@ -29,12 +29,16 @@
 #include <imgui_impl_opengl3.h>
 #include <implot.h>
 #include <mola_kernel/assets/mola_icon_64x64.h>
+#include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_viz_imgui/MolaVizImGui.h>
 #include <mola_yaml/yaml_helpers.h>
 #include <mrpt/containers/yaml.h>
 #include <mrpt/core/initializer.h>
 #include <mrpt/system/string_utils.h>
 #include <mrpt/system/thread_name.h>
+#include <mrpt/viz/CSetOfLines.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/stock_objects.h>
 
 #include <chrono>
 #include <cmath>
@@ -194,6 +198,10 @@ void MolaVizImGui::initialize(const Yaml& c)
       cfg.getOrDefault("plots_default_span_seconds", core_ptr_->plots_default_span_seconds_);
 
   core_ptr_->menu_bar_enabled_ = cfg.getOrDefault("menu_bar_enabled", core_ptr_->menu_bar_enabled_);
+  ground_truth_corner_spacing_ =
+      cfg.getOrDefault("ground_truth_corner_spacing", ground_truth_corner_spacing_);
+  ground_truth_corner_scale_ =
+      cfg.getOrDefault("ground_truth_corner_scale", ground_truth_corner_scale_);
 
   core_ptr_->console_sink_->max_entries    = core_ptr_->console_max_entries_;
   core_ptr_->console_sink_->window_seconds = core_ptr_->console_window_seconds_;
@@ -259,6 +267,12 @@ void MolaVizImGui::spinOnce()
   {
     dataset_ui_update();
     lastTimeUpdateDatasetUIs_ = tNow;
+  }
+
+  if (!ground_truth_shown_ && tNow - lastTimeCheckForGroundTruth_ > PERIOD_CHECK_NEW_MODS)
+  {
+    ground_truth_check_new_modules();
+    lastTimeCheckForGroundTruth_ = tNow;
   }
 
   if (core_ptr_->console_enabled_ && tNow - lastTimeCheckForConsoleModules_ > PERIOD_CHECK_NEW_MODS)
@@ -602,4 +616,56 @@ void MolaVizImGui::console_check_new_modules()
 
   // Hooks modules (and their child_loggers()) created since the last call:
   LogHub::Instance().attach_modules(*this);
+}
+
+void MolaVizImGui::ground_truth_check_new_modules()
+{
+  for (const auto& module : findService<OfflineDatasetSource>())
+  {
+    const auto ds = std::dynamic_pointer_cast<OfflineDatasetSource>(module);
+    // The trajectory may be loaded later than the module is created, so
+    // modules without one yet are checked again on the next call.
+    if (!ds || !ds->hasGroundTruthTrajectory())
+    {
+      continue;
+    }
+
+    const auto gt = ds->getGroundTruthTrajectory();
+
+    auto obj   = mrpt::viz::CSetOfObjects::Create();
+    auto lines = mrpt::viz::CSetOfLines::Create();
+    lines->setColor_u8(0xff, 0x00, 0xff);
+    lines->setLineWidth(2.0f);
+
+    std::optional<mrpt::math::TPoint3D> lastPt;
+    double                              distSinceCorner = 0;
+    for (const auto& [t, p] : gt)
+    {
+      const auto pt = p.translation();
+      if (lastPt)
+      {
+        lines->appendLine(mrpt::math::TSegment3D(*lastPt, pt));
+        distSinceCorner += (pt - *lastPt).norm();
+      }
+      if (!lastPt || distSinceCorner >= ground_truth_corner_spacing_)
+      {
+        auto corner = mrpt::viz::stock_objects::CornerXYZSimple(
+            static_cast<float>(ground_truth_corner_scale_), 2.0f);
+        corner->setPose(p);
+        obj->insert(corner);
+        distSinceCorner = 0;
+      }
+      lastPt = pt;
+    }
+    obj->insert(lines);
+
+    update_3d_object(MolaVizImGuiCore::GROUND_TRUTH_OBJECT_NAME, obj);
+    core_ptr_->ground_truth_available_ = true;
+    ground_truth_shown_                = true;
+
+    MRPT_LOG_INFO_STREAM(
+        "Showing ground-truth trajectory (" << gt.size() << " poses) from module '"
+                                            << module->getModuleInstanceName() << "'.");
+    break;  // Only one ground truth is drawn.
+  }
 }

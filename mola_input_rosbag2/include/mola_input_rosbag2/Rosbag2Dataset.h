@@ -77,6 +77,9 @@ class Rosbag2Dataset : public RawDataSourceBase,
 
   mrpt::obs::CSensoryFrame::Ptr datasetGetObservations(size_t timestep) const override;
 
+  bool         hasGroundTruthTrajectory() const override { return !groundTruthTrajectory_.empty(); }
+  trajectory_t getGroundTruthTrajectory() const override { return groundTruthTrajectory_; }
+
   // Virtual interface of Dataset_UI (see docs in derived class)
   size_t datasetUI_size() const override { return datasetSize(); }
   size_t datasetUI_lastQueriedTimestep() const override
@@ -133,6 +136,13 @@ class Rosbag2Dataset : public RawDataSourceBase,
 
  private:
   bool initialized_ = false;
+
+  /// Optional ground-truth trajectory file in TUM format
+  /// ("t x y z qx qy qz qw"), loaded at init time into groundTruthTrajectory_.
+  std::string ground_truth_tum_file_;
+
+  /// See mola::OfflineDatasetSource::getGroundTruthTrajectory()
+  trajectory_t groundTruthTrajectory_;
 
   /// Ordered list of bag paths (directories or .db3/.mcap files).
   /// Populated from a scalar or sequence `rosbag_filename` YAML entry.

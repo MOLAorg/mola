@@ -133,7 +133,12 @@ All plugin modules derive from these virtual base classes:
   menu (with "Quit", which requests full application shutdown), the "View"
   menu, plus any module-installed `set_menu_bar()` menus) can be turned off
   entirely via `menu_bar_enabled` (default `true`); existing plot/console
-  windows keep working when it is disabled. `output_console_message()` (the
+  windows keep working when it is disabled. If an `OfflineDatasetSource`
+  module reports a ground-truth trajectory (e.g. `ground_truth_tum_file` in
+  the rosbag1/rosbag2 inputs), `mola_viz_imgui` draws it once (magenta line,
+  XYZ corners every `ground_truth_corner_spacing` m, default 10, axis length
+  `ground_truth_corner_scale`) with a "Ground truth" toggle in the "View"
+  menu. `output_console_message()` (the
   older fading on-screen text overlay) is a no-op on the `mola_viz_imgui`
   backend, superseded by the Console subwindow above; still implemented on
   the nanogui `MolaViz` backend.
