@@ -393,6 +393,25 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    *  call. */
   bool plots_enabled_ = true;
 
+  /** Name of the 3-D object holding a dataset ground-truth trajectory, if
+   *  any. Its visibility is toggled from the "View" menu. */
+  static constexpr const char* GROUND_TRUTH_OBJECT_NAME = "ground_truth";
+
+  /** Set (from any thread) once a ground-truth object has been inserted,
+   *  which shows its toggle in the "View" menu. */
+  std::atomic<bool> ground_truth_available_{false};
+
+  /** GUI thread only: state of the "View > Ground truth" checkbox. */
+  bool ground_truth_visible_ = true;
+
+  /** GUI thread only: applies ground_truth_visible_ to the ground-truth
+   *  object of every window, if it exists. */
+  void apply_ground_truth_visibility();
+
+  /** GUI thread only: sets ground_truth_available_ from whether the
+   *  ground-truth object exists in any window, then applies its visibility. */
+  void refresh_ground_truth_state();
+
   /** Default rolling-history cap (seconds) for a newly-registered channel. */
   double plots_default_retention_seconds_ = 10.0;
 

@@ -467,7 +467,7 @@ void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
   {
     render_app_menu();
 
-    if (plots_enabled_)
+    if (plots_enabled_ || ground_truth_available_)
     {
       render_view_menu(wd);
     }
@@ -494,6 +494,37 @@ void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
   }
 }
 
+void MolaVizImGuiCore::apply_ground_truth_visibility()
+{
+  for (auto& [name, wd] : windows_)
+  {
+    std::lock_guard lk(wd.background_scene_mtx);
+    if (!wd.background_scene)
+    {
+      continue;
+    }
+    if (auto o = wd.background_scene->getByName(GROUND_TRUTH_OBJECT_NAME); o)
+    {
+      o->setVisibility(ground_truth_visible_);
+    }
+  }
+}
+
+void MolaVizImGuiCore::refresh_ground_truth_state()
+{
+  bool exists = false;
+  for (auto& [name, wd] : windows_)
+  {
+    std::lock_guard lk(wd.background_scene_mtx);
+    if (wd.background_scene && wd.background_scene->getByName(GROUND_TRUTH_OBJECT_NAME))
+    {
+      exists = true;
+    }
+  }
+  ground_truth_available_ = exists;
+  apply_ground_truth_visibility();
+}
+
 void MolaVizImGuiCore::render_view_menu(PerWindowData& wd)
 {
   if (!ImGui::BeginMenu("View"))
@@ -501,27 +532,43 @@ void MolaVizImGuiCore::render_view_menu(PerWindowData& wd)
     return;
   }
 
-  if (ImGui::MenuItem("New plot window"))
+  if (ground_truth_available_)
   {
-    PlotWindowState st;
-    st.title        = "Plot " + std::to_string(wd.next_plot_id++);
-    st.span_seconds = static_cast<float>(plots_default_span_seconds_);
-    wd.plot_windows.push_back(std::move(st));
+    if (ImGui::MenuItem("Ground truth", nullptr, &ground_truth_visible_))
+    {
+      apply_ground_truth_visibility();
+    }
   }
 
-  if (!wd.plot_windows.empty() || console_enabled_)
+  if (plots_enabled_)
   {
-    ImGui::Separator();
-  }
+    if (ground_truth_available_)
+    {
+      ImGui::Separator();
+    }
 
-  if (console_enabled_)
-  {
-    ImGui::MenuItem("Console", nullptr, &wd.console_open);
-  }
+    if (ImGui::MenuItem("New plot window"))
+    {
+      PlotWindowState st;
+      st.title        = "Plot " + std::to_string(wd.next_plot_id++);
+      st.span_seconds = static_cast<float>(plots_default_span_seconds_);
+      wd.plot_windows.push_back(std::move(st));
+    }
 
-  for (auto& st : wd.plot_windows)
-  {
-    ImGui::MenuItem(st.title.c_str(), nullptr, &st.open);
+    if (!wd.plot_windows.empty() || console_enabled_)
+    {
+      ImGui::Separator();
+    }
+
+    if (console_enabled_)
+    {
+      ImGui::MenuItem("Console", nullptr, &wd.console_open);
+    }
+
+    for (auto& st : wd.plot_windows)
+    {
+      ImGui::MenuItem(st.title.c_str(), nullptr, &st.open);
+    }
   }
 
   ImGui::EndMenu();
@@ -1279,6 +1326,12 @@ std::future<bool> MolaVizImGuiCore::clear_background_scene(
         }
 
         viewport->clear();
+
+        // A full clear also removes the ground truth: drop its menu item.
+        if (!scene->getByName(GROUND_TRUTH_OBJECT_NAME))
+        {
+          ground_truth_available_ = false;
+        }
 
         // Also drop the decaying-clouds bookkeeping: their backing
         // CSetOfObjects container just got cleared above, so keeping these

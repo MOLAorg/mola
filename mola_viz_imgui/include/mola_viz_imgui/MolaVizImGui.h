@@ -325,6 +325,16 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   void dataset_ui_update();
 
   // ---------------------------------------------------------------------------
+  // Ground-truth trajectory of an offline dataset source, if it has one
+  // ---------------------------------------------------------------------------
+  bool   ground_truth_shown_          = false;
+  double ground_truth_corner_spacing_ = 10.0;  //!< [m] between XYZ corners
+  double ground_truth_corner_scale_   = 1.0;  //!< [m] corner axis length
+  double lastTimeCheckForGroundTruth_ = 0;
+
+  void ground_truth_check_new_modules();
+
+  // ---------------------------------------------------------------------------
   // Console window: log capture from all discovered ExecutableBase modules
   // ---------------------------------------------------------------------------
   double lastTimeCheckForConsoleModules_ = 0;

@@ -49,6 +49,7 @@
 #include <mrpt/version.h>
 
 #include <chrono>
+#include <cmath>
 #include <set>
 #include <tf2/buffer_core.hpp>
 #include <tf2/convert.hpp>
@@ -199,7 +200,56 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
 
   YAML_LOAD_MEMBER_OPT(read_ahead_length, size_t);
   YAML_LOAD_MEMBER_OPT(max_duration_sec, double);
+  YAML_LOAD_MEMBER_OPT(ground_truth_tum_file, std::string);
   paused_ = cfg.getOrDefault<bool>("start_paused", paused_);
+
+  if (!ground_truth_tum_file_.empty())
+  {
+    trajectory_t gt;
+    bool         loaded = false;
+    try
+    {
+      loaded = gt.loadFromTextFile_TUM(ground_truth_tum_file_);
+    }
+    catch (const std::exception& e)
+    {
+      MRPT_LOG_WARN_STREAM("Error parsing TUM file: " << e.what());
+    }
+
+    // Drop rows with non-finite values ("nan" parses as a number):
+    trajectory_t finiteGt;
+    size_t       nBad = 0;
+    for (const auto& [t, p] : gt)
+    {
+      if (std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z) && std::isfinite(p.yaw) &&
+          std::isfinite(p.pitch) && std::isfinite(p.roll))
+      {
+        finiteGt.insert(t, p);
+      }
+      else
+      {
+        nBad++;
+      }
+    }
+    if (nBad > 0)
+    {
+      MRPT_LOG_WARN_STREAM("Skipped " << nBad << " non-finite ground-truth pose(s).");
+    }
+
+    if (loaded && !finiteGt.empty())
+    {
+      MRPT_LOG_INFO_STREAM(
+          "Loaded " << finiteGt.size() << " ground-truth pose(s) from '" << ground_truth_tum_file_
+                    << "'.");
+      std::lock_guard lk(groundTruthTrajectoryMtx_);
+      groundTruthTrajectory_ = std::move(finiteGt);
+    }
+    else
+    {
+      MRPT_LOG_WARN_STREAM(
+          "Could not load any ground-truth pose from TUM file '" << ground_truth_tum_file_ << "'.");
+    }
+  }
 
   // Validate all bag paths, auto-detect storage ids, and count total messages.
   bagMessageCount_ = 0;
