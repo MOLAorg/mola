@@ -113,6 +113,13 @@ mola::RelocalizationICP_SE2::Output mola::RelocalizationICP_SE2::run(const Input
 
               auto lck1 = mrpt::lockHelper(pipelineMtx.at(threadIdx));
 
+              // A request may have arrived while waiting for the pipeline:
+              if (aborted || (in.abort_requested && in.abort_requested()))
+              {
+                aborted = true;
+                return;
+              }
+
               mp2p_icp::Results icpResult;
 
               in.icp_pipeline.at(threadIdx)->align(
