@@ -793,8 +793,14 @@ void Rosbag2Dataset::spinOnce()
 
   if (!rosbag_begin_time_ && bagMessageCount_ > 0)
   {
-    doReadAhead(0, true /* skip read ahead buffer */);
-    rosbag_begin_time_ = read_ahead_.at(0)->timestamp;
+    // The first available entry: 0 normally, or the target of a fast-forward
+    // that happened before the first call here (the skipped entries are empty).
+    const size_t firstIdx = rosbag_next_idx_;
+    doReadAhead(firstIdx, true /* skip read ahead buffer */);
+    if (read_ahead_.at(firstIdx).has_value())
+    {
+      rosbag_begin_time_ = read_ahead_.at(firstIdx)->timestamp;
+    }
   }
 
   // override by an special teleport order?
