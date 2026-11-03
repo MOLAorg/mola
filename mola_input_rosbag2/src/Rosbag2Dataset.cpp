@@ -1196,11 +1196,20 @@ mrpt::obs::CSensoryFrame::Ptr Rosbag2Dataset::datasetGetObservations(size_t time
   if (timestep > me.rosbag_next_idx_write_ + me.read_ahead_length_)
   {
     me.doReadAhead(timestep, true /* skip read ahead buffer */);
+    // Keep the timed playback consistent with the jump, as the UI teleport does:
+    me.rosbag_next_idx_   = timestep;
+    me.last_dataset_time_ = 0;
   }
 
   me.doReadAhead(timestep);
 
-  ASSERT_(read_ahead_.at(timestep).has_value());
+  if (!read_ahead_.at(timestep).has_value())
+  {
+    THROW_EXCEPTION_FMT(
+        "Dataset entry %zu is not available: it was skipped by a fast-forward, and the "
+        "sequential rosbag2 reader cannot go back.",
+        timestep);
+  }
 
   return read_ahead_.at(timestep)->obs;
 }
