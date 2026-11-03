@@ -262,8 +262,9 @@ existing ``final_map_lc.mm`` file.
 See the :ref:`Georeferencing documentation <geo-referencing>` for full details on how
 georeferencing works and what additional outputs are available (e.g. KML trajectories,
 geodetic coordinates for point cloud layers).
-To check a georeferenced map against satellite imagery, export it to Google Earth with
-:ref:`mm2kml <app_mm2kml>`.
+If the map was georeferenced with GNSS data (gravity alignment alone does not give
+absolute coordinates), you can check it against satellite imagery by exporting it to
+Google Earth with :ref:`mm2kml <app_mm2kml>`.
 
 .. note::
 
