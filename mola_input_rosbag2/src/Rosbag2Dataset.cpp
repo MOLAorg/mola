@@ -334,6 +334,44 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   // Open the first bag to read topic metadata and start replay.
   openBag(0);
 
+  // Pre-scan the static transforms of every bag into the TF buffer before
+  // playback starts. They are time-independent, so sensor poses resolve even
+  // when the replay starts in the middle of the bag or the static transforms
+  // are recorded after the first sensor messages.
+  {
+    size_t nTfStatic = 0;
+    for (size_t i = 0; i < rosbag_filenames_.size(); i++)
+    {
+      rosbag2_storage::StorageOptions so;
+      so.uri        = rosbag_filenames_[i];
+      so.storage_id = rosbag_storage_ids_[i];
+      rosbag2_cpp::ConverterOptions co;
+      co.input_serialization_format  = rosbag_serialization_;
+      co.output_serialization_format = rosbag_serialization_;
+      auto tfReader                  = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
+      tfReader->open(so, co);
+      rosbag2_storage::StorageFilter tfFilter;
+      tfFilter.topics = {tf_static_topic_};
+      tfReader->set_filter(tfFilter);
+      while (tfReader->has_next())
+      {
+        const auto msg = tfReader->read_next();
+        if (msg->topic_name != tf_static_topic_)
+        {
+          continue;
+        }
+        toTf<true>(*msg);
+        nTfStatic++;
+      }
+    }
+    if (nTfStatic > 0)
+    {
+      MRPT_LOG_INFO_STREAM(
+          "Pre-scanned " << nTfStatic << " message(s) of '" << tf_static_topic_
+                         << "' into the TF buffer.");
+    }
+  }
+
   std::vector<rosbag2_storage::TopicMetadata> topics;
   topics.reserve(all_topics_by_name.size());
   for (const auto& [_, topic] : all_topics_by_name)
@@ -1103,6 +1141,13 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bo
 
     if (skipBufferAhead && idx != endIdx)
     {
+      // Fast-forwarding: skipped messages are not converted, except the TF
+      // topics, whose transforms must be in the buffer when playback resumes.
+      const auto& topic = serialized_message->topic_name;
+      if (topic == tf_topic_ || topic == tf_static_topic_)
+      {
+        to_mrpt(*serialized_message);
+      }
       continue;
     }
 
@@ -1143,6 +1188,15 @@ mrpt::obs::CSensoryFrame::Ptr Rosbag2Dataset::datasetGetObservations(size_t time
   }
 
   auto& me = const_cast<Rosbag2Dataset&>(*this);
+
+  // A request far beyond the read-ahead window is a fast-forward (a replay
+  // that starts in the middle of the bag): the messages in between are not
+  // converted, except the TF topics, as with the UI teleport. The reader is
+  // sequential, so those entries could not be served afterwards anyway.
+  if (timestep > me.rosbag_next_idx_write_ + me.read_ahead_length_)
+  {
+    me.doReadAhead(timestep, true /* skip read ahead buffer */);
+  }
 
   me.doReadAhead(timestep);
 
