@@ -110,10 +110,13 @@ latitude/longitude, e.g. to give navigation goals on satellite imagery.
   (``odom_motion_model_a1..a4``: error proportional to distance and rotation) instead of the much tighter
   LiDAR odometry increment sigmas, which would let wheel slippage (skid-steer turns!) drag the heading.
 - **IMU**: the LiDAR IMU de-skews scans (``use_imu_for_lio:=True``) and gives gravity. An optional
-  **absolute attitude** IMU (magnetometer heading, ``attitude_imu_topic_name``) gives an azimuth from the
-  start; give it a realistic sigma (``MOLA_IMU_ATTITUDE_SIGMA``) and an azimuth bias state
-  (``MOLA_IMU_ATTITUDE_YAW_BIAS_SIGMA``), since magnetometers often carry a few degrees of bias. Without it,
-  the azimuth comes from the GNSS track once the vehicle moves (see below).
+  **absolute attitude** IMU (AHRS with magnetometer, ``attitude_imu_topic_name``) gives an azimuth before
+  the vehicle moves; give it a realistic sigma (``MOLA_IMU_ATTITUDE_SIGMA``) and an azimuth bias state
+  (``MOLA_IMU_ATTITUDE_YAW_BIAS_SIGMA``), since magnetometers often carry a few degrees of bias. Its sigma
+  also applies to roll and pitch, which on a vehicle that accelerates or vibrates follow those
+  accelerations: with an accurate (RTK) receiver it may be better left out, and the azimuth then comes
+  from the GNSS track once the vehicle moves (see below). With a consumer receiver (meters of noise) the
+  GNSS baseline needed is long (tens of meters), so an attitude IMU is worth having.
 - **GNSS** (``gnss_mode:=live_georef``, ``gnss_topic_name``): each fix is an ENU position factor with a robust
   (Huber) kernel. Its ``NavSatFix`` covariance must reflect the real accuracy: some receivers report
   centimeter-level sigmas also in RTK float or DGNSS solutions, which are tens of centimeters or meters off.
@@ -144,7 +147,8 @@ A goal given in latitude/longitude can be converted to the ``map`` frame with th
 planner that transforms goals with ``/tf``.
 
 **Example**, for a vehicle with an Ouster LiDAR, wheel odometry on ``/odom`` (``odom -> base_link`` on
-``/tf``), an AHRS on ``/imu_ahrs`` and an RTK GNSS on ``/gps``:
+``/tf``), an AHRS on ``/imu_ahrs`` and a GNSS on ``/gps`` (with an RTK receiver, consider dropping the AHRS
+lines, see above):
 
 .. code-block:: bash
 
@@ -171,11 +175,12 @@ planner that transforms goals with ``/tf``.
 for. Without wheel odometry, drop those variables and ``odom_topic_name``, and use
 ``localization_publish_tf_source:=state_estimation`` (``map -> base_link``).
 
-**Expected accuracy**: on an outdoor ground robot at ~1 m/s with an RTK receiver whose fixes fell back to
-float or no-RTK for 1-2 minutes at a time under trees, replays against an RTK-aligned LiDAR odometry
-trajectory gave ~10 cm horizontal error with RTK fixed and ~25 cm median through the outages (where the raw
-fixes were 0.5-2 m off), with ~1 deg heading error. With a consumer (non-RTK) receiver the geo-reference
-inherits its bias (meters), while the trajectory stays locally as accurate as the LiDAR odometry.
+**Expected accuracy**: on an outdoor skid-steer ground robot at ~1 m/s with an RTK receiver whose fixes
+fell back to float or no-RTK for 1-2 minutes at a time under trees, replays against an RTK-aligned LiDAR
+odometry trajectory gave ~6 cm horizontal error with RTK fixed and ~12 cm median through the outages (where
+the raw fixes were 0.5-2 m off), with ~1 deg heading error, without the AHRS (with it: ~11 and ~27 cm). With
+a consumer (non-RTK) receiver the geo-reference inherits its bias (meters), while the trajectory stays
+locally as accurate as the LiDAR odometry.
 
 |
 
