@@ -44,6 +44,7 @@ Import / export
    app_mm2ply
    app_mm2txt
    app_mm2grid
+   app_mm2kml
    app_txt2mm
    app_kitti2mm
 
