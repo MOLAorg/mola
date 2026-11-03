@@ -791,7 +791,7 @@ void Rosbag2Dataset::spinOnce()
 
   // const double t0 = mrpt::Clock::toDouble(rawlog_begin_time_);
 
-  if (!rosbag_begin_time_ && bagMessageCount_ > 0)
+  if (!rosbag_begin_time_ && bagMessageCount_ > 0 && rosbag_next_idx_ < read_ahead_.size())
   {
     // The first available entry: 0 normally, or the target of a fast-forward
     // that happened before the first call here (the skipped entries are empty).
