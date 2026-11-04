@@ -181,6 +181,13 @@ All plugin modules derive from these virtual base classes:
   `requestInsertKeyframe()`, decoupled from their own local map/odometry
   frame. Detected via `findService<>()` the same way as `NavStateFilter`,
   but optional.
+- `ImuBiasSource`: per-IMU (sensor label) gyroscope/accelerometer bias
+  estimates with covariances, from a provider (e.g. a state estimator) to any
+  consumer (e.g. LIO deskew): query `imu_bias(label, t)` from any thread, or
+  subscribe to updates (callbacks run without its lock held). Providers implement
+  `imu_bias_sensor_labels()` and `imu_bias_impl()` and call
+  `advertise_updated_imu_bias()`. Optional, found via `findService<>()`; detect
+  the header with `__has_include`.
 
 Other key types:
 - `GuiWidgetDescription` — descriptor for GUI widget creation (backend-agnostic)
