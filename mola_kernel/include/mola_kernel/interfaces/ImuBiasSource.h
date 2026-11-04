@@ -76,8 +76,8 @@ struct ImuBias
  *  Consumers find providers with `ExecutableBase::findService<ImuBiasSource>()`
  *  (if several are found, which one to use is up to the consumer), and either
  *  query them with imu_bias() from any thread, or subscribe to their updates.
- *  Callbacks run in the provider thread, without any lock of this interface held
- *  (so they may call imu_bias() or (un)subscribe), and must return quickly.
+ *  Callbacks run in the provider thread, one advertised update at a time, and
+ *  may call imu_bias() or (un)subscribe. They must return quickly.
  *
  *  Providers implement imu_bias_sensor_labels() and imu_bias_impl(), both
  *  thread-safe, and call advertise_updated_imu_bias() after each update, without
@@ -119,12 +119,15 @@ class ImuBiasSource
   using subscription_id_t   = std::uint64_t;
 
   /** Registers a callback invoked every time an IMU bias estimate is updated.
-   *  \return an id for unsubscribe_from_imu_bias_updates(). */
+   *  \return an id for unsubscribe_from_imu_bias_updates().
+   *  \exception std::invalid_argument if the callback is empty. */
   subscription_id_t subscribe_to_imu_bias_updates(const imu_bias_callback_t& callback);
 
   /** Removes a callback, e.g. before its captured objects are destroyed. Once
-   *  this returns, the callback is not started again (a call already running in
-   *  another thread may still finish). Unknown ids are ignored. */
+   *  this returns, the callback is neither running nor started again: it waits
+   *  for an update being advertised in another thread, so do not call it while
+   *  holding a lock that the callback takes. It can be called from within the
+   *  callback itself. Unknown ids are ignored. */
   void unsubscribe_from_imu_bias_updates(subscription_id_t id);
 
  protected:
@@ -142,6 +145,8 @@ class ImuBiasSource
   std::map<subscription_id_t, imu_bias_callback_t> imuBiasSubs_;
   subscription_id_t                                imuBiasNextId_ = 1;
   mutable std::mutex                               imuBiasSubsMtx_;
+  /// Held while advertising, so unsubscribing waits for callbacks in progress.
+  std::recursive_mutex imuBiasDispatchMtx_;
 };
 
 }  // namespace mola

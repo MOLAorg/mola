@@ -369,7 +369,8 @@ void test_reentrant_callbacks()
 }
 
 /** Queries and (un)subscriptions from other threads (e.g. the LiDAR odometry
- *  thread) while the provider updates and advertises its estimates. */
+ *  thread) while the provider updates and advertises its estimates. No callback
+ *  may run after its unsubscription returned. */
 void test_concurrent_access()
 {
   auto                         provider = std::make_shared<mola::MockBiasEstimator>();
@@ -379,17 +380,14 @@ void test_concurrent_access()
   std::atomic_int updates{0};
   provider->subscribe_to_imu_bias_updates([&](const mola::ImuBias&) { updates++; });
 
-  std::atomic_bool done{false};
-  std::thread      producer(
-      [&]()
-      {
-        feed_standstill(*provider, "ouster_imu", OUSTER_BIAS, 0, 3000);
-        done = true;
-      });
-
   const auto       source = find_provider(*consumer);
+  std::atomic_bool done{false};
   std::atomic_bool ok{true};
-  auto             reader = [&]()
+  std::atomic_int  queries{0};
+  std::atomic_int  churns{0};
+  std::atomic_int  lateCalls{0};
+
+  auto reader = [&]()
   {
     std::optional<mrpt::Clock::time_point> last;
     while (!done)
@@ -404,6 +402,7 @@ void test_concurrent_access()
         }
         last = b->last_update;
       }
+      queries++;
       std::this_thread::yield();
     }
   };
@@ -411,22 +410,64 @@ void test_concurrent_access()
   {
     while (!done)
     {
-      const auto id = source->subscribe_to_imu_bias_updates([](const mola::ImuBias&) {});
+      auto       gone = std::make_shared<std::atomic_bool>(false);
+      const auto id   = source->subscribe_to_imu_bias_updates(
+          [gone, &lateCalls](const mola::ImuBias&)
+          {
+            if (*gone)
+            {
+              lateCalls++;
+            }
+          });
       std::this_thread::yield();
       source->unsubscribe_from_imu_bias_updates(id);
+      *gone = true;
+      churns++;
     }
   };
   std::thread r1(reader);
   std::thread r2(reader);
   std::thread c1(churn);
-  producer.join();
+
+  // Feed in batches, each one only after the other threads made progress, so
+  // they really run during the updates:
+  for (int batch = 0; batch < 30; batch++)
+  {
+    const int q0 = queries;
+    const int c0 = churns;
+    feed_standstill(*provider, "ouster_imu", OUSTER_BIAS, batch * 100, (batch + 1) * 100);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while ((queries <= q0 || churns <= c0) && std::chrono::steady_clock::now() < deadline)
+    {
+      std::this_thread::yield();
+    }
+  }
+  done = true;
   r1.join();
   r2.join();
   c1.join();
 
   ASSERT_(ok);
+  ASSERT_GT_(queries.load(), 30);
+  ASSERT_GT_(churns.load(), 30);
+  ASSERT_EQUAL_(lateCalls.load(), 0);
   ASSERT_EQUAL_(updates.load(), 30);
   ASSERT_LT_((source->imu_bias("ouster_imu")->gyro - OUSTER_BIAS).norm(), 1e-12);
+}
+
+void test_empty_callback_rejected()
+{
+  mola::MockBiasEstimator est;
+  bool                    thrown = false;
+  try
+  {
+    est.subscribe_to_imu_bias_updates({});
+  }
+  catch (const std::invalid_argument&)
+  {
+    thrown = true;
+  }
+  ASSERT_(thrown);
 }
 }  // namespace
 
@@ -441,6 +482,7 @@ int main()
     test_callbacks();
     test_reentrant_callbacks();
     test_concurrent_access();
+    test_empty_callback_rejected();
     std::cout << "All ImuBiasSource tests passed.\n";
     return 0;
   }

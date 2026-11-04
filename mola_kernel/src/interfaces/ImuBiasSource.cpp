@@ -15,6 +15,7 @@
 
 #include <exception>
 #include <iostream>
+#include <stdexcept>
 
 using namespace mola;
 
@@ -23,6 +24,10 @@ ImuBiasSource::~ImuBiasSource() = default;
 ImuBiasSource::subscription_id_t ImuBiasSource::subscribe_to_imu_bias_updates(
     const imu_bias_callback_t& callback)
 {
+  if (!callback)
+  {
+    throw std::invalid_argument("subscribe_to_imu_bias_updates(): empty callback");
+  }
   auto       lck = mrpt::lockHelper(imuBiasSubsMtx_);
   const auto id  = imuBiasNextId_++;
   imuBiasSubs_.emplace(id, callback);
@@ -31,8 +36,21 @@ ImuBiasSource::subscription_id_t ImuBiasSource::subscribe_to_imu_bias_updates(
 
 void ImuBiasSource::unsubscribe_from_imu_bias_updates(subscription_id_t id)
 {
-  auto lck = mrpt::lockHelper(imuBiasSubsMtx_);
-  imuBiasSubs_.erase(id);
+  // Waits for a dispatch in progress in another thread (a callback may also
+  // unsubscribe from within itself: the mutex is recursive).
+  std::lock_guard<std::recursive_mutex> dispatchLck(imuBiasDispatchMtx_);
+  imu_bias_callback_t                   removed;
+  {
+    auto       lck = mrpt::lockHelper(imuBiasSubsMtx_);
+    const auto it  = imuBiasSubs_.find(id);
+    if (it == imuBiasSubs_.end())
+    {
+      return;
+    }
+    removed = std::move(it->second);
+    imuBiasSubs_.erase(it);
+  }
+  // `removed` is destroyed here, without imuBiasSubsMtx_ held.
 }
 
 bool ImuBiasSource::any_imu_bias_subscriber() const
@@ -43,7 +61,8 @@ bool ImuBiasSource::any_imu_bias_subscriber() const
 
 void ImuBiasSource::advertise_updated_imu_bias(const ImuBias& b)
 {
-  // Callbacks run without the lock, so they can (un)subscribe or query.
+  // Callbacks run without imuBiasSubsMtx_, so they can (un)subscribe or query.
+  std::lock_guard<std::recursive_mutex>                          dispatchLck(imuBiasDispatchMtx_);
   std::vector<std::pair<subscription_id_t, imu_bias_callback_t>> subs;
   {
     auto lck = mrpt::lockHelper(imuBiasSubsMtx_);
