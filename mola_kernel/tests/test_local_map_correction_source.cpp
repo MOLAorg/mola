@@ -60,7 +60,7 @@ class MockMapper : public mola::LocalMapCorrectionSource
       }
     }
     LocalMapCorrection c;
-    c.timestamp         = mrpt::Clock::fromDouble(static_cast<double>(poses_.size()));
+    c.timestamp         = mrpt::Clock::fromDouble(static_cast<double>(poses_.size() - 1));
     c.new_loop_closures = newLoops;
     advertise_local_map_correction(c);
   }
@@ -157,8 +157,15 @@ void test_callbacks()
         m.unsubscribe_from_local_map_corrections(idOnce);
       });
 
+  // State captured by value in a callback persists across corrections:
+  std::vector<int> countsSeen;
+  m.subscribe_to_local_map_corrections([&countsSeen, count = 0](const LocalMapCorrection&) mutable
+                                       { countsSeen.push_back(++count); });
+
   m.correct(1.0, 2);
   m.correct(2.0, 1);
+  ASSERT_EQUAL_(countsSeen.size(), 2U);
+  ASSERT_EQUAL_(countsSeen.at(1), 2);
 
   ASSERT_EQUAL_(onceCalls, 1);
   ASSERT_EQUAL_(loopsSeen, 3U);

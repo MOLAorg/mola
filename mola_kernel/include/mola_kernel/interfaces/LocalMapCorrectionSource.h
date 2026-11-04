@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -136,9 +137,10 @@ class LocalMapCorrectionSource
   [[nodiscard]] virtual std::optional<std::vector<LocalMapKeyframe>> local_map_keyframes_impl(
       SharedKeyframeMap::KeyFrameID reference, double radius) const = 0;
 
-  std::map<subscription_id_t, correction_callback_t> subs_;
-  subscription_id_t                                  nextId_ = 1;
-  mutable std::mutex                                 subsMtx_;
+  /// Shared, so a dispatch in progress calls the stored callback itself.
+  std::map<subscription_id_t, std::shared_ptr<correction_callback_t>> subs_;
+  subscription_id_t                                                   nextId_ = 1;
+  mutable std::mutex                                                  subsMtx_;
   /// Held while advertising, so unsubscribing waits for callbacks in progress.
   std::recursive_mutex dispatchMtx_;
 };

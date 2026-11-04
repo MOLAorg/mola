@@ -39,7 +39,7 @@ LocalMapCorrectionSource::subscription_id_t
   }
   auto       lck = mrpt::lockHelper(subsMtx_);
   const auto id  = nextId_++;
-  subs_.emplace(id, callback);
+  subs_.emplace(id, std::make_shared<correction_callback_t>(callback));
   return id;
 }
 
@@ -47,8 +47,8 @@ void LocalMapCorrectionSource::unsubscribe_from_local_map_corrections(subscripti
 {
   // Waits for a dispatch in progress in another thread (a callback may also
   // unsubscribe from within itself: the mutex is recursive).
-  std::lock_guard<std::recursive_mutex> dispatchLck(dispatchMtx_);
-  correction_callback_t                 removed;
+  std::lock_guard<std::recursive_mutex>  dispatchLck(dispatchMtx_);
+  std::shared_ptr<correction_callback_t> removed;
   {
     auto       lck = mrpt::lockHelper(subsMtx_);
     const auto it  = subs_.find(id);
@@ -71,8 +71,8 @@ bool LocalMapCorrectionSource::any_local_map_correction_subscriber() const
 void LocalMapCorrectionSource::advertise_local_map_correction(const LocalMapCorrection& c)
 {
   // Callbacks run without subsMtx_, so they can (un)subscribe or query.
-  std::lock_guard<std::recursive_mutex>                            dispatchLck(dispatchMtx_);
-  std::vector<std::pair<subscription_id_t, correction_callback_t>> subs;
+  std::lock_guard<std::recursive_mutex> dispatchLck(dispatchMtx_);
+  std::vector<std::pair<subscription_id_t, std::shared_ptr<correction_callback_t>>> subs;
   {
     auto lck = mrpt::lockHelper(subsMtx_);
     subs.assign(subs_.begin(), subs_.end());
@@ -89,7 +89,7 @@ void LocalMapCorrectionSource::advertise_local_map_correction(const LocalMapCorr
     }
     try
     {
-      callback(c);
+      (*callback)(c);
     }
     catch (const std::exception& e)
     {
