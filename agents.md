@@ -188,6 +188,12 @@ All plugin modules derive from these virtual base classes:
   `imu_bias_sensor_labels()` and `imu_bias_impl()` and call
   `advertise_updated_imu_bias()`. Optional, found via `findService<>()`; detect
   the header with `__has_include`.
+- `LocalMapCorrectionSource`: a global mapper tells front ends that keyframe
+  poses changed (small `LocalMapCorrection` event, e.g. after loop closures);
+  the front end then pulls `local_map_keyframes(reference, radius)`: keyframes
+  near one of its own, with poses relative to it, plus their raw observations, to
+  rebuild its local map anchored at its own pose. Same subscription rules and
+  `__has_include` detection as `ImuBiasSource`.
 
 Other key types:
 - `GuiWidgetDescription` — descriptor for GUI widget creation (backend-agnostic)

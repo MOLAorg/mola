@@ -35,6 +35,7 @@ set(LIB_SRCS
   src/interfaces/FilterBase.cpp
   src/interfaces/FrontEndBase.cpp
   src/interfaces/ImuBiasSource.cpp
+  src/interfaces/LocalMapCorrectionSource.cpp
   src/interfaces/MetricChannel.cpp
   src/interfaces/NavStateFilter.cpp
   src/interfaces/RawDataSourceBase.cpp
@@ -60,6 +61,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/interfaces/FilterBase.h
   include/mola_kernel/interfaces/FrontEndBase.h
   include/mola_kernel/interfaces/ImuBiasSource.h
+  include/mola_kernel/interfaces/LocalMapCorrectionSource.h
   include/mola_kernel/interfaces/LocalizationSourceBase.h
   include/mola_kernel/interfaces/MapServer.h
   include/mola_kernel/interfaces/MapSourceBase.h
