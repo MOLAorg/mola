@@ -108,14 +108,22 @@ void test_query_relative_to_reference()
   ASSERT_EQUAL_(kfs->front().id, 7U);
   ASSERT_LT_(std::abs(kfs->front().pose_from_reference.x() + 3.0), 1e-9);
 
-  // The reference itself is at the origin of the returned poses:
-  for (const auto& kf : *kfs)
+  // Oldest first, and the reference itself at the origin of the poses:
+  bool referenceFound = false;
+  for (std::size_t i = 0; i < kfs->size(); i++)
   {
+    const auto& kf = kfs->at(i);
+    if (i > 0)
+    {
+      ASSERT_LT_(kfs->at(i - 1).id, kf.id);
+    }
     if (kf.id == 10)
     {
+      referenceFound = true;
       ASSERT_LT_(kf.pose_from_reference.translation().norm(), 1e-9);
     }
   }
+  ASSERT_(referenceFound);
 }
 
 /** Callbacks can query the provider, (un)subscribe themselves, and an
@@ -135,12 +143,14 @@ void test_callbacks()
   }
   ASSERT_(threw);
 
-  std::vector<double> lateralSeen;
-  std::size_t         loopsSeen = 0;
-  const auto          idQuery   = m.subscribe_to_local_map_corrections(
+  std::vector<double>     lateralSeen;
+  std::size_t             loopsSeen = 0;
+  mrpt::Clock::time_point lastStamp;
+  const auto              idQuery = m.subscribe_to_local_map_corrections(
       [&](const LocalMapCorrection& c)
       {
         loopsSeen += c.new_loop_closures;
+        lastStamp      = c.timestamp;
         const auto kfs = m.local_map_keyframes(0, 100.0);  // no deadlock
         ASSERT_(kfs.has_value());
         lateralSeen.push_back(kfs->back().pose_from_reference.y());
@@ -169,6 +179,7 @@ void test_callbacks()
 
   ASSERT_EQUAL_(onceCalls, 1);
   ASSERT_EQUAL_(loopsSeen, 3U);
+  ASSERT_(lastStamp == mrpt::Clock::fromDouble(19.0));  // the newest keyframe
   ASSERT_EQUAL_(lateralSeen.size(), 2U);
   ASSERT_LT_(std::abs(lateralSeen.at(0) - 1.9), 1e-9);  // keyframe 19: 1.0 * 19 / 10
   ASSERT_LT_(std::abs(lateralSeen.at(1) - 3.8), 1e-9);
