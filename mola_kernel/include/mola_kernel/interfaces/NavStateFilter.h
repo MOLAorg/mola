@@ -31,6 +31,7 @@
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/topography/data_types.h>
 
+#include <future>
 #include <set>
 #include <string>
 
@@ -179,6 +180,22 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
     return false;  // Default: not implemented.
   }
 
+  /** (Optional virtual method) Like fuse_pose(), for a pose whose covariance
+   *  is still being computed elsewhere (e.g. by a worker thread of the front
+   *  end), so the caller does not have to wait for it. `cov` becomes ready
+   *  later, in the parameterization of mrpt::poses::CPose3DPDFGaussian::cov.
+   *
+   *  Estimators that process measurements asynchronously should override this
+   *  to wait for `cov` off the caller's thread. The default waits for it here
+   *  and calls fuse_pose().
+   */
+  virtual void fuse_pose_deferred(
+      const mrpt::Clock::time_point& timestamp, const mrpt::poses::CPose3D& mean,
+      const std::shared_future<mrpt::math::CMatrixDouble66>& cov, const std::string& frame_id)
+  {
+    fuse_pose(timestamp, mrpt::poses::CPose3DPDFGaussian(mean, cov.get()), frame_id);
+  }
+
  private:
   /// A list of one or multiple MOLA **module names** to which to subscribe
   std::set<std::string> navstate_source_names_;
@@ -191,5 +208,9 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
 /// Can be used to detect the existence of the transform_frame() method, which
 /// re-expresses the estimator state in a new reference frame.
 #define MOLA_KERNEL_NAVSTATE_FILTER_HAS_TRANSFORM_FRAME
+
+/// Can be used to detect the existence of the fuse_pose_deferred() method, for
+/// a pose whose covariance becomes ready later.
+#define MOLA_KERNEL_NAVSTATE_FILTER_HAS_FUSE_POSE_DEFERRED
 
 }  // namespace mola
