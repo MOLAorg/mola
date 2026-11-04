@@ -791,6 +791,24 @@ void Rosbag2Dataset::spinOnce()
 
   // const double t0 = mrpt::Clock::toDouble(rawlog_begin_time_);
 
+  // Random access (datasetGetObservations) may have read past the playback
+  // position, and the oldest entries are unloaded first: the sequential
+  // reader cannot restore them, so playback resumes at the first entry still
+  // buffered (the buffered entries are always a contiguous tail).
+  if (rosbag_next_idx_ < rosbag_next_idx_write_ && !read_ahead_.at(rosbag_next_idx_).has_value())
+  {
+    const size_t from = rosbag_next_idx_;
+    while (rosbag_next_idx_ < rosbag_next_idx_write_ &&
+           !read_ahead_.at(rosbag_next_idx_).has_value())
+    {
+      rosbag_next_idx_++;
+    }
+    MRPT_LOG_WARN_STREAM(
+        "Timed playback resumes at entry " << rosbag_next_idx_ << " instead of " << from
+                                           << ": the entries in between were read by random "
+                                              "access and are no longer buffered.");
+  }
+
   if (!rosbag_begin_time_ && bagMessageCount_ > 0 && rosbag_next_idx_ < read_ahead_.size())
   {
     // The first available entry: 0 normally, or the target of a fast-forward
