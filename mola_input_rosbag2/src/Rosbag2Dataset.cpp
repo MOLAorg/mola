@@ -334,6 +334,44 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
   // Open the first bag to read topic metadata and start replay.
   openBag(0);
 
+  // Pre-scan the static transforms of every bag into the TF buffer before
+  // playback starts. They are time-independent, so sensor poses resolve even
+  // when the replay starts in the middle of the bag or the static transforms
+  // are recorded after the first sensor messages.
+  {
+    size_t nTfStatic = 0;
+    for (size_t i = 0; i < rosbag_filenames_.size(); i++)
+    {
+      rosbag2_storage::StorageOptions so;
+      so.uri        = rosbag_filenames_[i];
+      so.storage_id = rosbag_storage_ids_[i];
+      rosbag2_cpp::ConverterOptions co;
+      co.input_serialization_format  = rosbag_serialization_;
+      co.output_serialization_format = rosbag_serialization_;
+      auto tfReader                  = std::make_shared<rosbag2_cpp::readers::SequentialReader>();
+      tfReader->open(so, co);
+      rosbag2_storage::StorageFilter tfFilter;
+      tfFilter.topics = {tf_static_topic_};
+      tfReader->set_filter(tfFilter);
+      while (tfReader->has_next())
+      {
+        const auto msg = tfReader->read_next();
+        if (msg->topic_name != tf_static_topic_)
+        {
+          continue;
+        }
+        toTf<true>(*msg);
+        nTfStatic++;
+      }
+    }
+    if (nTfStatic > 0)
+    {
+      MRPT_LOG_INFO_STREAM(
+          "Pre-scanned " << nTfStatic << " message(s) of '" << tf_static_topic_
+                         << "' into the TF buffer.");
+    }
+  }
+
   std::vector<rosbag2_storage::TopicMetadata> topics;
   topics.reserve(all_topics_by_name.size());
   for (const auto& [_, topic] : all_topics_by_name)
@@ -753,10 +791,34 @@ void Rosbag2Dataset::spinOnce()
 
   // const double t0 = mrpt::Clock::toDouble(rawlog_begin_time_);
 
-  if (!rosbag_begin_time_ && bagMessageCount_ > 0)
+  // Random access (datasetGetObservations) may have read past the playback
+  // position, and the oldest entries are unloaded first: the sequential
+  // reader cannot restore them, so playback resumes at the first entry still
+  // buffered (the buffered entries are always a contiguous tail).
+  if (rosbag_next_idx_ < rosbag_next_idx_write_ && !read_ahead_.at(rosbag_next_idx_).has_value())
   {
-    doReadAhead(0, true /* skip read ahead buffer */);
-    rosbag_begin_time_ = read_ahead_.at(0)->timestamp;
+    const size_t from = rosbag_next_idx_;
+    while (rosbag_next_idx_ < rosbag_next_idx_write_ &&
+           !read_ahead_.at(rosbag_next_idx_).has_value())
+    {
+      rosbag_next_idx_++;
+    }
+    MRPT_LOG_WARN_STREAM(
+        "Timed playback resumes at entry " << rosbag_next_idx_ << " instead of " << from
+                                           << ": the entries in between were read by random "
+                                              "access and are no longer buffered.");
+  }
+
+  if (!rosbag_begin_time_ && bagMessageCount_ > 0 && rosbag_next_idx_ < read_ahead_.size())
+  {
+    // The first available entry: 0 normally, or the target of a fast-forward
+    // that happened before the first call here (the skipped entries are empty).
+    const size_t firstIdx = rosbag_next_idx_;
+    doReadAhead(firstIdx, true /* skip read ahead buffer */);
+    if (read_ahead_.at(firstIdx).has_value())
+    {
+      rosbag_begin_time_ = read_ahead_.at(firstIdx)->timestamp;
+    }
   }
 
   // override by an special teleport order?
@@ -1103,6 +1165,13 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bo
 
     if (skipBufferAhead && idx != endIdx)
     {
+      // Fast-forwarding: skipped messages are not converted, except the TF
+      // topics, whose transforms must be in the buffer when playback resumes.
+      const auto& topic = serialized_message->topic_name;
+      if (topic == tf_topic_ || topic == tf_static_topic_)
+      {
+        to_mrpt(*serialized_message);
+      }
       continue;
     }
 
@@ -1144,9 +1213,27 @@ mrpt::obs::CSensoryFrame::Ptr Rosbag2Dataset::datasetGetObservations(size_t time
 
   auto& me = const_cast<Rosbag2Dataset&>(*this);
 
+  // A request far beyond the read-ahead window is a fast-forward (a replay
+  // that starts in the middle of the bag): the messages in between are not
+  // converted, except the TF topics, as with the UI teleport. The reader is
+  // sequential, so those entries could not be served afterwards anyway.
+  if (timestep > me.rosbag_next_idx_write_ + me.read_ahead_length_)
+  {
+    me.doReadAhead(timestep, true /* skip read ahead buffer */);
+    // Keep the timed playback consistent with the jump, as the UI teleport does:
+    me.rosbag_next_idx_   = timestep;
+    me.last_dataset_time_ = 0;
+  }
+
   me.doReadAhead(timestep);
 
-  ASSERT_(read_ahead_.at(timestep).has_value());
+  if (!read_ahead_.at(timestep).has_value())
+  {
+    THROW_EXCEPTION_FMT(
+        "Dataset entry %zu is not available: it was skipped by a fast-forward, and the "
+        "sequential rosbag2 reader cannot go back.",
+        timestep);
+  }
 
   return read_ahead_.at(timestep)->obs;
 }
