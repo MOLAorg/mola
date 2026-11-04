@@ -20,3 +20,10 @@ mola_add_test(
   LINK_LIBRARIES
     mola::mola_kernel
 )
+
+mola_add_test(
+  TARGET  test-imu-bias-source
+  SOURCES test_imu_bias_source.cpp
+  LINK_LIBRARIES
+    mola::mola_kernel
+)
