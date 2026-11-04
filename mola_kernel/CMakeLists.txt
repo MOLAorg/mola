@@ -123,5 +123,6 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC MOLA_PATCH_VERSION=${MOLA_PATC
 
 # Tests
 if(BUILD_TESTING)
+  enable_testing()
   add_subdirectory(tests)
 endif()
