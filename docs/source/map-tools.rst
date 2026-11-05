@@ -20,6 +20,7 @@ Viewer
    :maxdepth: 1
 
    app_mm-viewer
+   app_mm-render
 
 |
 
