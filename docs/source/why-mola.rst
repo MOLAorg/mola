@@ -46,6 +46,7 @@ Rich metric map ecosystem
 MOLA's ``.mm`` metric map format comes with a full set of CLI tools:
 
 - :ref:`mm-viewer <app_mm-viewer>`: Interactive 3D map viewer
+- :ref:`mm-render <app_mm-render>`: Render map layers into images, off-screen (no GUI)
 - :ref:`mm2las <app_mm2las>`, :ref:`mm2ply <app_mm2ply>`, :ref:`mm2txt <app_mm2txt>`: Export to LAS, PLY, TXT for GIS/surveying workflows
 - :ref:`mm2kml <app_mm2kml>`: Export georeferenced maps and trajectories to Google Earth
 - :ref:`mm-filter <app_mm-filter>`: Filter and transform maps
