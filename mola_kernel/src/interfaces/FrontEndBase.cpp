@@ -36,12 +36,13 @@ void FrontEndBase::initialize(const Yaml& cfg)
   {
     auto ds_source = cfg["raw_data_source"];
 
-    if (cfg.isSequence())
+    if (ds_source.isSequence())
     {
-      for (const auto& v : cfg.asSequence())
+      for (const auto& v : ds_source.asSequence())
       {
         front_end_source_names_.insert(v.as<std::string>());
       }
+      ASSERTMSG_(!front_end_source_names_.empty(), "'raw_data_source' is an empty sequence");
     }
     else
     {

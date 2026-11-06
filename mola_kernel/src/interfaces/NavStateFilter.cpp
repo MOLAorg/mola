@@ -53,6 +53,7 @@ void NavStateFilter::initialize(const Yaml& cfg)
       {
         navstate_source_names_.insert(v.as<std::string>());
       }
+      ASSERTMSG_(!navstate_source_names_.empty(), "'raw_data_source' is an empty sequence");
     }
     else
     {

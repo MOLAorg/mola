@@ -485,7 +485,8 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihood(
   using namespace mrpt::poses;
   using namespace mrpt::maps;
 
-  if (isEmpty()) return 0;
+  // An empty map is not an early exit: every point of a scan is then
+  // unmatched, the worst score, so it never beats a partially matching map.
 
   // This function depends on the observation type:
   // -----------------------------------------------------
@@ -556,11 +557,12 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
 
   ASSERT_GT_(likelihoodOptions.sigma_dist, .0);
 
-  mrpt::math::TPoint3Df closest;
-  float                 closest_err;
-  uint64_t              closest_id;
-  const float           max_sqr_err = mrpt::square(likelihoodOptions.max_corr_distance);
-  double                sumSqrDist  = .0;
+  std::vector<mrpt::math::TPoint3Df> nnPts;
+  std::vector<float>                 nnDistsSqr;
+  std::vector<uint64_t>              nnIds;
+  float                              closest_err = 0;
+  const float max_sqr_err = mrpt::square(likelihoodOptions.max_corr_distance);
+  double      sumSqrDist  = .0;
 
   std::size_t nPtsForAverage = 0;
   for (std::size_t i = 0; i < num_pts; i += likelihoodOptions.decimation, nPtsForAverage++)
@@ -569,12 +571,10 @@ double SparseVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     // position:
     const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
 
-    // A point with no map point nearby is the worst match, not a perfect one:
-    const bool found = nn_single_search(gPt, closest, closest_err, closest_id);
-    if (!found)
-    {
-      closest_err = max_sqr_err;
-    }
+    // This map only has a bounded search. A point with no map point nearby is
+    // the worst match, not a perfect one:
+    nn_radius_search(gPt, max_sqr_err, nnPts, nnDistsSqr, nnIds, 1 /*closest only*/);
+    closest_err = nnDistsSqr.empty() ? max_sqr_err : nnDistsSqr.front();
 
     // Put a limit:
     mrpt::keep_min(closest_err, max_sqr_err);

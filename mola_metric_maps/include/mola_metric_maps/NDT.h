@@ -497,7 +497,8 @@ class NDT : public mrpt::maps::CMetricMap,
 
     /** Divisor of the squared point-to-map distance in the per-point
      *  log-likelihood, -d^2/sigma_dist [m^2]. For a Gaussian of standard
-     *  deviation s it is 2*s^2, so the default 0.5 means s = 0.5 m. */
+     *  deviation s it is 2*s^2, so the default 0.5 means s = 0.5 m.
+     *  \note Not used yet: NDT does not implement the likelihood of point clouds. */
     double sigma_dist = 0.5;
 
     /** Maximum distance in meters to consider for the numerator divided by

@@ -440,10 +440,8 @@ double SparseTreesPointCloud::internal_computeObservationLikelihood(
   using namespace mrpt::poses;
   using namespace mrpt::maps;
 
-  if (isEmpty())
-  {
-    return 0;
-  }
+  // An empty map is not an early exit: every point of a scan is then
+  // unmatched, the worst score, so it never beats a partially matching map.
 
   // This function depends on the observation type:
   // -----------------------------------------------------
