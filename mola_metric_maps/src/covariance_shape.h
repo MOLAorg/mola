@@ -94,10 +94,14 @@ inline Eigen::Matrix3d shapePointCovariance(const Eigen::Matrix3d& cov, double l
   }
 
   // A bound above one would push the smaller eigenvalues past the largest.
-  const double ratio      = std::min(-lambda, 1.0);
-  const double floorValue = std::max(ratio * largest, largest * 1e-9);
-  values[0]               = std::max(values[0], floorValue);
-  values[1]               = std::max(values[1], floorValue);
+  // The numerical guard must survive the single precision in which callers
+  // store, rotate and invert this matrix: a smaller ratio rounds away there
+  // and leaves the inverse indefinite or non-finite.
+  constexpr double MIN_RATIO  = 1e-5;
+  const double     ratio      = std::min(-lambda, 1.0);
+  const double     floorValue = std::max(ratio, MIN_RATIO) * largest;
+  values[0]                   = std::max(values[0], floorValue);
+  values[1]                   = std::max(values[1], floorValue);
 
   return es.eigenvectors() * values.asDiagonal() * es.eigenvectors().transpose();
 }
