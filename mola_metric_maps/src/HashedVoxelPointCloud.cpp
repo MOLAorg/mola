@@ -539,10 +539,11 @@ double HashedVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     // position:
     const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
 
+    // A point with no map point nearby is the worst match, not a perfect one:
     const bool found = nn_single_search(gPt, closest, closest_err, closest_id);
     if (!found)
     {
-      continue;
+      closest_err = max_sqr_err;
     }
 
     // Put a limit:
