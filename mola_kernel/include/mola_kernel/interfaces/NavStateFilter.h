@@ -104,7 +104,8 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
   /** Integrates new GNSS observations into the estimator */
   virtual void fuse_gnss(const mrpt::obs::CObservationGPS& gps) = 0;
 
-  /** Integrates new twist estimation (in the odom frame) */
+  /** Integrates new twist estimation, given in the local vehicle frame like
+   *  NavState::twist, with `twistCov` in the order [vx vy vz wx wy wz]. */
   virtual void fuse_twist(
       const mrpt::Clock::time_point& timestamp, const mrpt::math::TTwist3D& twist,
       const mrpt::math::CMatrixDouble66& twistCov) = 0;
