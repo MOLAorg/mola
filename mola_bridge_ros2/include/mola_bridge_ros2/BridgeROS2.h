@@ -308,6 +308,7 @@ class BridgeROS2 : public RawDataSourceBase,
   std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr>       subsOdometry_;
   std::vector<rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr>         subsImu_;
   std::vector<rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr>   subsGNSS_;
+  std::vector<rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr>       subsImage_;
 #if defined(HAS_GPS_MSGS)
   std::vector<rclcpp::Subscription<gps_msgs::msg::GPSFix>::SharedPtr> subsGPSMsg_;
 #endif
@@ -327,6 +328,10 @@ class BridgeROS2 : public RawDataSourceBase,
 
   void callbackOnNavSatFix(
       const sensor_msgs::msg::NavSatFix& o, const std::string& outSensorLabel,
+      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
+
+  void callbackOnImage(
+      const sensor_msgs::msg::Image& o, const std::string& outSensorLabel,
       const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
 
 #if defined(HAS_GPS_MSGS)

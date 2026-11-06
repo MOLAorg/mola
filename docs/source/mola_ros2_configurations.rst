@@ -149,6 +149,12 @@ node, and an environment variable read by both offline tools
      - (off)
      - ``attitude_imu_topic_name:=``
      - ``MOLA_ATTITUDE_IMU_TOPIC``
+   * - Camera images stored in simplemap keyframes (``mola_lidar_odometry`` with
+       keyframe image support; for maps already built, ``mola-sm-attach-from-rosbag2``)
+     - (off)
+     - ``camera_topic_name:=`` (up to three, comma-separated)
+     - ``MOLA_CAMERA_TOPIC``, ``_1``, ``_2`` (GUI) or ``MOLA_CAMERA_TOPIC_0``, ``_1``, ``_2``
+       (CLI), plus ``MOLA_SIMPLEMAP_ATTACH_LABEL`` (a regex, e.g. ``camera.*`` / ``image_.*``)
    * - External odom (``/tf``)
      - (off)
      - ``forward_ros_tf_odom_to_mola:=True``
