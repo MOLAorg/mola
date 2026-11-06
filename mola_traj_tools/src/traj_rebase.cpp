@@ -49,8 +49,10 @@ int main(int argc, char** argv)
     // every relative motion is kept:
     const auto tf = newStartPose + (-mrpt::poses::CPose3D(in0));
 
-    for (auto& [t, pose] : pIn)  //
+    for (auto& [t, pose] : pIn)
+    {
       pose = (tf + mrpt::poses::CPose3D(pose)).asTPose();
+    }
 
     // save:
     pIn.saveToTextFile_TUM(sOut);

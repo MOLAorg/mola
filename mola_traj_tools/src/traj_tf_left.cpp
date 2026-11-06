@@ -43,8 +43,10 @@ int main(int argc, char** argv)
     const auto tf = mrpt::poses::CPose3D::FromString(sTF);
     std::cout << "tf: " << tf << "\n";
 
-    for (auto& [t, pose] : pIn)  //
+    for (auto& [t, pose] : pIn)
+    {
       pose = (tf + mrpt::poses::CPose3D(pose)).asTPose();
+    }
 
     // save:
     pIn.saveToTextFile_TUM(sOut);
