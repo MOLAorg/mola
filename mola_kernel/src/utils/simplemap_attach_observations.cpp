@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iterator>
 #include <limits>
 #include <optional>
@@ -79,10 +80,47 @@ std::string lazy_load_dir_of(const std::string& simplemapFile)
   return mrpt::system::fileNameChangeExtension(simplemapFile, "") + "_Images";
 }
 
-/// Hard links (or copies) the files of `from` into `to`, with their relative paths.
+bool same_contents(const std::filesystem::path& a, const std::filesystem::path& b)
+{
+  namespace fs = std::filesystem;
+  if (fs::equivalent(a, b))
+  {
+    return true;
+  }
+  if (fs::file_size(a) != fs::file_size(b))
+  {
+    return false;
+  }
+  std::ifstream fa(a, std::ios::binary);
+  std::ifstream fb(b, std::ios::binary);
+  return std::equal(
+      std::istreambuf_iterator<char>(fa), std::istreambuf_iterator<char>(),
+      std::istreambuf_iterator<char>(fb));
+}
+
+/** Hard links (or copies) the files of `from` into `to`, with their relative
+ *  paths. Existing files of `to` are never replaced: if one differs from its
+ *  source, it throws before changing anything. */
 void mirror_directory(const std::string& from, const std::string& to)
 {
   namespace fs = std::filesystem;
+  if (fs::exists(to))
+  {
+    for (const auto& e : fs::recursive_directory_iterator(from))
+    {
+      if (!e.is_regular_file())
+      {
+        continue;
+      }
+      const auto dst = fs::path(to) / e.path().lexically_relative(from);
+      if (fs::exists(dst) && !same_contents(e.path(), dst))
+      {
+        throw std::runtime_error(
+            "Output file exists with different contents: " + dst.string() +
+            ". Use another output name.");
+      }
+    }
+  }
   fs::create_directories(to);
   for (const auto& e : fs::recursive_directory_iterator(from))
   {
@@ -93,11 +131,7 @@ void mirror_directory(const std::string& from, const std::string& to)
     const auto dst = fs::path(to) / e.path().lexically_relative(from);
     if (fs::exists(dst))
     {
-      if (fs::equivalent(e.path(), dst))
-      {
-        continue;
-      }
-      fs::remove(dst);  // e.g. from another map
+      continue;  // same contents, checked above
     }
     fs::create_directories(dst.parent_path());
     std::error_code ec;
@@ -219,21 +253,36 @@ SimplemapAttachResult simplemap_attach_observations(
   const auto commit = [&](const std::string& label, const Candidate& c, Keyframe& kf)
   {
     auto obs = c.obs;
-    if (auto img = std::dynamic_pointer_cast<mrpt::obs::CObservationImage>(obs);
-        img && fmt != "inline" && !img->image.isExternallyStored() &&
-        img->image.getPixelDepth() == mrpt::img::PixelDepth::D8U)
+    if (auto img = std::dynamic_pointer_cast<mrpt::obs::CObservationImage>(obs); img)
     {
-      const auto name = mrpt::format(
-          "%s_%.09f.%s", mrpt::system::fileNameStripInvalidChars(label).c_str(),
-          mrpt::Clock::toDouble(img->timestamp), fmt.c_str());
-      const auto path = mrpt::system::pathJoin({outDir, name});
-      // Never write through a hard link to a file of the input map:
-      std::filesystem::remove(path);
-      if (!img->image.saveToFile(path, options.jpeg_quality))
+      // Images stored as files of the dataset are loaded: the map must not
+      // depend on the dataset directory.
+      if (img->image.isExternallyStored())
       {
-        throw std::runtime_error("Cannot write: " + path);
+        const auto file = img->image.getExternalStorageFileAbsolutePath();
+        auto       copy = std::make_shared<mrpt::obs::CObservationImage>(*img);
+        copy->image     = mrpt::img::CImage();
+        if (!copy->image.loadFromFile(file))
+        {
+          throw std::runtime_error("Cannot read: " + file);
+        }
+        img = copy;
+        obs = copy;
       }
-      obs = external_image_copy(*img, name);
+      if (fmt != "inline" && img->image.getPixelDepth() == mrpt::img::PixelDepth::D8U)
+      {
+        const auto name = mrpt::format(
+            "%s_%.09f.%s", mrpt::system::fileNameStripInvalidChars(label).c_str(),
+            mrpt::Clock::toDouble(img->timestamp), fmt.c_str());
+        const auto path = mrpt::system::pathJoin({outDir, name});
+        // Never write through a hard link to a file of the input map:
+        std::filesystem::remove(path);
+        if (!img->image.saveToFile(path, options.jpeg_quality))
+        {
+          throw std::runtime_error("Cannot write: " + path);
+        }
+        obs = external_image_copy(*img, name);
+      }
     }
     kf.sf->insert(obs);
     kf.labels.insert(label);
