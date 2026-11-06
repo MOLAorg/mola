@@ -42,6 +42,8 @@ struct Keyframe
 {
   double                        stamp = 0;
   mrpt::obs::CSensoryFrame::Ptr sf;
+  /// Sensor labels it already has: it never gets a second one.
+  std::set<std::string> labels;
 };
 
 /// Keyframe time: that of its "metadata" comment, else of its first observation.
@@ -90,7 +92,11 @@ void mirror_directory(const std::string& from, const std::string& to)
     const auto dst = fs::path(to) / e.path().filename();
     if (fs::exists(dst))
     {
-      continue;
+      if (fs::equivalent(e.path(), dst))
+      {
+        continue;
+      }
+      fs::remove(dst);  // e.g. from another map
     }
     std::error_code ec;
     fs::create_hard_link(e.path(), dst, ec);
@@ -140,16 +146,18 @@ SimplemapAttachResult simplemap_attach_observations(
     {
       continue;
     }
+    std::set<std::string> labels;
     for (const auto& o : *kf.sf)
     {
       if (options.sensor_labels.count(o->sensorLabel) != 0)
       {
         existing.emplace(o->sensorLabel, o->timestamp);
+        labels.insert(o->sensorLabel);
       }
     }
     if (const auto t = keyframe_stamp(*kf.sf); t)
     {
-      kfs.push_back({*t, kf.sf});
+      kfs.push_back({*t, kf.sf, labels});
     }
   }
   std::sort(kfs.begin(), kfs.end(), [](const auto& a, const auto& b) { return a.stamp < b.stamp; });
@@ -207,6 +215,7 @@ SimplemapAttachResult simplemap_attach_observations(
       obs = external_image_copy(*img, name);
     }
     kf.sf->insert(obs);
+    kf.labels.insert(label);
     result.attached[label]++;
   };
 
@@ -272,9 +281,9 @@ SimplemapAttachResult simplemap_attach_observations(
         k--;
       }
       const double dt = std::abs(t - kfs[k].stamp);
-      if (dt > options.max_age)
+      if (dt > options.max_age || kfs[k].labels.count(o->sensorLabel) != 0)
       {
-        continue;
+        continue;  // too far, or that keyframe already has one
       }
       auto& slot = best[o->sensorLabel];
       if (const auto c = slot.find(k); c == slot.end() || dt < c->second.dt)
@@ -290,10 +299,13 @@ SimplemapAttachResult simplemap_attach_observations(
     progress(1.0);
   }
 
-  if (!sm.saveToFile(outputFile))
+  // Through a temporary file, since the output may be the input map:
+  const std::string tmpFile = outputFile + ".tmp";
+  if (!sm.saveToFile(tmpFile))
   {
-    throw std::runtime_error("Cannot write: " + outputFile);
+    throw std::runtime_error("Cannot write: " + tmpFile);
   }
+  std::filesystem::rename(tmpFile, outputFile);
   return result;
 }
 

@@ -276,7 +276,9 @@ the following fields:
    * - ``msg_type``
      - Yes
      - One of: ``PointCloud2``, ``LaserScan``, ``Imu``, ``NavSatFix``,
-       ``Odometry``, ``Image``.
+       ``Odometry``, ``Image``. ``Image`` takes raw ``sensor_msgs/Image`` (Bayer
+       encodings are demosaiced), decoded in the bridge callbacks: prefer
+       low-rate camera topics.
    * - ``output_sensor_label``
      - Yes
      - Label assigned to the MOLA observation forwarded to front-ends.
