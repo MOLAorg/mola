@@ -45,10 +45,14 @@ int main(int argc, char** argv)
     const auto newStartPose = mrpt::poses::CPose3D::FromString(sTF);
     std::cout << "newStartPose: " << newStartPose << "\n";
 
-    auto tf = newStartPose - mrpt::poses::CPose3D(in0);
+    // tf (+) in0 == newStartPose, so the first pose lands exactly there and
+    // every relative motion is kept:
+    const auto tf = newStartPose + (-mrpt::poses::CPose3D(in0));
 
-    for (auto& [t, pose] : pIn)  //
+    for (auto& [t, pose] : pIn)
+    {
       pose = (tf + mrpt::poses::CPose3D(pose)).asTPose();
+    }
 
     // save:
     pIn.saveToTextFile_TUM(sOut);

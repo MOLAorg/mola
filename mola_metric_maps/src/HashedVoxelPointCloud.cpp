@@ -455,7 +455,8 @@ double HashedVoxelPointCloud::internal_computeObservationLikelihood(
   using namespace mrpt::poses;
   using namespace mrpt::maps;
 
-  if (isEmpty()) return 0;
+  // An empty map is not an early exit: every point of a scan is then
+  // unmatched, the worst score, so it never beats a partially matching map.
 
   // This function depends on the observation type:
   // -----------------------------------------------------
@@ -539,10 +540,11 @@ double HashedVoxelPointCloud::internal_computeObservationLikelihoodPointCloud3D(
     // position:
     const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
 
+    // A point with no map point nearby is the worst match, not a perfect one:
     const bool found = nn_single_search(gPt, closest, closest_err, closest_id);
     if (!found)
     {
-      continue;
+      closest_err = max_sqr_err;
     }
 
     // Put a limit:

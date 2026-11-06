@@ -19,6 +19,7 @@
 
 #include <mola_pose_list/HashedSetSE3.h>
 #include <mrpt/core/exceptions.h>
+#include <mrpt/math/wrap2pi.h>
 
 #include <cmath>
 #include <iostream>
@@ -80,6 +81,19 @@ void test_jitter_around_zero()
   std::cout << "[hashed_set_se3] jitter around zero: OK\n";
 }
 
+// Yaw and roll wrap around: poses on both sides of +-pi are in one voxel.
+void test_angle_wrap()
+{
+  mola::HashedSetSE3 s;
+  for (const double e : {-1e-3, 1e-3})
+  {
+    const double a = M_PI + e;  // above pi is the same as near -pi
+    s.insertPose({0.3, -0.2, 0.0, mrpt::math::wrapToPi(a), 0.0, mrpt::math::wrapToPi(a)});
+  }
+  ASSERT_EQUAL_(countVoxels(s), 1UL);
+  std::cout << "[hashed_set_se3] angle wrap: OK\n";
+}
+
 }  // namespace
 
 int main()
@@ -88,6 +102,7 @@ int main()
   {
     test_voxels_same_size();
     test_jitter_around_zero();
+    test_angle_wrap();
   }
   catch (const std::exception& e)
   {

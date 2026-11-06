@@ -20,6 +20,7 @@
 #include <mola_pose_list/index_se3_t.h>
 #include <mrpt/core/round.h>
 #include <mrpt/math/TPose3D.h>
+#include <mrpt/math/wrap2pi.h>
 
 #include <unordered_map>
 
@@ -40,15 +41,16 @@ class HashedSetSE3
   /// the same size (truncation toward zero made the voxel around zero twice as
   /// large) and a value that only jitters around zero, like z, pitch and roll of
   /// a planar robot, does not get split across a voxel boundary.
+  /// Yaw and roll wrap around: angles near +pi and -pi share one voxel.
   inline global_index3d_t coordToGlobalIdx(const mrpt::math::TPose3D& p) const
   {
     return global_index3d_t(
         mrpt::round(p.x * voxel_xyz_size_inv_),  //
         mrpt::round(p.y * voxel_xyz_size_inv_),  //
         mrpt::round(p.z * voxel_xyz_size_inv_),  //
-        mrpt::round(p.yaw * voxel_yaw_size_inv_),  //
+        wrappedAngleIdx(p.yaw, voxel_yaw_size_inv_),  //
         mrpt::round(p.pitch * voxel_pitch_size_inv_),  //
-        mrpt::round(p.roll * voxel_roll_size_inv_)  //
+        wrappedAngleIdx(p.roll, voxel_roll_size_inv_)  //
     );
   }
 
@@ -180,6 +182,15 @@ class HashedSetSE3
   /** @} */
 
  private:
+  /// Voxel index of an angle. The voxels at both ends of [-pi, pi] are two
+  /// halves of the same one, so they get the same index.
+  static int32_t wrappedAngleIdx(double angle, double sizeInv)
+  {
+    const int32_t idx    = mrpt::round(mrpt::math::wrapToPi(angle) * sizeInv);
+    const int32_t idxMax = mrpt::round(M_PI * sizeInv);
+    return idx == -idxMax ? idxMax : idx;
+  }
+
   double voxel_xyz_size_   = 1.00;
   double voxel_yaw_size_   = mrpt::DEG2RAD(10.0);
   double voxel_pitch_size_ = mrpt::DEG2RAD(10.0);

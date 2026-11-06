@@ -106,6 +106,16 @@ int main()
       ASSERT_GT_(ev[2], 0.0);
     }
 
+    // The floor must survive single precision: callers store and invert this
+    // matrix as floats, where a too small relative floor rounds away.
+    {
+      const Eigen::Matrix3f c = shapePointCovariance(makeScatter(4.0, 2.0, 0.0), 0.0).cast<float>();
+      const Eigen::Matrix3f ci = c.inverse();
+      ASSERT_(ci.allFinite());
+      const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es(ci);
+      ASSERT_GT_(es.eigenvalues().minCoeff(), 0.0f);
+    }
+
     // A bound beyond -1 saturates at an isotropic covariance, never above
     // the largest eigenvalue.
     {

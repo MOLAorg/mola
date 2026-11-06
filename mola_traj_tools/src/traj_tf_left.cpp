@@ -39,14 +39,14 @@ int main(int argc, char** argv)
     std::cout << "Loaded: " << pIn.size() << " poses.\n";
     ASSERT_(!pIn.empty());
 
-    auto in0 = pIn.begin()->second;
-
     // Apply tf:
     const auto tf = mrpt::poses::CPose3D::FromString(sTF);
     std::cout << "tf: " << tf << "\n";
 
-    for (auto& [t, pose] : pIn)  //
-      pose = (tf + mrpt::poses::CPose3D(pose - in0)).asTPose();
+    for (auto& [t, pose] : pIn)
+    {
+      pose = (tf + mrpt::poses::CPose3D(pose)).asTPose();
+    }
 
     // save:
     pIn.saveToTextFile_TUM(sOut);

@@ -14,6 +14,13 @@ mola_add_test(
 )
 
 mola_add_test(
+  TARGET  test-mola_metric_maps_voxelmaps_likelihood
+  SOURCES test-voxelmaps-likelihood.cpp
+  LINK_LIBRARIES
+  mola_metric_maps
+)
+
+mola_add_test(
   TARGET  test-mola_metric_maps_hashedvoxels
   SOURCES test-mola_metric_maps_hashedvoxels.cpp
   LINK_LIBRARIES

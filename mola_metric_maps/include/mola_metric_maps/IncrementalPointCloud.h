@@ -447,7 +447,8 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
      *  regularization off and keeps the eigenvalues the neighborhood actually
      *  produced, so a sparse or rough neighborhood carries less information
      *  than a dense flat one instead of the same amount; the magnitude is then
-     *  a floor on the smaller eigenvalues, relative to the largest one. The
+     *  a floor on the smaller eigenvalues, relative to the largest one, and
+     *  never below 1e-5 so the matrix stays invertible in single precision. The
      *  two regimes are not on the same scale, since kept eigenvalues carry
      *  squared metric units. Same semantics as the option of the same name on
      *  KeyframePointCloudMap. */

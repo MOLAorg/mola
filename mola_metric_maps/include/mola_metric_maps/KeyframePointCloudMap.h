@@ -484,7 +484,8 @@ class KeyframePointCloudMap : public mrpt::maps::CMetricMap,
      *  actually produced, so a sparse or rough neighborhood carries less
      *  information than a dense flat one instead of the same amount; the
      *  magnitude of the value is then a floor on the smaller eigenvalues,
-     *  relative to the largest one. Note that the two regimes are not on the
+     *  relative to the largest one, and never below 1e-5 so the matrix stays
+     *  invertible in single precision. Note that the two regimes are not on the
      *  same scale, since kept eigenvalues carry squared metric units, so a
      *  matching threshold or robust kernel tuned against one does not
      *  transfer to the other.
