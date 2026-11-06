@@ -149,6 +149,11 @@ node, and an environment variable read by both offline tools
      - (off)
      - ``attitude_imu_topic_name:=``
      - ``MOLA_ATTITUDE_IMU_TOPIC``
+   * - Camera images stored in simplemap keyframes
+     - (off)
+     - ``camera_topic_name:=``
+     - ``MOLA_CAMERA_TOPIC`` (GUI) or ``MOLA_CAMERA_TOPIC_0`` (CLI), plus
+       ``MOLA_SIMPLEMAP_ATTACH_LABEL`` (``camera`` / ``image_0``)
    * - External odom (``/tf``)
      - (off)
      - ``forward_ros_tf_odom_to_mola:=True``

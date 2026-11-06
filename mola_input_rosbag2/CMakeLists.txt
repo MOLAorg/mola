@@ -75,3 +75,15 @@ message(STATUS "Found: mrpt_libros_bridge_VERSION: ${mrpt_libros_bridge_VERSION}
 if (gps_msgs_FOUND)
   target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GPS_MSGS)
 endif()
+# CLI app: adds observations from a bag (e.g. camera images) to simplemap keyframes
+find_package(CLI11 REQUIRED)
+find_mola_package(mola_yaml)
+mola_add_executable(
+  TARGET  mola-sm-attach-from-rosbag2
+  SOURCES apps/mola-sm-attach-from-rosbag2.cpp
+  LINK_LIBRARIES
+    ${PROJECT_NAME}
+    mola::mola_kernel
+    mola::mola_yaml
+    CLI11::CLI11
+)

@@ -44,6 +44,7 @@ set(LIB_SRCS
   src/interfaces/VizInterface.cpp
   src/LogHub.cpp
   src/utils/parallelism.cpp
+  src/utils/simplemap_attach_observations.cpp
   src/utils/Synchronizer.cpp
   src/MinimalModuleContainer.cpp
   src/pretty_print_exception.cpp
@@ -80,6 +81,7 @@ set(LIB_PUBLIC_HDRS
   include/mola_kernel/utils/parallelism.h
   include/mola_kernel/utils/RegexCache.h
   include/mola_kernel/utils/Synchronizer.h
+  include/mola_kernel/utils/simplemap_attach_observations.h
   include/mola_kernel/variant_helper.h
   include/mola_kernel/Yaml.h
 )

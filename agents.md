@@ -207,6 +207,14 @@ it appears in, including sibling `$import`ed files; priority `env > $define > |d
 C++17 filesystem.
 Tests: `mola_yaml/tests/test-yaml-parser.cpp`
 
+### Keyframe observations from bags (`mola_kernel/utils/simplemap_attach_observations.h`)
+`simplemap_attach_observations()` adds observations of any `OfflineDatasetSource` to the
+keyframes of a simplemap (nearest keyframe of each one, nearest one per keyframe; images
+written as jpg/png to `<output>_Images/`, as a new observation since `CImage` copies are
+shallow). CLIs: `mola-sm-attach-from-rosbag2` (`mola_input_rosbag2`) and
+`mola-sm-attach-from-rosbag1` (`mola_input_rosbag1` repo). `BridgeROS2` subscribes to
+`sensor_msgs/Image` (`msg_type: Image`; Bayer encodings demosaiced).
+
 ### `mola_launcher` — CLI Entry Point
 - **`mola-cli`**: main executable, takes YAML config, loads and orchestrates modules
   - Caps TBB (`tbb::global_control`, whole process) to `mola::max_parallel_threads()`

@@ -13,9 +13,11 @@
 
   <url type="website">https://github.com/MOLAorg/mola/tree/develop/mola_input_rosbag2</url>
 
+  <depend>cli11</depend>
   <depend>cv_bridge</depend>
   <depend>gps_msgs</depend>  <!-- optional -->
   <depend>mola_kernel</depend>
+  <depend>mola_yaml</depend>
   <depend>mrpt_obs</depend>
   <depend>mrpt_libros_bridge</depend>
   <depend>rosbag2_cpp</depend>

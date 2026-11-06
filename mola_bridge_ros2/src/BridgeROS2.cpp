@@ -38,6 +38,7 @@
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservationGPS.h>
 #include <mrpt/obs/CObservationIMU.h>
+#include <mrpt/obs/CObservationImage.h>
 #include <mrpt/obs/CObservationOdometry.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CObservationRobotPose.h>
@@ -1168,6 +1169,50 @@ void BridgeROS2::callbackOnImu(
   obs->sensorLabel = outSensorLabel;
 
   // send it out:
+  this->sendObservationsToFrontEnds(obs);
+
+  MRPT_END
+}
+
+void BridgeROS2::callbackOnImage(
+    const sensor_msgs::msg::Image& o, const std::string& outSensorLabel,
+    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
+{
+  MRPT_START
+
+  MRPT_LOG_DEBUG_STREAM(
+      "BridgeROS2::callbackOnImage: received image on topic '" << outSensorLabel << "'.");
+
+  const ProfilerEntry tle(profiler_, "callbackOnImage");
+
+  // Camera pose wrt robot base:
+  mrpt::poses::CPose3D sensorPose;
+  if (fixedSensorPose)
+  {
+    sensorPose = fixedSensorPose.value();
+  }
+  else
+  {
+    bool ok = waitForTransform(sensorPose, o.header.frame_id, params_.base_link_frame);
+    if (!ok)
+    {
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0,
+          "Could not forward ROS2 observation to MOLA due to timeout "
+          "waiting for /tf transform '%s'->'%s' for timestamp=%f.",
+          params_.base_link_frame.c_str(), o.header.frame_id.c_str(),
+          o.header.stamp.sec + o.header.stamp.nanosec * 1e-9);
+      return;
+    }
+  }
+
+  auto obs = mrpt::obs::CObservationImage::Create();
+  // Raw Bayer encodings are demosaiced here:
+  obs->image       = mrpt::ros2bridge::fromROS(o);
+  obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
+  obs->cameraPose  = sensorPose;
+  obs->sensorLabel = outSensorLabel;
+
   this->sendObservationsToFrontEnds(obs);
 
   MRPT_END
@@ -2644,6 +2689,13 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
           topic_name, qos,
           [this, output_sensor_label, fixedSensorPose](const sensor_msgs::msg::NavSatFix& o)
           { this->callbackOnNavSatFix(o, output_sensor_label, fixedSensorPose); }));
+    }
+    else if (type == "Image")
+    {
+      subsImage_.emplace_back(rosNode_->create_subscription<sensor_msgs::msg::Image>(
+          topic_name, qos,
+          [this, output_sensor_label, fixedSensorPose](const sensor_msgs::msg::Image& o)
+          { this->callbackOnImage(o, output_sensor_label, fixedSensorPose); }));
     }
     else if (type == "GpsFix")
     {
