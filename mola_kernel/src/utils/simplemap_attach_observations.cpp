@@ -90,7 +90,7 @@ void mirror_directory(const std::string& from, const std::string& to)
     {
       continue;
     }
-    const auto dst = fs::path(to) / fs::relative(e.path(), from);
+    const auto dst = fs::path(to) / e.path().lexically_relative(from);
     if (fs::exists(dst))
     {
       if (fs::equivalent(e.path(), dst))
