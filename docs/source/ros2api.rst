@@ -276,9 +276,10 @@ the following fields:
    * - ``msg_type``
      - Yes
      - One of: ``PointCloud2``, ``LaserScan``, ``Imu``, ``NavSatFix``,
-       ``Odometry``, ``Image``. ``Image`` takes raw ``sensor_msgs/Image`` (Bayer
-       encodings are demosaiced), decoded in the bridge callbacks: prefer
-       low-rate camera topics.
+       ``Odometry``, ``Image``. ``Image`` takes raw ``sensor_msgs/Image``, decoded in
+       the bridge callbacks: prefer low-rate camera topics and a small ``qos.depth``.
+       8-bit Bayer encodings are demosaiced with ``mrpt_libros_bridge`` >= 4.1.0
+       (16-bit Bayer is not supported); images that cannot be converted are dropped.
    * - ``output_sensor_label``
      - Yes
      - Label assigned to the MOLA observation forwarded to front-ends.

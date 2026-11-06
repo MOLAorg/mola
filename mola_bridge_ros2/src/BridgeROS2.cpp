@@ -1207,8 +1207,19 @@ void BridgeROS2::callbackOnImage(
   }
 
   auto obs = mrpt::obs::CObservationImage::Create();
-  // Raw Bayer encodings are demosaiced here:
-  obs->image       = mrpt::ros2bridge::fromROS(o);
+  // Raw Bayer encodings are demosaiced here. An image that cannot be converted
+  // is dropped: an exception would stop the executor, and all other inputs.
+  try
+  {
+    obs->image = mrpt::ros2bridge::fromROS(o);
+  }
+  catch (const std::exception& e)
+  {
+    MRPT_LOG_THROTTLE_ERROR_FMT(
+        5.0, "Dropping image on '%s' (encoding '%s'): %s", outSensorLabel.c_str(),
+        o.encoding.c_str(), e.what());
+    return;
+  }
   obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
   obs->cameraPose  = sensorPose;
   obs->sensorLabel = outSensorLabel;

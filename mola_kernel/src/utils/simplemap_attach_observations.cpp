@@ -51,7 +51,8 @@ std::optional<double> keyframe_stamp(const mrpt::obs::CSensoryFrame& sf)
 {
   for (const auto& o : sf)
   {
-    if (std::dynamic_pointer_cast<const mrpt::obs::CObservationComment>(o))
+    if (o->sensorLabel == "metadata" &&
+        std::dynamic_pointer_cast<const mrpt::obs::CObservationComment>(o))
     {
       return mrpt::Clock::toDouble(o->timestamp);
     }
@@ -78,18 +79,18 @@ std::string lazy_load_dir_of(const std::string& simplemapFile)
   return mrpt::system::fileNameChangeExtension(simplemapFile, "") + "_Images";
 }
 
-/// Hard links (or copies) the files of `from` into `to`.
+/// Hard links (or copies) the files of `from` into `to`, with their relative paths.
 void mirror_directory(const std::string& from, const std::string& to)
 {
   namespace fs = std::filesystem;
   fs::create_directories(to);
-  for (const auto& e : fs::directory_iterator(from))
+  for (const auto& e : fs::recursive_directory_iterator(from))
   {
     if (!e.is_regular_file())
     {
       continue;
     }
-    const auto dst = fs::path(to) / e.path().filename();
+    const auto dst = fs::path(to) / fs::relative(e.path(), from);
     if (fs::exists(dst))
     {
       if (fs::equivalent(e.path(), dst))
@@ -98,6 +99,7 @@ void mirror_directory(const std::string& from, const std::string& to)
       }
       fs::remove(dst);  // e.g. from another map
     }
+    fs::create_directories(dst.parent_path());
     std::error_code ec;
     fs::create_hard_link(e.path(), dst, ec);
     if (ec)
@@ -129,6 +131,25 @@ SimplemapAttachResult simplemap_attach_observations(
   if (fmt != "jpg" && fmt != "png" && fmt != "inline")
   {
     throw std::invalid_argument("image_format must be one of: jpg, png, inline");
+  }
+  if (options.max_age < 0)
+  {
+    throw std::invalid_argument("max_age must not be negative");
+  }
+  if (options.jpeg_quality < 1 || options.jpeg_quality > 100)
+  {
+    throw std::invalid_argument("jpeg_quality must be in [1,100]");
+  }
+  // Image file names come from the labels: they must not collide.
+  {
+    std::set<std::string> fileLabels;
+    for (const auto& l : options.sensor_labels)
+    {
+      if (!fileLabels.insert(mrpt::system::fileNameStripInvalidChars(l)).second)
+      {
+        throw std::invalid_argument("Sensor labels give the same file names: rename '" + l + "'");
+      }
+    }
   }
 
   mrpt::maps::CSimpleMap sm;
