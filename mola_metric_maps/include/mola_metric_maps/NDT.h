@@ -495,8 +495,9 @@ class NDT : public mrpt::maps::CMetricMap,
     void writeToStream(mrpt::serialization::CArchive& out) const;
     void readFromStream(mrpt::serialization::CArchive& in);
 
-    /** Sigma (standard deviation, in meters) of the Gaussian observation
-     *  model used to model the likelihood (default= 0.5 m) */
+    /** Divisor of the squared point-to-map distance in the per-point
+     *  log-likelihood, -d^2/sigma_dist [m^2]. For a Gaussian of standard
+     *  deviation s it is 2*s^2, so the default 0.5 means s = 0.5 m. */
     double sigma_dist = 0.5;
 
     /** Maximum distance in meters to consider for the numerator divided by
