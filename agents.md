@@ -801,6 +801,12 @@ generator and fails the build on structural breakage (missing include, dangling
 reference, unreachable page). Sibling repos call it via `workflow_call` so their
 own PRs are checked against the real doc set.
 
+**Sensors and datasets page** (`docs/source/supported-sensors.rst`): its
+launcher tables are hand-written and must list every `mola-lo-{gui,cli}-*`
+wrapper in `mola_lidar_odometry/scripts/`. Update it in the same change that
+adds, renames or removes a wrapper (see "Dataset wrappers" in
+`mola_lidar_odometry/agents.md`).
+
 **Consequence**: do not remove toctree entries from `docs/source/modules.rst` (or
 other `.rst` files) just because a package moved to a different repo — the entry will
 still resolve correctly at build time as long as the new repo is cloned alongside this
