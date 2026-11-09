@@ -128,6 +128,19 @@ commands, and every tuned default with the reasoning behind it.
    * - `Paris-LuCo <https://github.com/PRBonn/kiss-icp>`_
      - The ParisLuco128 sequence used by CT-ICP and others.
      - ``paris-luco``
+   * - `NTU-VIRAL <https://ntu-aris.github.io/ntu_viral_dataset/>`_
+     - Drone with two Ouster OS1-16 (the horizontal one is used), a VectorNav
+       IMU, cameras and UWB.
+     - ``ntu-viral``
+   * - `VBR <https://rvp-group.net/slam-benchmark.html>`_
+     - Vision Benchmark in Rome: one sensor head carried by hand (Ouster
+       OS0-128) or on a car (Ouster OS1-64); bags split in chunks.
+     - ``vbr``
+   * - `FoMo <https://fomo.norlab.ulaval.ca>`_
+     - A year of repeated off-road drives in a boreal forest, from bare ground
+       to deep snow; RoboSense 128-channel LiDAR. Needs a conversion to
+       rosbag2 first.
+     - ``fomo``
 
 So, for example:
 
@@ -166,8 +179,9 @@ environment variables it honors, when run with no arguments.
    * - **Ouster native SDK**, via
        `mola_input_ouster <https://github.com/MOLAorg/mola_input_ouster>`_
      - Direct connection to an Ouster sensor (or replay of a PCAP/OSF
-       recording) with no ROS middleware in the loop. Launcher:
-       ``mola-lo-gui-ouster``.
+       recording) with no ROS middleware in the loop. Launchers:
+       ``mola-lo-gui-ouster``, and ``mola-lo-gui-ouster-rev8`` for Rev8
+       high-resolution models (e.g. OS-1-MAX).
    * - **mrpt-hwdrivers**
      - Direct connection to sensors supported by MRPT without ROS: 2D lidars
        (Hokuyo, SICK, RP-Lidar, Ibeo), Velodyne 3D lidars, cameras (OpenCV /
