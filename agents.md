@@ -688,7 +688,7 @@ colcon build --symlink-install
 - CI/CD, three workflows: `check-clang-format.yml` (style),
   `check-docs.yml` (see "Documentation Build" below), and `build-ros.yml`:
   Humble and Jazzy, each as a `stable` (released debs) and a `testing` (`ros2-testing`) variant, on
-  GitHub-hosted x86_64 and self-hosted arm64; Rolling entries exist
+  GitHub-hosted x86_64 and arm64 (`ubuntu-24.04-arm`); Rolling entries exist
   commented-out. `rosdep install` runs twice when the first pass fails: the
   retry skips the optional keys (`nanoflann_vendor`, `gps_msgs`), which are not
   published on every channel yet, so the build still runs there; anything else

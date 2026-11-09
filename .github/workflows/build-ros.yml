@@ -106,20 +106,13 @@ jobs:
           MAKEFLAGS="-j2" colcon build --symlink-install --parallel-workers 2 --event-handlers console_direct+
 
   # -----------------------------------------------------------------------
-  # Job 2: Self-hosted runner (arm64). Only runs for pushes or PRs from
-  # the same repository — never for fork PRs — to protect the runner from
-  # untrusted code.
+  # Job 2: GitHub-hosted arm64 runner (free for public repositories).
   # -----------------------------------------------------------------------
-  build_self_hosted:
+  build_arm64:
     name: "arm64 / ${{ matrix.name }}"
-    if: >
-      github.event_name == 'push' ||
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [ self-hosted, linux, arm64 ]
+    runs-on: ubuntu-24.04-arm
     env:
       DEBIAN_FRONTEND: noninteractive
-      http_proxy: http://host.docker.internal:3142 # apt-cacher-ng
-      https_proxy: http://host.docker.internal:3142 # apt-cacher-ng handles HTTPS too via CONNECT
 
     strategy:
       fail-fast: false
@@ -160,7 +153,6 @@ jobs:
 
     container:
       image: ${{ matrix.docker_image }}
-      options: --add-host=host.docker.internal:host-gateway # for apt-cacher-ng
 
     steps:
       - name: Install Git
