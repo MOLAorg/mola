@@ -636,7 +636,7 @@ Guard with `#if defined(...)`, never with a version check.
 | `MOLA_KERNEL_NAVSTATE_FILTER_HAS_GEO_REFERENCE` | `interfaces/NavStateFilter.h` | geo-reference accessor |
 | `MOLA_KERNEL_NAVSTATE_FILTER_HAS_TRANSFORM_FRAME` | `interfaces/NavStateFilter.h` | `transform_frame()` |
 | `MOLA_KERNEL_NAVSTATE_FILTER_HAS_FUSE_POSE_DEFERRED` | `interfaces/NavStateFilter.h` | `fuse_pose_deferred()`: a pose whose covariance is a future |
-| `MOLA_KERNEL_NAVSTATE_FILTER_HAS_RESET_MOTION` | `interfaces/NavStateFilter.h` | `reset_motion()` exists (its default is a full `reset()`; only an estimator override keeps the frames) |
+| `MOLA_KERNEL_NAVSTATE_FILTER_HAS_RESET_MOTION` | `interfaces/NavStateFilter.h` | `reset_motion()`: a reset that keeps the reference frames (default: `reset()`, enough for an estimator whose `reset()` never redefines them) |
 | `MOLA_METRIC_MAPS_HAS_INCREMENTAL_POINT_CLOUD` | CMake (PUBLIC) | `IncrementalPointCloud` is functional (nanoflann >= 1.10) |
 | `MOLA_METRIC_MAPS_HAS_INCREMENTAL_KDTREE_BAKE` | CMake (PUBLIC) | incremental k-d tree save/load (nanoflann >= 1.11) |
 | `MOLA_MM_HAS_RKNN_SEARCH` | `mola_metric_maps` sources | MRPT's radius-limited kNN overload is usable (nanoflann >= 1.5.1) |
