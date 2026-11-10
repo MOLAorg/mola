@@ -203,7 +203,8 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
    *  as before. Unlike reset(), which starts from scratch and lets the next
    *  poses define the frames again (e.g. after a re-localization).
    *
-   *  The default calls reset().
+   *  The default calls reset(), so the frames are only kept by an estimator
+   *  that overrides this method.
    */
   virtual void reset_motion() { reset(); }
 
@@ -224,8 +225,8 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
 /// a pose whose covariance becomes ready later.
 #define MOLA_KERNEL_NAVSTATE_FILTER_HAS_FUSE_POSE_DEFERRED
 
-/// Can be used to detect the existence of the reset_motion() method, a reset
-/// that keeps the reference frames.
+/// Can be used to detect the existence of the reset_motion() method (whether a
+/// given estimator keeps its frames depends on its override).
 #define MOLA_KERNEL_NAVSTATE_FILTER_HAS_RESET_MOTION
 
 }  // namespace mola
