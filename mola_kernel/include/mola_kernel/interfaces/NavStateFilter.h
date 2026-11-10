@@ -197,6 +197,21 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
     fuse_pose(timestamp, mrpt::poses::CPose3DPDFGaussian(mean, cov.get()), frame_id);
   }
 
+  /** (Optional virtual method) Forgets the motion state (velocities and
+   *  recent poses; estimator-tracked sensor biases may be kept, as with
+   *  reset()), e.g. after its prediction proved implausible, but keeps the
+   *  reference frames: {map}, each odometry frame, the gravity (ENU) alignment
+   *  and the geo-reference datum. The poses fused next continue in the same
+   *  frames as before. reset(), instead, starts from scratch: the next poses
+   *  may define the frames again, as needed after a re-localization.
+   *
+   *  The default calls reset(). An estimator whose reset() redefines frames
+   *  (e.g. anchors {map} to the next pose, or levels gravity again) must
+   *  override it to keep them. Inputs still pending at the call may be
+   *  dropped. Callable from any thread, like reset() and the fuse_*() methods.
+   */
+  virtual void reset_motion() { reset(); }
+
  private:
   /// A list of one or multiple MOLA **module names** to which to subscribe
   std::set<std::string> navstate_source_names_;
@@ -213,5 +228,9 @@ class NavStateFilter : public mola::ExecutableBase, public RawDataConsumer
 /// Can be used to detect the existence of the fuse_pose_deferred() method, for
 /// a pose whose covariance becomes ready later.
 #define MOLA_KERNEL_NAVSTATE_FILTER_HAS_FUSE_POSE_DEFERRED
+
+/// Can be used to detect the existence of the reset_motion() method, a reset
+/// that keeps the reference frames (see its docs).
+#define MOLA_KERNEL_NAVSTATE_FILTER_HAS_RESET_MOTION
 
 }  // namespace mola
