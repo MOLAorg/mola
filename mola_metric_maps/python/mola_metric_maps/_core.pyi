@@ -2,6 +2,7 @@
 Python bindings of the mola_metric_maps C++ library (use the `mola_metric_maps` package)
 """
 from __future__ import annotations
+import collections.abc
 import mrpt.config
 import mrpt.img
 import mrpt.maps
@@ -10,6 +11,7 @@ import mrpt.obs
 import mrpt.poses
 import mrpt.serialization
 import numpy
+import numpy.typing
 import typing
 __all__: list[str] = ['HAS_INCREMENTAL_KDTREE', 'HAS_INCREMENTAL_KDTREE_BAKE', 'HashedVoxelPointCloud', 'IncrementalPointCloud', 'KeyframePointCloudMap', 'NDT', 'OccGrid', 'PointIndexType', 'SparseTreesPointCloud', 'SparseVoxelPointCloud', 'TSDF', 'ViewDirectionFilter']
 class ViewDirectionFilter:
@@ -28,6 +30,10 @@ class ViewDirectionFilter:
     None_: typing.ClassVar[ViewDirectionFilter]
     SurfaceSide: typing.ClassVar[ViewDirectionFilter]
     __members__: typing.ClassVar[dict[str, ViewDirectionFilter]]
+    @typing.overload
+    def __eq__(self, other: ViewDirectionFilter) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -36,15 +42,19 @@ class ViewDirectionFilter:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: ViewDirectionFilter) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -67,6 +77,10 @@ class PointIndexType:
     KDTree: typing.ClassVar[PointIndexType]
     VoxelHash: typing.ClassVar[PointIndexType]
     __members__: typing.ClassVar[dict[str, PointIndexType]]
+    @typing.overload
+    def __eq__(self, other: PointIndexType) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -75,15 +89,19 @@ class PointIndexType:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: PointIndexType) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -119,7 +137,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             Voxel size [m].
             """
         @voxel_size.setter
-        def voxel_size(self, arg0: float) -> None:
+        def voxel_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TInsertionOptions(mrpt.config.CLoadableOptions):
         """
@@ -143,7 +161,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             Maximum number of points per voxel (0: no limit other than 32).
             """
         @max_points_per_voxel.setter
-        def max_points_per_voxel(self, arg0: int) -> None:
+        def max_points_per_voxel(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def min_distance_between_points(self) -> float:
@@ -151,7 +169,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             If not 0, points closer than this [m] to another one in its voxel are not inserted.
             """
         @min_distance_between_points.setter
-        def min_distance_between_points(self, arg0: float) -> None:
+        def min_distance_between_points(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def remove_voxels_farther_than(self) -> float:
@@ -159,7 +177,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             If not 0, voxels farther than this distance [m] from the robot are removed on each insertion.
             """
         @remove_voxels_farther_than.setter
-        def remove_voxels_farther_than(self, arg0: float) -> None:
+        def remove_voxels_farther_than(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TLikelihoodOptions(mrpt.config.CLoadableOptions):
         """
@@ -183,7 +201,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             Use one out of N points.
             """
         @decimation.setter
-        def decimation(self, arg0: int) -> None:
+        def decimation(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_corr_distance(self) -> float:
@@ -191,7 +209,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             Maximum distance [m] of a point to the map, to bound its likelihood.
             """
         @max_corr_distance.setter
-        def max_corr_distance(self, arg0: float) -> None:
+        def max_corr_distance(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def sigma_dist(self) -> float:
@@ -199,7 +217,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             Divisor of the squared point-to-map distance in the log-likelihood [m^2].
             """
         @sigma_dist.setter
-        def sigma_dist(self, arg0: float) -> None:
+        def sigma_dist(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TRenderOptions(mrpt.config.CLoadableOptions):
         """
@@ -239,7 +257,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
             Point size [pixels].
             """
         @point_size.setter
-        def point_size(self, arg0: float) -> None:
+        def point_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def recolorByPointField(self) -> str:
@@ -259,7 +277,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
         """
     def __getstate__(self) -> bytes:
         ...
-    def __init__(self, voxel_size: float = 1.0) -> None:
+    def __init__(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex = 1.0) -> None:
         """
         Creates an empty map, with voxels of this size [m].
         """
@@ -267,7 +285,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
         ...
     def __setstate__(self, arg0: bytes) -> None:
         ...
-    def getPointsAsNumpy(self) -> numpy.ndarray:
+    def getPointsAsNumpy(self) -> numpy.typing.NDArray[numpy.float32]:
         """
         All points in the map, as an (N,3) float32 array.
         """
@@ -283,11 +301,11 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
         """
         Inserts a point cloud, as insertObservation() with an mrpt.obs.CObservationPointCloud. `points` (an (N,3) array, a dict {field name: 1-D array} as in mp2p_icp.layer_from_numpy(), or an mrpt.maps.CPointsMap, which is copied) are given in the robot frame, and the robot is at `robotPose` in the map: None (identity), mrpt.poses.CPose3D, mrpt.math.TPose3D, a 4x4 matrix or [x, y, z, yaw, pitch, roll]. Maps that trace rays (TSDF, NDT) take the robot position as their origin. Insertion options and map-specific behavior apply, e.g. removal of far contents. Returns True if the map was updated.
         """
-    def nn_multiple_search(self, query: typing.Any, N: int) -> tuple:
+    def nn_multiple_search(self, query: typing.Any, N: typing.SupportsInt | typing.SupportsIndex) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The N closest points to a 3D query point, sorted by distance. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
-    def nn_radius_search(self, query: typing.Any, search_radius_sqr: float, maxPoints: int = 0) -> tuple:
+    def nn_radius_search(self, query: typing.Any, search_radius_sqr: typing.SupportsFloat | typing.SupportsIndex, maxPoints: typing.SupportsInt | typing.SupportsIndex = 0) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The points within a distance of a 3D query point. The radius is given squared; maxPoints=0 means no limit. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
@@ -307,7 +325,7 @@ class HashedVoxelPointCloud(mrpt.maps.CMetricMap):
         """
         Saves all points to a text file, one 'x y z' per line. Returns False on error.
         """
-    def setVoxelProperties(self, voxel_size: float) -> None:
+    def setVoxelProperties(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex) -> None:
         """
         Changes the voxel size [m], CLEARING the map.
         """
@@ -383,7 +401,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
             Voxel size [m].
             """
         @voxel_size.setter
-        def voxel_size(self, arg0: float) -> None:
+        def voxel_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TInsertionOptions(mrpt.config.CLoadableOptions):
         """
@@ -407,7 +425,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
             Maximum number of points per voxel (0: no limit other than 16).
             """
         @max_points_per_voxel.setter
-        def max_points_per_voxel(self, arg0: int) -> None:
+        def max_points_per_voxel(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
     class TLikelihoodOptions(mrpt.config.CLoadableOptions):
         """
@@ -431,7 +449,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
             Use one out of N points.
             """
         @decimation.setter
-        def decimation(self, arg0: int) -> None:
+        def decimation(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def match_mean(self) -> bool:
@@ -447,7 +465,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
             Maximum distance [m] of a point to the map, to bound its likelihood.
             """
         @max_corr_distance.setter
-        def max_corr_distance(self, arg0: float) -> None:
+        def max_corr_distance(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def sigma_dist(self) -> float:
@@ -455,7 +473,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
             Divisor of the squared point-to-map distance in the log-likelihood [m^2].
             """
         @sigma_dist.setter
-        def sigma_dist(self, arg0: float) -> None:
+        def sigma_dist(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TRenderOptions(mrpt.config.CLoadableOptions):
         """
@@ -495,7 +513,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
             Point size [pixels].
             """
         @point_size.setter
-        def point_size(self, arg0: float) -> None:
+        def point_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def recolorByPointField(self) -> str:
@@ -531,7 +549,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
         """
     def __getstate__(self) -> bytes:
         ...
-    def __init__(self, voxel_size: float = 0.20000000298023224) -> None:
+    def __init__(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex = 0.20000000298023224) -> None:
         """
         Creates an empty map, with voxels of this size [m].
         """
@@ -539,7 +557,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
         ...
     def __setstate__(self, arg0: bytes) -> None:
         ...
-    def getPointsAsNumpy(self) -> numpy.ndarray:
+    def getPointsAsNumpy(self) -> numpy.typing.NDArray[numpy.float32]:
         """
         All points in the map, as an (N,3) float32 array.
         """
@@ -555,11 +573,11 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
         """
         Inserts a point cloud, as insertObservation() with an mrpt.obs.CObservationPointCloud. `points` (an (N,3) array, a dict {field name: 1-D array} as in mp2p_icp.layer_from_numpy(), or an mrpt.maps.CPointsMap, which is copied) are given in the robot frame, and the robot is at `robotPose` in the map: None (identity), mrpt.poses.CPose3D, mrpt.math.TPose3D, a 4x4 matrix or [x, y, z, yaw, pitch, roll]. Maps that trace rays (TSDF, NDT) take the robot position as their origin. Insertion options and map-specific behavior apply, e.g. removal of far contents. Returns True if the map was updated.
         """
-    def nn_multiple_search(self, query: typing.Any, N: int) -> tuple:
+    def nn_multiple_search(self, query: typing.Any, N: typing.SupportsInt | typing.SupportsIndex) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The N closest points to a 3D query point, sorted by distance. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
-    def nn_radius_search(self, query: typing.Any, search_radius_sqr: float, maxPoints: int = 0) -> tuple:
+    def nn_radius_search(self, query: typing.Any, search_radius_sqr: typing.SupportsFloat | typing.SupportsIndex, maxPoints: typing.SupportsInt | typing.SupportsIndex = 0) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The points within a distance of a 3D query point. The radius is given squared; maxPoints=0 means no limit. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
@@ -579,7 +597,7 @@ class SparseVoxelPointCloud(mrpt.maps.CMetricMap):
         """
         Saves all points to a text file, one 'x y z' per line. Returns False on error.
         """
-    def setVoxelProperties(self, voxel_size: float) -> None:
+    def setVoxelProperties(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex) -> None:
         """
         Changes the voxel size [m], CLEARING the map.
         """
@@ -651,7 +669,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
             Size of the blocks [m].
             """
         @grid_size.setter
-        def grid_size(self, arg0: float) -> None:
+        def grid_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TInsertionOptions(mrpt.config.CLoadableOptions):
         """
@@ -675,7 +693,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
             Points closer than this [m] to an existing one are not inserted.
             """
         @minimum_points_clearance.setter
-        def minimum_points_clearance(self, arg0: float) -> None:
+        def minimum_points_clearance(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def remove_submaps_farther_than(self) -> float:
@@ -683,7 +701,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
             If not 0, blocks farther than this distance [m] from the robot are removed on each insertion.
             """
         @remove_submaps_farther_than.setter
-        def remove_submaps_farther_than(self, arg0: float) -> None:
+        def remove_submaps_farther_than(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TLikelihoodOptions(mrpt.config.CLoadableOptions):
         """
@@ -707,7 +725,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
             Use one out of N points.
             """
         @decimation.setter
-        def decimation(self, arg0: int) -> None:
+        def decimation(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_corr_distance(self) -> float:
@@ -715,7 +733,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
             Maximum distance [m] of a point to the map, to bound its likelihood.
             """
         @max_corr_distance.setter
-        def max_corr_distance(self, arg0: float) -> None:
+        def max_corr_distance(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def sigma_dist(self) -> float:
@@ -723,7 +741,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
             Divisor of the squared point-to-map distance in the log-likelihood [m^2].
             """
         @sigma_dist.setter
-        def sigma_dist(self, arg0: float) -> None:
+        def sigma_dist(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TRenderOptions(mrpt.config.CLoadableOptions):
         """
@@ -763,7 +781,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
             Point size [pixels].
             """
         @point_size.setter
-        def point_size(self, arg0: float) -> None:
+        def point_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def recolorByPointField(self) -> str:
@@ -791,7 +809,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
         """
     def __getstate__(self) -> bytes:
         ...
-    def __init__(self, grid_size: float = 10.0) -> None:
+    def __init__(self, grid_size: typing.SupportsFloat | typing.SupportsIndex = 10.0) -> None:
         """
         Creates an empty map, with blocks of this size [m].
         """
@@ -799,7 +817,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
         ...
     def __setstate__(self, arg0: bytes) -> None:
         ...
-    def eraseGridsFartherThan(self, point: typing.Any, distance: float) -> None:
+    def eraseGridsFartherThan(self, point: typing.Any, distance: typing.SupportsFloat | typing.SupportsIndex) -> None:
         """
         Removes the blocks entirely farther than `distance` [m].
         """
@@ -807,7 +825,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
         """
         The blocks, as a dict of arrays: 'indices' ((M,3) int32), 'centers' ((M,3) float32) and 'num_points' (uint32).
         """
-    def getPointsAsNumpy(self) -> numpy.ndarray:
+    def getPointsAsNumpy(self) -> numpy.typing.NDArray[numpy.float32]:
         """
         All points in the map, as an (N,3) float32 array.
         """
@@ -819,11 +837,11 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
         """
         Inserts a point cloud, as insertObservation() with an mrpt.obs.CObservationPointCloud. `points` (an (N,3) array, a dict {field name: 1-D array} as in mp2p_icp.layer_from_numpy(), or an mrpt.maps.CPointsMap, which is copied) are given in the robot frame, and the robot is at `robotPose` in the map: None (identity), mrpt.poses.CPose3D, mrpt.math.TPose3D, a 4x4 matrix or [x, y, z, yaw, pitch, roll]. Maps that trace rays (TSDF, NDT) take the robot position as their origin. Insertion options and map-specific behavior apply, e.g. removal of far contents. Returns True if the map was updated.
         """
-    def nn_multiple_search(self, query: typing.Any, N: int) -> tuple:
+    def nn_multiple_search(self, query: typing.Any, N: typing.SupportsInt | typing.SupportsIndex) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The N closest points to a 3D query point, sorted by distance. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
-    def nn_radius_search(self, query: typing.Any, search_radius_sqr: float, maxPoints: int = 0) -> tuple:
+    def nn_radius_search(self, query: typing.Any, search_radius_sqr: typing.SupportsFloat | typing.SupportsIndex, maxPoints: typing.SupportsInt | typing.SupportsIndex = 0) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The points within a distance of a 3D query point. The radius is given squared; maxPoints=0 means no limit. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
@@ -843,7 +861,7 @@ class SparseTreesPointCloud(mrpt.maps.CMetricMap):
         """
         Saves all points to a text file, one 'x y z' per line. Returns False on error.
         """
-    def setGridProperties(self, grid_size: float) -> None:
+    def setGridProperties(self, grid_size: typing.SupportsFloat | typing.SupportsIndex) -> None:
         """
         Changes the size of the blocks [m], CLEARING the map.
         """
@@ -915,7 +933,7 @@ class NDT(mrpt.maps.CMetricMap):
             Voxel size [m].
             """
         @voxel_size.setter
-        def voxel_size(self, arg0: float) -> None:
+        def voxel_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TInsertionOptions(mrpt.config.CLoadableOptions):
         """
@@ -939,7 +957,7 @@ class NDT(mrpt.maps.CMetricMap):
             A voxel is a plane if its smallest eigenvalue is below this ratio of the second one.
             """
         @max_eigen_ratio_for_planes.setter
-        def max_eigen_ratio_for_planes(self, arg0: float) -> None:
+        def max_eigen_ratio_for_planes(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def max_points_per_voxel(self) -> int:
@@ -947,7 +965,7 @@ class NDT(mrpt.maps.CMetricMap):
             Maximum number of points per voxel (0: no limit other than 16).
             """
         @max_points_per_voxel.setter
-        def max_points_per_voxel(self, arg0: int) -> None:
+        def max_points_per_voxel(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def min_distance_between_points(self) -> float:
@@ -955,7 +973,7 @@ class NDT(mrpt.maps.CMetricMap):
             If not 0, points closer than this [m] to another one in its voxel are not inserted.
             """
         @min_distance_between_points.setter
-        def min_distance_between_points(self, arg0: float) -> None:
+        def min_distance_between_points(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def remove_voxels_farther_than(self) -> float:
@@ -963,7 +981,7 @@ class NDT(mrpt.maps.CMetricMap):
             If not 0, voxels farther than this distance [m] from the robot are removed on each insertion.
             """
         @remove_voxels_farther_than.setter
-        def remove_voxels_farther_than(self, arg0: float) -> None:
+        def remove_voxels_farther_than(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TLikelihoodOptions(mrpt.config.CLoadableOptions):
         """
@@ -987,7 +1005,7 @@ class NDT(mrpt.maps.CMetricMap):
             Use one out of N points.
             """
         @decimation.setter
-        def decimation(self, arg0: int) -> None:
+        def decimation(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_corr_distance(self) -> float:
@@ -995,7 +1013,7 @@ class NDT(mrpt.maps.CMetricMap):
             Maximum distance [m] of a point to the map, to bound its likelihood.
             """
         @max_corr_distance.setter
-        def max_corr_distance(self, arg0: float) -> None:
+        def max_corr_distance(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def sigma_dist(self) -> float:
@@ -1003,7 +1021,7 @@ class NDT(mrpt.maps.CMetricMap):
             Divisor of the squared point-to-map distance in the log-likelihood [m^2].
             """
         @sigma_dist.setter
-        def sigma_dist(self, arg0: float) -> None:
+        def sigma_dist(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TRenderOptions(mrpt.config.CLoadableOptions):
         """
@@ -1067,7 +1085,7 @@ class NDT(mrpt.maps.CMetricMap):
             Point size [pixels].
             """
         @point_size.setter
-        def point_size(self, arg0: float) -> None:
+        def point_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def points_color(self) -> mrpt.img.TColorf:
@@ -1111,7 +1129,7 @@ class NDT(mrpt.maps.CMetricMap):
         """
     def __getstate__(self) -> bytes:
         ...
-    def __init__(self, voxel_size: float = 5.0) -> None:
+    def __init__(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex = 5.0) -> None:
         """
         Creates an empty map, with voxels of this size [m].
         """
@@ -1119,7 +1137,7 @@ class NDT(mrpt.maps.CMetricMap):
         ...
     def __setstate__(self, arg0: bytes) -> None:
         ...
-    def getPointsAsNumpy(self) -> numpy.ndarray:
+    def getPointsAsNumpy(self) -> numpy.typing.NDArray[numpy.float32]:
         """
         All points in the map, as an (N,3) float32 array.
         """
@@ -1135,15 +1153,15 @@ class NDT(mrpt.maps.CMetricMap):
         """
         Inserts a point cloud, as insertObservation() with an mrpt.obs.CObservationPointCloud. `points` (an (N,3) array, a dict {field name: 1-D array} as in mp2p_icp.layer_from_numpy(), or an mrpt.maps.CPointsMap, which is copied) are given in the robot frame, and the robot is at `robotPose` in the map: None (identity), mrpt.poses.CPose3D, mrpt.math.TPose3D, a 4x4 matrix or [x, y, z, yaw, pitch, roll]. Maps that trace rays (TSDF, NDT) take the robot position as their origin. Insertion options and map-specific behavior apply, e.g. removal of far contents. Returns True if the map was updated.
         """
-    def nn_multiple_search(self, query: typing.Any, N: int) -> tuple:
+    def nn_multiple_search(self, query: typing.Any, N: typing.SupportsInt | typing.SupportsIndex) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The N closest points to a 3D query point, sorted by distance. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
-    def nn_radius_search(self, query: typing.Any, search_radius_sqr: float, maxPoints: int = 0) -> tuple:
+    def nn_radius_search(self, query: typing.Any, search_radius_sqr: typing.SupportsFloat | typing.SupportsIndex, maxPoints: typing.SupportsInt | typing.SupportsIndex = 0) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The points within a distance of a 3D query point. The radius is given squared; maxPoints=0 means no limit. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
-    def nn_search_pt2pl(self, point: typing.Any, max_search_distance: float) -> typing.Any:
+    def nn_search_pt2pl(self, point: typing.Any, max_search_distance: typing.SupportsFloat | typing.SupportsIndex) -> typing.Any:
         """
         Closest plane to a 3D point (mrpt.math.TPoint3D or [x, y, z]), within a search distance. Returns (mp2p_icp.PlanePatch, absolute point-to-plane distance), or None.
         """
@@ -1163,7 +1181,7 @@ class NDT(mrpt.maps.CMetricMap):
         """
         Saves all points to a text file, one 'x y z' per line. Returns False on error.
         """
-    def setVoxelProperties(self, voxel_size: float) -> None:
+    def setVoxelProperties(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex) -> None:
         """
         Changes the voxel size [m], CLEARING the map.
         """
@@ -1239,7 +1257,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Voxel size [m].
             """
         @voxel_size.setter
-        def voxel_size(self, arg0: float) -> None:
+        def voxel_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TInsertionOptions(mrpt.config.CLoadableOptions):
         """
@@ -1263,7 +1281,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Fraction of the last scan the field must answer to end the warm-up.
             """
         @bootstrap_field_ready_fraction.setter
-        def bootstrap_field_ready_fraction(self, arg0: float) -> None:
+        def bootstrap_field_ready_fraction(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def bootstrap_knn(self) -> int:
@@ -1271,7 +1289,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Neighbors for the warm-up plane fits.
             """
         @bootstrap_knn.setter
-        def bootstrap_knn(self, arg0: int) -> None:
+        def bootstrap_knn(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def bootstrap_max_plane_deviation(self) -> float:
@@ -1279,7 +1297,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Maximum distance [m] of a neighbor to a warm-up plane (<=0: no limit).
             """
         @bootstrap_max_plane_deviation.setter
-        def bootstrap_max_plane_deviation(self, arg0: float) -> None:
+        def bootstrap_max_plane_deviation(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def bootstrap_max_scans(self) -> int:
@@ -1287,7 +1305,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Maximum length of the warm-up.
             """
         @bootstrap_max_scans.setter
-        def bootstrap_max_scans(self, arg0: int) -> None:
+        def bootstrap_max_scans(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def bootstrap_min_scans(self) -> int:
@@ -1295,7 +1313,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Scans to insert before the field is tested.
             """
         @bootstrap_min_scans.setter
-        def bootstrap_min_scans(self, arg0: int) -> None:
+        def bootstrap_min_scans(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def bootstrap_with_points(self) -> bool:
@@ -1311,7 +1329,7 @@ class TSDF(mrpt.maps.CMetricMap):
             If not 0, maximum number of voxels in the map.
             """
         @max_voxels.setter
-        def max_voxels(self, arg0: int) -> None:
+        def max_voxels(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_weight(self) -> float:
@@ -1319,7 +1337,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Weight cap of a voxel.
             """
         @max_weight.setter
-        def max_weight(self, arg0: float) -> None:
+        def max_weight(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def min_weight_for_query(self) -> float:
@@ -1327,7 +1345,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Minimum weight of a voxel for it to take part in a query.
             """
         @min_weight_for_query.setter
-        def min_weight_for_query(self, arg0: float) -> None:
+        def min_weight_for_query(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def ray_tube_voxels(self) -> float:
@@ -1335,7 +1353,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Radius, in voxels, of the cylinder around each ray that is updated.
             """
         @ray_tube_voxels.setter
-        def ray_tube_voxels(self, arg0: float) -> None:
+        def ray_tube_voxels(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def remove_voxels_farther_than(self) -> float:
@@ -1343,7 +1361,7 @@ class TSDF(mrpt.maps.CMetricMap):
             If not 0, voxels farther than this distance [m] from the sensor are removed.
             """
         @remove_voxels_farther_than.setter
-        def remove_voxels_farther_than(self, arg0: float) -> None:
+        def remove_voxels_farther_than(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def truncation_distance(self) -> float:
@@ -1351,7 +1369,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Half-width [m] of the band updated around surfaces, also the maximum distance at which a query finds a surface. If <=0, truncation_voxels times the voxel size.
             """
         @truncation_distance.setter
-        def truncation_distance(self, arg0: float) -> None:
+        def truncation_distance(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def truncation_voxels(self) -> float:
@@ -1359,7 +1377,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Truncation distance in voxels, if truncation_distance <= 0.
             """
         @truncation_voxels.setter
-        def truncation_voxels(self, arg0: float) -> None:
+        def truncation_voxels(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def tube_sigma_voxels(self) -> float:
@@ -1367,7 +1385,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Sigma, in voxels, of the Gaussian profile across the ray tube (<=0: flat).
             """
         @tube_sigma_voxels.setter
-        def tube_sigma_voxels(self, arg0: float) -> None:
+        def tube_sigma_voxels(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def weight_by_incidence(self) -> bool:
@@ -1391,7 +1409,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Reference range [m] for weight_by_range.
             """
         @weight_range_ref.setter
-        def weight_range_ref(self, arg0: float) -> None:
+        def weight_range_ref(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TRenderOptions(mrpt.config.CLoadableOptions):
         """
@@ -1423,7 +1441,7 @@ class TSDF(mrpt.maps.CMetricMap):
             Point size [pixels].
             """
         @point_size.setter
-        def point_size(self, arg0: float) -> None:
+        def point_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def points_color(self) -> mrpt.img.TColorf:
@@ -1459,7 +1477,7 @@ class TSDF(mrpt.maps.CMetricMap):
         """
     def __getstate__(self) -> bytes:
         ...
-    def __init__(self, voxel_size: float = 0.30000001192092896) -> None:
+    def __init__(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex = 0.30000001192092896) -> None:
         """
         Creates an empty map, with voxels of this size [m].
         """
@@ -1471,7 +1489,7 @@ class TSDF(mrpt.maps.CMetricMap):
         ...
     def __setstate__(self, arg0: bytes) -> None:
         ...
-    def getPointsAsNumpy(self) -> numpy.ndarray:
+    def getPointsAsNumpy(self) -> numpy.typing.NDArray[numpy.float32]:
         """
         The surface (zero level set of the field, sampled on the voxel lattice edges), as an (N,3) float32 array.
         """
@@ -1479,7 +1497,7 @@ class TSDF(mrpt.maps.CMetricMap):
         """
         The voxels, as a dict of arrays: 'indices' ((M,3) int32), 'centers' ((M,3) float32), 'dist' (float32, signed distance [m], positive towards the sensor) and 'weight' (float32).
         """
-    def getZeroCrossingsAsNumpy(self) -> tuple:
+    def getZeroCrossingsAsNumpy(self) -> tuple[numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         Like getPointsAsNumpy(), returning a tuple (points: (N,3) float32, weights: float32 array with the smaller weight of the two voxels of each crossing).
         """
@@ -1499,7 +1517,7 @@ class TSDF(mrpt.maps.CMetricMap):
         """
         Fraction of the last inserted scan for which the field answered a query.
         """
-    def nn_search_pt2pl(self, point: typing.Any, max_search_distance: float) -> typing.Any:
+    def nn_search_pt2pl(self, point: typing.Any, max_search_distance: typing.SupportsFloat | typing.SupportsIndex) -> typing.Any:
         """
         Closest plane to a 3D point (mrpt.math.TPoint3D or [x, y, z]), within a search distance. Returns (mp2p_icp.PlanePatch, absolute point-to-plane distance), or None.
         """
@@ -1515,7 +1533,7 @@ class TSDF(mrpt.maps.CMetricMap):
         """
         queryField() for each row of an (N,3) array. Returns a dict with 'valid' (bool), 'dist' (float32) and 'gradient' ((N,3) float32), NaN where not valid. Releases the GIL.
         """
-    def setVoxelProperties(self, voxel_size: float) -> None:
+    def setVoxelProperties(self, voxel_size: typing.SupportsFloat | typing.SupportsIndex) -> None:
         """
         Changes the voxel size [m], CLEARING the map.
         """
@@ -1595,7 +1613,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum proximity penalty [m], for an empty keyframe.
             """
         @density_penalty_max_m.setter
-        def density_penalty_max_m(self, arg0: float) -> None:
+        def density_penalty_max_m(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def density_penalty_min_points(self) -> int:
@@ -1603,7 +1621,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Keyframes with fewer points are penalized in the proximity ranking (0: disabled).
             """
         @density_penalty_min_points.setter
-        def density_penalty_min_points(self, arg0: int) -> None:
+        def density_penalty_min_points(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def k_correspondences_for_cov(self) -> int:
@@ -1611,7 +1629,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Number of neighbors to estimate each point covariance.
             """
         @k_correspondences_for_cov.setter
-        def k_correspondences_for_cov(self, arg0: int) -> None:
+        def k_correspondences_for_cov(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_distance_for_cov(self) -> float:
@@ -1619,7 +1637,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum distance [m] of the neighbors used for a covariance.
             """
         @max_distance_for_cov.setter
-        def max_distance_for_cov(self, arg0: float) -> None:
+        def max_distance_for_cov(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def max_plane_deviation_for_cov(self) -> float:
@@ -1627,7 +1645,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum distance [m] of a neighbor to the fitted plane for the plane regularization to apply (0: no test).
             """
         @max_plane_deviation_for_cov.setter
-        def max_plane_deviation_for_cov(self, arg0: float) -> None:
+        def max_plane_deviation_for_cov(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def max_search_keyframes(self) -> int:
@@ -1635,7 +1653,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum number of keyframes to search for neighbors.
             """
         @max_search_keyframes.setter
-        def max_search_keyframes(self, arg0: int) -> None:
+        def max_search_keyframes(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_view_angle_deg(self) -> float:
@@ -1643,7 +1661,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum angle [deg] between view directions, for ViewDirectionFilter.MaxAngle.
             """
         @max_view_angle_deg.setter
-        def max_view_angle_deg(self, arg0: float) -> None:
+        def max_view_angle_deg(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def min_correspondences_for_cov(self) -> int:
@@ -1651,7 +1669,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Below this number of neighbors, an isotropic covariance is used.
             """
         @min_correspondences_for_cov.setter
-        def min_correspondences_for_cov(self, arg0: int) -> None:
+        def min_correspondences_for_cov(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def num_diverse_keyframes(self) -> int:
@@ -1659,7 +1677,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Keyframe search slots reserved for angularly diverse or farther keyframes.
             """
         @num_diverse_keyframes.setter
-        def num_diverse_keyframes(self, arg0: int) -> None:
+        def num_diverse_keyframes(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def plane_regularization_lambda(self) -> float:
@@ -1667,7 +1685,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Variance along the normal of the regularized covariances (<=0: no regularization).
             """
         @plane_regularization_lambda.setter
-        def plane_regularization_lambda(self, arg0: float) -> None:
+        def plane_regularization_lambda(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def rotation_distance_weight(self) -> float:
@@ -1675,7 +1693,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Weight [m/rad] of the angular distance when ranking keyframes by proximity.
             """
         @rotation_distance_weight.setter
-        def rotation_distance_weight(self, arg0: float) -> None:
+        def rotation_distance_weight(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def serialize_covariances(self) -> bool:
@@ -1731,7 +1749,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             If > 0, keyframes farther than this distance [m] from the robot are removed on each insertion.
             """
         @remove_frames_farther_than.setter
-        def remove_frames_farther_than(self, arg0: float) -> None:
+        def remove_frames_farther_than(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     class TLikelihoodOptions(mrpt.config.CLoadableOptions):
         """
@@ -1795,7 +1813,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             If > 0, draw the axes of each keyframe, of this length [m].
             """
         @keyframes_axes_length.setter
-        def keyframes_axes_length(self, arg0: float) -> None:
+        def keyframes_axes_length(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def max_overall_points(self) -> int:
@@ -1803,7 +1821,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum points to render overall.
             """
         @max_overall_points.setter
-        def max_overall_points(self, arg0: int) -> None:
+        def max_overall_points(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_points_per_kf(self) -> int:
@@ -1811,7 +1829,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum points to render per keyframe.
             """
         @max_points_per_kf.setter
-        def max_points_per_kf(self, arg0: int) -> None:
+        def max_points_per_kf(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def point_size(self) -> float:
@@ -1819,7 +1837,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Point size [pixels].
             """
         @point_size.setter
-        def point_size(self, arg0: float) -> None:
+        def point_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def recolorByPointField(self) -> str:
@@ -1835,7 +1853,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Draw the covariance of one out of N points.
             """
         @show_cov_decimation.setter
-        def show_cov_decimation(self, arg0: int) -> None:
+        def show_cov_decimation(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def show_covariances(self) -> bool:
@@ -1861,7 +1879,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Inner-core fraction (0,1] of the extent of a group; the rest overlaps with others.
             """
         @core_fraction.setter
-        def core_fraction(self, arg0: float) -> None:
+        def core_fraction(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def edge_overlap(self) -> float:
@@ -1869,7 +1887,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Minimum overlap [0,1] of two keyframes to be merged into the same group.
             """
         @edge_overlap.setter
-        def edge_overlap(self, arg0: float) -> None:
+        def edge_overlap(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def extent_factor(self) -> float:
@@ -1877,7 +1895,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Maximum extent of a group, as a multiple of the sensing radius of its seed.
             """
         @extent_factor.setter
-        def extent_factor(self, arg0: float) -> None:
+        def extent_factor(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def island_merge_fraction(self) -> float:
@@ -1885,7 +1903,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Groups smaller than this fraction of the largest one are merged into a neighbor.
             """
         @island_merge_fraction.setter
-        def island_merge_fraction(self, arg0: float) -> None:
+        def island_merge_fraction(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def merge_decimate_voxel(self) -> float:
@@ -1893,7 +1911,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             If > 0, voxel size [m] to decimate the merged clouds.
             """
         @merge_decimate_voxel.setter
-        def merge_decimate_voxel(self, arg0: float) -> None:
+        def merge_decimate_voxel(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def unify_all(self) -> bool:
@@ -1909,7 +1927,7 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
             Voxel size [m] to compute cloud overlaps (<=0: automatic).
             """
         @voxel_size.setter
-        def voxel_size(self, arg0: float) -> None:
+        def voxel_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     def __copy__(self) -> KeyframePointCloudMap:
         """
@@ -1933,11 +1951,11 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
         """
         Returns and clears the list of keyframe IDs removed since the last call.
         """
-    def getKeyframePosesAsNumpy(self) -> tuple:
+    def getKeyframePosesAsNumpy(self) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float64]]:
         """
         The keyframe IDs and poses, as a tuple (ids: uint64 array, poses: (N,4,4) float64 array of homogeneous matrices), sorted by ID.
         """
-    def getPointsAsNumpy(self) -> numpy.ndarray:
+    def getPointsAsNumpy(self) -> numpy.typing.NDArray[numpy.float32]:
         """
         The points of all keyframes, in the global frame, as an (N,3) float32 array. As the point cloud view of the map (e.g. mp2p_icp.layer_to_numpy()), they are decimated as set by renderOptions.max_points_per_kf and max_overall_points (0: no limit).
         """
@@ -1969,11 +1987,11 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
         """
         The ID that the next inserted keyframe will get.
         """
-    def nn_multiple_search(self, query: typing.Any, N: int) -> tuple:
+    def nn_multiple_search(self, query: typing.Any, N: typing.SupportsInt | typing.SupportsIndex) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The N closest points to a 3D query point, sorted by distance. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
-    def nn_radius_search(self, query: typing.Any, search_radius_sqr: float, maxPoints: int = 0) -> tuple:
+    def nn_radius_search(self, query: typing.Any, search_radius_sqr: typing.SupportsFloat | typing.SupportsIndex, maxPoints: typing.SupportsInt | typing.SupportsIndex = 0) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The points within a distance of a 3D query point. The radius is given squared; maxPoints=0 means no limit. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
@@ -1993,11 +2011,11 @@ class KeyframePointCloudMap(mrpt.maps.CMetricMap):
         """
         Total number of points in all keyframes.
         """
-    def regroupKeyframes(self, params: KeyframePointCloudMap.RegroupParams = ..., log: typing.Callable[[str], None] = None) -> KeyframePointCloudMap:
+    def regroupKeyframes(self, params: KeyframePointCloudMap.RegroupParams = ..., log: collections.abc.Callable[[str], None] = None) -> KeyframePointCloudMap:
         """
         Builds a NEW map whose keyframes are overlapping groups of the keyframes of this one, so localization needs one active keyframe at a time (as the mm-kf-regroup tool). `log`, if given, is called with progress messages.
         """
-    def setKeyframePose(self, id: int, pose: typing.Any) -> None:
+    def setKeyframePose(self, id: typing.SupportsInt | typing.SupportsIndex, pose: typing.Any) -> None:
         """
         Changes the global pose of a keyframe (mrpt.poses.CPose3D, a 4x4 matrix...). Does nothing if it does not exist.
         """
@@ -2073,7 +2091,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             KDTree index only: balance rebuild threshold.
             """
         @alpha_balance.setter
-        def alpha_balance(self, arg0: float) -> None:
+        def alpha_balance(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def alpha_deleted(self) -> float:
@@ -2081,7 +2099,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             KDTree index only: deleted points threshold.
             """
         @alpha_deleted.setter
-        def alpha_deleted(self, arg0: float) -> None:
+        def alpha_deleted(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def async_rebuild(self) -> bool:
@@ -2105,7 +2123,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Voxel size [m] of the VoxelHash index.
             """
         @index_voxel_size.setter
-        def index_voxel_size(self, arg0: float) -> None:
+        def index_voxel_size(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def k_correspondences_for_cov(self) -> int:
@@ -2113,7 +2131,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Number of neighbors to estimate each point covariance.
             """
         @k_correspondences_for_cov.setter
-        def k_correspondences_for_cov(self, arg0: int) -> None:
+        def k_correspondences_for_cov(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def max_distance_for_cov(self) -> float:
@@ -2121,7 +2139,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Maximum distance [m] of the neighbors used for a covariance.
             """
         @max_distance_for_cov.setter
-        def max_distance_for_cov(self, arg0: float) -> None:
+        def max_distance_for_cov(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def max_plane_deviation_for_cov(self) -> float:
@@ -2129,7 +2147,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Maximum distance [m] of a neighbor to the fitted plane for the plane regularization to apply (0: no test).
             """
         @max_plane_deviation_for_cov.setter
-        def max_plane_deviation_for_cov(self, arg0: float) -> None:
+        def max_plane_deviation_for_cov(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def max_view_angle_deg(self) -> float:
@@ -2137,7 +2155,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Maximum angle [deg] between view directions, for ViewDirectionFilter.MaxAngle.
             """
         @max_view_angle_deg.setter
-        def max_view_angle_deg(self, arg0: float) -> None:
+        def max_view_angle_deg(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def min_correspondences_for_cov(self) -> int:
@@ -2145,7 +2163,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Below this number of neighbors, an isotropic covariance is used.
             """
         @min_correspondences_for_cov.setter
-        def min_correspondences_for_cov(self, arg0: int) -> None:
+        def min_correspondences_for_cov(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def min_distance_between_points(self) -> float:
@@ -2153,7 +2171,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             If not 0, inserted points closer than this [m] to one in the map are dropped.
             """
         @min_distance_between_points.setter
-        def min_distance_between_points(self, arg0: float) -> None:
+        def min_distance_between_points(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def min_neighbors_to_cache_cov(self) -> int:
@@ -2161,7 +2179,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Minimum neighbors for a covariance to be cached (0: k_correspondences_for_cov).
             """
         @min_neighbors_to_cache_cov.setter
-        def min_neighbors_to_cache_cov(self, arg0: int) -> None:
+        def min_neighbors_to_cache_cov(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def plane_regularization_lambda(self) -> float:
@@ -2169,7 +2187,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             Variance along the normal of the regularized covariances (<=0: no regularization).
             """
         @plane_regularization_lambda.setter
-        def plane_regularization_lambda(self, arg0: float) -> None:
+        def plane_regularization_lambda(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def remove_points_farther_than(self) -> float:
@@ -2177,7 +2195,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             If not 0, on each insertion keep only the points in a cube of this half side [m] around the robot.
             """
         @remove_points_farther_than.setter
-        def remove_points_farther_than(self, arg0: float) -> None:
+        def remove_points_farther_than(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def reserve_points(self) -> int:
@@ -2185,7 +2203,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
             If not 0, preallocate storage for this many points.
             """
         @reserve_points.setter
-        def reserve_points(self, arg0: int) -> None:
+        def reserve_points(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def serialize_kdtree(self) -> bool:
@@ -2255,7 +2273,7 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
         """
         Inserts a point cloud, as insertObservation() with an mrpt.obs.CObservationPointCloud. `points` (an (N,3) array, a dict {field name: 1-D array} as in mp2p_icp.layer_from_numpy(), or an mrpt.maps.CPointsMap, which is copied) are given in the robot frame, and the robot is at `robotPose` in the map: None (identity), mrpt.poses.CPose3D, mrpt.math.TPose3D, a 4x4 matrix or [x, y, z, yaw, pitch, roll]. Maps that trace rays (TSDF, NDT) take the robot position as their origin. Insertion options and map-specific behavior apply, e.g. removal of far contents. Returns True if the map was updated.
         """
-    def keepOnlyPointsNear(self, center: typing.Any, half_side: float) -> None:
+    def keepOnlyPointsNear(self, center: typing.Any, half_side: typing.SupportsFloat | typing.SupportsIndex) -> None:
         """
         Removes the points outside a cube of half side `half_side` [m] around `center`.
         """
@@ -2267,11 +2285,11 @@ class IncrementalPointCloud(mrpt.maps.CGenericPointsMap):
         """
         Number of points in the map, without the freed storage slots counted by size().
         """
-    def nn_multiple_search(self, query: typing.Any, N: int) -> tuple:
+    def nn_multiple_search(self, query: typing.Any, N: typing.SupportsInt | typing.SupportsIndex) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The N closest points to a 3D query point, sorted by distance. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
-    def nn_radius_search(self, query: typing.Any, search_radius_sqr: float, maxPoints: int = 0) -> tuple:
+    def nn_radius_search(self, query: typing.Any, search_radius_sqr: typing.SupportsFloat | typing.SupportsIndex, maxPoints: typing.SupportsInt | typing.SupportsIndex = 0) -> tuple[numpy.typing.NDArray[numpy.uint64], numpy.typing.NDArray[numpy.float32], numpy.typing.NDArray[numpy.float32]]:
         """
         The points within a distance of a 3D query point. The radius is given squared; maxPoints=0 means no limit. Returns (indices or IDs: uint64 array, points: (N,3) float32 array, squared distances: float32 array).
         """
@@ -2337,7 +2355,7 @@ class OccGrid(mrpt.serialization.CSerializable):
             Use one out of N rays.
             """
         @decimation.setter
-        def decimation(self, arg0: int) -> None:
+        def decimation(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
             ...
         @property
         def maxDistanceInsertion(self) -> float:
@@ -2345,7 +2363,7 @@ class OccGrid(mrpt.serialization.CSerializable):
             Largest distance [m] at which cells are updated.
             """
         @maxDistanceInsertion.setter
-        def maxDistanceInsertion(self, arg0: float) -> None:
+        def maxDistanceInsertion(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def maxFreenessInvalidRanges(self) -> float:
@@ -2353,7 +2371,7 @@ class OccGrid(mrpt.serialization.CSerializable):
             Like maxFreenessUpdateCertainty, for invalid ranges (0: maxOccupancyUpdateCertainty).
             """
         @maxFreenessInvalidRanges.setter
-        def maxFreenessInvalidRanges(self, arg0: float) -> None:
+        def maxFreenessInvalidRanges(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def maxFreenessUpdateCertainty(self) -> float:
@@ -2361,7 +2379,7 @@ class OccGrid(mrpt.serialization.CSerializable):
             Value in [0.5, 1] for the update of free cells (0: maxOccupancyUpdateCertainty).
             """
         @maxFreenessUpdateCertainty.setter
-        def maxFreenessUpdateCertainty(self, arg0: float) -> None:
+        def maxFreenessUpdateCertainty(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def maxOccupancyUpdateCertainty(self) -> float:
@@ -2369,7 +2387,7 @@ class OccGrid(mrpt.serialization.CSerializable):
             Value in [0.5, 1] for the Bayesian update of occupied cells.
             """
         @maxOccupancyUpdateCertainty.setter
-        def maxOccupancyUpdateCertainty(self, arg0: float) -> None:
+        def maxOccupancyUpdateCertainty(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
         @property
         def wideningBeamsWithDistance(self) -> bool:
@@ -2395,7 +2413,7 @@ class OccGrid(mrpt.serialization.CSerializable):
             Resolution of the likelihood cache, as a factor of that of the grid.
             """
         @superResolutionFactor.setter
-        def superResolutionFactor(self, arg0: float) -> None:
+        def superResolutionFactor(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
             ...
     def __copy__(self) -> OccGrid:
         """
@@ -2427,11 +2445,11 @@ class OccGrid(mrpt.serialization.CSerializable):
         """
         Invalidates all cached likelihood values.
         """
-    def resizeGrid(self, min_corner: typing.Any, max_corner: typing.Any, new_cells_occupancy: float = 0.5) -> None:
+    def resizeGrid(self, min_corner: typing.Any, max_corner: typing.Any, new_cells_occupancy: typing.SupportsFloat | typing.SupportsIndex = 0.5) -> None:
         """
         Changes the grid size, keeping its contents.
         """
-    def setSize(self, min_corner: typing.Any, max_corner: typing.Any, resolution: float, occupancy: float = 0.5) -> None:
+    def setSize(self, min_corner: typing.Any, max_corner: typing.Any, resolution: typing.SupportsFloat | typing.SupportsIndex, occupancy: typing.SupportsFloat | typing.SupportsIndex = 0.5) -> None:
         """
         Changes the grid size, ERASING its contents. Corners are mrpt.math.TPoint2D or [x, y] [m], the resolution is the cell size [m].
         """
@@ -2452,5 +2470,5 @@ class OccGrid(mrpt.serialization.CSerializable):
     def likelihoodParameters(self, arg0: OccGrid.LikelihoodParameters) -> None:
         ...
 HAS_INCREMENTAL_KDTREE: bool = True
-HAS_INCREMENTAL_KDTREE_BAKE: bool = True
+HAS_INCREMENTAL_KDTREE_BAKE: bool = False
 __version__: str = '3.4.0'
