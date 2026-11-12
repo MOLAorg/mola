@@ -21,7 +21,6 @@ project(mola_metric_maps LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # find CMake dependencies:
-find_package(mola_kernel REQUIRED)
 find_package(mrpt_maps REQUIRED)
 find_package(mrpt_viz REQUIRED)
 find_package(mp2p_icp_map REQUIRED)
@@ -124,12 +123,10 @@ mola_add_library(
     mrpt::mrpt_maps
     mrpt::mrpt_viz
     tsl::robin_map
-    mola::mola_kernel
     mola::mp2p_icp_map
   PRIVATE_LINK_LIBRARIES
     Eigen3::Eigen
   CMAKE_DEPENDENCIES
-    mola_kernel
     mrpt_maps
     mrpt_viz
     mp2p_icp_map
@@ -188,12 +185,25 @@ endif()
 
 # -----------------------
 # define apps:
-add_subdirectory(apps)
+option(MOLA_METRIC_MAPS_BUILD_APPS "Build the command-line apps" ON)
+if(MOLA_METRIC_MAPS_BUILD_APPS)
+  add_subdirectory(apps)
+endif()
 
 # -----------------------
 # define tests:
-enable_testing()
-add_subdirectory(tests)
+option(MOLA_METRIC_MAPS_BUILD_TESTING "Build the unit tests" ON)
+if(MOLA_METRIC_MAPS_BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
+
+# -----------------------
+# Python bindings (skipped if pybind11 is not found):
+option(MOLA_METRIC_MAPS_BUILD_PYTHON "Build the Python bindings, if pybind11 is found" ON)
+if(MOLA_METRIC_MAPS_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
 
 # -----------------------------------------------------------------------------
 #  ROS2

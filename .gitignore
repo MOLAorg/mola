@@ -28,7 +28,8 @@ Testing
 
 # local colcon skip markers: they must not be committed, or CI (and any
 # fresh workspace) would silently skip building those packages.
-# Note: docs/COLCON_IGNORE is tracked on purpose (not a ROS package).
+# Note: docs/COLCON_IGNORE and mola_metric_maps/packaging/COLCON_IGNORE are
+# tracked on purpose (not ROS packages).
 COLCON_IGNORE
 
 #visual studio

@@ -548,6 +548,10 @@ class NDT : public mrpt::maps::CMetricMap,
   bool                                                                 trySetCreationOptions(
                                                                       const mrpt::config::CConfigFileBase& cfg, const std::string& section) override;
 
+  /** Same as trySetCreationOptions(cfg, section), from an already filled set of
+   *  creation options. */
+  bool trySetCreationOptions(const TCreationOptions& newOpts);
+
  public:
   // Interface for use within a mrpt::maps::CMultiMetricMap:
   MAP_DEFINITION_START(NDT)

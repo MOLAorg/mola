@@ -131,8 +131,9 @@ Maps, tools and visualization
      - Purpose
    * - `mola_metric_maps <https://github.com/MOLAorg/mola/tree/develop/mola_metric_maps>`_
      - The map classes: ``KeyframePointCloudMap``, ``IncrementalPointCloud``,
-       ``NDTMap``, ``SparseVoxelPointCloud``, super-resolution occupancy
-       grids, and the ``.mm`` CLI tools around them.
+       ``NDT``, ``TSDF``, ``SparseVoxelPointCloud``, super-resolution occupancy
+       grids, and the ``.mm`` CLI tools around them. Also usable from
+       :ref:`Python <mola_metric_maps_python>`.
    * - `mp2p_icp <https://github.com/MOLAorg/mp2p_icp>`_
      - :ref:`ICP pipelines, point-cloud filters and map tools <mp2p_icp_basics>`.
    * - `mola_pose_list <https://github.com/MOLAorg/mola/tree/develop/mola_pose_list>`_

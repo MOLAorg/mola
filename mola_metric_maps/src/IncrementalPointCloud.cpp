@@ -1748,6 +1748,12 @@ bool IncrementalPointCloud::trySetCreationOptions(
 
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
+  return trySetCreationOptions(newOpts);
+}
+
+bool IncrementalPointCloud::trySetCreationOptions(const TCreationOptions& newOpts)
+{
+  auto lck = mrpt::lockHelper(mtx_);
 
   const bool treeParamsChanged = newOpts.index_type != creationOptions.index_type ||
                                  newOpts.index_voxel_size != creationOptions.index_voxel_size ||

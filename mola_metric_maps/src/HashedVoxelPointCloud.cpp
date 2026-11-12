@@ -602,7 +602,11 @@ bool HashedVoxelPointCloud::trySetCreationOptions(
 {
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
+  return trySetCreationOptions(newOpts);
+}
 
+bool HashedVoxelPointCloud::trySetCreationOptions(const TCreationOptions& newOpts)
+{
   if (newOpts.voxel_size != creationOptions.voxel_size)
   {
     if (!isEmpty())

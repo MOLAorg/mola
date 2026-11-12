@@ -1,0 +1,137 @@
+# Python wheels of mola_metric_maps (mola_metric_maps/packaging/pip, PyPI name
+# mola-metric-maps), built and tested with cibuildwheel.
+#
+# - Pull requests touching mola_metric_maps or this workflow: one Python
+#   version per platform.
+# - Weekly, on release tags and by hand: all Python versions.
+# - Release tags (X.Y.Z) are uploaded to PyPI. A manual run can upload to
+#   TestPyPI or PyPI ("publish" input).
+#
+# The wheels build against the mp2p-icp wheels from PyPI: the mp2p-icp version
+# pinned in mola_metric_maps/packaging/pip/pyproject.toml must be published
+# first. Uploads use PyPI Trusted Publishing (no tokens), set up once on
+# (test.)pypi.org for this repository, this workflow and an environment named
+# like the index (pypi / testpypi). See
+# mola_metric_maps/packaging/pip/README-dev.md.
+name: Python wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Upload the wheels to"
+        type: choice
+        options: [none, testpypi, pypi]
+        default: none
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  pull_request:
+    paths:
+      - "mola_metric_maps/**"
+      - ".github/workflows/python-wheels.yml"
+  schedule:
+    - cron: "0 5 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  build_wheels:
+    name: Wheels ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The build needs the mp2p-icp wheel (its C++ SDK) from PyPI. Until that
+      # version is published, pull requests and the weekly run skip the build;
+      # tags and manual runs fail instead, so nothing is published without it.
+      - name: Check that the mp2p-icp build requirement is on PyPI
+        id: deps
+        run: |
+          req=$(grep -o 'mp2p-icp==[0-9.]*' mola_metric_maps/packaging/pip/pyproject.toml | head -1)
+          if curl -sf "https://pypi.org/pypi/mp2p-icp/${req#mp2p-icp==}/json" > /dev/null; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "::notice::${req} is not on PyPI yet: skipping the wheel build"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::${req} is not on PyPI: publish mp2p-icp first"
+            exit 1
+          fi
+
+      - name: Git submodules (robin-map only)
+        if: steps.deps.outputs.available == 'true'
+        run: git submodule update --init --depth 1 mola_metric_maps/3rdparty/robin-map
+
+      # A map built with MOLA, for the wheel tests. Inside the source tree,
+      # which cibuildwheel copies into its containers as /project.
+      - name: Check out mola_test_datasets (husky map only)
+        if: steps.deps.outputs.available == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: MOLAorg/mola_test_datasets
+          path: mola_test_datasets
+          sparse-checkout: datasets/ual/husky_benches
+
+      - name: Only one Python version for pull requests
+        if: github.event_name == 'pull_request'
+        run: echo "CIBW_BUILD=cp312-*" >> "$GITHUB_ENV"
+
+      - uses: pypa/cibuildwheel@v4.3.5
+        if: steps.deps.outputs.available == 'true'
+        with:
+          package-dir: mola_metric_maps/packaging/pip
+          output-dir: wheelhouse
+        env:
+          CIBW_TEST_ENVIRONMENT: MOLA_TEST_DATASETS_DIR=/project/mola_test_datasets/datasets
+
+      - uses: actions/upload-artifact@v4
+        if: steps.deps.outputs.available == 'true'
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  publish:
+    name: Publish
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish != 'none')
+    needs: build_wheels
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.publish || 'pypi' }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Check that the wheel version matches the tag
+        if: github.event_name == 'push'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ls dist/
+          for w in dist/*.whl; do
+            case "$(basename "$w")" in
+              mola_metric_maps-${VERSION}-*) ;;
+              *) echo "$w does not match tag ${GITHUB_REF_NAME}"; exit 1 ;;
+            esac
+          done
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ inputs.publish == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
+          # A re-run after a partial upload only uploads the missing files:
+          skip-existing: true

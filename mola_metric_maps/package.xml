@@ -15,7 +15,6 @@
 
 
   <depend>mola_common</depend>
-  <depend>mola_kernel</depend>
 
   <depend>mrpt_maps</depend>
   <depend>mrpt_viz</depend>
@@ -25,6 +24,12 @@
 
   <depend>tbb</depend>
   <depend>nanoflann_vendor</depend>  <!-- optional: >=1.10 enables mola::IncrementalPointCloud -->
+
+  <!-- Python bindings (skipped if pybind11 is not found) -->
+  <build_depend>pybind11-dev</build_depend>
+  <build_depend>python3-dev</build_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <test_depend>python3-pytest</test_depend>
 
   <doc_depend>doxygen</doc_depend>
 

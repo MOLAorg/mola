@@ -1,0 +1,96 @@
+# Python wheel for mola_metric_maps: the `mola_metric_maps` package (bindings
+# of the mola_metric_maps C++ library), built on top of the `mp2p-icp` and
+# `mrpt3` wheels.
+# See README-dev.md for how to build it.
+
+[build-system]
+# - pybind11 must be the version of the mrpt3 and mp2p-icp wheels
+#   (mrpt.sdk.PYBIND11_VERSION, mp2p_icp.sdk.PYBIND11_VERSION), to share Python
+#   types with them.
+# - mrpt3, mp2p-icp: their C++ SDKs are what the wheel is built against, and
+#   their versions set its requirements (see build_helpers/sdk_requirements.py).
+requires = ["scikit-build-core>=0.11", "pybind11==3.1.0", "mrpt3==3.6.2", "mp2p-icp==3.1.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "mola-metric-maps"
+dynamic = ["version", "dependencies"]
+description = "Metric map classes of MOLA (incremental point clouds, voxel maps, NDT, TSDF, keyframe maps), the layers of its .mm maps"
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+# Python 3.10 is only for Ubuntu 22.04 / ROS 2 Humble users: from June 2027,
+# drop cp310 from the wheels and require >=3.11.
+requires-python = ">=3.10"
+authors = [{ name = "Jose Luis Blanco-Claraco" }]
+keywords = ["robotics", "slam", "mapping", "point-clouds", "lidar", "odometry", "voxel", "ndt", "tsdf"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/MOLAorg/mola"
+Documentation = "https://docs.mola-slam.org/latest/mola_metric_maps_python.html"
+Source = "https://github.com/MOLAorg/mola/tree/develop/mola_metric_maps"
+Issues = "https://github.com/MOLAorg/mola/issues"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = ">=3.24"
+build.verbose = true
+# Everything in the wheel comes from the CMake install step:
+wheel.packages = []
+# Persistent build dir, for incremental rebuilds while developing:
+build-dir = "build/{wheel_tag}"
+# Needed for the local metadata provider (build_helpers/):
+experimental = true
+
+# cibuildwheel copies the source tree into its containers: do not reuse a
+# local build dir from the host there.
+[[tool.scikit-build.overrides]]
+if.env.CIBUILDWHEEL = true
+build-dir = "build-cibw/{wheel_tag}"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "../../package.xml"
+regex = '<version>(?P<value>[0-9]+\.[0-9]+\.[0-9]+)</version>'
+
+[tool.scikit-build.metadata.dependencies]
+provider = "sdk_requirements"
+provider-path = "build_helpers"
+requires = ["numpy"]
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+skip = "*-musllinux_* *_i686"
+build-verbosity = 1
+test-requires = ["pytest"]
+test-command = "python {package}/tests/test_wheel.py"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+before-all = "bash {package}/ci/manylinux_deps.sh"
+# Never bundle the mp2p_icp and MRPT libraries nor the oneTBB of the MRPT SDK:
+# they come from the mp2p-icp and mrpt3 wheels (one MRPT class registry per
+# process). The OpenGL (libglvnd) libraries must come from the user system, as
+# in mrpt3. --only-plat: no older manylinux tag than the image one, which
+# mrpt3 needs.
+repair-wheel-command = """\
+  auditwheel repair -w {dest_dir} --only-plat \
+    --exclude 'libmp2p_icp*.so' --exclude 'libmrpt_*.so' --exclude 'libtbb*.so*' \
+    --exclude libEGL.so.1 --exclude libGLX.so.0 --exclude libOpenGL.so.0 \
+    --exclude libGLESv2.so.2 --exclude libGLdispatch.so.0 \
+    {wheel}"""
+# The C++ library does not depend on the Python version: ccache compiles it
+# only once per image. CCACHE_BASEDIR makes hits independent of the build dir.
+environment = { CMAKE_ARGS = "-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache", CCACHE_BASEDIR = "/project", CCACHE_DIR = "/project/.ccache", CCACHE_MAXSIZE = "2G" }
