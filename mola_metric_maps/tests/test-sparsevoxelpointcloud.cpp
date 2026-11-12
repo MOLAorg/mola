@@ -23,6 +23,7 @@
 #include <mrpt/viz/Scene.h>
 
 #include <iostream>
+#include <memory>
 
 void test_voxelmap_basic_ops()
 {
@@ -81,12 +82,40 @@ void test_voxelmap_insert_2d_scan()
   }
 }
 
+size_t count_points(const mola::SparseVoxelPointCloud& map)
+{
+  size_t nPts = 0;
+  map.visitAllPoints([&nPts](const mrpt::math::TPoint3Df&) { nPts++; });
+  return nPts;
+}
+
+// Copies must be independent of the source map, which may be gone:
+void test_voxelmap_copies()
+{
+  auto original = std::make_unique<mola::SparseVoxelPointCloud>(0.2f);
+  original->insertPoint({0.05f, 0.05f, 0.05f});
+
+  mola::SparseVoxelPointCloud copy(*original);
+  mola::SparseVoxelPointCloud assigned(0.2f);
+  assigned = *original;
+  original.reset();
+
+  copy.insertPoint({0.06f, 0.05f, 0.05f});
+  ASSERT_EQUAL_(count_points(copy), 2UL);
+
+  assigned.insertPoint({0.06f, 0.05f, 0.05f});
+  assigned.insertPoint({0.07f, 0.05f, 0.05f});
+  ASSERT_EQUAL_(count_points(assigned), 3UL);
+  ASSERT_EQUAL_(count_points(copy), 2UL);
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
   try
   {
     test_voxelmap_basic_ops();
     test_voxelmap_insert_2d_scan();
+    test_voxelmap_copies();
   }
   catch (std::exception& e)
   {

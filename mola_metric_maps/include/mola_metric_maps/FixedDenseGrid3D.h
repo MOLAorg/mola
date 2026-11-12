@@ -22,6 +22,7 @@
 #include <mrpt/core/exceptions.h>
 
 #include <cstdlib>
+#include <cstring>
 #include <type_traits>
 
 namespace mola
@@ -57,11 +58,30 @@ class FixedDenseGrid3D
   FixedDenseGrid3D() { cells_ = reinterpret_cast<T*>(calloc(TOTAL_CELL_COUNT, sizeof(T))); }
   ~FixedDenseGrid3D() { free(cells_); }
 
-  // Delete copy and move constructors and assignment operators
-  FixedDenseGrid3D(const FixedDenseGrid3D&)            = default;
-  FixedDenseGrid3D& operator=(const FixedDenseGrid3D&) = default;
-  FixedDenseGrid3D(FixedDenseGrid3D&&)                 = default;
-  FixedDenseGrid3D& operator=(FixedDenseGrid3D&&)      = default;
+  // The cells are owned: copies duplicate them, moves transfer them.
+  FixedDenseGrid3D(const FixedDenseGrid3D& o) : FixedDenseGrid3D()
+  {
+    std::memcpy(cells_, o.cells_, TOTAL_CELL_COUNT * sizeof(T));
+  }
+  FixedDenseGrid3D& operator=(const FixedDenseGrid3D& o)
+  {
+    if (this != &o)
+    {
+      std::memcpy(cells_, o.cells_, TOTAL_CELL_COUNT * sizeof(T));
+    }
+    return *this;
+  }
+  FixedDenseGrid3D(FixedDenseGrid3D&& o) noexcept : cells_(o.cells_) { o.cells_ = nullptr; }
+  FixedDenseGrid3D& operator=(FixedDenseGrid3D&& o) noexcept
+  {
+    if (this != &o)
+    {
+      free(cells_);
+      cells_   = o.cells_;
+      o.cells_ = nullptr;
+    }
+    return *this;
+  }
 
   T& cellByIndex(const index3d_t<inner_coord_t>& idx)
   {

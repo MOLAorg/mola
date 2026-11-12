@@ -534,6 +534,19 @@ class SparseVoxelPointCloud : public mrpt::maps::CMetricMap,
   {
     CachedData() = default;
 
+    // A copy of the map starts with an empty cache: the source one points
+    // into the grids of the source map. Moves keep it, since the grid nodes
+    // move along with the std::map holding them.
+    CachedData(const CachedData& /*o*/) : CachedData() {}
+    CachedData& operator=(const CachedData& /*o*/)
+    {
+      reset();
+      return *this;
+    }
+    CachedData(CachedData&&) noexcept            = default;
+    CachedData& operator=(CachedData&&) noexcept = default;
+    ~CachedData()                                = default;
+
     void reset() { *this = CachedData(); }
 
     mutable std::optional<mrpt::math::TBoundingBoxf> boundingBox_;
