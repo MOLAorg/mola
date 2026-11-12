@@ -13,7 +13,7 @@ one (MRPT 3: points, poses, base map classes).
 Install
 =======
 
-**pip** (Linux x86_64 and aarch64, Python 3.11 to 3.14): ``pip install mola-metric-maps``.
+**pip** (Linux x86_64 and aarch64, Python 3.10 to 3.14): ``pip install mola-metric-maps``.
 It installs the ``mp2p-icp`` and ``mrpt3`` wheels too, whose C++ libraries it uses.
 
 **ROS 2**: the bindings are built with ``mola_metric_maps`` whenever ``pybind11`` is found

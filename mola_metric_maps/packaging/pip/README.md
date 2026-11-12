@@ -56,7 +56,7 @@ Classes: `IncrementalPointCloud`, `HashedVoxelPointCloud`,
 (`creationOptions`, `insertionOptions`...). This wheel uses the libraries of
 the installed `mp2p-icp` and `mrpt3` wheels, which are dependencies.
 
-Requirements: Linux (glibc 2.28 or newer), x86_64 or aarch64, Python 3.11 to
+Requirements: Linux (glibc 2.28 or newer), x86_64 or aarch64, Python 3.10 to
 3.14.
 
 See the [Python API guide](https://docs.mola-slam.org/latest/mola_metric_maps_python.html)

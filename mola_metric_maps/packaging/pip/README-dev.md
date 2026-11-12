@@ -142,7 +142,7 @@ runners, with the map of `mola_test_datasets` (sparse checkout):
 
 * Pull requests touching `mola_metric_maps` (the library, the bindings or this
   packaging) or the workflow: one Python version per platform.
-* Weekly, on release tags and by hand: Python 3.11 to 3.14.
+* Weekly, on release tags and by hand: Python 3.10 to 3.14.
 * Release tags of this repository (`X.Y.Z`, as the rest of the release
   process, all packages share the version) upload the wheels to PyPI. A manual
   run can also upload to TestPyPI or PyPI (`publish` input). The tag must match

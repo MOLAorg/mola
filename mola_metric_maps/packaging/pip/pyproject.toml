@@ -19,7 +19,9 @@ description = "Metric map classes of MOLA (incremental point clouds, voxel maps,
 readme = "README.md"
 license = "GPL-3.0-only"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+# Python 3.10 is only for Ubuntu 22.04 / ROS 2 Humble users: from June 2027,
+# drop cp310 from the wheels and require >=3.11.
+requires-python = ">=3.10"
 authors = [{ name = "Jose Luis Blanco-Claraco" }]
 keywords = ["robotics", "slam", "mapping", "point-clouds", "lidar", "odometry", "voxel", "ndt", "tsdf"]
 classifiers = [
@@ -68,7 +70,7 @@ provider-path = "build_helpers"
 requires = ["numpy"]
 
 [tool.cibuildwheel]
-build = "cp311-* cp312-* cp313-* cp314-*"
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_* *_i686"
 build-verbosity = 1
 test-requires = ["pytest"]
