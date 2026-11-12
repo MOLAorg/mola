@@ -1754,6 +1754,15 @@ std::map<std::string, mrpt::config::CLoadableOptions*> KeyframePointCloudMap::op
 bool KeyframePointCloudMap::trySetCreationOptions(
     const mrpt::config::CConfigFileBase& cfg, const std::string& section)
 {
+  auto lck = mrpt::lockHelper(*state_mtx_);
+
+  TCreationOptions newOpts = creationOptions;
+  newOpts.loadFromConfigFile(cfg, section);
+  return trySetCreationOptions(newOpts);
+}
+
+bool KeyframePointCloudMap::trySetCreationOptions(const TCreationOptions& newOpts)
+{
   // All TCreationOptions fields are runtime search/threshold parameters -- none of them affect
   // already-built internal structures (each keyframe's own KD-tree, point clouds, etc.), so it
   // is always safe to apply them in place, regardless of whether the map already holds data.
@@ -1768,8 +1777,6 @@ bool KeyframePointCloudMap::trySetCreationOptions(
   // rebuild on the next call.
   auto lck = mrpt::lockHelper(*state_mtx_);
 
-  TCreationOptions newOpts = creationOptions;
-  newOpts.loadFromConfigFile(cfg, section);
   creationOptions = newOpts;
   for (auto& kv : keyframes_)
   {

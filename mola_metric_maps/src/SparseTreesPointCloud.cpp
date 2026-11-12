@@ -604,7 +604,11 @@ bool SparseTreesPointCloud::trySetCreationOptions(
 {
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
+  return trySetCreationOptions(newOpts);
+}
 
+bool SparseTreesPointCloud::trySetCreationOptions(const TCreationOptions& newOpts)
+{
   if (newOpts.grid_size != creationOptions.grid_size)
   {
     if (!isEmpty())

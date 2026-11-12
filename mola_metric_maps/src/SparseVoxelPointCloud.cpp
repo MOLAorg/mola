@@ -631,7 +631,11 @@ bool SparseVoxelPointCloud::trySetCreationOptions(
 {
   TCreationOptions newOpts = creationOptions;
   newOpts.loadFromConfigFile(cfg, section);
+  return trySetCreationOptions(newOpts);
+}
 
+bool SparseVoxelPointCloud::trySetCreationOptions(const TCreationOptions& newOpts)
+{
   if (newOpts.voxel_size != creationOptions.voxel_size)
   {
     if (!isEmpty())
