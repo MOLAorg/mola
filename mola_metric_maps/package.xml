@@ -15,7 +15,6 @@
 
 
   <depend>mola_common</depend>
-  <depend>mola_kernel</depend>
 
   <depend>mrpt_maps</depend>
   <depend>mrpt_viz</depend>

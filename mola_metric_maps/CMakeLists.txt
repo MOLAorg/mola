@@ -21,7 +21,6 @@ project(mola_metric_maps LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # find CMake dependencies:
-find_package(mola_kernel REQUIRED)
 find_package(mrpt_maps REQUIRED)
 find_package(mrpt_viz REQUIRED)
 find_package(mp2p_icp_map REQUIRED)
@@ -124,12 +123,10 @@ mola_add_library(
     mrpt::mrpt_maps
     mrpt::mrpt_viz
     tsl::robin_map
-    mola::mola_kernel
     mola::mp2p_icp_map
   PRIVATE_LINK_LIBRARIES
     Eigen3::Eigen
   CMAKE_DEPENDENCIES
-    mola_kernel
     mrpt_maps
     mrpt_viz
     mp2p_icp_map
