@@ -622,7 +622,7 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER` (empty = each class's default) and
   `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER_ANGLE_DEG`.
 - Dependencies: MRPT and `mp2p_icp_map` only, **not** `mola_kernel`, so the library (and
-  a future `mola-metric-maps` pip wheel) stands alone; keep it so. CMake options
+  the `mola-metric-maps` pip wheel) stands alone; keep it so. CMake options
   `MOLA_METRIC_MAPS_BUILD_{APPS,TESTING,PYTHON}` (default ON) let a superbuild skip parts.
 - Python bindings (`python/`): extension `mola_metric_maps._core` (pybind11, `src/`) plus
   the pure Python package `mola_metric_maps`, built only if pybind11 is found, installed
@@ -643,6 +643,14 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
     the robot position as ray origin).
   - After changing bindings, regenerate `mola_metric_maps/_core.pyi` with
     `scripts/generate_stubs.py`.
+- pip wheel `mola-metric-maps` (`packaging/pip/`, read its `README-dev.md`): a
+  scikit-build-core superbuild of only this package, against the C++ SDKs of the `mp2p-icp`
+  wheel (`mp2p_icp_map`, `mola_common`) and the `mrpt3` one (MRPT, nanoflann, oneTBB).
+  `_core` and `libmola_metric_maps.so` go into `site-packages/mola_metric_maps/`, with a
+  RUNPATH to both SDK lib dirs; `libmp2p_icp*`, `libmrpt_*` and `libtbb` are never bundled.
+  Requires `mp2p-icp`/`mrpt3` of the minor series it was built against. CI:
+  `.github/workflows/python-wheels.yml`, uploaded to PyPI on release tags (the pinned
+  mp2p-icp must be published first).
 
 ### Feature macros
 

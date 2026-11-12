@@ -13,6 +13,9 @@ one (MRPT 3: points, poses, base map classes).
 Install
 =======
 
+**pip** (Linux x86_64 and aarch64, Python 3.11 to 3.14): ``pip install mola-metric-maps``.
+It installs the ``mp2p-icp`` and ``mrpt3`` wheels too, whose C++ libraries it uses.
+
 **ROS 2**: the bindings are built with ``mola_metric_maps`` whenever ``pybind11`` is found
 (``pybind11-dev`` on Debian/Ubuntu). After ``source install/setup.bash`` (or the ROS
 distribution setup file), ``import mola_metric_maps`` just works. It needs the ``mrpt`` and
@@ -62,7 +65,9 @@ Loading maps built with MOLA
 
 Importing the package loads the C++ library, which registers its classes for
 deserialization: there is no need to call ``mp2p_icp.load_plugins()``, and layers come out
-with their actual Python class, including all the methods of their base classes.
+with their actual Python class, including all the methods of their base classes. Even the
+import is optional: ``mp2p_icp`` imports ``mola_metric_maps`` by itself the first time a map
+needs one of its classes.
 
 .. code-block:: python
 
