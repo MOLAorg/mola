@@ -185,12 +185,25 @@ endif()
 
 # -----------------------
 # define apps:
-add_subdirectory(apps)
+option(MOLA_METRIC_MAPS_BUILD_APPS "Build the command-line apps" ON)
+if(MOLA_METRIC_MAPS_BUILD_APPS)
+  add_subdirectory(apps)
+endif()
 
 # -----------------------
 # define tests:
-enable_testing()
-add_subdirectory(tests)
+option(MOLA_METRIC_MAPS_BUILD_TESTING "Build the unit tests" ON)
+if(MOLA_METRIC_MAPS_BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
+
+# -----------------------
+# Python bindings (skipped if pybind11 is not found):
+option(MOLA_METRIC_MAPS_BUILD_PYTHON "Build the Python bindings, if pybind11 is found" ON)
+if(MOLA_METRIC_MAPS_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
 
 # -----------------------------------------------------------------------------
 #  ROS2
