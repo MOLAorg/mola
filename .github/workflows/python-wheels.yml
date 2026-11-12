@@ -51,12 +51,31 @@ jobs:
         with:
           persist-credentials: false
 
+      # The build needs the mp2p-icp wheel (its C++ SDK) from PyPI. Until that
+      # version is published, pull requests and the weekly run skip the build;
+      # tags and manual runs fail instead, so nothing is published without it.
+      - name: Check that the mp2p-icp build requirement is on PyPI
+        id: deps
+        run: |
+          req=$(grep -o 'mp2p-icp==[0-9.]*' mola_metric_maps/packaging/pip/pyproject.toml | head -1)
+          if curl -sf "https://pypi.org/pypi/mp2p-icp/${req#mp2p-icp==}/json" > /dev/null; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "::notice::${req} is not on PyPI yet: skipping the wheel build"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::${req} is not on PyPI: publish mp2p-icp first"
+            exit 1
+          fi
+
       - name: Git submodules (robin-map only)
+        if: steps.deps.outputs.available == 'true'
         run: git submodule update --init --depth 1 mola_metric_maps/3rdparty/robin-map
 
       # A map built with MOLA, for the wheel tests. Inside the source tree,
       # which cibuildwheel copies into its containers as /project.
       - name: Check out mola_test_datasets (husky map only)
+        if: steps.deps.outputs.available == 'true'
         uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -69,6 +88,7 @@ jobs:
         run: echo "CIBW_BUILD=cp312-*" >> "$GITHUB_ENV"
 
       - uses: pypa/cibuildwheel@v4.3.5
+        if: steps.deps.outputs.available == 'true'
         with:
           package-dir: mola_metric_maps/packaging/pip
           output-dir: wheelhouse
@@ -76,6 +96,7 @@ jobs:
           CIBW_TEST_ENVIRONMENT: MOLA_TEST_DATASETS_DIR=/project/mola_test_datasets/datasets
 
       - uses: actions/upload-artifact@v4
+        if: steps.deps.outputs.available == 'true'
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
