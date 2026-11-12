@@ -68,3 +68,12 @@ ICP tools
 
    app_icp-log-viewer
    app_icp-run
+
+|
+
+Python
+-------
+.. toctree::
+   :maxdepth: 1
+
+   mola_metric_maps_python
