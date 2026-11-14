@@ -156,18 +156,10 @@ void test_pairing_and_geometry()
   p.sensorLabel = "rgbd";
   RgbdAssembler a(p, makeTf(), "base_link");
 
-  // Images before their camera_info cannot be assembled:
+  // Images before their camera_info cannot be assembled, and are counted:
   a.onIntensityImage(colorImage(1.0, 8, 6));
-  bool threw = false;
-  try
-  {
-    a.onDepthImage(depthImage16(1.0, 10, 6, 1000));
-  }
-  catch (const std::exception&)
-  {
-    threw = true;
-  }
-  ASSERT_(threw);
+  ASSERT_(a.onDepthImage(depthImage16(1.0, 10, 6, 1000)).empty());
+  ASSERT_EQUAL_(a.droppedWithoutCameraInfo(), 1U);
 
   a.onDepthCameraInfo(cameraInfo(kDepthFrame, 10, 6, 5.0));
   a.onIntensityCameraInfo(cameraInfo(kColorFrame, 8, 6, 7.0));

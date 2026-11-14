@@ -110,7 +110,8 @@ RgbdAssembler::Obs RgbdAssembler::onDepthImage(sensor_msgs::msg::Image&& img)
 {
   if (!params_.withIntensity)
   {
-    return {build(img, nullptr)};
+    auto obs = build(img, nullptr);
+    return obs ? Obs{obs} : Obs{};
   }
   return pairWith(std::move(img), depthQueue_, intensityQueue_, true);
 }
@@ -167,7 +168,8 @@ RgbdAssembler::Obs RgbdAssembler::pairWith(
 
   const auto& depth     = imgIsDepth ? img : match.msg;
   const auto& intensity = imgIsDepth ? match.msg : img;
-  return {build(depth, &intensity)};
+  auto        obs       = build(depth, &intensity);
+  return obs ? Obs{obs} : Obs{};
 }
 
 void RgbdAssembler::decodeDepth(
@@ -242,9 +244,12 @@ mrpt::poses::CPose3D RgbdAssembler::lookupPose(
 mrpt::obs::CObservation3DRangeScan::Ptr RgbdAssembler::build(
     const sensor_msgs::msg::Image& depth, const sensor_msgs::msg::Image* intensity)
 {
-  ASSERTMSG_(
-      depthCamera_,
-      "No camera_info received yet for the depth image of sensor '" + params_.sensorLabel + "'");
+  // Drivers usually publish camera_info after the first images:
+  if (!depthCamera_ || (intensity != nullptr && !intensityCamera_))
+  {
+    droppedNoInfo_++;
+    return {};
+  }
 
   auto obs            = mrpt::obs::CObservation3DRangeScan::Create();
   obs->sensorLabel    = params_.sensorLabel;
@@ -268,10 +273,6 @@ mrpt::obs::CObservation3DRangeScan::Ptr RgbdAssembler::build(
     obs->cameraParamsIntensity = obs->cameraParams;
     return obs;
   }
-
-  ASSERTMSG_(
-      intensityCamera_, "No camera_info received yet for the intensity image of sensor '" +
-                            params_.sensorLabel + "'");
 
   obs->intensityImage        = mrpt::ros2bridge::fromROS(*intensity);
   obs->hasIntensityImage     = true;

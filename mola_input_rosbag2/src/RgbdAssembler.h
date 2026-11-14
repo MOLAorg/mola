@@ -86,6 +86,8 @@ class RgbdAssembler
 
   /** Images evicted from the waiting queues without a counterpart. */
   [[nodiscard]] size_t droppedUnpaired() const { return droppedUnpaired_; }
+  /** Frames dropped because their camera_info had not arrived yet. */
+  [[nodiscard]] size_t droppedWithoutCameraInfo() const { return droppedNoInfo_; }
   /** Smallest stamp difference seen for the last evicted image [s]. */
   [[nodiscard]] double lastEvictedClosestDt() const { return lastEvictedClosestDt_; }
 
@@ -109,6 +111,7 @@ class RgbdAssembler
   std::deque<Pending>               depthQueue_;
   std::deque<Pending>               intensityQueue_;
   size_t                            droppedUnpaired_      = 0;
+  size_t                            droppedNoInfo_        = 0;
   double                            lastEvictedClosestDt_ = 0;
 
   /** Cached intensity-wrt-depth poses, by (depth frame, intensity frame) */
@@ -118,6 +121,7 @@ class RgbdAssembler
       sensor_msgs::msg::Image&& img, std::deque<Pending>& own, std::deque<Pending>& other,
       bool imgIsDepth);
 
+  /** nullptr if a camera_info is still missing. */
   mrpt::obs::CObservation3DRangeScan::Ptr build(
       const sensor_msgs::msg::Image& depth, const sensor_msgs::msg::Image* intensity);
 

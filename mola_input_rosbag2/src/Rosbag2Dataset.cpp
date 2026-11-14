@@ -1750,10 +1750,17 @@ void Rosbag2Dataset::installRgbdCallbacks(
     return catchExceptions(
         [&]() -> Obs
         {
-          auto         img           = deserializeBagMessage<sensor_msgs::msg::Image>(m);
-          const size_t droppedBefore = assembler->droppedUnpaired();
-          Obs          obs           = isDepth ? assembler->onDepthImage(std::move(img))
-                                               : assembler->onIntensityImage(std::move(img));
+          auto         img                 = deserializeBagMessage<sensor_msgs::msg::Image>(m);
+          const size_t droppedBefore       = assembler->droppedUnpaired();
+          const size_t droppedNoInfoBefore = assembler->droppedWithoutCameraInfo();
+          Obs          obs                 = isDepth ? assembler->onDepthImage(std::move(img))
+                                                     : assembler->onIntensityImage(std::move(img));
+          if (assembler->droppedWithoutCameraInfo() != droppedNoInfoBefore)
+          {
+            MRPT_LOG_THROTTLE_INFO_FMT(
+                5.0, "RGB-D sensor: %zu frame(s) skipped while waiting for camera_info.",
+                assembler->droppedWithoutCameraInfo());
+          }
           if (assembler->droppedUnpaired() != droppedBefore)
           {
             MRPT_LOG_THROTTLE_WARN_FMT(
