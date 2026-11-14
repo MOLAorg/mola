@@ -709,11 +709,9 @@ void TSDF::pruneFarVoxels(const mrpt::math::TPoint3Df& sensorPt)
 }
 
 void TSDF::internal_insertPointCloud3D(
-    const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys, const float* zs,
-    const std::size_t num_pts)
+    const mrpt::poses::CPose3D& pc_in_map, const mrpt::math::TPoint3Df& sensorPt, const float* xs,
+    const float* ys, const float* zs, const std::size_t num_pts)
 {
-  const auto sensorPt = pc_in_map.translation().cast<float>();
-
   const bool warmingUp = bootstrapping_ && insertionOptions.bootstrap_with_points;
   if (warmingUp)
   {
@@ -775,6 +773,10 @@ bool TSDF::internal_insertObservation(
 
   pruneFarVoxels(robotPose3D.translation().cast<float>());
 
+  // Rays start at the sensor, not at the robot origin:
+  const auto sensorPose3D = robotPose3D + obs.getSensorPose();
+  const auto sensorPt     = sensorPose3D.translation().cast<float>();
+
   if (IS_CLASS(obs, CObservationPointCloud))
   {
     const auto& o = dynamic_cast<const CObservationPointCloud&>(obs);
@@ -787,9 +789,8 @@ bool TSDF::internal_insertObservation(
     const auto& ys = o.pointcloud->getPointsBufferRef_y();
     const auto& zs = o.pointcloud->getPointsBufferRef_z();
 
-    // The sensor pose on the robot is already applied by whoever built the
-    // cloud in the observation, as elsewhere in this library.
-    internal_insertPointCloud3D(robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
+    // The cloud is in the sensor frame:
+    internal_insertPointCloud3D(sensorPose3D, sensorPt, xs.data(), ys.data(), zs.data(), xs.size());
     return true;
   }
 
@@ -807,7 +808,8 @@ bool TSDF::internal_insertObservation(
     const auto& ys = scanPoints->getPointsBufferRef_y();
     const auto& zs = scanPoints->getPointsBufferRef_z();
 
-    internal_insertPointCloud3D(robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
+    // Points are already in the robot frame:
+    internal_insertPointCloud3D(robotPose3D, sensorPt, xs.data(), ys.data(), zs.data(), xs.size());
     return true;
   }
 
@@ -832,7 +834,7 @@ bool TSDF::internal_insertObservation(
       {
         pointMap.insertPointFast(o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]);
       }
-      cloudPose = robotPose3D + o.sensorPose;
+      cloudPose = sensorPose3D;
     }
     else if (o.hasRangeImage)
     {
@@ -847,7 +849,7 @@ bool TSDF::internal_insertObservation(
     const auto& ys = pointMap.getPointsBufferRef_y();
     const auto& zs = pointMap.getPointsBufferRef_z();
 
-    internal_insertPointCloud3D(cloudPose, xs.data(), ys.data(), zs.data(), xs.size());
+    internal_insertPointCloud3D(cloudPose, sensorPt, xs.data(), ys.data(), zs.data(), xs.size());
     return true;
   }
 
@@ -868,8 +870,7 @@ bool TSDF::internal_insertObservation(
     const auto& ys = pointMap.getPointsBufferRef_y();
     const auto& zs = pointMap.getPointsBufferRef_z();
 
-    internal_insertPointCloud3D(
-        robotPose3D + o.sensorPose, xs.data(), ys.data(), zs.data(), xs.size());
+    internal_insertPointCloud3D(sensorPose3D, sensorPt, xs.data(), ys.data(), zs.data(), xs.size());
     return true;
   }
 

@@ -612,12 +612,13 @@ class NDT : public mrpt::maps::CMetricMap,
       const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys, const float* zs,
       const std::size_t num_pts) const;
 
-  /** - (xs,ys,zs): Sensed point local coordinates in the robot frame.
-   *  - pc_in_map: SE(3) pose of the robot in the map frame.
+  /** - (xs,ys,zs): Sensed point local coordinates, in the frame given by pc_in_map.
+   *  - pc_in_map: SE(3) pose of the frame of (xs,ys,zs) in the map frame.
+   *  - sensorPt: sensor position in the map frame, the origin of the rays.
    */
   void internal_insertPointCloud3D(
-      const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys, const float* zs,
-      const std::size_t num_pts);
+      const mrpt::poses::CPose3D& pc_in_map, const mrpt::math::TPoint3Df& sensorPt, const float* xs,
+      const float* ys, const float* zs, const std::size_t num_pts);
 
   // See docs in base class
   bool internal_canComputeObservationLikelihood(const mrpt::obs::CObservation& obs) const override;

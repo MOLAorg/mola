@@ -440,7 +440,10 @@ bool NDT::internal_insertObservation(
   {
     // Default values are (0,0,0)
   }
-  const auto sensorPt = robotPose3D.translation().cast<float>();
+
+  // Rays start at the sensor, not at the robot origin:
+  const auto sensorPose3D = robotPose3D + obs.getSensorPose();
+  const auto sensorPt     = sensorPose3D.translation().cast<float>();
 
   if (insertionOptions.remove_voxels_farther_than > 0)
   {
@@ -487,7 +490,8 @@ bool NDT::internal_insertObservation(
     const auto& ys = scanPoints->getPointsBufferRef_y();
     const auto& zs = scanPoints->getPointsBufferRef_z();
 
-    internal_insertPointCloud3D(robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
+    // Points are already in the robot frame:
+    internal_insertPointCloud3D(robotPose3D, sensorPt, xs.data(), ys.data(), zs.data(), xs.size());
 
     return true;
   }
@@ -505,10 +509,13 @@ bool NDT::internal_insertObservation(
     // Empty point set, or load from XYZ in observation:
     if (o.hasPoints3D)
     {
+      // points3D_* are in the sensor frame:
       for (size_t i = 0; i < o.points3D_x.size(); i++)
+      {
         this->insertPoint(
-            robotPose3D.composePoint({o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]}),
+            sensorPose3D.composePoint({o.points3D_x[i], o.points3D_y[i], o.points3D_z[i]}),
             sensorPt);
+      }
 
       return true;
     }
@@ -522,7 +529,9 @@ bool NDT::internal_insertObservation(
       const auto& ys = pointMap.getPointsBufferRef_y();
       const auto& zs = pointMap.getPointsBufferRef_z();
 
-      internal_insertPointCloud3D(robotPose3D, xs.data(), ys.data(), zs.data(), xs.size());
+      // unprojectInto() already brings the points into the robot frame:
+      internal_insertPointCloud3D(
+          robotPose3D, sensorPt, xs.data(), ys.data(), zs.data(), xs.size());
 
       return true;
     }
@@ -543,10 +552,11 @@ bool NDT::internal_insertObservation(
       const_cast<CObservationVelodyneScan&>(o).generatePointCloud();
     }
 
+    // point_cloud is in the sensor frame:
     for (size_t i = 0; i < o.point_cloud.x.size(); i++)
     {
       insertPoint(
-          robotPose3D.composePoint({o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]}),
+          sensorPose3D.composePoint({o.point_cloud.x[i], o.point_cloud.y[i], o.point_cloud.z[i]}),
           sensorPt);
     }
 
@@ -562,9 +572,10 @@ bool NDT::internal_insertObservation(
     const auto& ys = o.pointcloud->getPointsBufferRef_y();
     const auto& zs = o.pointcloud->getPointsBufferRef_z();
 
+    // The cloud is in the sensor frame:
     for (size_t i = 0; i < xs.size(); i++)
     {
-      insertPoint(robotPose3D.composePoint({xs[i], ys[i], zs[i]}), sensorPt);
+      insertPoint(sensorPose3D.composePoint({xs[i], ys[i], zs[i]}), sensorPt);
     }
 
     return true;
@@ -1065,21 +1076,19 @@ void NDT::TRenderOptions::loadFromConfigFile(
 }
 
 void NDT::internal_insertPointCloud3D(
-    const mrpt::poses::CPose3D& pc_in_map, const float* xs, const float* ys, const float* zs,
-    const std::size_t num_pts)
+    const mrpt::poses::CPose3D& pc_in_map, const mrpt::math::TPoint3Df& sensorPt, const float* xs,
+    const float* ys, const float* zs, const std::size_t num_pts)
 {
   MRPT_TRY_START
 
   voxels_.reserve(voxels_.size() + num_pts);
-
-  const auto sensorPose = pc_in_map.translation().cast<float>();
 
   for (std::size_t i = 0; i < num_pts; i++)
   {
     // Transform the point from the scan reference to its global 3D
     // position:
     const auto gPt = pc_in_map.composePoint({xs[i], ys[i], zs[i]});
-    insertPoint(gPt, sensorPose);
+    insertPoint(gPt, sensorPt);
   }
 
   MRPT_TRY_END
