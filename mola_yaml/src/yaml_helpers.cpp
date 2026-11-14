@@ -377,8 +377,9 @@ constexpr const char* kPrependKey = "$prepend";
     const auto k = key.as<std::string>();
     if (k == kAppendKey || k == kPrependKey)
     {
-      // An empty value counts as an empty list: an empty sequence is written
-      // back to text as an empty value, so this keeps it across the round trip.
+      // An empty value counts as an empty list: older MRPT versions write an
+      // empty sequence back to text as an empty value, so this keeps it across
+      // the round trip.
       const bool isEmptyValue =
           value.isNullNode() || (value.isScalar() && value.as<std::string>().empty());
       if (!value.isSequence() && !isEmptyValue)

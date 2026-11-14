@@ -943,11 +943,13 @@ void test_parseImportAppendPrepend()
         "  $import: test_import_null_list.yaml\n"
         "  items:\n"
         "    $append: []\n");
-    // Not a `{}` map. An empty list is written to text as an empty value, so
-    // that is what comes back, as for a plain `items: []`:
+    // Not a `{}` map. Depending on the MRPT version, an empty list is written
+    // to text either as `[]` or as an empty value, so accept both:
     const auto items = y["params"]["items"];
     ASSERT_(!items.isMap());
-    ASSERT_(items.isNullNode() || items.as<std::string>().empty());
+    ASSERT_(
+        (items.isSequence() && items.asSequence().empty()) || items.isNullNode() ||
+        (items.isScalar() && items.as<std::string>().empty()));
   }
 
   // --- a plain sequence still replaces the base wholesale ---
