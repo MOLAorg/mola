@@ -254,6 +254,8 @@ class Rosbag2Dataset : public RawDataSourceBase,
 
   std::map<std::string, std::vector<CallbackFunction>> lookup_;
   std::set<std::string>                                unhandledTopics_;
+  /** camera_info topics of RGB-D sensors: also read while fast-forwarding */
+  std::set<std::string> cameraInfoTopics_;
 
   std::shared_ptr<tf2::BufferCore> tfBuffer_;
 
@@ -315,6 +317,13 @@ class Rosbag2Dataset : public RawDataSourceBase,
       const std::string& rosMsgType, const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
 
   Obs catchExceptions(const std::function<Obs()>& f);
+
+  /** Registers the callbacks of an RGB-D sensor (a "sensors" entry with
+   *  type CObservation3DRangeScan), which combines several topics. */
+  void installRgbdCallbacks(
+      const mrpt::containers::yaml& sensor, const std::string& depthTopic,
+      const std::string& sensorLabel, const std::optional<mrpt::poses::CPose3D>& fixedSensorPose,
+      bool useBagRecvTimeAsTimestamp, const std::map<std::string, std::string>& topic2type);
 
   void autoUnloadOldEntries() const;
 

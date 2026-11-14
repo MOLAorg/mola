@@ -19,6 +19,7 @@
   <depend>mola_kernel</depend>
   <depend>mrpt_obs</depend>
   <depend>mrpt_libros_bridge</depend>
+  <depend>rclcpp</depend>
   <depend>rosbag2_cpp</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2_geometry_msgs</depend>

@@ -25,6 +25,34 @@ CLI tools:
   The ROS 1 version is `mola-sm-attach-from-rosbag1` (package `mola_input_rosbag1`).
   ROS 2 bags may also need `--tf-topic` / `--tf-static-topic` (e.g. namespaced robots).
 
+## RGB-D cameras
+A `sensors` entry of `type: CObservation3DRangeScan` combines the topics of an
+RGB-D camera into `mrpt::obs::CObservation3DRangeScan` observations:
+
+```yaml
+sensors:
+  - topic: /camera/camera/depth/image_rect_raw   # 16UC1 (mm) or 32FC1 (m)
+    type: CObservation3DRangeScan
+    sensorLabel: rgbd
+    intensity_topic: /camera/camera/color/image_raw   # optional
+    #camera_info_topic: ...            # default: sibling "camera_info" topic
+    #intensity_camera_info_topic: ...  # default: sibling "camera_info" topic
+    #max_time_offset: 0.005            # [s] to pair depth and intensity frames
+    #is_optional: false                # skip the sensor if a topic is missing
+    #max_range: 10.0                   # [m]
+    #fixed_sensor_pose: "x y z yaw_deg pitch_deg roll_deg"  # depth camera, +X forward
+```
+
+Depth and intensity keep their own resolution and intrinsics
+(`cameraParams`, `cameraParamsIntensity`), and `relativePoseIntensityWRTDepth`
+comes from `/tf`. Depth already registered to the intensity camera (e.g. an
+`aligned_depth_to_color` topic) shares its optical frame, so both cameras then
+coincide. Depth and intensity frames whose stamps differ by more than
+`max_time_offset` are dropped, with a periodic warning: raise it for cameras
+whose streams are not hardware-synchronized. With
+`use_bag_recv_time_as_timestamp`, an observation takes the receive time of the
+image that completed its pair.
+
 ## Build and install
 Refer to the [root MOLA repository](https://github.com/MOLAorg/mola).
 
