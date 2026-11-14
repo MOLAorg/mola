@@ -14,6 +14,7 @@
 
 #include <mrpt/core/bits_math.h>
 #include <mrpt/core/exceptions.h>
+#include <mrpt/img/TCamera.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/ros2bridge/image.h>
