@@ -50,13 +50,14 @@
 
 #include <chrono>
 #include <cmath>
-#include <map>
+#include <deque>
 #include <set>
 #include <stdexcept>
 #include <tf2/buffer_core.hpp>
 #include <tf2/convert.hpp>
 #include <tf2/exceptions.hpp>
 #include <type_traits>
+#include <utility>
 
 #include "RgbdAssembler.h"
 
@@ -1744,9 +1745,10 @@ void Rosbag2Dataset::installRgbdCallbacks(
   }
 
   auto assembler = std::make_shared<RgbdAssembler>(p, tfBuffer_, base_link_frame_id_);
-  // Bag receive time of recent depth images, by header stamp [ns]: an
-  // observation takes its depth image's, whichever image completes the pair.
-  auto         depthRecvTimes = std::make_shared<std::map<int64_t, int64_t>>();
+  // (header stamp, bag receive time) [ns] of recent depth images, in arrival
+  // order: an observation takes its depth image's receive time, whichever
+  // image completes the pair.
+  auto         depthRecvTimes = std::make_shared<std::deque<std::pair<int64_t, int64_t>>>();
   const size_t maxRecvTimes   = 2 * p.maxQueueLength;
 
   const auto onImage = [this, assembler, useBagRecvTimeAsTimestamp, depthRecvTimes, maxRecvTimes](
@@ -1760,10 +1762,10 @@ void Rosbag2Dataset::installRgbdCallbacks(
           {
             const int64_t stampNs = static_cast<int64_t>(img.header.stamp.sec) * 1000000000LL +
                                     img.header.stamp.nanosec;
-            (*depthRecvTimes)[stampNs] = bagMessageRecvTimestampNs(m);
+            depthRecvTimes->emplace_back(stampNs, bagMessageRecvTimestampNs(m));
             while (depthRecvTimes->size() > maxRecvTimes)
             {
-              depthRecvTimes->erase(depthRecvTimes->begin());
+              depthRecvTimes->pop_front();
             }
           }
           const size_t droppedBefore       = assembler->droppedUnpaired();
@@ -1791,10 +1793,14 @@ void Rosbag2Dataset::installRgbdCallbacks(
               // Stamps match within the resolution of mrpt::Clock.
               const auto t =
                   static_cast<int64_t>(std::llround(1e9 * mrpt::Clock::toDouble(o->timestamp)));
-              const auto it = depthRecvTimes->lower_bound(t - 1000);
-              if (it != depthRecvTimes->end() && it->first <= t + 1000)
+              // Newest first, in case header stamps repeat after a clock reset:
+              for (auto it = depthRecvTimes->rbegin(); it != depthRecvTimes->rend(); ++it)
               {
-                o->timestamp = mrpt::Clock::fromDouble(1e-9 * static_cast<double>(it->second));
+                if (std::abs(it->first - t) <= 1000)
+                {
+                  o->timestamp = mrpt::Clock::fromDouble(1e-9 * static_cast<double>(it->second));
+                  break;
+                }
               }
             }
           }
