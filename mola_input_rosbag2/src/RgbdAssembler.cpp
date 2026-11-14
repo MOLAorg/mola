@@ -72,12 +72,43 @@ mrpt::img::TCamera RgbdAssembler::cameraFromROS(const sensor_msgs::msg::CameraIn
   // mrpt_ros_bridge do not provide yet.
   namespace dm = sensor_msgs::distortion_models;
 
-  mrpt::img::TCamera cam;
-  cam.ncols = info.width;
-  cam.nrows = info.height;
-  cam.setIntrinsicParamsFromValues(info.k[0], info.k[4], info.k[2], info.k[5]);
-
   const auto d = [&info](size_t i) { return i < info.d.size() ? info.d[i] : 0.0; };
+
+  // A rectified image (no distortion left) is described by P, a raw one by K.
+  bool rectified = info.p[0] > 0;
+  for (size_t i = 0; i < info.d.size(); i++)
+  {
+    if (info.d[i] != 0)
+    {
+      rectified = false;
+    }
+  }
+  double fx = rectified ? info.p[0] : info.k[0];
+  double fy = rectified ? info.p[5] : info.k[4];
+  double cx = rectified ? info.p[2] : info.k[2];
+  double cy = rectified ? info.p[6] : info.k[5];
+
+  // The calibration is for the full sensor: apply the ROI, then the binning.
+  uint32_t width  = info.width;
+  uint32_t height = info.height;
+  if (info.roi.width > 0 && info.roi.height > 0)
+  {
+    cx -= info.roi.x_offset;
+    cy -= info.roi.y_offset;
+    width  = info.roi.width;
+    height = info.roi.height;
+  }
+  const uint32_t bx = std::max<uint32_t>(info.binning_x, 1);
+  const uint32_t by = std::max<uint32_t>(info.binning_y, 1);
+  fx /= bx;
+  cx /= bx;
+  fy /= by;
+  cy /= by;
+
+  mrpt::img::TCamera cam;
+  cam.ncols = width / bx;
+  cam.nrows = height / by;
+  cam.setIntrinsicParamsFromValues(fx, fy, cx, cy);
   if (info.distortion_model == dm::PLUMB_BOB || info.distortion_model == dm::RATIONAL_POLYNOMIAL)
   {
     cam.setDistortionPlumbBob(d(0), d(1), d(2), d(3), d(4));
@@ -293,12 +324,19 @@ mrpt::obs::CObservation3DRangeScan::Ptr RgbdAssembler::build(
   obs->relativePoseIntensityWRTDepth = it->second;
 
   // MRPT reads the intensity image at depth pixel coordinates when both
-  // cameras coincide, so they must then share the image size too:
-  ASSERTMSG_(
-      !obs->doDepthAndIntensityCamerasCoincide() ||
-          (depth.width == intensity->width && depth.height == intensity->height),
-      "Depth and intensity cameras of sensor '" + params_.sensorLabel +
-          "' coincide but their image sizes differ");
+  // cameras coincide, so they must then share the pixel geometry too:
+  if (obs->doDepthAndIntensityCamerasCoincide())
+  {
+    const auto& dc   = obs->cameraParams;
+    const auto& ic   = obs->cameraParamsIntensity;
+    const auto  same = [](double a, double b) { return std::abs(a - b) <= 1e-3 * std::abs(a); };
+    ASSERTMSG_(
+        depth.width == intensity->width && depth.height == intensity->height &&
+            same(dc.fx(), ic.fx()) && same(dc.fy(), ic.fy()) && same(dc.cx(), ic.cx()) &&
+            same(dc.cy(), ic.cy()),
+        "Depth and intensity cameras of sensor '" + params_.sensorLabel +
+            "' coincide but their image sizes or intrinsics differ");
+  }
 
   return obs;
 }

@@ -50,12 +50,14 @@
 
 #include <chrono>
 #include <cmath>
+#include <deque>
 #include <set>
 #include <stdexcept>
 #include <tf2/buffer_core.hpp>
 #include <tf2/convert.hpp>
 #include <tf2/exceptions.hpp>
 #include <type_traits>
+#include <utility>
 
 #include "RgbdAssembler.h"
 
@@ -1743,14 +1745,29 @@ void Rosbag2Dataset::installRgbdCallbacks(
   }
 
   auto assembler = std::make_shared<RgbdAssembler>(p, tfBuffer_, base_link_frame_id_);
+  // (header stamp, bag receive time) [ns] of recent depth images, in arrival
+  // order: an observation takes its depth image's receive time, whichever
+  // image completes the pair.
+  auto         depthRecvTimes = std::make_shared<std::deque<std::pair<int64_t, int64_t>>>();
+  const size_t maxRecvTimes   = 2 * p.maxQueueLength;
 
-  const auto onImage = [this, assembler, useBagRecvTimeAsTimestamp](
+  const auto onImage = [this, assembler, useBagRecvTimeAsTimestamp, depthRecvTimes, maxRecvTimes](
                            const SerializedBagMessage& m, bool isDepth) -> Obs
   {
     return catchExceptions(
         [&]() -> Obs
         {
-          auto         img                 = deserializeBagMessage<sensor_msgs::msg::Image>(m);
+          auto img = deserializeBagMessage<sensor_msgs::msg::Image>(m);
+          if (useBagRecvTimeAsTimestamp && isDepth)
+          {
+            const int64_t stampNs = static_cast<int64_t>(img.header.stamp.sec) * 1000000000LL +
+                                    img.header.stamp.nanosec;
+            depthRecvTimes->emplace_back(stampNs, bagMessageRecvTimestampNs(m));
+            while (depthRecvTimes->size() > maxRecvTimes)
+            {
+              depthRecvTimes->pop_front();
+            }
+          }
           const size_t droppedBefore       = assembler->droppedUnpaired();
           const size_t droppedNoInfoBefore = assembler->droppedWithoutCameraInfo();
           Obs          obs                 = isDepth ? assembler->onDepthImage(std::move(img))
@@ -1771,7 +1788,21 @@ void Rosbag2Dataset::installRgbdCallbacks(
           }
           if (useBagRecvTimeAsTimestamp)
           {
-            setRecvTimestamp(obs, m);
+            for (auto& o : obs)
+            {
+              // Stamps match within the resolution of mrpt::Clock.
+              const auto t =
+                  static_cast<int64_t>(std::llround(1e9 * mrpt::Clock::toDouble(o->timestamp)));
+              // Newest first, in case header stamps repeat after a clock reset:
+              for (auto it = depthRecvTimes->rbegin(); it != depthRecvTimes->rend(); ++it)
+              {
+                if (std::abs(it->first - t) <= 1000)
+                {
+                  o->timestamp = mrpt::Clock::fromDouble(1e-9 * static_cast<double>(it->second));
+                  break;
+                }
+              }
+            }
           }
           return obs;
         });
