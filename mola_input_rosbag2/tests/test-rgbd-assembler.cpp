@@ -214,15 +214,37 @@ void test_camera_info()
   ASSERT_NEAR_(cam.k1(), 0.1, 1e-9);
   ASSERT_NEAR_(cam.p2(), 0.002, 1e-9);
   ASSERT_(cam.distortion == mrpt::img::DistortionModel::plumb_bob);
+
+  // A rectified image (no distortion) is described by P:
+  auto rect = cameraInfo(kDepthFrame, 640, 480, 600.0);
+  rect.p    = {610, 0, 330, 0, 0, 612, 241, 0, 0, 0, 1, 0};
+  cam       = RgbdAssembler::cameraFromROS(rect);
+  ASSERT_NEAR_(cam.fx(), 610.0, 1e-9);
+  ASSERT_NEAR_(cam.cy(), 241.0, 1e-9);
+
+  // ROI, then binning:
+  auto binned         = cameraInfo(kDepthFrame, 1280, 960, 1000.0);
+  binned.binning_x    = 2;
+  binned.binning_y    = 2;
+  binned.roi.x_offset = 100;
+  binned.roi.y_offset = 50;
+  binned.roi.width    = 1000;
+  binned.roi.height   = 800;
+  cam                 = RgbdAssembler::cameraFromROS(binned);
+  ASSERT_EQUAL_(cam.ncols, 500U);
+  ASSERT_EQUAL_(cam.nrows, 400U);
+  ASSERT_NEAR_(cam.fx(), 500.0, 1e-9);
+  ASSERT_NEAR_(cam.cx(), 270.0, 1e-9);
+  ASSERT_NEAR_(cam.cy(), 215.0, 1e-9);
 }
 
-void test_coinciding_cameras_with_different_sizes()
+void expectThrowOnCoincidingCameras(int intensityWidth, double intensityFocal)
 {
   const RgbdAssembler::Parameters p;
   RgbdAssembler                   a(p, makeTf(), "base_link");
   a.onDepthCameraInfo(cameraInfo(kDepthFrame, 10, 6, 5.0));
-  a.onIntensityCameraInfo(cameraInfo(kDepthFrame, 8, 6, 5.0));
-  auto img            = colorImage(1.0, 8, 6);
+  a.onIntensityCameraInfo(cameraInfo(kDepthFrame, intensityWidth, 6, intensityFocal));
+  auto img            = colorImage(1.0, intensityWidth, 6);
   img.header.frame_id = kDepthFrame;
   ASSERT_(a.onIntensityImage(std::move(img)).empty());
   bool threw = false;
@@ -235,6 +257,12 @@ void test_coinciding_cameras_with_different_sizes()
     threw = true;
   }
   ASSERT_(threw);
+}
+
+void test_coinciding_cameras_with_different_geometry()
+{
+  expectThrowOnCoincidingCameras(8, 5.0);  // image size
+  expectThrowOnCoincidingCameras(10, 6.0);  // intrinsics
 }
 
 void test_registered_and_depth_only()
@@ -277,7 +305,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_pairing_and_geometry();
     test_registered_and_depth_only();
     test_camera_info();
-    test_coinciding_cameras_with_different_sizes();
+    test_coinciding_cameras_with_different_geometry();
     std::cout << "All tests passed.\n";
     return 0;
   }
