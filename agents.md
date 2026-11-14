@@ -283,6 +283,13 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
 `mola::SparseVoxelPointCloud`, `mola::SparseTreesPointCloud`, `mola::NDT`,
 `mola::TSDF`, `mola::KeyframePointCloudMap`, `mola::IncrementalPointCloud`.
 
+- `insertObservation()` follows MRPT: points of point clouds, Velodyne scans and
+  `points3D_*` are in the **sensor** frame, placed at `robotPose + sensorPose`;
+  TSDF/NDT use the sensor position as ray origin. `KeyframePointCloudMap` keeps
+  KF poses as robot poses and moves the cloud to the robot frame instead.
+  Pipelines (`FilterMerge`) insert robot-frame clouds with an identity `sensorPose`.
+  Tests: `tests/test-sensor-pose-insertion.cpp`.
+
 - `TSDF` (new 2026): voxel-hashed truncated signed distance field. Each measured
   point writes a signed distance **along its own ray** into the voxels of a
   narrow cylinder around it (`ray_tube_voxels` is the coverage knob,
@@ -639,8 +646,7 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
     `trySetCreationOptions(const TCreationOptions&)` (raises if refused). The other option
     groups are live references. `ViewDirectionFilter.None` is `None_` in Python.
   - `insertPointCloud()` builds a `CObservationPointCloud` with the points in the **robot**
-    frame and an identity `sensorPose`, which most classes here ignore anyway (TSDF/NDT use
-    the robot position as ray origin).
+    frame and an identity `sensorPose`, so TSDF/NDT use the robot position as ray origin.
   - After changing bindings, regenerate `mola_metric_maps/_core.pyi` with
     `scripts/generate_stubs.py`.
 - pip wheel `mola-metric-maps` (`packaging/pip/`, read its `README-dev.md`): a

@@ -178,6 +178,33 @@ void rotateViewDirectionFieldsOrFallback(Pts& pts, const Pose& tf)
   }
 }
 #endif
+
+/** The cloud of `obs` in the robot frame. Keyframes keep their points in the
+ *  robot frame, while the observation holds them in the sensor frame, so a
+ *  transformed copy is returned if the sensor is not at the robot origin. */
+mrpt::maps::CPointsMap::Ptr cloudInRobotFrame(const mrpt::obs::CObservationPointCloud& obs)
+{
+  if (obs.sensorPose == mrpt::poses::CPose3D::Identity())
+  {
+    return obs.pointcloud;
+  }
+
+  // Same class as the input, to keep all its point fields:
+  auto out = std::dynamic_pointer_cast<mrpt::maps::CPointsMap>(
+      obs.pointcloud->GetRuntimeClass()->createObject());
+  ASSERT_(out);
+  out->insertAnotherMap(obs.pointcloud.get(), obs.sensorPose);
+
+  // Before MRPT 3.6.0, insertAnotherMap() copies view_{x,y,z} verbatim:
+#if MRPT_VERSION < 0x030600
+#if defined(MOLA_MM_HAS_ROTATE_VIEW_HEADER)
+  rotateViewDirectionFieldsOrFallback(*out, obs.sensorPose);
+#else
+  rotateViewDirectionFieldsLegacy(*out, obs.sensorPose);
+#endif
+#endif
+  return out;
+}
 }  // namespace
 
 const thread_local auto ENV_DO_PROFILE_COV =
@@ -2849,7 +2876,7 @@ bool KeyframePointCloudMap::internal_insertObservation(
 
     new_kf.timestamp = obs.timestamp;
     new_kf.pose(pc_in_map);
-    new_kf.pointcloud(obsPC->pointcloud);
+    new_kf.pointcloud(cloudInRobotFrame(*obsPC));
 
     new_kf.buildCache();
     cached_.reset();
