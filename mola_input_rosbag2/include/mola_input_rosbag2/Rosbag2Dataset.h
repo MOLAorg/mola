@@ -316,6 +316,13 @@ class Rosbag2Dataset : public RawDataSourceBase,
 
   Obs catchExceptions(const std::function<Obs()>& f);
 
+  /** Registers the callbacks of an RGB-D sensor (a "sensors" entry with
+   *  type CObservation3DRangeScan), which combines several topics. */
+  void installRgbdCallbacks(
+      const mrpt::containers::yaml& sensor, const std::string& depthTopic,
+      const std::string& sensorLabel, const std::optional<mrpt::poses::CPose3D>& fixedSensorPose,
+      bool useBagRecvTimeAsTimestamp, const std::map<std::string, std::string>& topic2type);
+
   void autoUnloadOldEntries() const;
 
   mutable timestep_t    last_used_tim_index_ = 0;
