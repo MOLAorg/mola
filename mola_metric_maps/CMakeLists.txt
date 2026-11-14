@@ -104,7 +104,7 @@ set(LIB_PUBLIC_HDRS
 # The map class and its voxel hash index are always built (the latter does not
 # need nanoflann); only the k-d tree backend is conditional (see the nanoflann
 # version check above).
-list(APPEND LIB_SRCS src/IncrementalPointCloud.cpp src/VoxelHashIndex.cpp)
+list(APPEND LIB_SRCS src/IncrementalPointCloud.cpp src/VoxelHashIndex.cpp src/learned_point_cov.cpp)
 list(APPEND LIB_PUBLIC_HDRS
   include/mola_metric_maps/IncrementalPointCloud.h
   include/mola_metric_maps/PointIndexType.h

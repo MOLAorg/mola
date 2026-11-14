@@ -40,10 +40,12 @@
 #include <mrpt/math/CMatrixFixed.h>
 #include <mrpt/math/TPoint3D.h>
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -52,7 +54,11 @@ namespace mola
 namespace internal
 {
 class IncrementalKDTree;
-}
+struct LearnedPointStats;
+struct LearnedScanContext;
+struct NeighborList;
+class LearnedPointCovModel;
+}  // namespace internal
 
 /** A single-global-frame, sliding-window point map for LiDAR (inertial)
  *  odometry, backed by **one incremental spatial index**, updated in place
@@ -498,6 +504,27 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
      *  the O(N log N) build for every subsequent load.
      */
     bool serialize_kdtree = false;
+
+    /** Optional learned per-point covariances for `nn_search_cov2cov()`:
+     *  path to a model file (a lookup table plus a small MLP per side of a
+     *  pairing, trained offline). Empty (default): the plane-regularized
+     *  covariances above, exactly as without this option.
+     *
+     *  When set on the map that is searched (the global side), the
+     *  covariances of BOTH sides of each pairing come from the model, which
+     *  reads per-point neighborhood statistics of each cloud plus the
+     *  query point's beam direction and range. The sensor position is
+     *  recovered from the query cloud's view-direction fields (see
+     *  `view_direction_filter`), or taken at the origin of its frame if it
+     *  has none. The view-direction filter keeps using the
+     *  plane-regularized covariances.
+     */
+    std::string learned_cov_model_file;
+
+    /** With `learned_cov_model_file`: a global factor on the learned
+     *  covariances of every pairing (the variance, i.e. the squared sigma).
+     *  1 (default) keeps the model's own scale. */
+    double learned_cov_variance_scale = 1.0;
   };
   TCreationOptions creationOptions;
 
@@ -565,6 +592,27 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   mutable std::vector<mrpt::math::CMatrixFloat33> cov_;
   /// One of the COV_* states, see IncrementalPointCloud.cpp.
   mutable std::vector<uint8_t> cov_valid_;
+
+  /// Inputs of the learned covariance model per point, filled along with
+  /// cov_ only when that model is used. \sa learned_cov_model_file
+  mutable std::vector<internal::LearnedPointStats> learned_stats_;
+
+  /// The learned model and the path it was loaded from.
+  mutable std::shared_ptr<const internal::LearnedPointCovModel> learned_model_;
+  mutable std::string                                           learned_model_path_;
+
+  /// Learned covariances of this cloud's points as the query side of a
+  /// pairing, in this cloud's frame. They do not depend on the pose, so they
+  /// are valid for one index content version and one model.
+  mutable std::vector<mrpt::math::CMatrixFloat33>               learned_query_cov_;
+  mutable uint64_t                                              learned_query_cov_version_ = 0;
+  mutable std::shared_ptr<const internal::LearnedPointCovModel> learned_query_cov_model_;
+  /// Sensor position in this cloud's frame, as estimated for the above.
+  mutable mrpt::math::TPoint3Df learned_query_sensor_{0, 0, 0};
+
+  /// Scan-level inputs of the model for this cloud as the query
+  /// (internal::LearnedScanContext::feat).
+  mutable std::array<float, 6> learned_query_scan_feat_{};
 
   /// Slots holding a provisional covariance (one too thin to be cached for
   /// good), valid only while the index content version stays the same.
@@ -634,10 +682,34 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
   void harvestRemovedSlots();
 
   /** Computes the covariance of one live point, unless it is already cached,
-   *  and caches it only if its neighborhood was populated enough.
+   *  and caches it only if its neighborhood was populated enough. With a
+   *  `learned` model, also that model's inputs.
    *  \sa TCreationOptions::min_neighbors_to_cache_cov
    */
-  void computeCovariance(uint32_t slot) const;
+  void computeCovariance(uint32_t slot, const internal::LearnedPointCovModel* learned) const;
+
+  /** The plane-regularized covariance of one point, see computeCovariance().
+   *  With `nearest` (the point's nearest neighbors, sorted, at least as many
+   *  as k_correspondences_for_cov), it reuses them instead of searching. */
+  void computeRegularizedCovariance(uint32_t slot, const internal::NeighborList* nearest) const;
+
+  /// Neighbors the learned model reads, at most this many.
+  static constexpr std::size_t LEARNED_K_MAX = 40;
+
+  /// The nearest LEARNED_K_MAX neighbors of a live point, sorted by distance
+  /// into the given arrays, which the returned list points to.
+  [[nodiscard]] internal::NeighborList learnedNeighbors(
+      uint32_t slot, std::array<uint32_t, LEARNED_K_MAX>& sortedIdxs,
+      std::array<float, LEARNED_K_MAX>& sortedDists) const;
+
+  /// Fills learned_stats_[slot] from the point's learnedNeighbors().
+  void computeLearnedStats(
+      uint32_t slot, const internal::LearnedPointCovModel& learned,
+      const internal::NeighborList& nb) const;
+
+  /// The learned covariance model of `creationOptions`, loaded on first use;
+  /// nullptr when none is configured.
+  [[nodiscard]] std::shared_ptr<const internal::LearnedPointCovModel> learnedModel() const;
 
   /** Whether the raw (not regularized) neighborhood of a live point is flat.
    *  Used by the SurfaceSide view-direction filter, see ViewDirectionFilter. */
@@ -650,7 +722,8 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
    *  available. The caller must pass each slot at most once, so that threads
    *  never write to the same cache entry.
    */
-  void ensureCovariancesFor(const std::vector<uint32_t>& slots) const;
+  void ensureCovariancesFor(
+      const std::vector<uint32_t>& slots, const internal::LearnedPointCovModel* learned) const;
 
   /** Drops the points appended from `firstAppended` on (not indexed yet) that
    *  lie closer than `min_distance_between_points` to an indexed point.

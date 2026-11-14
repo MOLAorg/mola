@@ -38,11 +38,13 @@
 #include <chrono>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <sstream>
 
 #include "IncrementalKDTree.h"
 #include "cov_diagnostics.h"
 #include "covariance_shape.h"
+#include "learned_point_cov.h"
 #include "view_direction_test.h"
 
 #if defined(MOLA_METRIC_MAPS_USE_TBB)
@@ -123,6 +125,47 @@ void clearViewFields(mrpt::maps::CPointsMap& pts)
       std::fill(v->begin(), v->end(), 0.0f);
     }
   }
+}
+
+/** Least-squares meeting point of the lines through each point along its view
+ *  direction, i.e. the sensor position in the frame of the cloud. The origin
+ *  if those lines do not pin a point down (e.g. all parallel). */
+template <typename COORDS, typename FIELD>
+Eigen::Vector3f estimateViewOrigin(
+    const std::vector<uint32_t>& slots, const COORDS& xs, const COORDS& ys, const COORDS& zs,
+    const FIELD& vx, const FIELD& vy, const FIELD& vz)
+{
+  Eigen::Matrix3d A = Eigen::Matrix3d::Zero();
+  Eigen::Vector3d b = Eigen::Vector3d::Zero();
+  std::size_t     n = 0;
+  for (const uint32_t i : slots)
+  {
+    if (i >= vx.size() || i >= vy.size() || i >= vz.size())
+    {
+      continue;
+    }
+    const Eigen::Vector3d v(vx[i], vy[i], vz[i]);
+    const double          vn = v.norm();
+    if (!(vn > 0.5))
+    {
+      continue;  // not a unit view direction
+    }
+    const Eigen::Matrix3d P = Eigen::Matrix3d::Identity() - (v / vn) * (v / vn).transpose();
+    A += P;
+    b += P * Eigen::Vector3d(xs[i], ys[i], zs[i]);
+    n++;
+  }
+  if (n < 3)
+  {
+    return Eigen::Vector3f::Zero();
+  }
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es;
+  es.computeDirect(A, Eigen::EigenvaluesOnly);
+  if (!(es.eigenvalues()[0] > 1e-3 * static_cast<double>(n)))
+  {
+    return Eigen::Vector3f::Zero();
+  }
+  return A.ldlt().solve(b).cast<float>();
 }
 }  // namespace
 
@@ -1069,10 +1112,39 @@ std::size_t IncrementalPointCloud::covCacheThreshold() const
                                                         : creationOptions.k_correspondences_for_cov;
 }
 
-void IncrementalPointCloud::computeCovariance(uint32_t slot) const
+void IncrementalPointCloud::computeCovariance(
+    uint32_t slot, const internal::LearnedPointCovModel* learned) const
 {
-  if (cov_valid_[slot] != COV_NONE) return;
+  if (cov_valid_[slot] != COV_NONE && (learned == nullptr || learned_stats_[slot].computed))
+  {
+    return;
+  }
 
+  if (learned == nullptr)
+  {
+    computeRegularizedCovariance(slot, nullptr);
+    if (slot < learned_stats_.size())
+    {
+      learned_stats_[slot].computed = false;
+    }
+    return;
+  }
+
+  // One neighbor search serves both: the model reads the nearest
+  // LEARNED_K_MAX points, sorted by distance, which contain the plane fit
+  // neighborhood whenever it is not larger.
+  std::array<uint32_t, LEARNED_K_MAX> idxs{};
+  std::array<float, LEARNED_K_MAX>    dists{};
+  const internal::NeighborList        nb = learnedNeighbors(slot, idxs, dists);
+
+  const bool shared = creationOptions.k_correspondences_for_cov <= LEARNED_K_MAX;
+  computeRegularizedCovariance(slot, shared ? &nb : nullptr);
+  computeLearnedStats(slot, *learned, nb);
+}
+
+void IncrementalPointCloud::computeRegularizedCovariance(
+    uint32_t slot, const internal::NeighborList* nearest) const
+{
   cov_computations_.fetch_add(1, std::memory_order_relaxed);
 
   // Provisional unless the neighborhood turns out to be populated enough to
@@ -1117,7 +1189,21 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
     dists = distsHeap.data();
   }
 
-  const std::size_t found = index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs, dists);
+  std::size_t     found       = 0;
+  const uint32_t* neighborIdx = idxs;
+  if (nearest != nullptr)
+  {
+    // The first K of the nearest points within the radius:
+    while (found < std::min(K, nearest->count) && nearest->distSq[found] <= maxDistSqr)
+    {
+      found++;
+    }
+    neighborIdx = nearest->idx;
+  }
+  else
+  {
+    found = index_->knnSearchWithinRadius(q, K, maxDistSqr, idxs, dists);
+  }
 
   // The map only ever gains points around an existing one, so a covariance
   // estimated from a neighborhood this thin is provisional: it is dropped once
@@ -1141,7 +1227,7 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
     Eigen::Matrix<double, 3, -1> neighbors(3, static_cast<Eigen::Index>(found));
     for (std::size_t j = 0; j < found; j++)
     {
-      const uint32_t nIdx                        = idxs[j];
+      const uint32_t nIdx                        = neighborIdx[j];
       neighbors(0, static_cast<Eigen::Index>(j)) = static_cast<double>(m_x[nIdx]);
       neighbors(1, static_cast<Eigen::Index>(j)) = static_cast<double>(m_y[nIdx]);
       neighbors(2, static_cast<Eigen::Index>(j)) = static_cast<double>(m_z[nIdx]);
@@ -1170,7 +1256,7 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
   Eigen::Matrix3d M  = Eigen::Matrix3d::Zero();
   for (std::size_t j = 0; j < found; j++)
   {
-    const uint32_t        nIdx = idxs[j];
+    const uint32_t        nIdx = neighborIdx[j];
     const Eigen::Vector3d d(m_x[nIdx] - px, m_y[nIdx] - py, m_z[nIdx] - pz);
     M.noalias() += d * d.transpose();
   }
@@ -1181,8 +1267,81 @@ void IncrementalPointCloud::computeCovariance(uint32_t slot) const
   cov_[slot] = internal::shapePointCovariance(cov, creationOptions.plane_regularization_lambda);
 }
 
-void IncrementalPointCloud::ensureCovariancesFor(const std::vector<uint32_t>& slots) const
+internal::NeighborList IncrementalPointCloud::learnedNeighbors(
+    uint32_t slot, std::array<uint32_t, LEARNED_K_MAX>& sortedIdxs,
+    std::array<float, LEARNED_K_MAX>& sortedDists) const
 {
+  // The model reads up to the LEARNED_K_MAX nearest neighbors, with no
+  // distance limit, and its covariance neighborhood is its own, whatever this
+  // map's settings (neighbor count, radius, planarity test) are.
+  std::array<uint32_t, LEARNED_K_MAX> idxs{};
+  std::array<float, LEARNED_K_MAX>    dists{};
+
+  const float       q[3]  = {m_x[slot], m_y[slot], m_z[slot]};
+  const std::size_t K     = std::min<std::size_t>(LEARNED_K_MAX, index_->size());
+  std::size_t       found = 0;
+  if (K > 0)
+  {
+    found = index_->knnSearch(q, K, idxs.data(), dists.data());
+  }
+
+  // Closest first (the point itself, at zero distance, included):
+  std::array<std::size_t, LEARNED_K_MAX> order{};
+  std::iota(order.begin(), order.begin() + static_cast<std::ptrdiff_t>(found), std::size_t{0});
+  std::sort(
+      order.begin(), order.begin() + static_cast<std::ptrdiff_t>(found),
+      [&](std::size_t a, std::size_t b) { return dists[a] < dists[b]; });
+  for (std::size_t j = 0; j < found; j++)
+  {
+    sortedIdxs[j]  = idxs[order[j]];
+    sortedDists[j] = dists[order[j]];
+  }
+
+  internal::NeighborList nb;
+  nb.x      = m_x.data();
+  nb.y      = m_y.data();
+  nb.z      = m_z.data();
+  nb.idx    = sortedIdxs.data();
+  nb.distSq = sortedDists.data();
+  nb.count  = found;
+  return nb;
+}
+
+void IncrementalPointCloud::computeLearnedStats(
+    uint32_t slot, const internal::LearnedPointCovModel& learned,
+    const internal::NeighborList& nb) const
+{
+  auto& st = learned_stats_[slot];
+  st       = internal::computeLearnedPointStats(
+            Eigen::Vector3d(m_x[slot], m_y[slot], m_z[slot]), nb, learned.neighbors(), learned.radius(),
+            learned.minNeighbors());
+  st.computed = true;
+}
+
+std::shared_ptr<const internal::LearnedPointCovModel> IncrementalPointCloud::learnedModel() const
+{
+  // Called with the map mutex held.
+  if (creationOptions.learned_cov_model_file != learned_model_path_)
+  {
+    learned_model_.reset();
+    learned_model_path_ = creationOptions.learned_cov_model_file;
+    if (!learned_model_path_.empty())
+    {
+      learned_model_ = internal::LearnedPointCovModel::FromFile(learned_model_path_);
+    }
+  }
+  return learned_model_;
+}
+
+void IncrementalPointCloud::ensureCovariancesFor(
+    const std::vector<uint32_t>& slots, const internal::LearnedPointCovModel* learned) const
+{
+  // Sized here, sequentially, since the loop below may run in parallel:
+  if (learned != nullptr && learned_stats_.size() < cov_.size())
+  {
+    learned_stats_.resize(cov_.size());
+  }
+
   // Provisional covariances are only reused while the map content is the one
   // they were computed from: same neighbors, hence the same result.
   if (const uint64_t version = index_->contentVersion(); version != provisional_cov_version_)
@@ -1206,12 +1365,12 @@ void IncrementalPointCloud::ensureCovariancesFor(const std::vector<uint32_t>& sl
       {
         tbb::parallel_for(
             static_cast<std::size_t>(0), slots.size(),
-            [&](std::size_t i) { computeCovariance(slots[i]); });
+            [&](std::size_t i) { computeCovariance(slots[i], learned); });
       });
 #else
   for (const uint32_t slot : slots)
   {
-    computeCovariance(slot);
+    computeCovariance(slot, learned);
   }
 #endif
 
@@ -1300,9 +1459,12 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   localPc->index_->snapshotLiveIndices(localLive);
   if (localLive.empty()) return;
 
+  // Optional learned covariances, see TCreationOptions::learned_cov_model_file.
+  const auto learned = learnedModel();
+
   // Local covariances are needed for every local point, and each slot appears
   // exactly once in the snapshot:
-  localPc->ensureCovariancesFor(localLive);
+  localPc->ensureCovariancesFor(localLive, learned.get());
 
   // Fast path: a flat threshold (the common case, and the only one before this
   // profile existed) needs no per-point range computation.
@@ -1345,6 +1507,81 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     const Eigen::Vector3f vg((*g_vx)[gs], (*g_vy)[gs], (*g_vz)[gs]);
     return std::make_pair(Eigen::Vector3f(R * vl), vg);
   };
+
+  // Learned covariances of the query side: they do not depend on the pose, so
+  // they are computed once per query cloud and model, not on every iteration.
+  // The model needs each query point's beam, i.e. the sensor position in the
+  // query cloud's frame, where all its view directions meet.
+  using LearnedModel              = internal::LearnedPointCovModel;
+  const auto learnedVarianceScale = static_cast<float>(creationOptions.learned_cov_variance_scale);
+  Eigen::Vector3f              sensorInLocal = Eigen::Vector3f::Zero();
+  internal::LearnedScanContext learnedScanCtx;  // scan-level inputs, same for all pairings
+  if (learned != nullptr)
+  {
+    const uint64_t version = localPc->index_->contentVersion();
+    if (localPc->learned_query_cov_version_ != version ||
+        localPc->learned_query_cov_model_ != learned)
+    {
+      const bool            hasViews = l_vx != nullptr && l_vy != nullptr && l_vz != nullptr;
+      const Eigen::Vector3f s =
+          hasViews ? estimateViewOrigin(localLive, l_xs, l_ys, l_zs, *l_vx, *l_vy, *l_vz)
+                   : Eigen::Vector3f::Zero();
+
+      localPc->learned_query_cov_.resize(localPc->cov_.size());
+
+      // Scan-level inputs: from the ranges and normals of the whole query cloud.
+      internal::LearnedScanContext scanCtx;
+      if (learned->numScanInputs() > 0)
+      {
+        std::vector<float>           ranges;
+        std::vector<Eigen::Vector3f> normals;
+        ranges.reserve(localLive.size());
+        for (const uint32_t ls : localLive)
+        {
+          ranges.push_back((Eigen::Vector3f(l_xs[ls], l_ys[ls], l_zs[ls]) - s).norm());
+          const auto& st = localPc->learned_stats_[ls];
+          if (st.ok)
+          {
+            normals.emplace_back(st.U.col(0));
+          }
+        }
+        scanCtx = internal::computeLearnedScanContext(ranges, normals);
+      }
+      localPc->learned_query_scan_feat_ = scanCtx.feat;
+
+      const auto queryCov = [&](uint32_t ls)
+      {
+        Eigen::Vector3f ray   = Eigen::Vector3f(l_xs[ls], l_ys[ls], l_zs[ls]) - s;
+        const float     range = ray.norm();
+        if (range > 0)
+        {
+          ray /= range;
+        }
+        localPc->learned_query_cov_[ls].asEigen() = learned->sideCovariance(
+            LearnedModel::QUERY, localPc->learned_stats_[ls], scanCtx, ray, range);
+      };
+#if defined(MOLA_METRIC_MAPS_USE_TBB)
+      tbb::this_task_arena::isolate(
+          [&]
+          {
+            tbb::parallel_for(
+                static_cast<std::size_t>(0), localLive.size(),
+                [&](std::size_t i) { queryCov(localLive[i]); });
+          });
+#else
+      for (const uint32_t ls : localLive)
+      {
+        queryCov(ls);
+      }
+#endif
+      localPc->learned_query_cov_version_ = version;
+      localPc->learned_query_cov_model_   = learned;
+      localPc->learned_query_sensor_      = {s.x(), s.y(), s.z()};
+    }
+    const auto& ls      = localPc->learned_query_sensor_;
+    sensorInLocal       = Eigen::Vector3f(ls.x, ls.y, ls.z);
+    learnedScanCtx.feat = localPc->learned_query_scan_feat_;
+  }
 
   // --- Pass 1: nearest-neighbor search (no covariance access) --------------
   struct Match
@@ -1440,7 +1677,7 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   std::sort(globalSlots.begin(), globalSlots.end());
   globalSlots.erase(std::unique(globalSlots.begin(), globalSlots.end()), globalSlots.end());
 
-  ensureCovariancesFor(globalSlots);
+  ensureCovariancesFor(globalSlots, learned.get());
 
   // --- Pass 3: assemble the pairings --------------------------------------
   const std::size_t firstNewPairing = outPairings.size();
@@ -1474,6 +1711,23 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
     p.global     = {m_x[m.global_slot], m_y[m.global_slot], m_z[m.global_slot]};
 
     // GICP \cite segal2009gicp : (COV_global + R*COV_local*R^T)^-1
+    if (learned != nullptr)
+    {
+      Eigen::Vector3f ray   = Eigen::Vector3f(p.local.x, p.local.y, p.local.z) - sensorInLocal;
+      const float     range = ray.norm();
+      if (range > 0)
+      {
+        ray /= range;
+      }
+      const Eigen::Matrix3f covLocal  = localPc->learned_query_cov_[m.local_slot].asEigen();
+      const Eigen::Matrix3f covGlobal = learned->sideCovariance(
+          LearnedModel::MAP, learned_stats_[m.global_slot], learnedScanCtx, R * ray, range);
+
+      p.cov_inv.asEigen() =
+          (covGlobal + R * covLocal * R.transpose()).inverse() / learnedVarianceScale;
+      return;
+    }
+
     const Eigen::Matrix3f covLocalGlobalFrame =
         R * localPc->cov_[m.local_slot].asEigen() * R.transpose();
 
@@ -1816,6 +2070,8 @@ void IncrementalPointCloud::TCreationOptions::loadFromConfigFile(
   view_direction_filter = c.read_enum(s, "view_direction_filter", view_direction_filter);
   MRPT_LOAD_CONFIG_VAR(max_view_angle_deg, double, c, s);
   MRPT_LOAD_CONFIG_VAR(serialize_kdtree, bool, c, s);
+  MRPT_LOAD_CONFIG_VAR(learned_cov_model_file, string, c, s);
+  MRPT_LOAD_CONFIG_VAR(learned_cov_variance_scale, double, c, s);
 }
 
 void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out) const
@@ -1840,12 +2096,15 @@ void IncrementalPointCloud::TCreationOptions::dumpToTextStream(std::ostream& out
   LOADABLEOPTS_DUMP_VAR(view_direction_filter, int);
   LOADABLEOPTS_DUMP_VAR(max_view_angle_deg, double);
   LOADABLEOPTS_DUMP_VAR(serialize_kdtree, bool);
+  using std::string;
+  LOADABLEOPTS_DUMP_VAR(learned_cov_model_file, string);
+  LOADABLEOPTS_DUMP_VAR(learned_cov_variance_scale, double);
 }
 
 void IncrementalPointCloud::TCreationOptions::writeToStream(
     mrpt::serialization::CArchive& out) const
 {
-  const int8_t version = 6;
+  const int8_t version = 7;
   out << version;
   out << remove_points_farther_than << async_rebuild << alpha_balance << alpha_deleted
       << reserve_points << k_correspondences_for_cov << min_correspondences_for_cov
@@ -1857,6 +2116,7 @@ void IncrementalPointCloud::TCreationOptions::writeToStream(
       << max_view_angle_deg;  // v4
   out << min_distance_between_points;  // v5
   out << static_cast<uint8_t>(index_type) << index_voxel_size;  // v6
+  out << learned_cov_model_file << learned_cov_variance_scale;  // v7
 }
 
 void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization::CArchive& in)
@@ -1876,6 +2136,7 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
     case 4:
     case 5:
     case 6:
+    case 7:
     {
       in >> remove_points_farther_than >> async_rebuild >> alpha_balance >> alpha_deleted >>
           reserve_points >> k_correspondences_for_cov >> min_correspondences_for_cov >>
@@ -1922,6 +2183,10 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
             mrpt::format("Invalid index_type value in stream: %u", static_cast<unsigned>(type)));
         index_type = static_cast<PointIndexType>(type);
         in >> index_voxel_size;
+      }
+      if (version >= 7)
+      {
+        in >> learned_cov_model_file >> learned_cov_variance_scale;
       }
     }
     break;
