@@ -66,6 +66,8 @@
 #include <mrpt/ros2bridge/rosbag2_to_mrpt.h>
 #endif
 
+#include <rmw/rmw.h>
+
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -74,6 +76,7 @@
 #include <rosbag2_cpp/converter_options.hpp>
 #include <rosbag2_cpp/readers/sequential_reader.hpp>
 #include <rosbag2_storage/storage_filter.hpp>
+#include <rosidl_typesupport_cpp/message_type_support.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -112,6 +115,34 @@ int64_t bagMessageRecvTimestampNs(const T& m)
   {
     return m.recv_timestamp;
   }
+}
+
+// Overrides the timestamp of all observations with the bag receive time of m.
+template <typename OBS_VECTOR>
+void setRecvTimestamp(OBS_VECTOR& obs, const rosbag2_storage::SerializedBagMessage& m)
+{
+  const auto recvTimestamp =
+      mrpt::Clock::fromDouble(1e-9 * static_cast<double>(bagMessageRecvTimestampNs(m)));
+  for (auto& o : obs)
+  {
+    if (o)
+    {
+      o->timestamp = recvTimestamp;
+    }
+  }
+}
+
+// Deserializes straight from the bag buffer, without the extra payload copy
+// that wrapping it into an rclcpp::SerializedMessage implies.
+template <typename MSG>
+MSG deserializeBagMessage(const rosbag2_storage::SerializedBagMessage& m)
+{
+  MSG        msg;
+  const auto ret = rmw_deserialize(
+      m.serialized_data.get(), rosidl_typesupport_cpp::get_message_type_support_handle<MSG>(),
+      &msg);
+  ASSERTMSG_(ret == RMW_RET_OK, "rmw_deserialize() failed for topic '" + m.topic_name + "'");
+  return msg;
 }
 }  // namespace
 
@@ -558,15 +589,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
               Obs obs = toCompressedImage(sensorLabel, m, fixedSensorPose);
               if (useBagRecvTimeAsTimestamp)
               {
-                const auto recvTimestamp = mrpt::Clock::fromDouble(
-                    1e-9 * static_cast<double>(bagMessageRecvTimestampNs(m)));
-                for (auto& o : obs)
-                {
-                  if (o)
-                  {
-                    o->timestamp = recvTimestamp;
-                  }
-                }
+                setRecvTimestamp(obs, m);
               }
               return obs;
             });
@@ -630,15 +653,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
               Obs obs = convFn(sensorLabel, m, *tfBuffer_, base_link_frame_id_, fixedSensorPose);
               if (useBagRecvTimeAsTimestamp)
               {
-                const auto recvTimestamp = mrpt::Clock::fromDouble(
-                    1e-9 * static_cast<double>(bagMessageRecvTimestampNs(m)));
-                for (auto& o : obs)
-                {
-                  if (o)
-                  {
-                    o->timestamp = recvTimestamp;
-                  }
-                }
+                setRecvTimestamp(obs, m);
               }
               return obs;
             });
@@ -659,15 +674,7 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
               Obs obs = mrpt::ros2bridge::rosbag2ToOdometry(sensorLabel, m);
               if (useBagRecvTimeAsTimestamp)
               {
-                const auto recvTimestamp = mrpt::Clock::fromDouble(
-                    1e-9 * static_cast<double>(bagMessageRecvTimestampNs(m)));
-                for (auto& o : obs)
-                {
-                  if (o)
-                  {
-                    o->timestamp = recvTimestamp;
-                  }
-                }
+                setRecvTimestamp(obs, m);
               }
               return obs;
             });
@@ -1632,8 +1639,6 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toRobotPose(
     std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
     const std::string& rosMsgType, const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
-  rclcpp::SerializedMessage serMsg(*rosmsg.serialized_data);
-
   auto mrptObs         = mrpt::obs::CObservationRobotPose::Create();
   mrptObs->sensorLabel = label;
   // Unlike CObservationOdometry, this type can carry a sensor pose, so a
@@ -1642,25 +1647,19 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toRobotPose(
 
   if (rosMsgType == "nav_msgs/msg/Odometry")
   {
-    static rclcpp::Serialization<nav_msgs::msg::Odometry> ser;
-    nav_msgs::msg::Odometry                               msg;
-    ser.deserialize_message(&serMsg, &msg);
+    const auto msg     = deserializeBagMessage<nav_msgs::msg::Odometry>(rosmsg);
     mrptObs->timestamp = mrpt::ros2bridge::fromROS(msg.header.stamp);
     mrptObs->pose      = mrpt::ros2bridge::fromROS(msg.pose);
   }
   else if (rosMsgType == "geometry_msgs/msg/PoseWithCovarianceStamped")
   {
-    static rclcpp::Serialization<geometry_msgs::msg::PoseWithCovarianceStamped> ser;
-    geometry_msgs::msg::PoseWithCovarianceStamped                               msg;
-    ser.deserialize_message(&serMsg, &msg);
+    const auto msg = deserializeBagMessage<geometry_msgs::msg::PoseWithCovarianceStamped>(rosmsg);
     mrptObs->timestamp = mrpt::ros2bridge::fromROS(msg.header.stamp);
     mrptObs->pose      = mrpt::ros2bridge::fromROS(msg.pose);
   }
   else if (rosMsgType == "geometry_msgs/msg/PoseStamped")
   {
-    static rclcpp::Serialization<geometry_msgs::msg::PoseStamped> ser;
-    geometry_msgs::msg::PoseStamped                               msg;
-    ser.deserialize_message(&serMsg, &msg);
+    const auto msg     = deserializeBagMessage<geometry_msgs::msg::PoseStamped>(rosmsg);
     mrptObs->timestamp = mrpt::ros2bridge::fromROS(msg.header.stamp);
     mrptObs->pose.mean = mrpt::ros2bridge::fromROS(msg.pose);
     // geometry_msgs/PoseStamped carries no covariance at all.
@@ -1683,11 +1682,7 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
     std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
     const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
 {
-  rclcpp::SerializedMessage                                       serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<sensor_msgs::msg::CompressedImage> serializer;
-
-  sensor_msgs::msg::CompressedImage image;
-  serializer.deserialize_message(&serMsg, &image);
+  const auto image = deserializeBagMessage<sensor_msgs::msg::CompressedImage>(rosmsg);
 
   auto imgObs = mrpt::obs::CObservationImage::Create();
 
@@ -1736,11 +1731,7 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
 template <bool isStatic>
 Rosbag2Dataset::Obs Rosbag2Dataset::toTf(const rosbag2_storage::SerializedBagMessage& rosmsg)
 {
-  static rclcpp::Serialization<tf2_msgs::msg::TFMessage> tfSerializer;
-
-  tf2_msgs::msg::TFMessage  tfs;
-  rclcpp::SerializedMessage msgData(*rosmsg.serialized_data);
-  tfSerializer.deserialize_message(&msgData, &tfs);
+  auto tfs = deserializeBagMessage<tf2_msgs::msg::TFMessage>(rosmsg);
 
   // tf2_msgs::msg::to_block_style_yaml(msg, std::cout);
 

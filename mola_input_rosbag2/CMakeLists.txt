@@ -22,6 +22,7 @@ find_package(mrpt_libros_bridge REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(rclcpp REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -49,6 +50,7 @@ mola_add_library(
     mrpt::mrpt_obs
     mrpt_libros_bridge::mrpt_libros_bridge
     tf2::tf2
+    rclcpp::rclcpp
     rosbag2_cpp::rosbag2_cpp
     tf2_geometry_msgs::tf2_geometry_msgs
     tf2_msgs::tf2_msgs__rosidl_typesupport_cpp
@@ -85,3 +87,4 @@ mola_add_executable(
     mola::mola_kernel
     CLI11::CLI11
 )
+
