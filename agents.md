@@ -69,7 +69,7 @@ mola_viz/                      # GUI visualization, nanogui backend (`MolaViz`)
 mola_viz_imgui/                # GUI visualization, Dear ImGui + ImPlot backend (`MolaVizImGui`)
 
 # Data Input Sources (RawDataSource implementations)
-mola_input_rosbag2/            # ROS 2 bag file player
+mola_input_rosbag2/            # ROS 2 bag file player (RGB-D: CObservation3DRangeScan from depth+intensity+camera_info)
 mola_input_rawlog/             # MRPT rawlog binary format
 mola_input_video/              # Live/offline video sources (OpenCV)
 mola_input_lidar_bin_dataset/  # Generic binary LiDAR format

@@ -56,6 +56,8 @@
 #include <tf2/exceptions.hpp>
 #include <type_traits>
 
+#include "RgbdAssembler.h"
+
 #if CV_BRIDGE_VERSION < 0x030400
 #include <cv_bridge/cv_bridge.h>
 #else
@@ -143,6 +145,13 @@ MSG deserializeBagMessage(const rosbag2_storage::SerializedBagMessage& m)
       &msg);
   ASSERTMSG_(ret == RMW_RET_OK, "rmw_deserialize() failed for topic '" + m.topic_name + "'");
   return msg;
+}
+
+// Default camera_info topic of an image topic: its sibling "camera_info".
+std::string siblingCameraInfoTopic(const std::string& imageTopic)
+{
+  const auto pos = imageTopic.find_last_of('/');
+  return (pos == std::string::npos ? std::string() : imageTopic.substr(0, pos + 1)) + "camera_info";
 }
 }  // namespace
 
@@ -553,18 +562,13 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
     const bool useBagRecvTimeAsTimestamp = sensor.has("use_bag_recv_time_as_timestamp") &&
                                            sensor["use_bag_recv_time_as_timestamp"].as<bool>();
 
-#if 0  // TODO ?
-			else if (sensorType == "CObservation3DRangeScan")
-			{
-				bool rangeIsDepth = sensor.has("rangeIsDepth")
-										? sensor["rangeIsDepth"].as<bool>()
-										: true;
-				auto callback = [=](const sensor_msgs::Image::Ptr& image,
-									const sensor_msgs::CameraInfo::Ptr& info) {
-					return toRangeImage(sensorName, image, info, rangeIsDepth);
-				};
-			}
-#endif
+    // RGB-D cameras: several topics (depth, intensity, camera_info) per sensor.
+    if (sensorType == "CObservation3DRangeScan")
+    {
+      installRgbdCallbacks(
+          sensor, topic, sensorLabel, fixedSensorPose, useBagRecvTimeAsTimestamp, topic2type);
+      continue;
+    }
 
     // TODO: Remove the #else branch once mrpt_ros2_bridge > 3.4.0 is generally available
 
@@ -1676,6 +1680,96 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toRobotPose(
   fillInDefaultPoseCovariance(mrptObs->pose);
 
   return {mrptObs};
+}
+
+void Rosbag2Dataset::installRgbdCallbacks(
+    const mrpt::containers::yaml& sensor, const std::string& depthTopic,
+    const std::string& sensorLabel, const std::optional<mrpt::poses::CPose3D>& fixedSensorPose,
+    bool useBagRecvTimeAsTimestamp, const std::map<std::string, std::string>& topic2type)
+{
+  using rosbag2_storage::SerializedBagMessage;
+
+  RgbdAssembler::Parameters p;
+  p.sensorLabel     = sensorLabel;
+  p.fixedSensorPose = fixedSensorPose;
+  p.maxTimeOffset   = sensor.getOrDefault<double>("max_time_offset", p.maxTimeOffset);
+  p.maxRange        = sensor.getOrDefault<float>("max_range", p.maxRange);
+
+  const auto intensityTopic = sensor.getOrDefault<std::string>("intensity_topic", "");
+  p.withIntensity           = !intensityTopic.empty();
+
+  const auto depthInfoTopic =
+      sensor.getOrDefault<std::string>("camera_info_topic", siblingCameraInfoTopic(depthTopic));
+  const auto intensityInfoTopic = sensor.getOrDefault<std::string>(
+      "intensity_camera_info_topic", siblingCameraInfoTopic(intensityTopic));
+
+  std::vector<std::string> topics = {depthTopic, depthInfoTopic};
+  if (p.withIntensity)
+  {
+    topics.push_back(intensityTopic);
+    topics.push_back(intensityInfoTopic);
+  }
+  for (const auto& t : topics)
+  {
+    ASSERTMSG_(
+        topic2type.count(t) != 0,
+        "RGB-D sensor '" + sensorLabel + "': topic '" + t + "' not found in the bag(s).");
+  }
+
+  auto assembler = std::make_shared<RgbdAssembler>(p, tfBuffer_, base_link_frame_id_);
+
+  const auto onImage = [this, assembler, useBagRecvTimeAsTimestamp](
+                           const SerializedBagMessage& m, bool isDepth) -> Obs
+  {
+    return catchExceptions(
+        [&]() -> Obs
+        {
+          auto img = deserializeBagMessage<sensor_msgs::msg::Image>(m);
+          Obs  obs = isDepth ? assembler->onDepthImage(std::move(img))
+                             : assembler->onIntensityImage(std::move(img));
+          if (useBagRecvTimeAsTimestamp)
+          {
+            setRecvTimestamp(obs, m);
+          }
+          return obs;
+        });
+  };
+  const auto onInfo = [this, assembler](const SerializedBagMessage& m, bool isDepth) -> Obs
+  {
+    return catchExceptions(
+        [&]() -> Obs
+        {
+          const auto info = deserializeBagMessage<sensor_msgs::msg::CameraInfo>(m);
+          if (isDepth)
+          {
+            assembler->onDepthCameraInfo(info);
+          }
+          else
+          {
+            assembler->onIntensityCameraInfo(info);
+          }
+          return {};
+        });
+  };
+
+  lookup_[depthTopic].emplace_back([onImage](const SerializedBagMessage& m)
+                                   { return onImage(m, true); });
+  lookup_[depthInfoTopic].emplace_back([onInfo](const SerializedBagMessage& m)
+                                       { return onInfo(m, true); });
+  if (p.withIntensity)
+  {
+    lookup_[intensityTopic].emplace_back([onImage](const SerializedBagMessage& m)
+                                         { return onImage(m, false); });
+    lookup_[intensityInfoTopic].emplace_back([onInfo](const SerializedBagMessage& m)
+                                             { return onInfo(m, false); });
+  }
+
+  MRPT_LOG_INFO_STREAM(
+      "Installing RGB-D sensor '" << sensorLabel << "': depth='" << depthTopic << "' ("
+                                  << depthInfoTopic << ")"
+                                  << (p.withIntensity ? ", intensity='" + intensityTopic + "' (" +
+                                                            intensityInfoTopic + ")"
+                                                      : std::string(", no intensity")));
 }
 
 Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(

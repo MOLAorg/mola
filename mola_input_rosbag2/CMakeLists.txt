@@ -88,3 +88,19 @@ mola_add_executable(
     CLI11::CLI11
 )
 
+# -----------------------
+# Unit tests:
+option(MOLA_INPUT_ROSBAG2_BUILD_TESTING "Build the unit tests" ON)
+if(MOLA_INPUT_ROSBAG2_BUILD_TESTING)
+  enable_testing()
+  mola_add_test(
+    TARGET  test-mola_input_rosbag2_rgbd_assembler
+    SOURCES tests/test-rgbd-assembler.cpp src/RgbdAssembler.cpp
+    LINK_LIBRARIES
+      mrpt::mrpt_obs
+      mrpt_libros_bridge::mrpt_libros_bridge
+      tf2::tf2
+      tf2_geometry_msgs::tf2_geometry_msgs
+      sensor_msgs::sensor_msgs_library
+  )
+endif()
