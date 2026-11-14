@@ -254,6 +254,8 @@ class Rosbag2Dataset : public RawDataSourceBase,
 
   std::map<std::string, std::vector<CallbackFunction>> lookup_;
   std::set<std::string>                                unhandledTopics_;
+  /** camera_info topics of RGB-D sensors: also read while fast-forwarding */
+  std::set<std::string> cameraInfoTopics_;
 
   std::shared_ptr<tf2::BufferCore> tfBuffer_;
 

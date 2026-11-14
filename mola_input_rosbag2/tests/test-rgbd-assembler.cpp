@@ -202,6 +202,47 @@ void test_pairing_and_geometry()
   ASSERT_(a.onIntensityImage(colorImage(3.1, 8, 6)).empty());
   // ...until the depth frame matching the pending intensity arrives:
   ASSERT_EQUAL_(a.onDepthImage(depthImage16(3.1, 10, 6, 1000)).size(), 1U);
+
+  // A stream that never finds its counterpart is evicted and counted:
+  for (int i = 0; i < 12; i++)
+  {
+    ASSERT_(a.onDepthImage(depthImage16(10.0 + i, 10, 6, 1000)).empty());
+  }
+  ASSERT_GE_(a.droppedUnpaired(), 2U);
+}
+
+void test_camera_info()
+{
+  auto ci  = cameraInfo(kDepthFrame, 640, 480, 600.0);
+  ci.d     = {0.1, -0.2, 0.001, 0.002, 0.03};
+  auto cam = RgbdAssembler::cameraFromROS(ci);
+  ASSERT_EQUAL_(cam.ncols, 640U);
+  ASSERT_NEAR_(cam.fx(), 600.0, 1e-9);
+  ASSERT_NEAR_(cam.cx(), 320.0, 1e-9);
+  ASSERT_NEAR_(cam.k1(), 0.1, 1e-9);
+  ASSERT_NEAR_(cam.p2(), 0.002, 1e-9);
+  ASSERT_(cam.distortion == mrpt::img::DistortionModel::plumb_bob);
+}
+
+void test_coinciding_cameras_with_different_sizes()
+{
+  const RgbdAssembler::Parameters p;
+  RgbdAssembler                   a(p, makeTf(), "base_link");
+  a.onDepthCameraInfo(cameraInfo(kDepthFrame, 10, 6, 5.0));
+  a.onIntensityCameraInfo(cameraInfo(kDepthFrame, 8, 6, 5.0));
+  auto img            = colorImage(1.0, 8, 6);
+  img.header.frame_id = kDepthFrame;
+  ASSERT_(a.onIntensityImage(std::move(img)).empty());
+  bool threw = false;
+  try
+  {
+    a.onDepthImage(depthImage16(1.0, 10, 6, 1000));
+  }
+  catch (const std::exception&)
+  {
+    threw = true;
+  }
+  ASSERT_(threw);
 }
 
 void test_registered_and_depth_only()
@@ -243,6 +284,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_decode_depth();
     test_pairing_and_geometry();
     test_registered_and_depth_only();
+    test_camera_info();
+    test_coinciding_cameras_with_different_sizes();
     std::cout << "All tests passed.\n";
     return 0;
   }

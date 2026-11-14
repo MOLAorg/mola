@@ -81,6 +81,14 @@ class RgbdAssembler
   static void decodeDepth(
       const sensor_msgs::msg::Image& img, mrpt::obs::CObservation3DRangeScan& obs);
 
+  /** Intrinsics and lens distortion from a sensor_msgs/CameraInfo. */
+  static mrpt::img::TCamera cameraFromROS(const sensor_msgs::msg::CameraInfo& info);
+
+  /** Images evicted from the waiting queues without a counterpart. */
+  [[nodiscard]] size_t droppedUnpaired() const { return droppedUnpaired_; }
+  /** Smallest stamp difference seen for the last evicted image [s]. */
+  [[nodiscard]] double lastEvictedClosestDt() const { return lastEvictedClosestDt_; }
+
   /** Pose of a camera optical frame (+Z forward, ROS REP 103) in the MRPT
    *  3D range scan sensor frame (+X forward): (0,0,0,-90deg,0,-90deg). */
   static const mrpt::poses::CPose3D& opticalFrameInSensorFrame();
@@ -100,6 +108,8 @@ class RgbdAssembler
   std::optional<mrpt::img::TCamera> intensityCamera_;
   std::deque<Pending>               depthQueue_;
   std::deque<Pending>               intensityQueue_;
+  size_t                            droppedUnpaired_      = 0;
+  double                            lastEvictedClosestDt_ = 0;
 
   /** Cached intensity-wrt-depth poses, by (depth frame, intensity frame) */
   std::map<std::pair<std::string, std::string>, mrpt::poses::CPose3D> intensityWrtDepth_;

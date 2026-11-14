@@ -51,6 +51,7 @@
 #include <chrono>
 #include <cmath>
 #include <set>
+#include <stdexcept>
 #include <tf2/buffer_core.hpp>
 #include <tf2/convert.hpp>
 #include <tf2/exceptions.hpp>
@@ -139,11 +140,22 @@ void setRecvTimestamp(OBS_VECTOR& obs, const rosbag2_storage::SerializedBagMessa
 template <typename MSG>
 MSG deserializeBagMessage(const rosbag2_storage::SerializedBagMessage& m)
 {
+  // Shorter than a CDR header: some rmw implementations would read past it.
+  if (!m.serialized_data || m.serialized_data->buffer_length < 4)
+  {
+    throw std::runtime_error("Empty or truncated message in topic '" + m.topic_name + "'");
+  }
   MSG        msg;
   const auto ret = rmw_deserialize(
       m.serialized_data.get(), rosidl_typesupport_cpp::get_message_type_support_handle<MSG>(),
       &msg);
-  ASSERTMSG_(ret == RMW_RET_OK, "rmw_deserialize() failed for topic '" + m.topic_name + "'");
+  if (ret != RMW_RET_OK)
+  {
+    const std::string err = rmw_get_error_string().str;
+    rmw_reset_error();
+    throw std::runtime_error(
+        "Failed to deserialize a message of topic '" + m.topic_name + "': " + err);
+  }
   return msg;
 }
 
@@ -1179,7 +1191,7 @@ void Rosbag2Dataset::doReadAhead(const std::optional<size_t>& requestedIndex, bo
       // Fast-forwarding: skipped messages are not converted, except the TF
       // topics, whose transforms must be in the buffer when playback resumes.
       const auto& topic = serialized_message->topic_name;
-      if (topic == tf_topic_ || topic == tf_static_topic_)
+      if (topic == tf_topic_ || topic == tf_static_topic_ || cameraInfoTopics_.count(topic) != 0)
       {
         to_mrpt(*serialized_message);
       }
@@ -1703,17 +1715,31 @@ void Rosbag2Dataset::installRgbdCallbacks(
   const auto intensityInfoTopic = sensor.getOrDefault<std::string>(
       "intensity_camera_info_topic", siblingCameraInfoTopic(intensityTopic));
 
-  std::vector<std::string> topics = {depthTopic, depthInfoTopic};
+  std::vector<std::pair<std::string, std::string>> topics = {
+      {depthTopic, "sensor_msgs/msg/Image"}, {depthInfoTopic, "sensor_msgs/msg/CameraInfo"}};
   if (p.withIntensity)
   {
-    topics.push_back(intensityTopic);
-    topics.push_back(intensityInfoTopic);
+    topics.emplace_back(intensityTopic, "sensor_msgs/msg/Image");
+    topics.emplace_back(intensityInfoTopic, "sensor_msgs/msg/CameraInfo");
   }
-  for (const auto& t : topics)
+  for (const auto& [t, type] : topics)
   {
+    if (topic2type.count(t) == 0)
+    {
+      if (sensor.getOrDefault<bool>("is_optional", false))
+      {
+        MRPT_LOG_WARN_STREAM(
+            "RGB-D sensor '" << sensorLabel << "' skipped: optional topic '" << t
+                             << "' not found in the bag(s).");
+        return;
+      }
+      THROW_EXCEPTION(
+          "RGB-D sensor '" + sensorLabel + "': topic '" + t + "' not found in the bag(s).");
+    }
     ASSERTMSG_(
-        topic2type.count(t) != 0,
-        "RGB-D sensor '" + sensorLabel + "': topic '" + t + "' not found in the bag(s).");
+        topic2type.at(t) == type, "RGB-D sensor '" + sensorLabel + "': topic '" + t +
+                                      "' has type '" + topic2type.at(t) + "', expected '" + type +
+                                      "'.");
   }
 
   auto assembler = std::make_shared<RgbdAssembler>(p, tfBuffer_, base_link_frame_id_);
@@ -1724,9 +1750,18 @@ void Rosbag2Dataset::installRgbdCallbacks(
     return catchExceptions(
         [&]() -> Obs
         {
-          auto img = deserializeBagMessage<sensor_msgs::msg::Image>(m);
-          Obs  obs = isDepth ? assembler->onDepthImage(std::move(img))
-                             : assembler->onIntensityImage(std::move(img));
+          auto         img           = deserializeBagMessage<sensor_msgs::msg::Image>(m);
+          const size_t droppedBefore = assembler->droppedUnpaired();
+          Obs          obs           = isDepth ? assembler->onDepthImage(std::move(img))
+                                               : assembler->onIntensityImage(std::move(img));
+          if (assembler->droppedUnpaired() != droppedBefore)
+          {
+            MRPT_LOG_THROTTLE_WARN_FMT(
+                5.0,
+                "RGB-D sensor: %zu image(s) dropped so far without a depth/intensity "
+                "counterpart within max_time_offset (the last one's closest was %.1f ms away).",
+                assembler->droppedUnpaired(), 1e3 * assembler->lastEvictedClosestDt());
+          }
           if (useBagRecvTimeAsTimestamp)
           {
             setRecvTimestamp(obs, m);
@@ -1756,12 +1791,14 @@ void Rosbag2Dataset::installRgbdCallbacks(
                                    { return onImage(m, true); });
   lookup_[depthInfoTopic].emplace_back([onInfo](const SerializedBagMessage& m)
                                        { return onInfo(m, true); });
+  cameraInfoTopics_.insert(depthInfoTopic);
   if (p.withIntensity)
   {
     lookup_[intensityTopic].emplace_back([onImage](const SerializedBagMessage& m)
                                          { return onImage(m, false); });
     lookup_[intensityInfoTopic].emplace_back([onInfo](const SerializedBagMessage& m)
                                              { return onInfo(m, false); });
+    cameraInfoTopics_.insert(intensityInfoTopic);
   }
 
   MRPT_LOG_INFO_STREAM(

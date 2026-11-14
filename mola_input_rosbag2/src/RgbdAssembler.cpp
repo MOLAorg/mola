@@ -16,17 +16,18 @@
 #include <mrpt/core/exceptions.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
 #include <mrpt/poses/CPose3D.h>
-#include <mrpt/ros2bridge/camera_info.h>
 #include <mrpt/ros2bridge/image.h>
 #include <mrpt/ros2bridge/pose.h>
 #include <mrpt/ros2bridge/time.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <deque>
 #include <limits>
 #include <memory>
+#include <sensor_msgs/distortion_models.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -64,14 +65,44 @@ RgbdAssembler::RgbdAssembler(
   ASSERT_GT_(params_.maxQueueLength, 0U);
 }
 
+mrpt::img::TCamera RgbdAssembler::cameraFromROS(const sensor_msgs::msg::CameraInfo& info)
+{
+  // Same as mrpt::ros2bridge::fromROS(CameraInfo), which released versions of
+  // mrpt_ros_bridge do not provide yet.
+  namespace dm = sensor_msgs::distortion_models;
+
+  mrpt::img::TCamera cam;
+  cam.ncols = info.width;
+  cam.nrows = info.height;
+  cam.setIntrinsicParamsFromValues(info.k[0], info.k[4], info.k[2], info.k[5]);
+
+  const auto d = [&info](size_t i) { return i < info.d.size() ? info.d[i] : 0.0; };
+  if (info.distortion_model == dm::PLUMB_BOB || info.distortion_model == dm::RATIONAL_POLYNOMIAL)
+  {
+    cam.setDistortionPlumbBob(d(0), d(1), d(2), d(3), d(4));
+    cam.k4(d(5));
+    cam.k5(d(6));
+    cam.k6(d(7));
+  }
+  else if (info.distortion_model == dm::EQUIDISTANT || info.distortion_model == "kannala_brandt")
+  {
+    cam.setDistortionKannalaBrandt(d(0), d(1), d(2), d(3));
+  }
+  else
+  {
+    cam.distortion = mrpt::img::DistortionModel::none;
+  }
+  return cam;
+}
+
 void RgbdAssembler::onDepthCameraInfo(const sensor_msgs::msg::CameraInfo& info)
 {
-  depthCamera_ = mrpt::ros2bridge::fromROS(info);
+  depthCamera_ = cameraFromROS(info);
 }
 
 void RgbdAssembler::onIntensityCameraInfo(const sensor_msgs::msg::CameraInfo& info)
 {
-  intensityCamera_ = mrpt::ros2bridge::fromROS(info);
+  intensityCamera_ = cameraFromROS(info);
 }
 
 RgbdAssembler::Obs RgbdAssembler::onDepthImage(sensor_msgs::msg::Image&& img)
@@ -111,6 +142,15 @@ RgbdAssembler::Obs RgbdAssembler::pairWith(
     own.push_back({t, std::move(img)});
     while (own.size() > params_.maxQueueLength)
     {
+      // Report how close its best counterpart was, to tell a too strict
+      // max_time_offset from a stream that is not arriving at all:
+      double closest = std::numeric_limits<double>::infinity();
+      for (const auto& o : other)
+      {
+        closest = std::min(closest, std::abs(o.stamp - own.front().stamp));
+      }
+      lastEvictedClosestDt_ = closest;
+      droppedUnpaired_++;
       own.pop_front();
     }
     return {};
@@ -235,6 +275,8 @@ mrpt::obs::CObservation3DRangeScan::Ptr RgbdAssembler::build(
   obs->intensityImage        = mrpt::ros2bridge::fromROS(*intensity);
   obs->hasIntensityImage     = true;
   obs->cameraParamsIntensity = *intensityCamera_;
+  ASSERT_EQUAL_(obs->cameraParamsIntensity.ncols, intensity->width);
+  ASSERT_EQUAL_(obs->cameraParamsIntensity.nrows, intensity->height);
 
   // Camera extrinsics are static: look them up only once.
   const auto key = std::make_pair(depthFrame, intensity->header.frame_id);
@@ -247,6 +289,14 @@ mrpt::obs::CObservation3DRangeScan::Ptr RgbdAssembler::build(
     it = intensityWrtDepth_.emplace(key, opticalFrameInSensorFrame() + depthToIntensity).first;
   }
   obs->relativePoseIntensityWRTDepth = it->second;
+
+  // MRPT reads the intensity image at depth pixel coordinates when both
+  // cameras coincide, so they must then share the image size too:
+  ASSERTMSG_(
+      !obs->doDepthAndIntensityCamerasCoincide() ||
+          (depth.width == intensity->width && depth.height == intensity->height),
+      "Depth and intensity cameras of sensor '" + params_.sensorLabel +
+          "' coincide but their image sizes differ");
 
   return obs;
 }
