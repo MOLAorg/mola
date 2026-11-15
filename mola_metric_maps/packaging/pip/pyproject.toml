@@ -9,7 +9,9 @@
 #   types with them.
 # - mrpt3, mp2p-icp: their C++ SDKs are what the wheel is built against, and
 #   their versions set its requirements (see build_helpers/sdk_requirements.py).
-requires = ["scikit-build-core>=0.11", "pybind11==3.1.0", "mrpt3==3.6.2", "mp2p-icp==3.1.0"]
+#   Only lower bounds: builds use the newest versions on PyPI. Raise them only
+#   when the code needs newer ones. mp2p-icp 3.2.0 is the first with a wheel.
+requires = ["scikit-build-core>=0.11", "pybind11==3.1.0", "mrpt3>=3.6.2", "mp2p-icp>=3.2.0"]
 build-backend = "scikit_build_core.build"
 
 [project]

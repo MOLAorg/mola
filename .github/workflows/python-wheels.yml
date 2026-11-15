@@ -7,9 +7,9 @@
 # - Release tags (X.Y.Z) are uploaded to PyPI. A manual run can upload to
 #   TestPyPI or PyPI ("publish" input).
 #
-# The wheels build against the mp2p-icp wheels from PyPI: the mp2p-icp version
-# pinned in mola_metric_maps/packaging/pip/pyproject.toml must be published
-# first. Uploads use PyPI Trusted Publishing (no tokens), set up once on
+# The wheels build against the mp2p-icp wheels from PyPI: an mp2p-icp that
+# satisfies the lower bound in mola_metric_maps/packaging/pip/pyproject.toml
+# must be published first. Uploads use PyPI Trusted Publishing (no tokens), set up once on
 # (test.)pypi.org for this repository, this workflow and an environment named
 # like the index (pypi / testpypi). See
 # mola_metric_maps/packaging/pip/README-dev.md.
@@ -51,14 +51,29 @@ jobs:
         with:
           persist-credentials: false
 
-      # The build needs the mp2p-icp wheel (its C++ SDK) from PyPI. Until that
-      # version is published, pull requests and the weekly run skip the build;
-      # tags and manual runs fail instead, so nothing is published without it.
+      # The build needs the mp2p-icp wheel (its C++ SDK) from PyPI. Until a
+      # version satisfying the lower bound is published, pull requests and the
+      # weekly run skip the build; tags and manual runs fail instead, so
+      # nothing is published without it.
       - name: Check that the mp2p-icp build requirement is on PyPI
         id: deps
         run: |
-          req=$(grep -o 'mp2p-icp==[0-9.]*' mola_metric_maps/packaging/pip/pyproject.toml | head -1)
-          if curl -sf "https://pypi.org/pypi/mp2p-icp/${req#mp2p-icp==}/json" > /dev/null; then
+          req=$(grep -o 'mp2p-icp>=[0-9.]*' mola_metric_maps/packaging/pip/pyproject.toml | head -1)
+          if [ -z "$req" ]; then
+            echo "::error::no 'mp2p-icp>=X.Y.Z' build requirement found in pyproject.toml"
+            exit 1
+          fi
+          if releases=$(curl -sf https://pypi.org/pypi/mp2p-icp/json) && python3 -c '
+          import json, sys
+          lower = tuple(int(x) for x in sys.argv[1].split("."))
+          releases = json.load(sys.stdin)["releases"]
+          ok = any(
+              files and all(p.isdigit() for p in v.split("."))
+              and tuple(int(p) for p in v.split(".")) >= lower
+              for v, files in releases.items()
+          )
+          sys.exit(0 if ok else 1)
+          ' "${req#mp2p-icp>=}" <<< "$releases"; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "schedule" ]; then
             echo "::notice::${req} is not on PyPI yet: skipping the wheel build"
