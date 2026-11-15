@@ -2,8 +2,8 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.5.0 (2026-11-15)
+------------------
 * Show a dataset ground-truth trajectory.
 * Contributors: Jose Luis Blanco-Claraco
 

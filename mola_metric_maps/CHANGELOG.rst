@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.5.0 (2026-11-15)
+------------------
 * Python bindings, type stubs and tests, plus a pip wheel (mola-metric-maps).
 * Apply the observation sensorPose on insertion.
 * Voxel-map likelihoods count unmatched points as the worst match; sigma_dist documented as the log-likelihood divisor.

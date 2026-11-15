@@ -2,8 +2,8 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.5.0 (2026-11-15)
+------------------
 * Fix a test failure with MRPT >= 3.6.0.
 * Contributors: Jose Luis Blanco-Claraco
 

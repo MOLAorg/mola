@@ -3,8 +3,8 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.5.0 (2026-11-15)
+------------------
 * New sensor_msgs/Image input, so camera images can be attached to keyframes.
 * Contributors: Jose Luis Blanco-Claraco
 

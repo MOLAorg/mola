@@ -2,8 +2,8 @@
 Changelog for package mola_pose_list
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.5.0 (2026-11-15)
+------------------
 * HashedSetSE3 wraps yaw and roll at +-pi.
 * Contributors: Jose Luis Blanco-Claraco
 

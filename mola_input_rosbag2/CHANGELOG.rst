@@ -3,8 +3,8 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-Forthcoming
------------
+3.5.0 (2026-11-15)
+------------------
 * RGB-D cameras (color + depth + camera_info) as CObservation3DRangeScan.
 * Deserialize bag messages without copying their payload.
 * New CLI mola-sm-attach-from-rosbag2: attach observations (e.g. camera images) from bags to simplemap keyframes.
