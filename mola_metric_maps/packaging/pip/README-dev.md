@@ -47,18 +47,21 @@ other wheels ever need to build C++ code against `mola_metric_maps`.
 
 The wheel requires `mp2p-icp>=X.Y.Z,<X.(Y+1)` and `mrpt3>=X.Y.Z,<X.(Y+1)`, where
 `X.Y.Z` are the versions it was built against (computed at build time by
-`build_helpers/sdk_requirements.py`). The build uses the exact versions pinned
-in `[build-system] requires`: update them (and the pybind11 pin, if it
-changed) to build against newer ones.
+`build_helpers/sdk_requirements.py`). `[build-system] requires` only sets lower
+bounds, so builds use the newest mp2p-icp and mrpt3 on PyPI (pip picks an
+mrpt3 that the chosen mp2p-icp accepts): raise them only when the code needs
+newer ones. If those wheels change their pybind11 version, the superbuild
+fails until the pybind11 pin is updated to match.
 
 This assumes that patch releases of mp2p-icp and mrpt3 keep the C++ ABI of
 their libraries (no SOVERSION, see the mp2p-icp README-dev.md). A new minor
 version of any of them always needs a new mola-metric-maps build.
 
 **mp2p-icp must be on PyPI first**: the CI builds and tests against the
-mp2p-icp wheels from PyPI, so publish the mp2p-icp version pinned in
-`pyproject.toml` before building (or releasing) this wheel. Until then, the CI
-jobs fail when installing the build requirements.
+mp2p-icp wheels from PyPI, so an mp2p-icp that satisfies the lower bound in
+`pyproject.toml` (and has the C++ API this wheel uses) must be published
+before building (or releasing) this wheel. Until then, pull requests and the
+weekly run skip the build, and tags and manual runs fail.
 
 ## Local build (manylinux image)
 
@@ -72,7 +75,7 @@ CIBW_BUILD=cp312-manylinux_x86_64 /tmp/cibw/bin/cibuildwheel --platform linux \
   --output-dir /tmp/wheelhouse mola_metric_maps/packaging/pip
 ```
 
-If the pinned mp2p-icp is not on PyPI yet, point pip to a directory with its
+If the required mp2p-icp is not on PyPI yet, point pip to a directory with its
 wheels (the containers see the host file system under `/host`):
 
 ```bash

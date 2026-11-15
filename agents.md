@@ -655,8 +655,8 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   `_core` and `libmola_metric_maps.so` go into `site-packages/mola_metric_maps/`, with a
   RUNPATH to both SDK lib dirs; `libmp2p_icp*`, `libmrpt_*` and `libtbb` are never bundled.
   Requires `mp2p-icp`/`mrpt3` of the minor series it was built against. CI:
-  `.github/workflows/python-wheels.yml`, uploaded to PyPI on release tags (the pinned
-  mp2p-icp must be published first).
+  `.github/workflows/python-wheels.yml`, uploaded to PyPI on release tags (an mp2p-icp satisfying its lower-bound
+  build requirement must be published first).
 
 ### Feature macros
 
