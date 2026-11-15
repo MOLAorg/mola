@@ -2,6 +2,14 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* New interfaces: LocalMapCorrectionSource (a global mapper tells front ends that keyframe poses changed) and ImuBiasSource (per-IMU bias estimates).
+* NavStateFilter: optional reset_motion() (a reset that keeps the frames) and fuse_pose_deferred(); fuse_twist() takes the twist in the vehicle frame; raw_data_source accepts a sequence of names.
+* New simplemap_attach_observations() utility, to attach observations from datasets to simplemap keyframes.
+* FrontEndBase: source sequences, empty ones rejected.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.4.0 (2026-11-01)
 ------------------
 * New LogHub, to forward the log messages of all MOLA modules (`#261 <https://github.com/MOLAorg/mola/issues/261>`_)

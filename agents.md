@@ -12,7 +12,7 @@
 **Maintainer**: Jose Luis Blanco-Claraco
 **License**: GPL-3.0 (core) and BSD-3-Clause (utilities, bridge, demos)
 **Commercial use**: requires a commercial license, see [Licensing](#licensing-commercial-use-requires-a-license) below
-**Current Version**: 3.2.0
+**Current Version**: 3.5.0
 **Official Docs**: https://docs.mola-slam.org/latest/
 
 **Important**: Whenever a change is made to the repo, reflect it here if applicable, to keep it in sync with the code.

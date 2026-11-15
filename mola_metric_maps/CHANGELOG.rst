@@ -2,6 +2,16 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Python bindings, type stubs and tests, plus a pip wheel (mola-metric-maps).
+* Apply the observation sensorPose on insertion.
+* Voxel-map likelihoods count unmatched points as the worst match; sigma_dist documented as the log-likelihood divisor.
+* covariance_shape eigenvalue floor that survives single precision.
+* Fix copies of SparseVoxelPointCloud; trySetCreationOptions() from a TCreationOptions.
+* Drop the unused mola_kernel dependency.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.4.0 (2026-11-01)
 ------------------
 * IncrementalPointCloud: exact voxel-hash index, now the default (`#256 <https://github.com/MOLAorg/mola/issues/256>`_)

@@ -3,6 +3,15 @@ Changelog for package mola_input_rosbag2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* RGB-D cameras (color + depth + camera_info) as CObservation3DRangeScan.
+* Deserialize bag messages without copying their payload.
+* New CLI mola-sm-attach-from-rosbag2: attach observations (e.g. camera images) from bags to simplemap keyframes.
+* Static transforms survive a partial replay, and skipping is cheap.
+* Optional dataset ground-truth trajectory, shown in mola_viz_imgui.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.4.0 (2026-11-01)
 ------------------
 * Rosbag2Dataset: read only the topics that have a handler (`#259 <https://github.com/MOLAorg/mola/issues/259>`_)

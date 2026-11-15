@@ -2,6 +2,11 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fix a test failure with MRPT >= 3.6.0.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.4.0 (2026-11-01)
 ------------------
 * New $append / $prepend directives to edit an $import'ed sequence (`#263 <https://github.com/MOLAorg/mola/issues/263>`_)

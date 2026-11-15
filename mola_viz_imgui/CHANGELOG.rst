@@ -2,6 +2,11 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Show a dataset ground-truth trajectory.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.4.0 (2026-11-01)
 ------------------
 * Default GUI refresh rate 30 FPS; MOLA_GUI_TARGET_FPS env var override

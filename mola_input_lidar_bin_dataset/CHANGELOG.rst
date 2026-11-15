@@ -2,6 +2,9 @@
 Changelog for package mola_input_lidar_bin_dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.4.0 (2026-11-01)
 ------------------
 
