@@ -149,8 +149,9 @@ void VideoRecorder::open_pipe()
 {
   block_sigpipe_in_this_thread();
 
-  // In its own session: a terminal CTRL+C must not stop ffmpeg before us.
-  const std::string cmd = "setsid ffmpeg -loglevel error -y -f rawvideo -pix_fmt rgba -s " +
+  // In its own session: a terminal CTRL+C must not stop ffmpeg before us
+  // (-w: wait for it, so pclose() returns once the video is finished).
+  const std::string cmd = "setsid -w ffmpeg -loglevel error -y -f rawvideo -pix_fmt rgba -s " +
                           std::to_string(params_.width) + "x" + std::to_string(params_.height) +
                           " -r " + std::to_string(params_.fps) + " -i - " + params_.ffmpeg_options +
                           " " + shell_quote(params_.output);
