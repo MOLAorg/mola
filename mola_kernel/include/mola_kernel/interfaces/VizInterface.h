@@ -48,6 +48,10 @@
  *  mola_lidar_odometry checkout) detect the feature at compile time. */
 #define MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES 1
 
+/** Feature macro: when defined, VizInterface offers update_viewport_camera()
+ *  (look-at point, azimuth, elevation and distance of the viewport camera). */
+#define MOLA_KERNEL_VIZ_HAS_CAMERA_ORIENTATION 1
+
 namespace mola
 {
 
@@ -435,6 +439,38 @@ class VizInterface
    * register_metric() on hot paths to avoid a name lookup per sample.
    */
   virtual void push_metric(const std::string& name, double t, double value) = 0;
+
+  /** @} */
+
+  // =========================================================================
+  /** @name Optional API (default implementations do nothing)
+   * @{ */
+
+  /**
+   * \brief Sets the orbit camera of a viewport in one call (look-at point,
+   *        azimuth, elevation and distance), e.g. for a scripted camera:
+   *        each update is applied at once, so no frame mixes old and new values.
+   *
+   * Roll, field of view and projection model are not changed. The update is
+   * applied on the GUI thread; the returned future resolves then (callers may
+   * discard it). Backends may clamp the values (MRPT's orbit camera: elevation
+   * within +-89.9 deg, distance within [0.01, 3200] m).
+   *
+   * \param lookAt       Point the camera looks at, in world/scene space.
+   * \param azimuth      Direction from the look-at point to the camera,
+   *                     counter-clockwise from +X around the vertical axis [rad]
+   *                     (the camera looks along azimuth + pi).
+   * \param elevation    Angle of the camera above the horizontal plane of the
+   *                     look-at point [rad].
+   * \param zoomDistance Distance from the camera to the look-at point [m].
+   * \param viewportName Viewport inside the parent window (as with the other
+   *                     camera setters, backends may only support "main").
+   * \param parentWindow Host window name.
+   * \return future<bool>; false if the visualizer does not implement it.
+   */
+  virtual std::future<bool> update_viewport_camera(
+      const mrpt::math::TPoint3Df& lookAt, double azimuth, double elevation, double zoomDistance,
+      const std::string& viewportName = "main", const std::string& parentWindow = "main");
 
   /** @} */
 };

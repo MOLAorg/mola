@@ -1958,6 +1958,34 @@ std::future<bool> MolaViz::update_viewport_camera_orthographic(
   return task->get_future();
 }
 
+std::future<bool> MolaViz::update_viewport_camera(
+    const mrpt::math::TPoint3Df& lookAt, const double azimuth, const double elevation,
+    const double zoomDistance, [[maybe_unused]] const std::string& viewportName,
+    const std::string& parentWindow)
+{
+  using return_type = bool;
+
+  auto task = std::make_shared<std::packaged_task<return_type()>>(
+      [this, lookAt, azimuth, elevation, zoomDistance, parentWindow]()
+      {
+        ASSERT_(windows_.count(parentWindow));
+        auto topWin = windows_.at(parentWindow).win;
+        ASSERT_(topWin);
+        auto& cam = topWin->camera();
+        cam.setCameraPointing(lookAt.x, lookAt.y, lookAt.z);
+        cam.setAzimuthDegrees(static_cast<float>(mrpt::RAD2DEG(azimuth)));
+        cam.setElevationDegrees(static_cast<float>(mrpt::RAD2DEG(elevation)));
+        cam.setZoomDistance(static_cast<float>(zoomDistance));
+        return true;
+      });
+
+  // No window re-layout (unlike other setters): the camera is read on every
+  // repaint, and this may be called at high rates.
+  auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
+  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+  return task->get_future();
+}
+
 std::future<bool> MolaViz::execute_custom_code_on_background_scene(
     const std::function<void(mrpt::viz::Scene&)>& userCode, const std::string& parentWindow)
 {

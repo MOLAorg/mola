@@ -670,6 +670,7 @@ Guard with `#if defined(...)`, never with a version check.
 |---|---|---|
 | `MOLA_KERNEL_VIZ_HAS_METRICS` | `interfaces/MetricChannel.h` | `VizInterface::register_metric()`/`push_metric()` exist |
 | `MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES` | `interfaces/VizInterface.h` | named movable reference frames: `update_3d_object_frame()` and the `parentFrame` argument of `update_3d_object()`, `insert_point_cloud_with_decay()`, `update_viewport_look_at()` |
+| `MOLA_KERNEL_VIZ_HAS_CAMERA_ORIENTATION` | `interfaces/VizInterface.h` | `update_viewport_camera()`: look-at, azimuth, elevation and distance of the viewport camera (optional: default returns false) |
 | `MOLA_KERNEL_DATASET_UI_HAS_TIME` | `interfaces/Dataset_UI.h` | `datasetUI_time()`/`datasetUI_total_time()` |
 | `MOLA_KERNEL_DATASET_UI_HAS_ENABLED` | `interfaces/Dataset_UI.h` | `datasetUI_enabled()` |
 | `MOLA_KERNEL_NAVSTATE_FILTER_HAS_GEO_REFERENCE` | `interfaces/NavStateFilter.h` | geo-reference accessor |

@@ -286,6 +286,11 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
       bool orthographic, const std::string& viewportName = "main",
       const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
 
+  std::future<bool> update_viewport_camera(
+      const mrpt::math::TPoint3Df& lookAt, double azimuth, double elevation, double zoomDistance,
+      const std::string& viewportName = "main",
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+
   std::future<bool> execute_custom_code_on_background_scene(
       const std::function<void(mrpt::viz::Scene&)>& userCode,
       const std::string&                            parentWindow = DEFAULT_WINDOW_NAME) override;
