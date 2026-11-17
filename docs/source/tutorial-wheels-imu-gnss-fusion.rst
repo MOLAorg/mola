@@ -33,7 +33,7 @@ compare three ways of estimating the robot position against the RTK ground truth
      - **0.18 m**
      - **1.9 m**
 
-.. image:: imgs/tutorial-fusion/fusion_map_overview.jpg
+.. image:: imgs/tutorial_fusion_map_overview.jpg
    :width: 100%
 
 .. contents::
@@ -65,7 +65,7 @@ The smoother combines them: GNSS anchors the position and, while the robot moves
 heading; the gyroscopes and the wheels bridge the gaps, and keep the trajectory smooth
 between fixes. The result is better than any of them alone:
 
-.. image:: imgs/tutorial-fusion/fusion_error_vs_time.png
+.. image:: imgs/tutorial_fusion_error_vs_time.png
    :width: 100%
 
 In the plot above, the GNSS was **removed from the smoother input 15 s of every 45 s**
@@ -157,7 +157,7 @@ The estimator is a MOLA module, ``mola::state_estimation_smoother::StateEstimati
 running inside ``mola-cli`` together with ``mola::BridgeROS2``, which subscribes to the ROS 2
 sensor topics and publishes the results:
 
-.. image:: imgs/tutorial-fusion/fusion_dataflow.png
+.. image:: imgs/tutorial_fusion_dataflow.png
    :width: 100%
 
 Inside, the smoother keeps a **factor graph** over a sliding time window (a few seconds),
@@ -166,7 +166,7 @@ each keyframe (:math:`x_i`), the gyroscope biases (:math:`b_i`, one chain per IM
 pose of the local ``map`` frame in East-North-Up coordinates (:math:`T^{map}_{enu}`, the
 **geo-reference**). Each sensor reading adds a factor (a soft constraint) between them:
 
-.. image:: imgs/tutorial-fusion/fusion_factor_graph.png
+.. image:: imgs/tutorial_fusion_factor_graph.png
    :width: 100%
 
 - **Wheel odometry** adds the relative motion between consecutive keyframes. Its
@@ -197,7 +197,7 @@ outage with the gyroscope biases and the heading already calibrated by the GNSS,
 drift starts small, and that it pulls the estimate back as soon as the fixes return, while
 pure dead reckoning keeps its error forever.
 
-.. image:: imgs/tutorial-fusion/fusion_outage_zoom.png
+.. image:: imgs/tutorial_fusion_outage_zoom.png
    :width: 100%
 
 |
@@ -321,10 +321,10 @@ track over the first minute, as if the initial pose were perfectly known:
 It prints the median, 95 % and maximum horizontal errors, overall and inside the outages,
 and writes ``error_vs_time.png`` and ``trajectories.png`` in the run folder.
 
-.. image:: imgs/tutorial-fusion/fusion_error_stats.png
+.. image:: imgs/tutorial_fusion_error_stats.png
    :width: 80%
 
-.. image:: imgs/tutorial-fusion/fusion_error_cdf.png
+.. image:: imgs/tutorial_fusion_error_cdf.png
    :width: 60%
 
 |
