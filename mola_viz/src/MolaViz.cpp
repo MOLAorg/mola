@@ -1979,6 +1979,8 @@ std::future<bool> MolaViz::update_viewport_camera(
         return true;
       });
 
+  // No window re-layout (unlike other setters): the camera is read on every
+  // repaint, and this may be called at high rates.
   auto lck = mrpt::lockHelper(guiThreadPendingTasksMtx_);
   guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
   return task->get_future();

@@ -18,6 +18,10 @@
  */
 
 #include <mola_kernel/interfaces/VizInterface.h>
+#include <mrpt/math/TPoint3D.h>
+
+#include <future>
+#include <string>
 
 namespace mola
 {

@@ -447,12 +447,25 @@ class VizInterface
    * @{ */
 
   /**
-   * \brief Sets the whole viewport camera at once, e.g. for a scripted camera.
+   * \brief Sets the orbit camera of a viewport in one call (look-at point,
+   *        azimuth, elevation and distance), e.g. for a scripted camera:
+   *        each update is applied at once, so no frame mixes old and new values.
+   *
+   * Roll, field of view and projection model are not changed. The update is
+   * applied on the GUI thread; the returned future resolves then (callers may
+   * discard it). Backends may clamp the values (MRPT's orbit camera: elevation
+   * within +-89.9 deg, distance within [0.01, 3200] m).
    *
    * \param lookAt       Point the camera looks at, in world/scene space.
-   * \param azimuth      Angle around the vertical axis [rad].
-   * \param elevation    Angle above the horizontal plane [rad].
-   * \param zoomDistance Distance to the look-at point [m].
+   * \param azimuth      Direction from the look-at point to the camera,
+   *                     counter-clockwise from +X around the vertical axis [rad]
+   *                     (the camera looks along azimuth + pi).
+   * \param elevation    Angle of the camera above the horizontal plane of the
+   *                     look-at point [rad].
+   * \param zoomDistance Distance from the camera to the look-at point [m].
+   * \param viewportName Viewport inside the parent window (as with the other
+   *                     camera setters, backends may only support "main").
+   * \param parentWindow Host window name.
    * \return future<bool>; false if the visualizer does not implement it.
    */
   virtual std::future<bool> update_viewport_camera(
