@@ -111,16 +111,10 @@ void VideoRecorder::fail(const std::string& why)
 
 void VideoRecorder::create_gl_objects()
 {
-  // Same color encoding as the window, so the video looks like it (the scene
-  // is gamma-encoded only into sRGB-capable framebuffers):
-  GLint encoding = GL_LINEAR;
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glGetFramebufferAttachmentParameteriv(
-      GL_FRAMEBUFFER, GL_BACK_LEFT, GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING, &encoding);
-  while (glGetError() != GL_NO_ERROR)
-  {
-  }
-  const GLenum colorFormat = encoding == GL_SRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+  // sRGB color storage: if the scene applies gamma correction (MRPT's default,
+  // via GL_FRAMEBUFFER_SRGB) it is encoded as in the window; if not, values are
+  // stored unchanged.
+  const GLenum colorFormat = GL_SRGB8_ALPHA8;
 
   glGenFramebuffers(1, &fbo_);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
