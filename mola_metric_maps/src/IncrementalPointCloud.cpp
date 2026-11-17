@@ -1901,7 +1901,7 @@ void IncrementalPointCloud::TCreationOptions::readFromStream(mrpt::serialization
         in >> use_view_direction_filter;
         const auto mode = in.ReadAs<uint8_t>();
         ASSERTMSG_(
-            mode <= static_cast<uint8_t>(ViewDirectionFilter::SurfaceSide),
+            mode <= static_cast<uint8_t>(ViewDirectionFilter::SurfaceSideGravityAligned),
             mrpt::format(
                 "Invalid view_direction_filter value in stream: %u", static_cast<unsigned>(mode)));
         view_direction_filter = static_cast<ViewDirectionFilter>(mode);

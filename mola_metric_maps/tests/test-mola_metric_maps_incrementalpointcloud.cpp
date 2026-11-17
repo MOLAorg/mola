@@ -952,6 +952,48 @@ mrpt::obs::CObservationPointCloud wallObservation(const mrpt::math::TVector3D& v
 
 constexpr size_t WALL_POINTS = 41 * 41;
 
+/// A cloud without a flat neighborhood (e.g. foliage), all its points seen
+/// with `view`. Its plane-regularized covariances still look like planes.
+mrpt::obs::CObservationPointCloud blobObservation(const mrpt::math::TVector3D& view)
+{
+  mrpt::random::CRandomGenerator blobRng(4321U);
+  auto                           pc = mrpt::maps::CGenericPointsMap::Create();
+  pc->registerField_float("view_x");
+  pc->registerField_float("view_y");
+  pc->registerField_float("view_z");
+  for (size_t i = 0; i < WALL_POINTS; i++)
+  {
+    pc->insertPointFast(
+        static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
+        static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
+        static_cast<float>(blobRng.drawUniform(-1.0, 1.0)));
+    pc->insertPointField_float("view_x", static_cast<float>(view.x));
+    pc->insertPointField_float("view_y", static_cast<float>(view.y));
+    pc->insertPointField_float("view_z", static_cast<float>(view.z));
+  }
+  pc->mark_as_modified();
+  mrpt::obs::CObservationPointCloud obs;
+  obs.pointcloud = pc;
+  return obs;
+}
+
+/// Number of cov-to-cov pairings between a blob mapped as seen with `mapView`
+/// and the same blob observed with `queryView`.
+size_t blobPairings(
+    const mrpt::math::TVector3D& mapView, const mrpt::math::TVector3D& queryView,
+    mola::ViewDirectionFilter mode)
+{
+  mola::IncrementalPointCloud global;
+  global.creationOptions.view_direction_filter = mode;
+  global.insertObservation(blobObservation(mapView), mrpt::poses::CPose3D::Identity());
+  mola::IncrementalPointCloud local;
+  local.insertObservation(blobObservation(queryView), mrpt::poses::CPose3D::Identity());
+
+  mp2p_icp::MatchedPointWithCovList pairings;
+  global.nn_search_cov2cov(local, mrpt::poses::CPose3D::Identity(), 0.5f, pairings);
+  return pairings.size();
+}
+
 /// The view vector stored in storage slot `i`.
 mrpt::math::TVector3D storedView(const mola::IncrementalPointCloud& map, size_t i)
 {
@@ -1147,41 +1189,58 @@ void test_view_filter_surface_side()
   // A cloud without a flat neighborhood (e.g. foliage) seen from opposite
   // sides: its regularized covariance still looks like a plane, but the side
   // test must not trust that normal.
-  const auto lambdaBlob = [](const mrpt::math::TVector3D& view)
-  {
-    mrpt::random::CRandomGenerator blobRng(4321U);
-    auto                           pc = mrpt::maps::CGenericPointsMap::Create();
-    pc->registerField_float("view_x");
-    pc->registerField_float("view_y");
-    pc->registerField_float("view_z");
-    for (size_t i = 0; i < WALL_POINTS; i++)
-    {
-      pc->insertPointFast(
-          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
-          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)),
-          static_cast<float>(blobRng.drawUniform(-1.0, 1.0)));
-      pc->insertPointField_float("view_x", static_cast<float>(view.x));
-      pc->insertPointField_float("view_y", static_cast<float>(view.y));
-      pc->insertPointField_float("view_z", static_cast<float>(view.z));
-    }
-    pc->mark_as_modified();
-    mrpt::obs::CObservationPointCloud obs;
-    obs.pointcloud = pc;
-    return obs;
-  };
-  for (const auto& [setup, expected] :
-       {std::make_pair(side, WALL_POINTS), std::make_pair(angle, size_t(0))})
-  {
-    mola::IncrementalPointCloud global;
-    global.creationOptions.view_direction_filter = setup.mode;
-    global.insertObservation(lambdaBlob({1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
-    mola::IncrementalPointCloud local;
-    local.insertObservation(lambdaBlob({-1.0, 0.0, 0.0}), mrpt::poses::CPose3D::Identity());
+  ASSERT_EQUAL_(blobPairings({1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}, side.mode), WALL_POINTS);
+  ASSERT_EQUAL_(blobPairings({1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}, angle.mode), 0U);
+}
 
-    mp2p_icp::MatchedPointWithCovList pairings;
-    global.nn_search_cov2cov(local, mrpt::poses::CPose3D::Identity(), 0.5f, pairings);
-    ASSERT_EQUAL_(pairings.size(), expected);
+// The gravity-aligned variant must tell apart the two faces of a horizontal
+// surface down to grazing views, which SurfaceSide leaves unjudged (e.g. the top
+// face of a floor slab, seen from just above it, against its underside mapped
+// from below), and behave as SurfaceSide on everything else.
+void test_view_filter_surface_side_gravity_aligned()
+{
+  ViewFilterSetup side;
+  side.mode = mola::ViewDirectionFilter::SurfaceSide;
+  ViewFilterSetup up;
+  up.mode = mola::ViewDirectionFilter::SurfaceSideGravityAligned;
+
+  const double                elev = mrpt::DEG2RAD(45.0);
+  const mrpt::math::TVector3D fromBelow(std::cos(elev), 0.0, -std::sin(elev));
+  const mrpt::math::TVector3D fromAbove(std::cos(elev), 0.0, std::sin(elev));
+
+  for (const double deg : {3.0, 10.0})
+  {
+    const double                grazing = mrpt::DEG2RAD(deg);
+    const mrpt::math::TVector3D grazingAbove(-std::cos(grazing), 0.0, std::sin(grazing));
+
+    // Opposite faces, one view near grazing: only this mode rejects them.
+    ASSERT_EQUAL_(surfacePairings(fromBelow, grazingAbove, true /*ground*/, side), WALL_POINTS);
+    ASSERT_EQUAL_(surfacePairings(fromBelow, grazingAbove, true /*ground*/, up), 0U);
+
+    // The same face, from opposite azimuths: kept.
+    ASSERT_EQUAL_(surfacePairings(fromAbove, grazingAbove, true /*ground*/, up), WALL_POINTS);
   }
+
+  // Views closer to the plane than its own cutoff (~1.7 deg) are not judged:
+  const double                flat = mrpt::DEG2RAD(1.0);
+  const mrpt::math::TVector3D flatAbove(-std::cos(flat), 0.0, std::sin(flat));
+  ASSERT_EQUAL_(surfacePairings(fromBelow, flatAbove, true /*ground*/, up), WALL_POINTS);
+
+  // Walls are judged as in SurfaceSide, by their normal...
+  ASSERT_EQUAL_(wallPairings({-1.0, 0.0, 0.0}, up), 0U);
+  ASSERT_EQUAL_(wallPairings({1.0, 0.0, 0.0}, up), WALL_POINTS);
+
+  // ...so views near grazing on a wall are not judged, even with z components
+  // of opposite signs:
+  const double                tilt = mrpt::DEG2RAD(80.0);
+  const mrpt::math::TVector3D wallFromAboveFront(std::cos(tilt), 0.0, std::sin(tilt));
+  const mrpt::math::TVector3D wallFromBelowBack(-std::cos(tilt), 0.0, -std::sin(tilt));
+  ASSERT_EQUAL_(
+      surfacePairings(wallFromAboveFront, wallFromBelowBack, false /*wall*/, up), WALL_POINTS);
+
+  // A cloud without a flat neighborhood is never trusted, whatever its normal:
+  ASSERT_EQUAL_(blobPairings({0.0, 0.0, 1.0}, {0.0, 0.0, -1.0}, up.mode), WALL_POINTS);
+  ASSERT_EQUAL_(blobPairings({1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}, up.mode), WALL_POINTS);
 }
 
 // The filter is on by default (SurfaceSide): a default map does not pair the two
@@ -1213,6 +1272,21 @@ void test_view_filter_default_and_config()
   optsEmpty.loadFromConfigFile(cfgEmpty, "opts");
   ASSERT_(optsEmpty.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
   ASSERT_NEAR_(opts.max_view_angle_deg, 95.0, 1e-9);
+
+  // The gravity-aligned variant loads by name, and survives serialization:
+  mrpt::config::CConfigFileMemory cfgUp;
+  cfgUp.write("opts", "view_direction_filter", "ViewDirectionFilter::SurfaceSideGravityAligned");
+  mola::IncrementalPointCloud::TCreationOptions optsUp;
+  optsUp.loadFromConfigFile(cfgUp, "opts");
+  ASSERT_(optsUp.view_direction_filter == mola::ViewDirectionFilter::SurfaceSideGravityAligned);
+
+  mrpt::io::CMemoryStream buf;
+  auto                    arch = mrpt::serialization::archiveFrom(buf);
+  optsUp.writeToStream(arch);
+  buf.Seek(0);
+  mola::IncrementalPointCloud::TCreationOptions optsLoaded;
+  optsLoaded.readFromStream(arch);
+  ASSERT_(optsLoaded.view_direction_filter == mola::ViewDirectionFilter::SurfaceSideGravityAligned);
 }
 
 // A re-map through the non-virtual base-class method moves the points without
@@ -1299,7 +1373,10 @@ void test_invalid_view_filter_mode_rejected()
     auto                    arch = mrpt::serialization::archiveFrom(buf);
     mola::IncrementalPointCloud::TCreationOptions().writeToStream(arch);
 
-    static_cast<uint8_t*>(buf.getRawBufferData())[buf.getTotalBytesCount() - fromEnd] = 3;
+    // Past the last value of both enums:
+    constexpr uint8_t INVALID_MODE = 0xFF;
+    static_cast<uint8_t*>(buf.getRawBufferData())[buf.getTotalBytesCount() - fromEnd] =
+        INVALID_MODE;
     buf.Seek(0);
 
     bool rejected = false;
@@ -1542,6 +1619,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     test_view_fields_in_recycled_slots();
     test_view_direction_filter();
     test_view_filter_surface_side();
+    test_view_filter_surface_side_gravity_aligned();
     test_view_filter_default_and_config();
     test_legacy_view_fields_dropped_on_load();
     test_view_fields_cleared_on_base_class_remap();

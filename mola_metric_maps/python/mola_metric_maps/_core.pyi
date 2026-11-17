@@ -25,10 +25,13 @@ class ViewDirectionFilter:
       MaxAngle : Reject pairs whose view directions are more than max_view_angle_deg apart.
     
       SurfaceSide : Reject pairs seeing a flat surface from opposite sides.
+    
+      SurfaceSideGravityAligned : As SurfaceSide, judging near-horizontal surfaces by the sign of the views' z components, down to grazing incidence. Needs a map frame whose +z points up.
     """
     MaxAngle: typing.ClassVar[ViewDirectionFilter]
     None_: typing.ClassVar[ViewDirectionFilter]
     SurfaceSide: typing.ClassVar[ViewDirectionFilter]
+    SurfaceSideGravityAligned: typing.ClassVar[ViewDirectionFilter]
     __members__: typing.ClassVar[dict[str, ViewDirectionFilter]]
     @typing.overload
     def __eq__(self, other: ViewDirectionFilter) -> bool:

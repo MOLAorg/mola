@@ -32,7 +32,9 @@ namespace mola::internal
  *  of its two points, as configured by a ViewDirectionFilter mode.
  *
  *  Both view vectors, and the covariance of the matched map point, must be
- *  given in the same frame (whichever is cheaper for the caller).
+ *  given in the same frame (whichever is cheaper for the caller), which must
+ *  be the map frame in SurfaceSideGravityAligned mode, since it reads their z
+ *  components as the vertical.
  */
 class ViewDirectionTest
 {
@@ -59,10 +61,14 @@ class ViewDirectionTest
   [[nodiscard]] bool active() const { return mode_ != ViewDirectionFilter::None; }
 
   /// Whether rejects() needs the covariance of the matched map point.
-  [[nodiscard]] bool needsCovariance() const { return mode_ == ViewDirectionFilter::SurfaceSide; }
+  [[nodiscard]] bool needsCovariance() const
+  {
+    return mode_ == ViewDirectionFilter::SurfaceSide ||
+           mode_ == ViewDirectionFilter::SurfaceSideGravityAligned;
+  }
 
-  /** True if the pair must be rejected. `covMap` is only read in SurfaceSide
-   *  mode, and so is `isFlat`: a callable returning whether the raw (not
+  /** True if the pair must be rejected. `covMap` is only read in the
+   *  SurfaceSide modes, and so is `isFlat`: a callable returning whether the raw (not
    *  regularized) neighborhood of the matched map point is flat, invoked only
    *  for a pair the side test would otherwise reject. A zero (missing)
    *  direction on either side never rejects.
@@ -90,7 +96,8 @@ class ViewDirectionTest
       return dot < cosThreshold_;
     }
 
-    return covMap != nullptr && seenFromOppositeSides(*covMap, vQuery, vMap) && isFlat();
+    const bool zIsUp = mode_ == ViewDirectionFilter::SurfaceSideGravityAligned;
+    return covMap != nullptr && seenFromOppositeSides(*covMap, vQuery, vMap, zIsUp) && isFlat();
   }
 
   /// Overload for the modes that need neither covariance nor flatness.
@@ -101,9 +108,12 @@ class ViewDirectionTest
 
   /** True if two view directions see the surface of a point with covariance
    *  `cov` from opposite sides, both clearly (not near grazing incidence). A
-   *  covariance without a clear normal (not plane-shaped) never qualifies. */
+   *  covariance without a clear normal (not plane-shaped) never qualifies.
+   *  If `zIsUp` (the frame of the arguments has its +z axis pointing up), the
+   *  side of a near-horizontal surface is taken from the sign of the views' z
+   *  components instead, see ViewDirectionFilter::SurfaceSideGravityAligned. */
   [[nodiscard]] static bool seenFromOppositeSides(
-      const Eigen::Matrix3f& cov, const Eigen::Vector3f& v1, const Eigen::Vector3f& v2)
+      const Eigen::Matrix3f& cov, const Eigen::Vector3f& v1, const Eigen::Vector3f& v2, bool zIsUp)
   {
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
     es.computeDirect(cov);
@@ -113,9 +123,21 @@ class ViewDirectionTest
       return false;
     }
 
-    const Eigen::Vector3f n  = es.eigenvectors().col(0);
-    const float           s1 = v1.dot(n);
-    const float           s2 = v2.dot(n);
+    const Eigen::Vector3f n = es.eigenvectors().col(0);
+
+    // A normal within ~26 deg of the vertical: looking down on the surface or
+    // up at it does not depend on the accuracy of the normal, so views are
+    // judged down to ~1.7 deg off the plane.
+    constexpr float MIN_ABS_NORMAL_Z = 0.9f;
+    constexpr float MIN_ABS_VIEW_Z   = 0.03f;
+    if (zIsUp && std::abs(n.z()) > MIN_ABS_NORMAL_Z)
+    {
+      return std::abs(v1.z()) > MIN_ABS_VIEW_Z && std::abs(v2.z()) > MIN_ABS_VIEW_Z &&
+             (v1.z() > 0) != (v2.z() > 0);
+    }
+
+    const float s1 = v1.dot(n);
+    const float s2 = v2.dot(n);
 
     // |v.n| below this is a view within ~14.5 deg of the surface plane, where
     // an error in the normal can flip the sign. A laxer 0.1 (~6 deg) was
