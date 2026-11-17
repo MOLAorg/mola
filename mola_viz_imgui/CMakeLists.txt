@@ -57,6 +57,7 @@ set(LIB_SRCS
   src/MolaVizImGui_handlers.cpp
   src/MolaVizImGui.cpp
   src/MolaVizImGui_widgets.cpp
+  src/VideoRecorder.cpp
 )
 set(LIB_PUBLIC_HDRS
   include/mola_viz_imgui/MolaVizImGuiCore.h

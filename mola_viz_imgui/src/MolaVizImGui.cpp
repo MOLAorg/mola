@@ -198,6 +198,8 @@ void MolaVizImGui::initialize(const Yaml& c)
       cfg.getOrDefault("plots_default_span_seconds", core_ptr_->plots_default_span_seconds_);
 
   core_ptr_->menu_bar_enabled_ = cfg.getOrDefault("menu_bar_enabled", core_ptr_->menu_bar_enabled_);
+
+  load_video_recording_params(cfg);
   ground_truth_corner_spacing_ =
       cfg.getOrDefault("ground_truth_corner_spacing", ground_truth_corner_spacing_);
   if (!std::isfinite(ground_truth_corner_spacing_) || ground_truth_corner_spacing_ <= 0)
@@ -367,6 +369,75 @@ MolaVizImGuiCore::PerWindowData& MolaVizImGui::create_and_add_window(const windo
   return wd;
 }
 
+void MolaVizImGui::load_video_recording_params(const mrpt::containers::yaml& cfg)
+{
+  // YAML params, overridden by the environment (works with any launch file):
+  auto&      core = *core_ptr_;
+  const auto env  = [](const char* name) -> std::optional<std::string>
+  {
+    const char* v = std::getenv(name);
+    return (v != nullptr && *v != 0) ? std::optional<std::string>(v) : std::nullopt;
+  };
+  const auto loadInt = [&](const char* key, const char* envName, int& value)
+  {
+    value = cfg.getOrDefault(key, value);
+    if (const auto v = env(envName); v)
+    {
+      char*      end = nullptr;
+      const long x   = std::strtol(v->c_str(), &end, 10);
+      if (end == v->c_str() || *end != 0 || x <= 0 || x > 100000)
+      {
+        MRPT_LOG_WARN_STREAM("Ignoring invalid " << envName << "='" << *v << "'");
+      }
+      else
+      {
+        value = static_cast<int>(x);
+      }
+    }
+  };
+  core.record_video_ = cfg.getOrDefault("record_video", core.record_video_);
+  if (const auto v = env("MOLA_VIZ_RECORD_VIDEO"); v)
+  {
+    core.record_video_ = *v;
+  }
+  loadInt("record_fps", "MOLA_VIZ_RECORD_FPS", core.record_fps_);
+  loadInt("record_width", "MOLA_VIZ_RECORD_WIDTH", core.record_width_);
+  loadInt("record_height", "MOLA_VIZ_RECORD_HEIGHT", core.record_height_);
+  core.record_ffmpeg_options_ =
+      cfg.getOrDefault("record_ffmpeg_options", core.record_ffmpeg_options_);
+  if (const auto v = env("MOLA_VIZ_RECORD_FFMPEG_OPTIONS"); v)
+  {
+    core.record_ffmpeg_options_ = *v;
+  }
+
+  if (core.record_video_.empty())
+  {
+    return;
+  }
+  if (embed_mode_)
+  {
+    MRPT_LOG_WARN("Video recording is only available in host mode: ignored.");
+    core.record_video_.clear();
+    return;
+  }
+  // Even sizes: most codecs (4:2:0 chroma) need them.
+  if (core.record_fps_ <= 0 || core.record_width_ <= 0 || core.record_height_ <= 0 ||
+      core.record_width_ % 2 != 0 || core.record_height_ % 2 != 0)
+  {
+    MRPT_LOG_ERROR_STREAM(
+        "Invalid video size or rate (" << core.record_width_ << "x" << core.record_height_ << " @ "
+                                       << core.record_fps_
+                                       << " fps; sizes must be even): not recording.");
+    core.record_video_.clear();
+    return;
+  }
+  // One video frame per GUI frame:
+  core.target_fps_ = core.record_fps_;
+  MRPT_LOG_INFO_STREAM(
+      "Recording the 3D view (" << core.record_width_ << "x" << core.record_height_ << " @ "
+                                << core.record_fps_ << " fps) to: " << core.record_video_);
+}
+
 void MolaVizImGui::gui_thread()
 {
   MRPT_LOG_DEBUG("MolaVizImGui::gui_thread() started.");
@@ -380,7 +451,12 @@ void MolaVizImGui::gui_thread()
 
   create_and_add_window(DEFAULT_WINDOW_NAME);
 
-  const double frame_period = 1.0 / static_cast<double>(std::max(1, core_ptr_->target_fps_));
+  // Absolute deadlines on a steady clock: no drift (it sets the speed of
+  // recorded videos), and mrpt::Clock may follow simulated time.
+  const auto frame_period =
+      std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(
+          1.0 / static_cast<double>(std::max(1, core_ptr_->target_fps_))));
+  auto next_frame = std::chrono::steady_clock::now();
 
   // Elapsed time between consecutive frame starts: what the user perceives
   // as GUI (un)responsiveness. Reported by the profiler (mola-cli -p).
@@ -389,8 +465,7 @@ void MolaVizImGui::gui_thread()
 
   while (!guiThreadShutdown_.load())
   {
-    const double t0          = mrpt::Clock::nowDouble();
-    const auto   frame_start = std::chrono::steady_clock::now();
+    const auto frame_start = std::chrono::steady_clock::now();
     if (last_frame_start && profiler_.isEnabled())
     {
       profiler_.registerUserMeasure(
@@ -418,9 +493,16 @@ void MolaVizImGui::gui_thread()
       }
     }
 
-    const double elapsed = mrpt::Clock::nowDouble() - t0;
-    if (elapsed < frame_period)
-      std::this_thread::sleep_for(std::chrono::duration<double>(frame_period - elapsed));
+    next_frame += frame_period;
+    const auto now = std::chrono::steady_clock::now();
+    if (now < next_frame)
+    {
+      std::this_thread::sleep_until(next_frame);
+    }
+    else if (now > next_frame + frame_period)
+    {
+      next_frame = now;  // fell behind: no burst of frames to catch up
+    }
   }
 
   // Cleanup — GL resources must be released while the context is still current.
@@ -430,6 +512,7 @@ void MolaVizImGui::gui_thread()
     glfwMakeContextCurrent(wd.glfw_window);
 
     core_ptr_->run_registered_cleanups();
+    core_ptr_->stop_recording();
 
     wd.sensor_windows.clear();
     wd.decaying_clouds.clear();
