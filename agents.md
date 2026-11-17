@@ -251,6 +251,9 @@ shallow). CLIs: `mola-sm-attach-from-rosbag2` (`mola_input_rosbag2`) and
   thread publishes the queue with its own `/rosout` publisher, never through
   `RCLCPP_*`/rcutils (no global logging mutex, no second terminal print, no
   publishing after `rclcpp::shutdown()` from a module destructor).
+- `nav_msgs/Odometry` topics are forwarded as `CObservationRobotPose` (SE(3), for LiDAR or
+  visual odometry) or `CObservationOdometry` (planar: the smoother applies its wheel motion
+  model): param `odometry_as_robot_pose_observation`, overridable per `subscribe` entry.
 - Input callbacks set `CObservation::timestamp` from `header.stamp` explicitly:
   never rely on `mrpt::ros2bridge::fromROS()` for it, since some versions leave
   the default (wall-clock `now()`), which breaks bag replay and sim time.

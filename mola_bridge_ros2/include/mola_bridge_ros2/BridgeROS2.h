@@ -255,7 +255,10 @@ class BridgeROS2 : public RawDataSourceBase,
     /// mrpt::obs::CObservationRobotPose (full SE(3) pose + 6x6 covariance), suitable for
     /// multi-source fusion in the state estimation smoother.
     /// If false, they are converted to mrpt::obs::CObservationOdometry (2D pose, no covariance),
-    /// which is more appropriate for 2D SLAM/mapping pipelines.
+    /// which is more appropriate for 2D SLAM/mapping pipelines and wheel odometry (the
+    /// smoother then applies its wheel motion model).
+    /// This is the default for all subscribed Odometry topics; each `subscribe` entry may
+    /// override it with its own `odometry_as_robot_pose_observation: true|false`.
     bool odometry_as_robot_pose_observation = true;
 
     /// If true (default), the log messages of all MOLA modules are also published on
@@ -340,7 +343,8 @@ class BridgeROS2 : public RawDataSourceBase,
       const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
 #endif
 
-  void callbackOnOdometry(const nav_msgs::msg::Odometry& o, const std::string& outSensorLabel);
+  void callbackOnOdometry(
+      const nav_msgs::msg::Odometry& o, const std::string& outSensorLabel, bool asRobotPose);
 
   void callbackOnRelocalizeTopic(const geometry_msgs::msg::PoseWithCovarianceStamped& o);
 

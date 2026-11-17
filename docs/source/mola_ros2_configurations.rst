@@ -435,6 +435,12 @@ BridgeROS2 subscribes directly, converts each message to a 3D
 ``odom_sensor_label``. This preserves Z / pitch / roll and allows fusing
 **multiple** labeled sources.
 
+For wheel odometry fused by the Smoother, set
+``odometry_as_robot_pose_observation: false`` in its ``subscribe`` entry (see
+:ref:`ros2api_subscribed_topics`): it is then forwarded as a planar
+``CObservationOdometry``, and the Smoother applies its wheel motion model instead
+of the tight fixed uncertainty meant for LiDAR or visual odometry.
+
 .. mermaid::
 
    flowchart LR
@@ -479,7 +485,8 @@ For multiple external sources (e.g. wheels + VIO), add extra
      - ``nav_msgs/Odometry`` message
    * - Observation type fed to MOLA
      - ``CObservationOdometry`` (2D, no covariance)
-     - ``CObservationRobotPose`` (3D, 6×6 covariance)
+     - ``CObservationRobotPose`` (3D, 6×6 covariance), or ``CObservationOdometry``
+       with ``odometry_as_robot_pose_observation: false``
    * - Sensor label
      - Hardcoded ``odom``
      - ``odom_sensor_label:=...`` (per source)
