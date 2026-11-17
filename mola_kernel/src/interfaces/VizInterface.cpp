@@ -24,6 +24,16 @@ namespace mola
 
 VizInterface::~VizInterface() = default;
 
+std::future<bool> VizInterface::update_viewport_camera(
+    [[maybe_unused]] const mrpt::math::TPoint3Df& lookAt, [[maybe_unused]] double azimuth, [[maybe_unused]] double elevation,
+    [[maybe_unused]] double zoomDistance, [[maybe_unused]] const std::string& viewportName,
+    [[maybe_unused]] const std::string& parentWindow)
+{
+  std::promise<bool> p;
+  p.set_value(false);
+  return p.get_future();
+}
+
 const std::string VizInterface::BACKEND_NANOGUI = "nanogui";
 const std::string VizInterface::BACKEND_IMGUI   = "imgui";
 

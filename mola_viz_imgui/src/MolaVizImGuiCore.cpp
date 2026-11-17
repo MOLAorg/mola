@@ -1520,6 +1520,33 @@ std::future<bool> MolaVizImGuiCore::update_viewport_camera_orthographic(
   return task->get_future();
 }
 
+std::future<bool> MolaVizImGuiCore::update_viewport_camera(
+    const mrpt::math::TPoint3Df& lookAt, double azimuth, double elevation, double zoomDistance,
+    const std::string& /*viewportName*/, const std::string& parentWindow)
+{
+  auto task = std::make_shared<std::packaged_task<bool()>>(
+      [this, lookAt, azimuth, elevation, zoomDistance, parentWindow]()
+      {
+        auto it = windows_.find(parentWindow);
+        if (it == windows_.end())
+        {
+          return false;
+        }
+        auto& wd             = it->second;
+        wd.cam_azimuth_deg   = static_cast<float>(mrpt::RAD2DEG(azimuth));
+        wd.cam_elevation_deg = static_cast<float>(mrpt::RAD2DEG(elevation));
+        wd.cam_zoom          = static_cast<float>(zoomDistance);
+        wd.cam_look_at[0]    = lookAt.x;
+        wd.cam_look_at[1]    = lookAt.y;
+        wd.cam_look_at[2]    = lookAt.z;
+        wd.cam_dirty         = true;
+        return true;
+      });
+  std::lock_guard lk(guiThreadPendingTasksMtx_);
+  guiThreadPendingTasks_.emplace_back([=]() { (*task)(); });
+  return task->get_future();
+}
+
 std::future<bool> MolaVizImGuiCore::execute_custom_code_on_background_scene(
     const std::function<void(mrpt::viz::Scene&)>& userCode, const std::string& parentWindow)
 {

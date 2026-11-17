@@ -48,6 +48,10 @@
  *  mola_lidar_odometry checkout) detect the feature at compile time. */
 #define MOLA_KERNEL_VIZ_HAS_MOVABLE_FRAMES 1
 
+/** Feature macro: when defined, VizInterface offers update_viewport_camera()
+ *  (look-at point, azimuth, elevation and distance of the viewport camera). */
+#define MOLA_KERNEL_VIZ_HAS_CAMERA_ORIENTATION 1
+
 namespace mola
 {
 
@@ -435,6 +439,25 @@ class VizInterface
    * register_metric() on hot paths to avoid a name lookup per sample.
    */
   virtual void push_metric(const std::string& name, double t, double value) = 0;
+
+  /** @} */
+
+  // =========================================================================
+  /** @name Optional API (default implementations do nothing)
+   * @{ */
+
+  /**
+   * \brief Sets the whole viewport camera at once, e.g. for a scripted camera.
+   *
+   * \param lookAt       Point the camera looks at, in world/scene space.
+   * \param azimuth      Angle around the vertical axis [rad].
+   * \param elevation    Angle above the horizontal plane [rad].
+   * \param zoomDistance Distance to the look-at point [m].
+   * \return future<bool>; false if the visualizer does not implement it.
+   */
+  virtual std::future<bool> update_viewport_camera(
+      const mrpt::math::TPoint3Df& lookAt, double azimuth, double elevation, double zoomDistance,
+      const std::string& viewportName = "main", const std::string& parentWindow = "main");
 
   /** @} */
 };
