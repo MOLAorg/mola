@@ -271,8 +271,8 @@ module class name; nothing else in the tree may call MRPT GUI functions directly
   likewise `_FPS`, `_WIDTH`, `_HEIGHT`, `_FFMPEG_OPTIONS`) draws each frame UI-less into an
   off-screen FBO of the video size (`VideoRecorder`; sRGB if the window is), pipes RGBA to
   ffmpeg (one video frame per GUI frame; `target_fps` is set to the video rate; the GUI loop
-  uses absolute steady-clock deadlines) and blits a preview to the window. On any recording
-  failure the normal GUI comes back.
+  uses absolute steady-clock deadlines) and blits a preview to the window; the UNIX time of each
+  frame goes to `<video>.times.txt`. On any recording failure the normal GUI comes back.
   `MolaVizImGuiCore` is the reusable, MOLA-agnostic half.
   Always `#define GLFW_INCLUDE_NONE` before `<GLFW/glfw3.h>`: GL headers must
   first come from `mrpt/opengl/opengl_api.h` (which sets `GL_GLEXT_PROTOTYPES`).
