@@ -1960,8 +1960,8 @@ std::future<bool> MolaViz::update_viewport_camera_orthographic(
 
 std::future<bool> MolaViz::update_viewport_camera(
     const mrpt::math::TPoint3Df& lookAt, const double azimuth, const double elevation,
-    const double zoomDistance,
-    [[maybe_unused]] const std::string& viewportName, const std::string& parentWindow)
+    const double zoomDistance, [[maybe_unused]] const std::string& viewportName,
+    const std::string& parentWindow)
 {
   using return_type = bool;
 
