@@ -43,6 +43,7 @@
 #include <stdexcept>
 
 #include "MetricsRegistry.h"
+#include "VideoRecorder.h"
 
 using namespace mola;
 
@@ -156,6 +157,20 @@ void MolaVizImGuiCore::init_for_embed(const window_name_t& name)
   // The embed host owns the ImGui context but not ImPlot's; create our own,
   // once per Core instance, matching MolaVizImGui::gui_thread() in host mode.
   if (!embed_implot_ctx_) embed_implot_ctx_ = ImPlot::CreateContext();
+}
+
+void MolaVizImGuiCore::stop_recording()
+{
+  if (!recorder_)
+  {
+    return;
+  }
+  recorder_->close();
+  MRPT_LOG_INFO_STREAM(
+      "Video recording finished: " << recorder_->frames_written() << " frames, rendered at "
+                                   << recorder_->effective_fps() << " fps (video: " << record_fps_
+                                   << " fps), in " << record_video_);
+  recorder_.reset();
 }
 
 void MolaVizImGuiCore::shutdown_for_embed()
@@ -293,8 +308,27 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   int display_w, display_h;
   glfwGetFramebufferSize(wd.glfw_window, &display_w, &display_h);
 
+  // Recording: the frame is drawn off-screen at the video size, UI-less.
+  const bool recording = !record_video_.empty();
+  if (recording && !recorder_)
+  {
+    VideoRecorder::Params rp;
+    rp.output         = record_video_;
+    rp.fps            = record_fps_;
+    rp.width          = record_width_;
+    rp.height         = record_height_;
+    rp.ffmpeg_options = record_ffmpeg_options_;
+    recorder_         = std::make_unique<VideoRecorder>(rp);
+  }
+
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
+  if (recording)
+  {
+    ImGuiIO& io    = ImGui::GetIO();
+    io.DisplaySize = ImVec2(static_cast<float>(record_width_), static_cast<float>(record_height_));
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+  }
   ImGui::NewFrame();
 
   // Full-screen dockspace:
@@ -310,7 +344,8 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
                                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                                      ImGuiWindowFlags_NoBringToFrontOnFocus |
                                      ImGuiWindowFlags_NoBackground;
-  if (menu_bar_enabled_)
+  const bool showMenuBar = menu_bar_enabled_ && !recording;
+  if (showMenuBar)
   {
     dockspace_flags |= ImGuiWindowFlags_MenuBar;
   }
@@ -318,7 +353,7 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   ImGui::Begin("##DockSpaceRoot", nullptr, dockspace_flags);
   ImGui::PopStyleVar(3);
 
-  if (menu_bar_enabled_)
+  if (showMenuBar)
   {
     render_menu_bar(wd);
   }
@@ -376,25 +411,36 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
 
   render_background_scene(wd);
 
-  for (auto& [swName, sw] : wd.sub_windows)
+  // While recording, only the 3D view is drawn:
+  if (!recording)
   {
-    if (sw.desc.tabs.empty() && wd.sensor_windows.count(swName)) continue;
-    render_subwindow(sw);
-  }
+    for (auto& [swName, sw] : wd.sub_windows)
+    {
+      if (sw.desc.tabs.empty() && wd.sensor_windows.count(swName)) continue;
+      render_subwindow(sw);
+    }
 
-  render_sensor_windows(name, wd);
-  if (console_enabled_)
-  {
-    render_console_window(wd);
-  }
-  if (plots_enabled_)
-  {
-    render_plot_windows(wd);
+    render_sensor_windows(name, wd);
+    if (console_enabled_)
+    {
+      render_console_window(wd);
+    }
+    if (plots_enabled_)
+    {
+      render_plot_windows(wd);
+    }
   }
   internal_handle_decaying_clouds(wd);
 
   ImGui::Render();
-  glViewport(0, 0, display_w, display_h);
+  if (recorder_)
+  {
+    recorder_->begin_frame();
+  }
+  else
+  {
+    glViewport(0, 0, display_w, display_h);
+  }
   glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   {
@@ -403,6 +449,10 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
     std::lock_guard lk(wd.background_scene_mtx);
 #endif
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+  }
+  if (recorder_)
+  {
+    recorder_->end_frame(display_w, display_h);
   }
   glfwSwapBuffers(wd.glfw_window);
 }

@@ -198,6 +198,43 @@ void MolaVizImGui::initialize(const Yaml& c)
       cfg.getOrDefault("plots_default_span_seconds", core_ptr_->plots_default_span_seconds_);
 
   core_ptr_->menu_bar_enabled_ = cfg.getOrDefault("menu_bar_enabled", core_ptr_->menu_bar_enabled_);
+
+  // Video recording: YAML params, or the environment (any launch file).
+  const auto envOr = [](const char* name, const std::string& def)
+  {
+    const char* v = std::getenv(name);
+    return (v != nullptr && *v != 0) ? std::string(v) : def;
+  };
+  auto& core = *core_ptr_;
+  core.record_video_ =
+      cfg.getOrDefault("record_video", envOr("MOLA_VIZ_RECORD_VIDEO", core.record_video_));
+  core.record_fps_ = cfg.getOrDefault(
+      "record_fps", std::stoi(envOr("MOLA_VIZ_RECORD_FPS", std::to_string(core.record_fps_))));
+  core.record_width_ = cfg.getOrDefault(
+      "record_width",
+      std::stoi(envOr("MOLA_VIZ_RECORD_WIDTH", std::to_string(core.record_width_))));
+  core.record_height_ = cfg.getOrDefault(
+      "record_height",
+      std::stoi(envOr("MOLA_VIZ_RECORD_HEIGHT", std::to_string(core.record_height_))));
+  core.record_ffmpeg_options_ = cfg.getOrDefault(
+      "record_ffmpeg_options",
+      envOr("MOLA_VIZ_RECORD_FFMPEG_OPTIONS", core.record_ffmpeg_options_));
+  if (!core.record_video_.empty())
+  {
+    if (embed_mode_)
+    {
+      MRPT_LOG_WARN("Video recording is only available in host mode: ignored.");
+      core.record_video_.clear();
+    }
+    else
+    {
+      // One video frame per GUI frame:
+      core.target_fps_ = core.record_fps_;
+      MRPT_LOG_INFO_STREAM(
+          "Recording the 3D view (" << core.record_width_ << "x" << core.record_height_ << " @ "
+                                    << core.record_fps_ << " fps) to: " << core.record_video_);
+    }
+  }
   ground_truth_corner_spacing_ =
       cfg.getOrDefault("ground_truth_corner_spacing", ground_truth_corner_spacing_);
   if (!std::isfinite(ground_truth_corner_spacing_) || ground_truth_corner_spacing_ <= 0)
@@ -430,6 +467,7 @@ void MolaVizImGui::gui_thread()
     glfwMakeContextCurrent(wd.glfw_window);
 
     core_ptr_->run_registered_cleanups();
+    core_ptr_->stop_recording();
 
     wd.sensor_windows.clear();
     wd.decaying_clouds.clear();

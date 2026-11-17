@@ -45,6 +45,7 @@ struct ImPlotContext;
 
 namespace mola
 {
+class VideoRecorder;
 
 // Defined in MetricsRegistry.h (kept out of the public include dir; only
 // this Core uses the concrete type). The public handle modules interact
@@ -380,6 +381,19 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    *  plot/console windows are unaffected; only the top strip and its menus
    *  disappear. */
   bool menu_bar_enabled_ = true;
+
+  /** Video recording (host mode only): if `record_video_` is a file name, the
+   *  3D view is rendered off-screen at record_width_ x record_height_, without
+   *  any panel or menu, and written to that file at record_fps_ frames per
+   *  (wall clock) second through ffmpeg. The window shows a scaled preview. */
+  std::string record_video_;
+  int         record_fps_            = 30;
+  int         record_width_          = 1920;
+  int         record_height_         = 1080;
+  std::string record_ffmpeg_options_ = "-c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p";
+  std::unique_ptr<VideoRecorder> recorder_;
+  /// Finishes the video, if recording (GL context current).
+  void stop_recording();
 
   /** Invoked when the user clicks "Quit" in the "MOLA" menu (host mode only).
    *  Set by `MolaVizImGui::initialize()` to request shutdown of the whole
