@@ -30,7 +30,9 @@ namespace mola
 {
 /** Records frames rendered off-screen (an OpenGL framebuffer object of a fixed
  *  size, independent of the window size and visibility) to a video file, by
- *  piping raw RGBA to an ffmpeg process. Every rendered frame becomes one video
+ *  piping raw RGBA to an ffmpeg process. The wall clock time (UNIX, seconds)
+ *  of each frame is written to `<output>.times.txt`, one line per frame, to
+ *  align the video with other logs (e.g. when editing it). Every rendered frame becomes one video
  *  frame at `fps`: the render loop should run at that rate (if it is slower,
  *  the video plays faster than real time, but without repeated frames).
  *
@@ -89,6 +91,7 @@ class VideoRecorder
   unsigned int                                         color_rb_ = 0;
   unsigned int                                         depth_rb_ = 0;
   FILE*                                                pipe_     = nullptr;
+  FILE*                                                times_    = nullptr;
   bool                                                 failed_   = false;
   std::vector<uint8_t>                                 pixels_;
   std::vector<uint8_t>                                 row_;

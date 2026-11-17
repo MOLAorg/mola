@@ -154,6 +154,7 @@ void VideoRecorder::open_pipe()
   {
     throw std::runtime_error("cannot run: " + cmd);
   }
+  times_ = fopen((params_.output + ".times.txt").c_str(), "w");
 }
 
 void VideoRecorder::begin_frame()
@@ -205,6 +206,12 @@ void VideoRecorder::write_frame()
     return;
   }
   frames_written_++;
+  if (times_ != nullptr)
+  {
+    const double t =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+    fprintf(times_, "%.4f\n", t);
+  }
 }
 
 void VideoRecorder::end_frame(int windowWidth, int windowHeight)
@@ -268,6 +275,11 @@ double VideoRecorder::effective_fps() const
 
 void VideoRecorder::close_pipe()
 {
+  if (times_ != nullptr)
+  {
+    fclose(times_);
+    times_ = nullptr;
+  }
   if (pipe_ == nullptr)
   {
     return;
