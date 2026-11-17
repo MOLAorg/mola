@@ -136,8 +136,8 @@ or from the :ref:`UI controls <mola_lo_gui_common_parts>` in the ``mola_lidar_od
 
 .. dropdown:: Building 2D maps
 
-    Until ``mola_2d_mapper`` is released, you can also use the generic LiDAR odometry module to 
-    build 2D maps from range finder (2D scanners).
+    You can use the generic LiDAR odometry module to build 2D maps from range finders
+    (2D scanners).
 
     Just set the ``PIPELINE_YAML`` environment variable pointing to the 2D mapping pipeline (`lidar2d.yaml <https://github.com/MOLAorg/mola_lidar_odometry/blob/develop/pipelines/lidar2d.yaml>`_)
     shipped with the ``mola_lidar_odometry`` package:
@@ -362,7 +362,8 @@ and then visualize them with the GUI app :ref:`icp-log-viewer <app_icp-log-viewe
 Once you have a map, here are some next steps:
 
 - :ref:`This tutorial <tutorial-mola-lo-map-and-localize>` on how to save/load maps and re-localize using MOLA-LO ROS 2 nodes.
-- Maps with loop closures: :ref:`tutorial-ouster-mapping-lc`
+- Maps with loop closures: live, with :ref:`mola_mapper <mola_mapper>`, or offline, with
+  :ref:`tutorial-ouster-mapping-lc`
 - :ref:`geo-referencing`.
 - :ref:`Use for localization <localization-only>`.
 

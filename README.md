@@ -60,6 +60,7 @@ Refer to the [official documentation](https://docs.mola-slam.org/latest/) for bu
 
 ## 🗺️ Features
 - 📍 LiDAR Odometry (LO), LiDAR-Inertial Odometry (LIO), geo-referenced maps, sensor fusion
+- 🔁 Live SLAM with online loop closure and a global pose graph ([mola_mapper](https://github.com/MOLAorg/mola_mapper))
 - 🧩 Fully configurable YAML pipelines - no recompilation needed to change sensors, filters, or map layers
 - 🎯 Flexible accuracy: fast real-time navigation or survey-grade (<1 cm) mapping
 - 🌍 Map-less RTK-quality outdoor georeferencing with low-cost GNSS + LiDAR + IMU
