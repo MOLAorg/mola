@@ -177,7 +177,7 @@ All plugin modules derive from these virtual base classes:
   outlive consumers. Sinks run on the logging thread: they must only queue, and
   only capture state they co-own. Never call ROS from a logger callback directly.
 - `SharedKeyframeMap` — central-map keyframe-insertion sink (new 2026, see
-  `mola_mapper_3d`): front ends (LIO/VIO) push sparse keyframes via
+  `mola_mapper`): front ends (LIO/VIO) push sparse keyframes via
   `requestInsertKeyframe()`, decoupled from their own local map/odometry
   frame. Detected via `findService<>()` the same way as `NavStateFilter`,
   but optional.

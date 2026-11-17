@@ -98,6 +98,10 @@ Build **globally consistent, georeferenced 3D maps**, even in large-scale enviro
 mixing indoor and outdoor areas. This is the most complete SLAM solution in MOLA,
 combining:
 
+- **Live SLAM with online loop closure**: :ref:`mola_mapper <mola_mapper>` runs next to
+  LiDAR-inertial odometry, keeps a global keyframe map, detects loop closures and
+  optimizes a global pose graph (GNSS, gravity, gyroscope, wheel odometry) while the
+  robot moves
 - **Georeferencing** metric maps with consumer-grade GNSS sensors
   (see :ref:`geo-referencing`)
 - **Offline loop closure** for globally consistent maps - corrects accumulated
@@ -105,15 +109,16 @@ combining:
 - **Simple-map → metric-map pipelines** for flexible post-processing
   (see :ref:`sm2mm_pipelines`)
 
+.. image:: https://mrpt.github.io/videos/mola_mapper_vbr_colosseo.webp
+   :alt: mola_mapper GUI building the map of the Colosseum live (VBR dataset), with loop closures
+
 .. image:: https://mrpt.github.io/imgs/kaist01_georef_sample.png
 
 **Best for:** Large-scale surveying, building 3D maps of campuses/cities,
 creating reference maps for localization.
 
-**Coming soon:**
-
-- ``mola_3d_mapper``: Full live/offline 3D SLAM with online loop closure *(in development)*
-- ``mola_2d_mapper``: 2D SLAM via pose graph optimization for 2D LiDARs *(in development)*
+**Available now:** ``mola_mapper``, the global back end for live SLAM with online loop
+closure and geo-referencing (see :ref:`mola_mapper` and :ref:`mola_mapper_ros2_node`).
 
 |
 

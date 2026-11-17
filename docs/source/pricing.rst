@@ -218,7 +218,7 @@ Community vs. Pro
            Loop closure / global SLAM
            <span class="info-wrap">
              <button class="info-btn" aria-label="About loop closure">i</button>
-             <span class="info-tooltip">Online or offline versions, configurable level of global accuracy.</span>
+             <span class="info-tooltip">Online (mola_mapper, live SLAM) or offline (mola_sm_loop_closure), configurable level of global accuracy.</span>
            </span>
          </td>
          <td class="comm-col"><span class="check-icon">&#10004;</span></td>
@@ -290,11 +290,6 @@ Community vs. Pro
          <td>Map post-processing service</td>
          <td class="comm-col"><span class="dash-icon">&mdash;</span></td>
          <td class="pro-col"><span class="check-icon">&#10004;</span></td>
-       </tr>
-       <tr class="data-row">
-         <td>mola_mapper <span class="badge-wip">in development</span></td>
-         <td class="comm-col"><span class="dash-icon">&mdash;</span></td>
-         <td class="pro-col">Early access</td>
        </tr>
        <tr class="data-row">
          <td>Visual odometry <span class="badge-wip">in development</span></td>
@@ -418,6 +413,10 @@ The MOLA framework is composed of several repositories with different open-sourc
      - GPL-3
      - State estimators: smoother, IMU/GNSS/kinematics fusion
 
+   * - `mola_mapper <https://github.com/MOLAorg/mola_mapper/>`_
+     - GPL-3
+     - Live SLAM: global keyframe map, online loop closure, global pose graph, georeferencing
+
    * - `mola_sm_loop_closure <https://github.com/MOLAorg/mola_sm_loop_closure/>`_
      - GPL-3
      - Map georeferencing, loop closure for consistent large maps
@@ -425,7 +424,7 @@ The MOLA framework is composed of several repositories with different open-sourc
 **BSD-3 modules** (MRPT, mp2p_icp, mrpt_navigation) can be freely used in any project,
 including closed-source commercial products.
 
-**GPL-3 modules** (MOLA core, lidar odometry, state estimation, loop closure) require
+**GPL-3 modules** (MOLA core, lidar odometry, state estimation, mapper, loop closure) require
 that derivative works also be released under GPL-3. If your product is closed-source,
 you need a **MOLA Pro commercial license**.
 
