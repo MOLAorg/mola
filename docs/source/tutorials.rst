@@ -17,6 +17,13 @@ Tutorials
 
 .. toctree::
   :maxdepth: 2
+  :caption: State estimation and sensor fusion
+
+  tutorial-wheels-imu-gnss-fusion
+
+
+.. toctree::
+  :maxdepth: 2
   :caption: Core MOLA functionalities
 
   tutorial-mola-main-cli-tools
