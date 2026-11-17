@@ -53,14 +53,14 @@ enum class ViewDirectionFilter : uint8_t
    *  same side, e.g. ground. */
   SurfaceSide,
   /** As SurfaceSide, except on near-horizontal surfaces (the matched map
-   *  point's normal within ~26 deg of the map's z axis), where the side of
-   *  each view is the sign of its z component: looking down on the surface
-   *  or up at it. That needs no accurate normal, so views are judged down to
-   *  ~1.7 deg off the plane instead of ~14.5 deg: e.g. the top face of a
-   *  floor slab seen at grazing incidence is not paired with its underside,
-   *  mapped from below. Requires a map frame whose +z axis points up
-   *  (gravity-aligned, e.g. with an IMU); in a tilted one, the same face seen
-   *  at grazing incidence could be rejected. */
+   *  point's normal within ~26 deg of the map's z axis) seen by two views
+   *  steeper than the surface's tilt by ~1.7 deg: the side of each one is
+   *  then the sign of its z component (looking down on the surface or up at
+   *  it), even within the ~14.5 deg of the plane where SurfaceSide does not
+   *  judge. E.g. the top face of a floor slab seen at grazing incidence is
+   *  not paired with its underside, mapped from below. Requires a map frame
+   *  whose +z axis points up (gravity-aligned, e.g. with an IMU); in a tilted
+   *  one, the same face seen at grazing incidence could be rejected. */
   SurfaceSideGravityAligned
 };
 

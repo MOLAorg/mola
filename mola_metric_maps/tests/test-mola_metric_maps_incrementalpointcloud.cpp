@@ -1241,6 +1241,41 @@ void test_view_filter_surface_side_gravity_aligned()
   // A cloud without a flat neighborhood is never trusted, whatever its normal:
   ASSERT_EQUAL_(blobPairings({0.0, 0.0, 1.0}, {0.0, 0.0, -1.0}, up.mode), WALL_POINTS);
   ASSERT_EQUAL_(blobPairings({1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}, up.mode), WALL_POINTS);
+
+  // On a 20 deg ramp, a view 3 deg below the horizontal can still see its top
+  // face (17 deg above the ramp's plane), and one 3 deg above it its underside:
+  // the sign of z is not the side there, and both modes must agree on them.
+  const double                rampTilt = mrpt::DEG2RAD(20.0);
+  const mrpt::poses::CPose3D  rampPose(0, 0, 0, 0, rampTilt, 0);
+  const mrpt::math::TVector3D n   = rampPose.rotateVector({0.0, 0.0, 1.0});
+  const double                dir = n.x > 0 ? 1.0 : -1.0;  // the downhill direction along x
+  const double                low = mrpt::DEG2RAD(3.0);
+  const mrpt::math::TVector3D downOntoTop(dir * std::cos(low), 0.0, -std::sin(low));
+  const mrpt::math::TVector3D upOntoUnderside(-dir * std::cos(low), 0.0, std::sin(low));
+  ASSERT_(downOntoTop.x * n.x + downOntoTop.z * n.z > 0.25);
+  ASSERT_(upOntoUnderside.x * n.x + upOntoUnderside.z * n.z < -0.25);
+
+  const auto lambdaRamp = [&](const mrpt::math::TVector3D& queryView, const ViewFilterSetup& setup)
+  {
+    // Insertion turns the view vectors with the points, so give them in the ramp's frame:
+    mola::IncrementalPointCloud global;
+    global.creationOptions.view_direction_filter = setup.mode;
+    global.insertObservation(
+        surfaceObservation(rampPose.inverseRotateVector({0.0, 0.0, 1.0}), true), rampPose);
+    mola::IncrementalPointCloud local;
+    local.insertObservation(
+        surfaceObservation(rampPose.inverseRotateVector(queryView), true), rampPose);
+
+    mp2p_icp::MatchedPointWithCovList pairings;
+    global.nn_search_cov2cov(local, mrpt::poses::CPose3D::Identity(), 0.5f, pairings);
+    return pairings.size();
+  };
+  // The same (top) face, with z components of opposite signs: kept.
+  ASSERT_EQUAL_(lambdaRamp(downOntoTop, side), WALL_POINTS);
+  ASSERT_EQUAL_(lambdaRamp(downOntoTop, up), WALL_POINTS);
+  // Opposite faces, with z components of the same sign: rejected.
+  ASSERT_EQUAL_(lambdaRamp(upOntoUnderside, side), 0U);
+  ASSERT_EQUAL_(lambdaRamp(upOntoUnderside, up), 0U);
 }
 
 // The filter is on by default (SurfaceSide): a default map does not pair the two

@@ -109,9 +109,10 @@ class ViewDirectionTest
   /** True if two view directions see the surface of a point with covariance
    *  `cov` from opposite sides, both clearly (not near grazing incidence). A
    *  covariance without a clear normal (not plane-shaped) never qualifies.
-   *  If `zIsUp` (the frame of the arguments has its +z axis pointing up), the
-   *  side of a near-horizontal surface is taken from the sign of the views' z
-   *  components instead, see ViewDirectionFilter::SurfaceSideGravityAligned. */
+   *  If `zIsUp` (the frame of the arguments has its +z axis pointing up), on a
+   *  near-horizontal surface the side of views steeper than the surface is
+   *  taken from the sign of their z components instead, see
+   *  ViewDirectionFilter::SurfaceSideGravityAligned. */
   [[nodiscard]] static bool seenFromOppositeSides(
       const Eigen::Matrix3f& cov, const Eigen::Vector3f& v1, const Eigen::Vector3f& v2, bool zIsUp)
   {
@@ -125,15 +126,24 @@ class ViewDirectionTest
 
     const Eigen::Vector3f n = es.eigenvectors().col(0);
 
-    // A normal within ~26 deg of the vertical: looking down on the surface or
-    // up at it does not depend on the accuracy of the normal, so views are
-    // judged down to ~1.7 deg off the plane.
+    // On a near-horizontal surface (tilt under ~26 deg), a view steeper than
+    // the surface's own tilt sees it from the side given by the sign of its z
+    // component, whatever its azimuth. Requiring that, plus a ~1.7 deg margin
+    // for the error in the tilt, judges views much closer to the plane than
+    // the test below, e.g. a floor seen at grazing incidence. Other views
+    // fall back to that test.
     constexpr float MIN_ABS_NORMAL_Z = 0.9f;
-    constexpr float MIN_ABS_VIEW_Z   = 0.03f;
+    constexpr float SIN_MARGIN       = 0.03f;
+    constexpr float COS_MARGIN       = 0.99955f;  // sqrt(1 - SIN_MARGIN^2)
     if (zIsUp && std::abs(n.z()) > MIN_ABS_NORMAL_Z)
     {
-      return std::abs(v1.z()) > MIN_ABS_VIEW_Z && std::abs(v2.z()) > MIN_ABS_VIEW_Z &&
-             (v1.z() > 0) != (v2.z() > 0);
+      // sin(tilt + margin):
+      const float sinTilt  = std::sqrt(std::max(0.0f, 1.0f - n.z() * n.z()));
+      const float minAbsVz = sinTilt * COS_MARGIN + std::abs(n.z()) * SIN_MARGIN;
+      if (std::abs(v1.z()) > minAbsVz && std::abs(v2.z()) > minAbsVz)
+      {
+        return (v1.z() > 0) != (v2.z() > 0);
+      }
     }
 
     const float s1 = v1.dot(n);
