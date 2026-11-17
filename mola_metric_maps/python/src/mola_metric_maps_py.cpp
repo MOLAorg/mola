@@ -84,7 +84,11 @@ PYBIND11_MODULE(_core, m)
           "Reject pairs whose view directions are more than max_view_angle_deg apart.")
       .value(
           "SurfaceSide", mola::ViewDirectionFilter::SurfaceSide,
-          "Reject pairs seeing a flat surface from opposite sides.");
+          "Reject pairs seeing a flat surface from opposite sides.")
+      .value(
+          "SurfaceSideGravityAligned", mola::ViewDirectionFilter::SurfaceSideGravityAligned,
+          "As SurfaceSide, judging near-horizontal surfaces by the sign of the views' z "
+          "components, down to grazing incidence. Needs a map frame whose +z points up.");
 
   py::enum_<mola::PointIndexType>(m, "PointIndexType", "Spatial index of IncrementalPointCloud.")
       .value(

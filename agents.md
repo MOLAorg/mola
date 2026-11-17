@@ -621,9 +621,9 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   cov2cov map classes: `use_view_direction_filter` (master switch),
   `view_direction_filter` (`mola::ViewDirectionFilter` in
   `include/mola_metric_maps/ViewDirectionFilter.h`: `None`, `MaxAngle`,
-  `SurfaceSide`) and `max_view_angle_deg` (`MaxAngle` only). Defaults differ:
-  `MaxAngle` for KFM (its historical behavior), `SurfaceSide` for
-  `IncrementalPointCloud`.
+  `SurfaceSide`, `SurfaceSideGravityAligned`) and `max_view_angle_deg` (`MaxAngle`
+  only). Defaults differ: `MaxAngle` for KFM (its historical behavior),
+  `SurfaceSide` for `IncrementalPointCloud`.
   The per-pair test itself is shared, in `src/view_direction_test.h`
   (`internal::ViewDirectionTest`); `SurfaceSide` needs the matched map point's
   covariance, which both classes already have in the global frame. A zero
@@ -633,8 +633,13 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   pairs it would reject): the stored covariances are plane-regularized, so on
   foliage/edges/poles they still look like planes with a meaningless normal.
   Without that gate (and with a 0.1 cutoff) ~74% of its rejections were on
-  non-flat points, and it doubled the ATE of some Oxford Spires runs. `mola_lidar_odometry`'s
-  `localmap-gicp.yaml` exposes them as `MOLA_LOCALMAP_USE_VIEW_DIRECTION_FILTER`,
+  non-flat points, and it doubled the ATE of some Oxford Spires runs.
+  `SurfaceSideGravityAligned` (opt-in, needs a map frame with +z up) judges a
+  near-horizontal surface (|n_z| > 0.9) by the sign of the views' z components
+  instead, trusted down to |v_z| > 0.03, so a floor slab's top face seen at grazing
+  incidence is not paired with its underside; other surfaces as `SurfaceSide`.
+  The test's frame must then be the map's (both classes already use it).
+  `mola_lidar_odometry`'s `localmap-gicp.yaml` exposes them as `MOLA_LOCALMAP_USE_VIEW_DIRECTION_FILTER`,
   `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER` (empty = each class's default) and
   `MOLA_LOCALMAP_VIEW_DIRECTION_FILTER_ANGLE_DEG`.
 - Dependencies: MRPT and `mp2p_icp_map` only, **not** `mola_kernel`, so the library (and

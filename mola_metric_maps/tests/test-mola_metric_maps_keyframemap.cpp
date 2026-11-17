@@ -286,8 +286,9 @@ void test_creation_options_roundtrip()
 {
   mola::KeyframePointCloudMap m;
   m.creationOptions.use_view_direction_filter = false;
-  m.creationOptions.view_direction_filter     = mola::ViewDirectionFilter::SurfaceSide;
-  m.creationOptions.max_view_angle_deg        = 75.0;
+  // The last value of the enum, so the range check on load is exercised:
+  m.creationOptions.view_direction_filter = mola::ViewDirectionFilter::SurfaceSideGravityAligned;
+  m.creationOptions.max_view_angle_deg    = 75.0;
   m.creationOptions.k_correspondences_for_cov = 12;
   m.creationOptions.max_search_keyframes      = 4;
   m.creationOptions.rotation_distance_weight  = 3.5;
@@ -307,7 +308,9 @@ void test_creation_options_roundtrip()
   }
 
   ASSERT_EQUAL_(m2.creationOptions.use_view_direction_filter, false);
-  ASSERT_(m2.creationOptions.view_direction_filter == mola::ViewDirectionFilter::SurfaceSide);
+  ASSERT_(
+      m2.creationOptions.view_direction_filter ==
+      mola::ViewDirectionFilter::SurfaceSideGravityAligned);
   ASSERT_NEAR_(m2.creationOptions.max_view_angle_deg, 75.0, 1e-9);
 
   // A default map keeps the angle test, the only one before the mode existed:
@@ -609,6 +612,18 @@ void test_view_filter_surface_side()
 
     // Opposite faces:
     ASSERT_EQUAL_(lambdaPairings(0.f, -1.f, mola::ViewDirectionFilter::SurfaceSide), 0U);
+
+    // Opposite faces, the query view near grazing: only the gravity-aligned
+    // variant judges them. It keeps the same face, like SurfaceSide:
+    const float cGrazing = std::cos(mrpt::DEG2RAD(5.0f));
+    const float sGrazing = std::sin(mrpt::DEG2RAD(5.0f));
+    ASSERT_EQUAL_(
+        lambdaPairings(-cGrazing, -sGrazing, mola::ViewDirectionFilter::SurfaceSide), nPts);
+    ASSERT_EQUAL_(
+        lambdaPairings(-cGrazing, -sGrazing, mola::ViewDirectionFilter::SurfaceSideGravityAligned),
+        0U);
+    ASSERT_EQUAL_(
+        lambdaPairings(-cElev, sElev, mola::ViewDirectionFilter::SurfaceSideGravityAligned), nPts);
   }
 }
 
