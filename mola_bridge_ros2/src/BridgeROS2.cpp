@@ -990,12 +990,12 @@ bool BridgeROS2::waitForTransform(
 }
 
 void BridgeROS2::callbackOnOdometry(
-    const nav_msgs::msg::Odometry& o, const std::string& outSensorLabel)
+    const nav_msgs::msg::Odometry& o, const std::string& outSensorLabel, bool asRobotPose)
 {
   MRPT_START
   const ProfilerEntry tle(profiler_, "callbackOnOdometry");
 
-  if (params_.odometry_as_robot_pose_observation)
+  if (asRobotPose)
   {
     // 3D mode: CObservationRobotPose with full SE(3) pose + 6x6 covariance.
     // This is suitable for multi-source fusion in the state estimation smoother.
@@ -1020,7 +1020,7 @@ void BridgeROS2::callbackOnOdometry(
   }
   else
   {
-    // 2D mode: CObservationOdometry (legacy, for 2D SLAM/mapping pipelines).
+    // 2D mode: CObservationOdometry (wheel odometry, 2D SLAM/mapping pipelines).
     auto obs         = mrpt::obs::CObservationOdometry::Create();
     obs->timestamp   = mrpt::ros2bridge::fromROS(o.header.stamp);
     obs->sensorLabel = outSensorLabel;
@@ -2717,10 +2717,29 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
     }
     else if (type == "Odometry")
     {
+      // Per-topic override of the global odometry_as_robot_pose_observation, so wheel
+      // odometry (planar) and LiDAR/visual odometry (SE(3)) can be fused together:
+      bool asRobotPose = params_.odometry_as_robot_pose_observation;
+      if (topic.has("odometry_as_robot_pose_observation"))
+      {
+        const auto& v = topic["odometry_as_robot_pose_observation"];
+        try
+        {
+          ASSERT_(!v.isNullNode());
+          asRobotPose = v.as<bool>();
+        }
+        catch (const std::exception& e)
+        {
+          THROW_EXCEPTION_FMT(
+              "Invalid 'odometry_as_robot_pose_observation' for topic '%s' (expected true or "
+              "false): %s",
+              topic_name.c_str(), e.what());
+        }
+      }
       subsOdometry_.emplace_back(rosNode_->create_subscription<nav_msgs::msg::Odometry>(
           topic_name, qos,
-          [this, output_sensor_label](const nav_msgs::msg::Odometry& o)
-          { this->callbackOnOdometry(o, output_sensor_label); }));
+          [this, output_sensor_label, asRobotPose](const nav_msgs::msg::Odometry& o)
+          { this->callbackOnOdometry(o, output_sensor_label, asRobotPose); }));
     }
     else
     {

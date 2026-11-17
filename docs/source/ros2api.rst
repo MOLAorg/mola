@@ -292,6 +292,13 @@ the following fields:
      - No
      - Boolean (default ``false``).  When ``false``, the sensor pose is looked up
        via ``/tf`` at runtime.
+   * - ``odometry_as_robot_pose_observation``
+     - No
+     - ``Odometry`` only. Boolean (default: the bridge parameter of the same name,
+       ``true``). ``true``: forwarded as an SE(3)
+       robot pose with covariance (LiDAR or visual odometry); ``false``: as planar
+       wheel odometry (``CObservationOdometry``), for which the state estimation smoother
+       applies its wheel motion model. Lets wheel and 3D odometry sources be fused together.
 
 Example:
 
@@ -302,6 +309,12 @@ Example:
       - topic: /imu
         msg_type: Imu
         output_sensor_label: "imu"
+
+      # Wheel odometry, as planar odometry:
+      - topic: /wheel_odom
+        msg_type: Odometry
+        output_sensor_label: "odom_wheels"
+        odometry_as_robot_pose_observation: false
 
       # Optional slot - disabled when ODOM2_TOPIC is unset:
       - topic: ${ODOM2_TOPIC|}
