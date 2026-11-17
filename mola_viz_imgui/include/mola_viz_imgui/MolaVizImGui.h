@@ -23,6 +23,7 @@
 #include <mola_kernel/interfaces/Dataset_UI.h>
 #include <mola_kernel/interfaces/ExecutableBase.h>
 #include <mola_viz_imgui/MolaVizImGuiCore.h>
+#include <mrpt/containers/yaml.h>
 
 #include <atomic>
 #include <map>
@@ -303,7 +304,9 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
   ImGuiContext*     imgui_ctx_  = nullptr;
   ImPlotContext*    implot_ctx_ = nullptr;
 
-  void                             gui_thread();
+  void gui_thread();
+  /// Video recording params: YAML, overridden by MOLA_VIZ_RECORD_* env vars.
+  void                             load_video_recording_params(const mrpt::containers::yaml& cfg);
   MolaVizImGuiCore::PerWindowData& create_and_add_window(const window_name_t& name);
 
   // ---------------------------------------------------------------------------

@@ -166,10 +166,6 @@ void MolaVizImGuiCore::stop_recording()
     return;
   }
   recorder_->close();
-  MRPT_LOG_INFO_STREAM(
-      "Video recording finished: " << recorder_->frames_written() << " frames, rendered at "
-                                   << recorder_->effective_fps() << " fps (video: " << record_fps_
-                                   << " fps), in " << record_video_);
   recorder_.reset();
 }
 
@@ -309,6 +305,12 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
   glfwGetFramebufferSize(wd.glfw_window, &display_w, &display_h);
 
   // Recording: the frame is drawn off-screen at the video size, UI-less.
+  // After a failure, back to the normal GUI.
+  if (recorder_ && recorder_->failed())
+  {
+    stop_recording();
+    record_video_.clear();
+  }
   const bool recording = !record_video_.empty();
   if (recording && !recorder_)
   {
@@ -318,7 +320,9 @@ void MolaVizImGuiCore::render_frame(const window_name_t& name, PerWindowData& wd
     rp.width          = record_width_;
     rp.height         = record_height_;
     rp.ffmpeg_options = record_ffmpeg_options_;
-    recorder_         = std::make_unique<VideoRecorder>(rp);
+    rp.logger         = [this](mrpt::system::VerbosityLevel level, const std::string& msg)
+    { this->logStr(level, msg); };
+    recorder_ = std::make_unique<VideoRecorder>(rp);
   }
 
   ImGui_ImplOpenGL3_NewFrame();

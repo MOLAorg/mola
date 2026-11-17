@@ -382,16 +382,17 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
    *  disappear. */
   bool menu_bar_enabled_ = true;
 
-  /** Video recording (host mode only): if `record_video_` is a file name, the
-   *  3D view is rendered off-screen at record_width_ x record_height_, without
-   *  any panel or menu, and written to that file at record_fps_ frames per
-   *  (wall clock) second through ffmpeg. The window shows a scaled preview. */
+  /** Video recording (host mode only): if `record_video_` is a file name
+   *  (overwritten), the 3D view is rendered off-screen at record_width_ x
+   *  record_height_, without any panel or menu, and written to that file
+   *  through ffmpeg, one video frame per GUI frame at record_fps_ (set
+   *  target_fps_ to it). The window shows a scaled preview (mouse input keeps
+   *  window coordinates). If recording fails, the normal GUI comes back. */
   std::string record_video_;
   int         record_fps_            = 30;
   int         record_width_          = 1920;
   int         record_height_         = 1080;
   std::string record_ffmpeg_options_ = "-c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p";
-  std::unique_ptr<VideoRecorder> recorder_;
   /// Finishes the video, if recording (GL context current).
   void stop_recording();
 
@@ -564,6 +565,9 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   std::string resolve_imgui_ini_path(const window_name_t& windowName) const;
 
  private:
+  // Video recording, while record_video_ is set (see above):
+  std::unique_ptr<VideoRecorder> recorder_;
+
   // True between init_for_embed() and shutdown_for_embed(); used by the
   // destructor to warn the caller if they forgot to release GL resources.
   bool embed_active_ = false;

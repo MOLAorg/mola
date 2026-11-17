@@ -17,10 +17,15 @@
 
 #include "VideoRecorder.h"
 
+#include <mrpt/core/format.h>
 #include <mrpt/opengl/opengl_api.h>
+#include <pthread.h>
+#include <sys/wait.h>
 
 #include <algorithm>
 #include <csignal>
+#include <cstring>
+#include <ctime>
 #include <iostream>
 #include <stdexcept>
 #include <utility>
@@ -46,6 +51,29 @@ std::string shell_quote(const std::string& s)
   }
   return out + "'";
 }
+
+/** Blocks SIGPIPE in the calling thread (the one writing to ffmpeg), so a
+ *  write to a dead ffmpeg fails with EPIPE instead of killing the process,
+ *  without changing the signal disposition of the rest of the process. */
+void block_sigpipe_in_this_thread()
+{
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGPIPE);
+  pthread_sigmask(SIG_BLOCK, &set, nullptr);
+}
+
+/// Discards a SIGPIPE left pending in this thread by a failed write.
+void consume_pending_sigpipe()
+{
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGPIPE);
+  const timespec zero{0, 0};
+  while (sigtimedwait(&set, nullptr, &zero) == SIGPIPE)
+  {
+  }
+}
 }  // namespace
 
 VideoRecorder::VideoRecorder(Params p) : params_(std::move(p))
@@ -60,21 +88,46 @@ VideoRecorder::~VideoRecorder()
 {
   // The GL objects are left to the context (it may not be current here), but
   // the video must be finished:
-  if (pipe_ != nullptr)
+  close_pipe();
+}
+
+void VideoRecorder::log(mrpt::system::VerbosityLevel level, const std::string& msg) const
+{
+  if (params_.logger)
   {
-    pclose(pipe_);
-    pipe_ = nullptr;
+    params_.logger(level, msg);
+    return;
   }
+  (level >= mrpt::system::LVL_WARN ? std::cerr : std::cout) << "[VideoRecorder] " << msg << "\n";
+}
+
+void VideoRecorder::fail(const std::string& why)
+{
+  log(mrpt::system::LVL_ERROR, "Recording stopped: " + why);
+  failed_ = true;
+  close_pipe();
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void VideoRecorder::create_gl_objects()
 {
+  // Same color encoding as the window, so the video looks like it (the scene
+  // is gamma-encoded only into sRGB-capable framebuffers):
+  GLint encoding = GL_LINEAR;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glGetFramebufferAttachmentParameteriv(
+      GL_FRAMEBUFFER, GL_BACK_LEFT, GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING, &encoding);
+  while (glGetError() != GL_NO_ERROR)
+  {
+  }
+  const GLenum colorFormat = encoding == GL_SRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+
   glGenFramebuffers(1, &fbo_);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
 
   glGenRenderbuffers(1, &color_rb_);
   glBindRenderbuffer(GL_RENDERBUFFER, color_rb_);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, params_.width, params_.height);
+  glRenderbufferStorage(GL_RENDERBUFFER, colorFormat, params_.width, params_.height);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, color_rb_);
 
   glGenRenderbuffers(1, &depth_rb_);
@@ -84,29 +137,28 @@ void VideoRecorder::create_gl_objects()
       GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth_rb_);
   glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+  const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (!complete)
   {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    throw std::runtime_error("VideoRecorder: incomplete framebuffer");
+    throw std::runtime_error("incomplete off-screen framebuffer");
   }
 }
 
 void VideoRecorder::open_pipe()
 {
-  // If ffmpeg dies, writing to its pipe must fail, not kill the process:
-  std::signal(SIGPIPE, SIG_IGN);
+  block_sigpipe_in_this_thread();
 
-  const std::string cmd = "ffmpeg -loglevel error -y -f rawvideo -pix_fmt rgb24 -s " +
+  // In its own session: a terminal CTRL+C must not stop ffmpeg before us.
+  const std::string cmd = "setsid ffmpeg -loglevel error -y -f rawvideo -pix_fmt rgba -s " +
                           std::to_string(params_.width) + "x" + std::to_string(params_.height) +
-                          " -r " + std::to_string(params_.fps) + " -i - -vf vflip " +
-                          params_.ffmpeg_options + " " + shell_quote(params_.output);
+                          " -r " + std::to_string(params_.fps) + " -i - " + params_.ffmpeg_options +
+                          " " + shell_quote(params_.output);
   pipe_ = popen(cmd.c_str(), "w");
   if (pipe_ == nullptr)
   {
-    throw std::runtime_error("VideoRecorder: cannot run: " + cmd);
+    throw std::runtime_error("cannot run: " + cmd);
   }
-  std::cout << "[VideoRecorder] Recording " << params_.width << "x" << params_.height << " @ "
-            << params_.fps << " fps to: " << params_.output << "\n";
 }
 
 void VideoRecorder::begin_frame()
@@ -120,18 +172,44 @@ void VideoRecorder::begin_frame()
     if (fbo_ == 0)
     {
       create_gl_objects();
+      pixels_.resize(static_cast<std::size_t>(params_.width) * params_.height * 4);
+      row_.resize(static_cast<std::size_t>(params_.width) * 4);
       open_pipe();
-      pixels_.resize(static_cast<std::size_t>(params_.width) * params_.height * 3);
     }
   }
   catch (const std::exception& e)
   {
-    std::cerr << "[VideoRecorder] Disabled: " << e.what() << "\n";
-    failed_ = true;
+    fail(e.what());
     return;
   }
   glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
   glViewport(0, 0, params_.width, params_.height);
+}
+
+void VideoRecorder::write_frame()
+{
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
+  glPixelStorei(GL_PACK_ALIGNMENT, 4);
+  glReadPixels(0, 0, params_.width, params_.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels_.data());
+
+  // OpenGL rows go bottom-up, video rows top-down:
+  const std::size_t rowSize = row_.size();
+  for (std::size_t top = 0, bottom = params_.height - 1; top < bottom; top++, bottom--)
+  {
+    uint8_t* a = &pixels_[top * rowSize];
+    uint8_t* b = &pixels_[bottom * rowSize];
+    std::memcpy(row_.data(), a, rowSize);
+    std::memcpy(a, b, rowSize);
+    std::memcpy(b, row_.data(), rowSize);
+  }
+
+  if (fwrite(pixels_.data(), 1, pixels_.size(), pipe_) != pixels_.size())
+  {
+    consume_pending_sigpipe();
+    fail("writing to ffmpeg failed (is ffmpeg installed, and the output writable?)");
+    return;
+  }
+  frames_written_++;
 }
 
 void VideoRecorder::end_frame(int windowWidth, int windowHeight)
@@ -141,47 +219,32 @@ void VideoRecorder::end_frame(int windowWidth, int windowHeight)
     return;
   }
 
-  // One video frame per rendered frame: the GUI loop runs at the video rate.
   const auto now = std::chrono::steady_clock::now();
   if (!t0_)
   {
-    t0_ = now;
+    t0_           = now;
+    window_start_ = now;
   }
   last_frame_ = now;
-  if (pipe_ != nullptr)
+  write_frame();
+  if (failed_)
   {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadPixels(0, 0, params_.width, params_.height, GL_RGB, GL_UNSIGNED_BYTE, pixels_.data());
-    if (fwrite(pixels_.data(), 1, pixels_.size(), pipe_) != pixels_.size())
-    {
-      std::cerr << "[VideoRecorder] Writing to ffmpeg failed: recording stopped.\n";
-      pclose(pipe_);
-      pipe_   = nullptr;
-      failed_ = true;
-    }
-    else
-    {
-      frames_written_++;
-    }
-    // Report the rendered rate now and then (a rate below fps speeds up the video):
-    if (!window_start_)
-    {
-      window_start_  = now;
-      window_frames_ = frames_written_;
-    }
-    if (const double dt = std::chrono::duration<double>(now - *window_start_).count(); dt > 30.0)
-    {
-      std::cout << "[VideoRecorder] " << frames_written_ << " frames, last " << dt << " s at "
-                << static_cast<double>(frames_written_ - window_frames_) / dt << " fps\n";
-      std::cout.flush();
-      window_start_  = now;
-      window_frames_ = frames_written_;
-    }
+    return;
+  }
+
+  // Report the rendered rate now and then: a rate below fps speeds up the video.
+  if (const double dt = std::chrono::duration<double>(now - *window_start_).count(); dt > 30.0)
+  {
+    const double fps = static_cast<double>(frames_written_ - window_frames_) / dt;
+    log(fps < 0.95 * params_.fps ? mrpt::system::LVL_WARN : mrpt::system::LVL_INFO,
+        mrpt::format(
+            "%zu frames, last %.0f s rendered at %.2f fps (video: %d fps)", frames_written_, dt,
+            fps, params_.fps));
+    window_start_  = now;
+    window_frames_ = frames_written_;
   }
 
   // Preview in the window, keeping the aspect ratio:
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
   glViewport(0, 0, windowWidth, windowHeight);
   glClearColor(0, 0, 0, 1);
@@ -208,14 +271,31 @@ double VideoRecorder::effective_fps() const
   return dt > 0 ? static_cast<double>(frames_written_ - 1) / dt : 0;
 }
 
+void VideoRecorder::close_pipe()
+{
+  if (pipe_ == nullptr)
+  {
+    return;
+  }
+  const int status = pclose(pipe_);
+  pipe_            = nullptr;
+  if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+  {
+    log(mrpt::system::LVL_ERROR, mrpt::format(
+                                     "ffmpeg failed (status %d): the video may be incomplete: %s",
+                                     status, params_.output.c_str()));
+  }
+}
+
 void VideoRecorder::close()
 {
   if (pipe_ != nullptr)
   {
-    pclose(pipe_);
-    pipe_ = nullptr;
-    std::cout << "[VideoRecorder] Done: " << frames_written_ << " frames, " << effective_fps()
-              << " frames per second, in: " << params_.output << "\n";
+    close_pipe();
+    log(mrpt::system::LVL_INFO,
+        mrpt::format(
+            "Video finished: %zu frames, rendered at %.2f fps (video: %d fps), in: %s",
+            frames_written_, effective_fps(), params_.fps, params_.output.c_str()));
   }
   if (fbo_ != 0)
   {
