@@ -130,10 +130,20 @@ the robot needs to operate so it can localize correctly.
   First, if your map is so large that it needs to close loops (e.g. several building blocks, a large part of a campus, etc.)
   the :ref:`loop closure module <solutions>` would be needed to post-process the ``*.simplemap`` file.
 
-  Next, either if you already have closed loops or you do not need them, follow :ref:`these instructions <building-maps_step_mm>`,
-  taking into account that there must exist an output metric map **layer** named as expected by the LO pipeline (e.g. :ref:`lidar3d-default <mola_lo_pipelines>`).
+  Next, either if you already have closed loops or you do not need them, build a metric map from the
+  key-frame map with ``sm2mm`` (see :ref:`these instructions <building-maps_step_mm>`). The new map must have a
+  **layer** named ``localmap``, the one the LO pipeline matches scans against. The example pipeline
+  ``sm2mm_pointcloud_voxelize_keyframe_map.yaml`` builds it, with all the key-frames, for the default
+  ``lidar3d-gicp`` :ref:`pipeline <mola_lo_pipelines>`:
 
-  TO-DO: Write complete example files and commands!
+  .. code-block:: bash
+
+    wget https://github.com/MOLAorg/mp2p_icp/raw/develop/mp2p_icp_core/demos/sm2mm_pointcloud_voxelize_keyframe_map.yaml
+
+    sm2mm -i /tmp/my_map.simplemap -o /tmp/my_full_map.mm -p sm2mm_pointcloud_voxelize_keyframe_map.yaml
+
+  Then, load ``/tmp/my_full_map`` in the next section. Since there is no ``/tmp/my_full_map.simplemap``,
+  the map can be used for localization, but not extended.
 
 
 
