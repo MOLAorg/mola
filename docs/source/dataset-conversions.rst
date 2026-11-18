@@ -22,13 +22,13 @@ Each robotic framework or library has defined its own formats over time:
 - `MRPT <https://github.com/MRPT/mrpt>`_, on which MOLA is internally based on, 
   defined its own serialized dataset format (~2005) named
   `RawLogs <https://docs.mrpt.org/reference/latest/class_mrpt_obs_CRawlog.html>`_, which is ensured
-  to be portable across operative systems, backwards compatible across MRPT versions,
+  to be portable across operating systems, backwards compatible across MRPT versions,
   and processor architecture independent.
 
 .. note::
-   Apart of these *standardized formats*, many robotic datasets have their own custom
+   Apart from these *standardized formats*, many robotic datasets have their own custom
    data layout (e.g. one binary file for each 3D LiDAR scan or image).
-   MOLA makes easy reading them by providing *adapter modules* that can read the most
+   MOLA reads them through *adapter modules* for the most
    popular datasets (see :ref:`list <supported_sensors>`) through unified C++ APIs
    (:ref:`doxid-classmola_1_1_offline_dataset_source`)
    or :ref:`re-publishing them to ROS <mola-dataset-to-ros>`.
@@ -51,24 +51,21 @@ There are two versions of ``rosbag2rawlog``, for **ROS 1** and **ROS 2 bags**:
     .. tab-item:: ROS 2 bags
       :selected:
 
-      ``rosbag2rawlog`` for **ROS 2 bags**. It is shipped with the ROS package `mrpt_rawlog <https://github.com/mrpt-ros-pkg/mrpt_navigation/tree/ros2/mrpt_rawlog>`_
-      so it can be installed with:
+      ``rosbag2rawlog`` for **ROS 2 bags** is shipped in the ROS package ``rosbag2rawlog`` of
+      `mrpt_ros_bridge <https://github.com/MRPT/mrpt_ros_bridge>`_, so it can be installed with:
 
       .. code-block:: bash
 
-        sudo apt install ros-${ROS_DISTRO}-mrpt-rawlog
+        sudo apt install ros-${ROS_DISTRO}-rosbag2rawlog
 
     .. tab-item:: ROS 1 bags
 
-      ``rosbag2rawlog`` for **ROS 1 bags** belongs to upstream MRPT, and it is generated only *if*
-      ROS 1 is detected at cmake configuration time. You can either build MRPT from sources after activating
+      ``rosbag2rawlog`` for **ROS 1 bags** belongs to MRPT 2.x (it is not part of MRPT 3), and it is
+      generated only *if* ROS 1 is detected at cmake configuration time. Note that MOLA can also read
+      ROS 1 bags directly (see :ref:`supported_sensors`). You can either build MRPT from sources after activating
       your ROS 1 environment, or install the Ubuntu package ``mrpt-apps``, which already ships ``rosbag2rawlog``
       for Ubuntu versions <=22.04 (In Ubuntu 24.04, ROS 1 packages were removed upstream).
       To ensure having the latest version, consider installing it from `the PPA <https://launchpad.net/~joseluisblancoc/+archive/ubuntu/mrpt-stable>`_.
-
-.. note::
-   As of 2025, there is an ongoing effort to move all ROS-related apps and bridge libraries into `its own repository <https://github.com/MRPT/mrpt_ros_bridge>`_,
-   which will be the single repository for all MRPT-ROS stuff after the release of `MRPT 3.0.0 <https://github.com/MRPT/mrpt/issues/1330>`_.
 
 |
 
@@ -81,37 +78,23 @@ Once you have ``rosbag2rawlog`` installed it can be invoked like:
 
       $ rosbag2rawlog --help
 
-      USAGE: 
+      rosbag2rawlog (ROS 2)
+      Usage: rosbag2rawlog [OPTIONS] bags
 
-        rosbag2rawlog  [-b <base_link>] [-w] -c <config.yml> -o
-                        <dataset_out.rawlog> [--] [--version] [-h] <log.bag> ...
+      Positionals:
+        bags TEXT:FILE REQUIRED     Input bag files (required) (*.mcap,*.db3)
 
-
-      Where: 
-
-        -b <base_link>,  --base-link <base_link>
-          Reference /tf frame for the robot frame (Default: 'base_link')
-
-        -w,  --overwrite
-          Force overwrite target file without prompting.
-
-        -c <config.yml>,  --config <config.yml>
-          (required)  Config yaml file (*.yml)
-
-        -o <dataset_out.rawlog>,  --output <dataset_out.rawlog>
-          (required)  Output dataset (*.rawlog)
-
-        --,  --ignore_rest
-          Ignores the rest of the labeled arguments following this flag.
-
-        --version
-          Displays version information and exits.
-
-        -h,  --help
-          Displays usage information and exits.
-
-        <log.bag>  (accepted multiple times)
-          (required)  Input bag files (required) (*.bag)
+      Options:
+        -h,--help                   Print this help message and exit
+        -o,--output TEXT REQUIRED   Output dataset (*.rawlog)
+        -c,--config TEXT:FILE REQUIRED
+                                    Config yaml file (*.yml)
+        --storage-id TEXT=mcap      rosbag2 storage_id format (sqlite3|mcap|...)
+        --serialization-format TEXT=cdr
+                                    rosbag2 serialization format (cdr)
+        -w,--overwrite              Force overwrite target file without prompting.
+        -b,--base-link TEXT=base_link
+                                    Reference /tf frame for the robot frame (Default: 'base_link')
 
 
 For example:
@@ -244,18 +227,21 @@ The rest will be discarded, after emitting a warning to the terminal.
 
 3. rawlog ⇒ ROS
 ----------------------------
-For ROS 2. There is no ROS 1 republishing path: MOLA's bridge module targets
-ROS 2 only, and ``mola_input_rosbag1`` reads ROS 1 bags rather than writing
-them.
+For ROS 2 only: there is no ROS 1 writing path.
 
-There is no dedicated ``rawlog2rosbag`` program either, because the general
-mechanism covers this case: a rawlog is read by the ``mola_input_rawlog`` module, and any
-MOLA dataset source can be republished as live ROS topics through the ROS 2
-bridge. See :ref:`§5 below <mola-dataset-to-ros>`, using ``mola_input_rawlog``
-as the dataset source module.
+To write a ROS 2 bag (``.mcap`` or ``.db3``), use ``rawlog2rosbag``, from the ROS package
+``rawlog2rosbag`` of `mrpt_ros_bridge <https://github.com/MRPT/mrpt_ros_bridge>`_:
 
-Record those topics with ``ros2 bag record`` if you want a bag rather than a
-live replay.
+.. code-block:: bash
+
+    sudo apt install ros-${ROS_DISTRO}-rawlog2rosbag
+
+    rawlog2rosbag -i dataset.rawlog -o dataset_bag/
+
+Run it with ``--help`` for its options (storage format, frames, images, ground truth).
+
+To replay a rawlog as live ROS 2 topics instead, use the ``mola_input_rawlog`` module as
+the dataset source of :ref:`a MOLA system with the ROS 2 bridge <mola-dataset-to-ros>`.
 
 
 |

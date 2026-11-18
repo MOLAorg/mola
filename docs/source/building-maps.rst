@@ -6,11 +6,6 @@ Build a map
 
 This tutorial describes the steps for building metric maps using MOLA.
 
-____________________________________________
-
-____________________________________________
-
-|
 
 1. Record the data
 ---------------------------------

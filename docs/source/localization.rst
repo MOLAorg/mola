@@ -15,17 +15,12 @@ At present, this framework provides two fundamentally different algorithms for *
 * **Based on optimization**, by using the :ref:`LiDAR odometry module <mola_lidar_odometry>`, without map updates.
 * **Based on particle filtering**, by using any combination of metric maps (grid maps, point clouds, etc.) and wheels odometry.
 
-____________________________________________
-
-____________________________________________
-
-|
 
 .. _localization-only_common:
 
 
-1. Common aspects
---------------------------------------
+Common aspects
+--------------
 Independently of the localization algorithm, the problem of finding the *rough* localization
 of the vehicle at start up is quite special due to the large **initial uncertainty**.
 
@@ -42,8 +37,8 @@ pose in the environment:
 
 ----
 
-2. Localization with LiDAR odometry (LO) and a reference map
----------------------------------------------------------------
+Localization with LiDAR odometry (LO) and a reference map
+---------------------------------------------------------
 See the step-by-step instructions in :ref:`this tutorial <tutorial-mola-lo-map-and-localize>`.
 As a summary, you need to:
 
@@ -118,8 +113,8 @@ These are the available initial localization methods, that can be used in the la
 
 .. _localization-lo_gnss_kinematics:
 
-3. LO/LIO + GNSS + kinematics localization
----------------------------------------------------------------
+LO/LIO + GNSS + kinematics localization
+---------------------------------------
 Based on the smoother state estimator, this solution allows for improved localization in a prebuilt map
 by fusing the output of LiDAR odometry (LO or LIO) with GNSS and kinematic data.
 
