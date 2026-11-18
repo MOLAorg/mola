@@ -71,7 +71,6 @@
   mp2p_icp_basics
   mp2p_icp_filters
   mp2p_icp_optimal-transformations
-  mp2p_icp_applications
   sm2mm_pipelines
 
 

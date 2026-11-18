@@ -71,4 +71,5 @@ Python
 .. toctree::
    :maxdepth: 1
 
+   mp2p_icp_python
    mola_metric_maps_python
