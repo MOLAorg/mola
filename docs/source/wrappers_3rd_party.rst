@@ -329,3 +329,66 @@ It provides:
         -c $(ros2 pkg prefix mola_glim_wrapper)/share/mola_glim_wrapper/pipelines/glim-kitti.yaml \
         --input-kitti-seq 04 \
         --output-tum-path /tmp/glim_kitti04.tum
+
+|
+
+Ellipse-LIO
+--------------------------------------
+Wrapper for the work :cite:`border2026ellipselio`.
+
+Repository: https://github.com/MOLAorg/mola_ellipse_lio_wrapper
+
+EllipseLIO is an iterated extended Kalman filter LIO whose map is made of
+ellipsoids built by tensor voting: each scan is registered with a
+point-to-ellipsoid model, and the input filtering adapts to the range. The
+wrapper runs the upstream algorithm with its ROS dependencies removed, and
+without the camera colorization.
+
+It provides:
+
+- ``mola::EllipseLioOdometry``, an online module loadable from a ``mola-cli``
+  launch YAML.
+- ``mola-ellipse-lio-cli``, an offline, loss-free CLI over ROS 2 bags and
+  rawlogs. ``--synthetic-imu`` feeds a stationary IMU to run LiDAR-only
+  datasets.
+- Pipeline YAMLs for Oxford Spires and for MVSim simulated datasets.
+
+.. warning::
+   This port currently diverges early on the Oxford Spires sequences tested, so
+   its results do not represent the published method yet. See the repository
+   README.
+
+.. dropdown:: Compile instructions
+   :icon: code-square
+
+   .. code-block:: bash
+
+      mkdir -p ~/ros2_mola_ws/src/
+      cd ~/ros2_mola_ws/src/
+
+      git clone https://github.com/MOLAorg/mola_ellipse_lio_wrapper.git
+
+   .. code-block:: bash
+
+      cd ~/ros2_mola_ws/
+      rosdep install --from-paths src --ignore-src -r -y
+      colcon build --symlink-install --packages-select mola_ellipse_lio_wrapper \
+        --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      source install/setup.bash
+
+.. dropdown:: Example: run on an Oxford Spires sequence
+   :icon: terminal
+
+   .. code-block:: bash
+
+      # Sensor poses of the Oxford Spires rig:
+      LIDAR_POSE_X=0 LIDAR_POSE_Y=0 LIDAR_POSE_Z=0 LIDAR_POSE_YAW=0 LIDAR_POSE_PITCH=0 LIDAR_POSE_ROLL=0 \
+      MOLA_USE_FIXED_LIDAR_POSE=true \
+      IMU_POSE_X=0.018771 IMU_POSE_Y=-0.008218 IMU_POSE_Z=-0.070474 \
+      IMU_POSE_YAW=-90.6263 IMU_POSE_PITCH=-0.1665 IMU_POSE_ROLL=-0.1287 \
+      MOLA_USE_FIXED_IMU_POSE=true \
+      mola-ellipse-lio-cli \
+        -c $(ros2 pkg prefix mola_ellipse_lio_wrapper)/share/mola_ellipse_lio_wrapper/pipelines/ellipselio-oxford-spires.yaml \
+        --input-rosbag2 /path/to/oxford-spires/<sequence>/raw/ros2bag/<bag> \
+        --lidar-topic /hesai/pandar --imu-topic /alphasense_driver_ros/imu \
+        --output-tum-path /tmp/ellipselio.tum
