@@ -326,7 +326,55 @@ Example:
 
 6. Published topics
 --------------------------------------
-Write me!
+``BridgeROS2`` names each output topic after the module that produces it (its ``method``):
+``lidar_odometry`` for MOLA-LO, and the module instance name, ``state_estimation``, for the
+smoother. Names are relative, so they are pushed into the namespace of the node, if any.
+These are the topics of a typical MOLA-LO system:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 24 42
+
+   * - Topic
+     - Type
+     - Published
+   * - ``lidar_odometry/pose``
+     - ``nav_msgs/Odometry``
+     - Pose and twist of ``base_link`` in ``map``, when MOLA-LO is the localization source
+       (no smoother).
+   * - ``state_estimation/pose``
+     - ``nav_msgs/Odometry``
+     - The fused pose, instead of the above, with the smoother.
+   * - ``lidar_odometry/pose_quality``, ``state_estimation/pose_quality``
+     - ``std_msgs/Float32``
+     - Localization quality, in [0,1].
+   * - ``lidar_odometry/localmap_points``
+     - ``sensor_msgs/PointCloud2``
+     - The local map (transient local QoS), unless ``publish_local_map:=False``. Other map
+       layers go to ``<method>/<layer>_points``, and occupancy grid layers to
+       ``<method>/<layer>_gridmap`` (``nav_msgs/OccupancyGrid``).
+   * - ``lidar_odometry/metadata``
+     - ``std_msgs/String``
+     - Metadata of the local map, as YAML.
+   * - ``lidar_odometry/deskewed_scan_points``
+     - ``sensor_msgs/PointCloud2``
+     - Each scan after de-skew, only with ``MOLA_LO_PUBLISH_DESKEWED_SCANS=true``.
+   * - ``<method>/geo_pose``
+     - ``geographic_msgs/GeoPoseStamped``
+     - The pose in latitude, longitude and height, once the geo-reference is known.
+   * - ``<method>/geo_ref_metadata``
+     - ``mrpt_nav_interfaces/GeoreferencingMetadata``
+     - The geo-reference (transient local QoS): ``lidar_odometry/...`` for a loaded
+       geo-referenced map, ``state_estimator/...`` when estimated by the smoother.
+   * - ``mola_diagnostics/<module>/status``
+     - ``std_msgs/String``
+     - Per-module status as YAML (e.g. ICP quality, processing time, dropped scans).
+   * - ``/diagnostics``
+     - ``diagnostic_msgs/DiagnosticArray``
+     - Health statuses, see :ref:`mola_lo_diagnostics`.
+   * - ``/tf``, ``/tf_static``
+     - ``tf2_msgs/TFMessage``
+     - See :ref:`mola_ros2_tf_frames`.
 
 6.1. Log messages (``/rosout``)
 ======================================================
