@@ -17,11 +17,6 @@ At present, this framework provides two fundamentally different algorithms for *
 
 ____________________________________________
 
-.. contents:: Table of Contents
-   :depth: 1
-   :local:
-   :backlinks: none
-
 ____________________________________________
 
 |

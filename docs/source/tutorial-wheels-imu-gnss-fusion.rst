@@ -36,11 +36,6 @@ compare three ways of estimating the robot position against the RTK ground truth
 .. image:: imgs/tutorial_fusion_map_overview.jpg
    :width: 100%
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
 |
 
 The tutorial is also available as a video:

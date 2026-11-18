@@ -8,11 +8,6 @@ This tutorial describes the steps for building metric maps using MOLA.
 
 ____________________________________________
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
 ____________________________________________
 
 |

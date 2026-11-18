@@ -9,12 +9,6 @@ This page documents the main CMake utilities and helper functions provided by th
 MOLA modules and ensure consistent configuration for ROS 2 packages built with **colcon** and **CMake**.
 
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
-
 Overview
 ========
 

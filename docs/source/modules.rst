@@ -23,12 +23,6 @@ live. For the tasks these packages are combined to solve, see
    BSD-3-Clause for utilities, bridges and demos). Check the ``<license>``
    tag of its ``package.xml``.
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
-
 Core framework
 ----------------
 

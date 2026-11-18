@@ -14,11 +14,6 @@ enables embedding georeferenced coordinates to any kind of map typically used in
    :width: 250
    :align: right
 
-.. contents:: Table of Contents
-   :depth: 2
-   :local:
-   :backlinks: none
-
 |
 
 1. Frames for geo-referenced maps

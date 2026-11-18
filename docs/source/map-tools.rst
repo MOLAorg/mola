@@ -7,11 +7,6 @@ Map tools
 MOLA's ``.mm`` metric map format comes with a full ecosystem of CLI tools for
 viewing, converting, filtering, and georeferencing maps.
 
-.. contents:: Tools
-   :depth: 1
-   :local:
-   :backlinks: none
-
 |
 
 Viewer

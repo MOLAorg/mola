@@ -12,11 +12,6 @@ choice of input is independent of the choice of odometry, SLAM or localization
 algorithm: the same pipeline runs unchanged on a rosbag, on a rawlog, or on a
 live LiDAR.
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
 |
 
 1. Offline: from a recording

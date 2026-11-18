@@ -8,12 +8,6 @@ This page gives instructions on how to convert robotics datasets between
 ROS 1 and ROS 2 bag files or live messages, MRPT's cross-platform RawLog format, and
 the custom formats of popular robotics and computer vision datasets.
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
-
 1. Dataset formats
 ---------------------------------
 Robotics datasets consist of **sequences** of raw sensory data as captured by

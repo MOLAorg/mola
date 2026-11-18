@@ -9,12 +9,6 @@ MOLA-LIO** from a hand-held or robot-mounted LiDAR with an internal IMU (Ouster,
 how to **post-process** the saved map, 
 and how to load that map in **LIO localization-only mode**.
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
-
 The tutorial is fully available in this YouTube video, but you also have all 
 the commands and steps described in text below for your convenience:
 

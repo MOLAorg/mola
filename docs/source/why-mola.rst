@@ -9,11 +9,6 @@ and 3D surveying. It follows an :ref:`Open Core <pricing>` model: the full frame
 open-source and free for research, while commercial users can upgrade to **MOLA Pro**
 for closed-source deployment, pre-built binaries, and priority support.
 
-.. contents:: On this page
-   :depth: 1
-   :local:
-   :backlinks: none
-
 |
 
 What makes MOLA different

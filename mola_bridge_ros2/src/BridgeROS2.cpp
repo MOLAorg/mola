@@ -624,6 +624,7 @@ void BridgeROS2::initialize_rds(const Yaml& c)
   YAML_LOAD_OPT(params_, georef_map_enu_frame, std::string);
 
   YAML_LOAD_OPT(params_, publish_localization_following_rep105, bool);
+  YAML_LOAD_OPT(params_, rep105_missing_odom_fallback_timeout, double);
 
   if (cfg.has("base_footprint_to_base_link_tf"))
   {
@@ -2171,7 +2172,7 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
   // Follow REP105 only if we are publishing "map" -> "base_link" poses.
   const bool useRep105 = params_.publish_localization_following_rep105 &&
                          l.child_frame == params_.base_link_frame &&
-                         l.reference_frame == params_.reference_frame;
+                         l.reference_frame == params_.reference_frame && !rep105FallbackToDirect();
 
   if (useRep105)
   {
@@ -2271,6 +2272,47 @@ void BridgeROS2::publishLocalizationTf(const LocalizationSourceBase::Localizatio
   // next rebroadcast tick (matters when transform_publish_period is large).
   // onlyIfRep105=false: always broadcast on new updates, in both modes.
   broadcastCachedLocalizationTf(/*onlyIfRep105=*/false);
+}
+
+bool BridgeROS2::rep105FallbackToDirect()
+{
+  if (params_.rep105_missing_odom_fallback_timeout <= 0 || !tf_buffer_)
+  {
+    return false;
+  }
+  auto lck = mrpt::lockHelper(rep105FallbackMtx_);
+  if (rep105DirectFallback_)
+  {
+    return true;
+  }
+  if (rep105OdomSeen_)
+  {
+    return false;
+  }
+  if (tf_buffer_->_frameExists(params_.odom_frame))
+  {
+    rep105OdomSeen_ = true;
+    return false;
+  }
+  const auto now = std::chrono::steady_clock::now();
+  if (!rep105FirstUpdate_)
+  {
+    rep105FirstUpdate_ = now;
+  }
+  const double waited = std::chrono::duration<double>(now - *rep105FirstUpdate_).count();
+  if (waited < params_.rep105_missing_odom_fallback_timeout)
+  {
+    return false;
+  }
+  rep105DirectFallback_ = true;
+  MRPT_LOG_WARN_STREAM(
+      "publish_localization_following_rep105=true, but frame '"
+      << params_.odom_frame << "' has not appeared in /tf after " << waited << " s: publishing '"
+      << params_.reference_frame << "' -> '" << params_.base_link_frame
+      << "' directly for the rest of the run. Set publish_localization_following_rep105=false "
+         "if there is no odometry source, or rep105_missing_odom_fallback_timeout=0 to "
+         "disable this fallback.");
+  return true;
 }
 
 void BridgeROS2::broadcastCachedLocalizationTf(bool onlyIfRep105)

@@ -7,11 +7,6 @@ MOLA-LIO + Loop Closure: Globally Consistent Map
 This tutorial shows you how to build a **globally consistent, centimeter-accurate 3D map**
 from an Ouster LiDAR dataset using MOLA-LIO followed by offline loop closure (LC) post-processing.
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
 |
 
 This video summarizes the results of the complete pipeline:

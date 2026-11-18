@@ -12,11 +12,6 @@ as ROS 2 topics, so they can be visualized in RViz, FoxGlove, or used in your ow
   Users can also access to all MulRan dataset observations directly with the C++ API of :ref:`mola::MulranDataset <doxid-classmola_1_1_mulran_dataset>`.
 
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
 .. raw:: html
 
    <div style="width: 100%; overflow: hidden;">
