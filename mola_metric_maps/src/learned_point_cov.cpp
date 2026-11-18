@@ -47,6 +47,10 @@ constexpr std::array<double, 2> RANGE_EDGES   = {5.0, 15.0};
 constexpr double NaN     = std::numeric_limits<double>::quiet_NaN();
 constexpr double RAD2DEG = 57.29577951308232;
 
+/// Largest |log-scale| accepted in a model table: its exp() must stay finite
+/// and nonzero in single precision.
+constexpr float MAX_ABS_LOG_SCALE = 60.0f;
+
 /// Non-finite inputs carry no information: they enter the model as zero.
 float finiteOrZero(double v) { return std::isfinite(v) ? static_cast<float>(v) : 0.0f; }
 
@@ -322,6 +326,12 @@ std::shared_ptr<const LearnedPointCovModel> LearnedPointCovModel::FromFile(const
     expectToken(in, sideName, path);
     readMatrix(in, "shape", h.shape, path);
     readMatrix(in, "logscale", h.logScale, path);
+    if (h.logScale.cwiseAbs().maxCoeff() > MAX_ABS_LOG_SCALE)
+    {
+      THROW_EXCEPTION_FMT(
+          "Learned point covariance model '%s': log-scale out of range in head '%s'", path.c_str(),
+          sideName);
+    }
     // W0 has one column per input actually used; the rest stay zero:
     Eigen::MatrixXf W0(HIDDEN, N_POINT_INPUTS + model->numScan_);
     readMatrix(in, "W0", W0, path);

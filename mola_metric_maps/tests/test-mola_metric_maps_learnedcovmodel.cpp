@@ -52,6 +52,7 @@ int run(const std::string& dir)
   LearnedScanContext           ctx;
   int                          bad    = 0;
   int                          nCases = 0;
+  bool                         ended  = false;
 
   std::string tag;
   while (in >> tag)
@@ -121,6 +122,8 @@ int run(const std::string& dir)
           in >> want(r, c);
         }
       }
+      // A truncated record must not reach the model:
+      ASSERT_(!in.fail());
       const Eigen::Matrix3f got = model->sideCovariance(
           side == 0 ? LearnedPointCovModel::MAP : LearnedPointCovModel::QUERY, st, ctx, ray, range);
       for (int r = 0; r < 3; r++)
@@ -137,7 +140,14 @@ int run(const std::string& dir)
       }
       nCases++;
     }
+    else if (tag == "end")
+    {
+      ended = true;
+    }
+    ASSERT_(!in.fail());
   }
+  // The whole fixture was read:
+  ASSERT_(ended);
   ASSERT_(nCases > 0);
   std::cout << nCases << " cases, " << bad << " mismatches\n";
   return bad == 0 ? 0 : 1;

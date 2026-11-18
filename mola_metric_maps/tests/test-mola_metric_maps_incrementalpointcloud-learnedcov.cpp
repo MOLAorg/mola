@@ -30,10 +30,12 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -145,10 +147,37 @@ double relDiff(const mrpt::math::CMatrixFloat33& a, const mrpt::math::CMatrixFlo
   return (a.asEigen() - b.asEigen()).norm() / b.asEigen().norm();
 }
 
+/** The temporary files of the test, removed when the program ends. */
+struct TempFiles
+{
+  TempFiles() = default;
+  ~TempFiles()
+  {
+    for (const auto& f : files)
+    {
+      std::remove(f.c_str());
+    }
+  }
+  TempFiles(const TempFiles&)            = delete;
+  TempFiles& operator=(const TempFiles&) = delete;
+
+  std::vector<std::string> files;
+};
+TempFiles tempFiles;
+
 std::string tmpFile(const std::string& name)
 {
-  return mrpt::system::getTempFileName() + "_" + name;
+  // getTempFileName() may create the file it names:
+  const std::string base = mrpt::system::getTempFileName();
+  tempFiles.files.push_back(base);
+  tempFiles.files.push_back(base + "_" + name);
+  return tempFiles.files.back();
 }
+
+/** Whether pairings() with this model file fails with an error that has the
+ *  text `what`. */
+bool failsWith(
+    const mrpt::maps::CSimplePointsMap& pts, const std::string& path, const std::string& what);
 
 // -------------------------------------------------------------------------
 void test_shipped_equivalent_model()
@@ -166,7 +195,9 @@ void test_shipped_equivalent_model()
   {
     ASSERT_EQUAL_(shipped[i].local_idx, learned[i].local_idx);
     ASSERT_EQUAL_(shipped[i].global_idx, learned[i].global_idx);
-    worst = std::max(worst, relDiff(learned[i].cov_inv, shipped[i].cov_inv));
+    const double diff = relDiff(learned[i].cov_inv, shipped[i].cov_inv);
+    ASSERT_(std::isfinite(diff));
+    worst = std::max(worst, diff);
   }
   std::cout << "shipped-equivalent model, worst relative difference: " << worst << "\n";
   // Single precision, on matrices with a condition number of about 1e3:
@@ -232,32 +263,31 @@ void test_bad_model_files()
 {
   const auto pts = surface();
 
-  bool thrown = false;
-  try
-  {
-    pairings(*pts, tmpFile("does-not-exist.txt"));
-  }
-  catch (const std::exception&)
-  {
-    thrown = true;
-  }
-  ASSERT_(thrown);
+  ASSERT_(
+      failsWith(*pts, tmpFile("does-not-exist.txt"), "Cannot open learned point covariance model"));
 
   const auto path = tmpFile("bad.txt");
   {
     std::ofstream f(path);
     f << "mola_learned_point_cov 1\ninputs 13\nhidden 16\n";
+    f.flush();
+    ASSERT_(f.good());
   }
-  thrown = false;
+  ASSERT_(failsWith(*pts, path, "hidden units"));
+}
+
+bool failsWith(
+    const mrpt::maps::CSimplePointsMap& pts, const std::string& path, const std::string& what)
+{
   try
   {
-    pairings(*pts, path);
+    pairings(pts, path);
   }
-  catch (const std::exception&)
+  catch (const std::exception& e)
   {
-    thrown = true;
+    return mrpt::exception_to_str(e).find(what) != std::string::npos;
   }
-  ASSERT_(thrown);
+  return false;
 }
 
 }  // namespace

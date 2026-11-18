@@ -1194,7 +1194,7 @@ void IncrementalPointCloud::computeRegularizedCovariance(
   if (nearest != nullptr)
   {
     // The first K of the nearest points within the radius:
-    while (found < std::min(K, nearest->count) && nearest->distSq[found] <= maxDistSqr)
+    while (found < std::min(K, nearest->count) && nearest->distSq[found] < maxDistSqr)
     {
       found++;
     }
@@ -1321,13 +1321,23 @@ void IncrementalPointCloud::computeLearnedStats(
 std::shared_ptr<const internal::LearnedPointCovModel> IncrementalPointCloud::learnedModel() const
 {
   // Called with the map mutex held.
-  if (creationOptions.learned_cov_model_file != learned_model_path_)
+  const std::string& path = creationOptions.learned_cov_model_file;
+  if (path != learned_model_path_)
   {
-    learned_model_.reset();
-    learned_model_path_ = creationOptions.learned_cov_model_file;
-    if (!learned_model_path_.empty())
+    // Loaded before the path is stored, so that a failed load is tried again
+    // on the next call instead of silently leaving the model disabled:
+    std::shared_ptr<const internal::LearnedPointCovModel> model;
+    if (!path.empty())
     {
-      learned_model_ = internal::LearnedPointCovModel::FromFile(learned_model_path_);
+      model = internal::LearnedPointCovModel::FromFile(path);
+    }
+    learned_model_      = std::move(model);
+    learned_model_path_ = path;
+    // The cached model inputs were computed for the neighborhood definition of
+    // the previous model:
+    for (auto& st : learned_stats_)
+    {
+      st.computed = false;
     }
   }
   return learned_model_;
@@ -1518,6 +1528,12 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   internal::LearnedScanContext learnedScanCtx;  // scan-level inputs, same for all pairings
   if (learned != nullptr)
   {
+    if (!(learnedVarianceScale > 0) || !std::isfinite(learnedVarianceScale))
+    {
+      THROW_EXCEPTION_FMT(
+          "learned_cov_variance_scale must be positive and finite (it is %g)",
+          creationOptions.learned_cov_variance_scale);
+    }
     const uint64_t version = localPc->index_->contentVersion();
     if (localPc->learned_query_cov_version_ != version ||
         localPc->learned_query_cov_model_ != learned)
