@@ -97,16 +97,16 @@ are defined in separate, reusable files:
   mola-cli sensors.yaml pipeline.yaml visualization.yaml
 
 
-Example: To list all known ICP algorithms:
+Example: To list all known ICP solvers:
 
 .. code-block:: none
 
-  mola-cli --rtti-children-of mp2p_icp::ICP_Base
+  mola-cli --rtti-children-of mp2p_icp::Solver
 
-  Listing children of class: mp2p_icp::ICP_Base
-  mp2p_icp::ICP_GaussNewton
-  mp2p_icp::ICP_Horn_MultiCloud
-  mp2p_icp::ICP_OLAE
+  Listing children of class: mp2p_icp::Solver
+  mp2p_icp::Solver_GaussNewton
+  mp2p_icp::Solver_Horn
+  mp2p_icp::Solver_OLAE
 
 
 Number of threads

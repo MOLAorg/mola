@@ -190,7 +190,7 @@ pose of the local ``map`` frame in East-North-Up coordinates (:math:`T^{map}_{en
 **Geo-reference.** With ``estimate_geo_reference:=True`` the smoother estimates
 :math:`T^{map}_{enu}` from the first meters of GNSS track. Once its uncertainty falls below
 a threshold (``georef_convergence_in_enu`` judges it in ENU, around the robot), it is
-published (``/tf`` ``enu -> map``, and as ``mola_msgs/GeoReferenceMetadata``) and,
+published (``/tf`` ``enu -> map``, and as ``mrpt_nav_interfaces/GeoreferencingMetadata``) and,
 with ``georef_track_after_convergence``, it keeps being refined while the robot drives.
 From then on, the robot pose is available as latitude/longitude too.
 
@@ -305,7 +305,7 @@ The estimator publishes, among others:
    * - ``/state_estimation/geo_pose``
      - Fused pose as latitude, longitude, altitude and ENU orientation
    * - ``/state_estimator/geo_ref_metadata``
-     - The geo-reference (``mola_msgs/GeoReferenceMetadata``)
+     - The geo-reference (``mrpt_nav_interfaces/GeoreferencingMetadata``)
 
 Open Foxglove or RViz on those topics to watch it live.
 
