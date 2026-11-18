@@ -10,11 +10,6 @@ and SLAM. All solutions are fully configurable via YAML - no recompilation neede
 See :ref:`Plans and pricing <pricing>` for the comparison between Community (open-source)
 and Pro (commercial) editions.
 
-.. contents:: On this page
-   :depth: 1
-   :local:
-   :backlinks: none
-
 |
 
 .. _sol-lo-lio:
@@ -137,33 +132,33 @@ Industry applications
      margin: 1.5rem 0 2rem;
    }
    .mola-ind-card {
-     border: 1px solid #d0d7de;
+     border: 1px solid var(--color-background-border);
      border-radius: 8px;
      padding: 18px 20px 16px;
-     background: #fff;
+     background: var(--color-background-primary);
    }
    .mola-ind-icon {
      width: 32px; height: 32px;
      border-radius: 6px;
-     background: #eef5fc;
+     background: rgba(31, 122, 236, 0.12);
      display: flex; align-items: center; justify-content: center;
      margin-bottom: 12px;
    }
-   .mola-ind-icon svg { width: 18px; height: 18px; stroke: #185FA5; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+   .mola-ind-icon svg { width: 18px; height: 18px; stroke: var(--color-brand-content); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
    .mola-ind-title {
      font-size: 14px; font-weight: 600;
-     color: #1f2328; margin: 0 0 6px;
+     color: var(--color-foreground-primary); margin: 0 0 6px;
    }
    .mola-ind-body {
-     font-size: 13px; color: #57606a;
+     font-size: 13px; color: var(--color-foreground-secondary);
      line-height: 1.55; margin: 0 0 12px;
    }
    .mola-ind-links {
-     font-size: 12px; color: #0550ae;
-     border-top: 1px solid #eaeef2;
+     font-size: 12px; color: var(--color-brand-content);
+     border-top: 1px solid var(--color-background-border);
      padding-top: 10px; margin-top: auto;
    }
-   .mola-ind-links span { color: #57606a; font-weight: 500; }
+   .mola-ind-links span { color: var(--color-foreground-secondary); font-weight: 500; }
    </style>
 
    <div class="mola-ind-grid">
@@ -239,10 +234,10 @@ Demos and videos
      margin: 1.5rem 0 2rem;
    }
    .mola-video-card {
-     border: 1px solid #d0d7de;
+     border: 1px solid var(--color-background-border);
      border-radius: 8px;
      overflow: hidden;
-     background: #fff;
+     background: var(--color-background-primary);
    }
    .mola-video-card iframe {
      display: block;
@@ -254,15 +249,15 @@ Demos and videos
      padding: 10px 14px;
      font-size: 13px;
      font-weight: 500;
-     color: #1f2328;
-     border-top: 1px solid #eaeef2;
+     color: var(--color-foreground-primary);
+     border-top: 1px solid var(--color-background-border);
    }
    .mola-videos-more {
      font-size: 13px;
-     color: #57606a;
+     color: var(--color-foreground-secondary);
      margin-top: 0.5rem;
    }
-   .mola-videos-more a { color: #0550ae; }
+   .mola-videos-more a { color: var(--color-brand-content); }
    </style>
 
    <div class="mola-videos-grid">

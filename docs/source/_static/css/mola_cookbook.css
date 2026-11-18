@@ -1,9 +1,9 @@
 /* MOLA cookbook parameter editor */
 
 .mola-cookbook-form {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--color-background-border);
   border-radius: 8px;
-  background: #f6f8fa;
+  background: var(--color-background-secondary);
   padding: 14px 16px;
   margin: 1em 0 1.5em;
 }
@@ -11,7 +11,7 @@
 .mola-cookbook-hint {
   margin: 0 0 10px;
   font-size: 13px;
-  color: #57606a;
+  color: var(--color-foreground-secondary);
 }
 
 .mola-cookbook-grid {
@@ -28,36 +28,38 @@
 }
 
 .mola-cookbook-label {
-  color: #1f2328;
+  color: var(--color-foreground-primary);
   font-weight: 600;
 }
 
 .mola-cookbook-row input {
   padding: 6px 8px;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--color-background-border);
   border-radius: 4px;
   font-family: SFMono-Regular, Consolas, Menlo, monospace;
   font-size: 12.5px;
-  background: #fff;
+  background: var(--color-background-primary);
+  color: var(--color-foreground-primary);
 }
 
 .mola-cookbook-row input:focus {
-  outline: 2px solid #0550ae;
+  outline: 2px solid var(--color-brand-content);
   outline-offset: -1px;
-  border-color: #0550ae;
+  border-color: var(--color-brand-content);
 }
 
 .mola-cookbook-reset {
   margin-top: 10px;
   padding: 5px 10px;
   font-size: 12px;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--color-background-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--color-background-primary);
+  color: var(--color-foreground-primary);
   cursor: pointer;
 }
 
 .mola-cookbook-reset:hover {
-  border-color: #0550ae;
-  color: #0550ae;
+  border-color: var(--color-brand-content);
+  color: var(--color-brand-content);
 }
