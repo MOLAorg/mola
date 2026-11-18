@@ -131,10 +131,12 @@ Resulting ``/tf`` tree::
 
 .. important::
 
-   ``publish_localization_following_rep105`` defaults to ``True``. Without
-   ``:=False`` and without any ``odom → base_link`` on ``/tf``, nothing is
-   published to ``/tf``: the bridge waits for an odometry transform that never
-   arrives.
+   ``publish_localization_following_rep105`` defaults to ``True``, which needs an
+   ``odom → base_link`` from another source. Without ``:=False`` and without any
+   ``odom`` frame on ``/tf``, the bridge waits for it: recent versions fall back to
+   ``map → base_link`` after a few seconds (bridge parameter
+   ``rep105_missing_odom_fallback_timeout``), older ones publish nothing. Setting
+   ``:=False`` avoids the wait.
 
 |
 
