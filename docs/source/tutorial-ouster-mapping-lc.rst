@@ -32,10 +32,10 @@ Overview
 
 The pipeline consists of four steps:
 
-1. **LIO mapping** — Run MOLA-LIO on a rosbag to produce a raw ``*.simplemap`` keyframe map.
-2. **Loop closure** — Run ``mola-sm-lc-cli`` to detect and close loops, producing a corrected ``*.simplemap``.
-3. **Metric map generation** — Run ``sm2mm`` to convert the loop-closed simplemap into a dense ``*.mm`` metric map.
-4. **Georeferencing + visualization** — Optionally georeference the map (IMU gravity alignment) and inspect with ``mm-viewer``.
+1. **LIO mapping**: Run MOLA-LIO on a rosbag to produce a raw ``*.simplemap`` keyframe map.
+2. **Loop closure**: Run ``mola-sm-lc-cli`` to detect and close loops, producing a corrected ``*.simplemap``.
+3. **Metric map generation**: Run ``sm2mm`` to convert the loop-closed simplemap into a dense ``*.mm`` metric map.
+4. **Georeferencing + visualization**: Optionally georeference the map (IMU gravity alignment) and inspect with ``mm-viewer``.
 
 |
 

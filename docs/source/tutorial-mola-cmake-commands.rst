@@ -19,7 +19,7 @@ during the build process.
 
 When a user runs:
 
-.. code-block:: bash
+.. code-block:: cmake
 
    find_package(mola_common REQUIRED)
 
@@ -41,8 +41,8 @@ The following setup actions are performed automatically when including
 * **Word Size Detection:**
   Detects whether the build is targeting a 32-bit or 64-bit platform, setting:
   
-  .. code-block:: cmake
-  
+  .. code-block:: text
+
      MOLA_WORD_SIZE  # either 32 or 64
 
 * **Standard Output Directories:**  
@@ -101,7 +101,7 @@ The following CMake functions are defined and exported by `mola_common` through 
 
 Creates and configures a shared library target within the MOLA build system.
 
-This function wraps the standard `add_library()` command, applying MOLA’s
+This function wraps the standard `add_library()` command, applying MOLA's
 standard build flags, dependency configuration, and compiler options via
 :meth:`mola_set_target_build_options()` and :meth:`mola_configure_library()`.
 
@@ -112,7 +112,7 @@ standard build flags, dependency configuration, and compiler options via
 * ``PUBLIC_LINK_LIBRARIES`` - List of public dependencies that should be visible
   to consumers of the library.  
 * ``PRIVATE_LINK_LIBRARIES`` - List of internal dependencies used only for
-  this target’s own build.  
+  this target's own build.  
 * ``CMAKE_DEPENDENCIES`` - List of CMake packages this library depends on
   (used internally by `mola_configure_library()`).
 
@@ -180,7 +180,7 @@ compiler options and dependency handling via
        [LINK_LIBRARIES <lib1> <lib2> ...]
    )
 
-Defines a test executable and registers it with CTest under MOLA’s testing framework.
+Defines a test executable and registers it with CTest under MOLA's testing framework.
 
 This function wraps `add_executable()` and `add_test()` to automatically
 configure testing conventions, build options, and linking for unit and integration tests.
@@ -204,7 +204,7 @@ to register the test automatically.
        LINK_LIBRARIES mola_geometry mola_common
    )
 
-This defines a test executable `test_geometry` and adds it to the build’s
+This defines a test executable `test_geometry` and adds it to the build's
 CTest configuration. Running `ctest` will automatically include it in
 the suite of MOLA tests.
 
@@ -217,7 +217,7 @@ the suite of MOLA tests.
    find_mola_package(package_name)
 
 Attempts to locate another MOLA package and makes its exported targets available.
-If the package’s targets are already known (i.e., defined in the current build),
+If the package's targets are already known (i.e., defined in the current build),
 this function does nothing. Otherwise, it falls back to a standard CMake `find_package()` call.
 
 This is the preferred method for inter-package discovery within the MOLA build system,
@@ -276,7 +276,7 @@ This will output:
 
 **Typical Use Case**
 
-This macro is commonly used in MOLA’s CMake configuration process
+This macro is commonly used in MOLA's CMake configuration process
 to produce encoded version constants that can be passed to C++ code
 to compile conditionally depending on some other library version,
 following the philosophy of "one source for all versions".
@@ -292,7 +292,7 @@ To make use of these functions in your own project:
    find_package(mola_common REQUIRED)
    include(mola_cmake_functions)
 
-Then invoke the desired utilities in your project’s `CMakeLists.txt`.
+Then invoke the desired utilities in your project's `CMakeLists.txt`.
 
 Example:
 

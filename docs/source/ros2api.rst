@@ -478,7 +478,7 @@ Documented parameters:
          "{parameters: \"mola::LidarOdometry:lidar_odom:\n  mapping_enabled: false\n\"}"
 
 
-- ``generate_simplemap``: Whether MOLA-LO should build the keyframes-based map (apart of the local metric map),
+- ``generate_simplemap``: Whether MOLA-LO should build the keyframes-based map (apart from the local metric map),
   so you end up with a ``*.simplemap`` file.
 
 .. dropdown:: Copy & paste commands for ``generate_simplemap``

@@ -418,7 +418,7 @@ in MOLA-LO pipelines):
 Processing order summary
 --------------------------
 
-The table below summarises which pass handles each token, and what happens
+The table below summarizes which pass handles each token, and what happens
 when a token falls inside a comment:
 
 .. list-table::

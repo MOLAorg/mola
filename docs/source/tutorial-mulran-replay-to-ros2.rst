@@ -58,7 +58,7 @@ To launch the demo, just run:
 
 |
 
-Under the hook
+Under the hood
 ----------------------------------
 This demo comprises two main files:
 

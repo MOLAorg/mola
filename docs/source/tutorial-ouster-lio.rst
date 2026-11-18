@@ -68,17 +68,18 @@ which shows the live data visually in RViz (it may take a few seconds to start).
 2. Record your dataset
 ----------------------------------
 Now, there are two options:
+
 * Either we build the map using the live sensor, or
 * We record the dataset in a rosbag, then build it offline.
 
-I would recommend grabing the data for two reasons. First, in this way, you can save several bags, browse them (using FoxGlove) 
-and pick the one that looks best. Second, the computer load would be reduced during grabing if not running mapping live,
-reducing the probability of missing some LiDAR network packets.
+Recording the data is recommended, for two reasons. First, you can save several bags, browse them
+(e.g. with Foxglove) and pick the one that looks best. Second, the computer load during the recording
+is lower without live mapping, which reduces the probability of missing LiDAR network packets.
 
 .. code-block:: bash
 
-    # Show all available options:
-    ros2 bag record  /ouster/imu /ouster/points /tf_static
+    # Record the LiDAR, its IMU, and the sensor poses:
+    ros2 bag record /ouster/imu /ouster/points /tf_static
 
 Press CTRL+C to end the recording.
 
