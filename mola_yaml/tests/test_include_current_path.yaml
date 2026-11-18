@@ -1,0 +1,5 @@
+# test
+---
+dir: ${CURRENT_YAML_FILE_PATH}
+params:
+    $include{${CURRENT_YAML_FILE_PATH}/test1.yaml}
