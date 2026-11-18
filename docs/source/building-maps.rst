@@ -134,13 +134,13 @@ or from the :ref:`UI controls <mola_lo_gui_common_parts>` in the ``mola_lidar_od
     You can use the generic LiDAR odometry module to build 2D maps from range finders
     (2D scanners).
 
-    Just set the ``PIPELINE_YAML`` environment variable pointing to the 2D mapping pipeline (`lidar2d.yaml <https://github.com/MOLAorg/mola_lidar_odometry/blob/develop/pipelines/lidar2d.yaml>`_)
+    Just set the ``MOLA_ODOMETRY_PIPELINE_YAML`` environment variable pointing to the 2D mapping pipeline (`lidar2d.yaml <https://github.com/MOLAorg/mola_lidar_odometry/blob/develop/pipelines/lidar2d.yaml>`_)
     shipped with the ``mola_lidar_odometry`` package:
 
     .. code-block:: bash
 
         MOLA_LIDAR_TOPIC=/scan1 \
-        PIPELINE_YAML=$(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/pipelines/lidar2d.yaml \
+        MOLA_ODOMETRY_PIPELINE_YAML=$(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/pipelines/lidar2d.yaml \
         MOLA_GENERATE_SIMPLEMAP=true \
         MOLA_SIMPLEMAP_OUTPUT=myMap.simplemap \
           mola-lo-gui-rosbag2 /path/to/your/dataset.mcap
@@ -248,7 +248,7 @@ Afterwards, visualizing :ref:`metric map files <mp2p_icp_basics>` (``*.mm``) can
         .. tab-item:: Build an aggregated 3D point cloud
           :selected:
 
-            Download the example pipeline `sm2mm_pointcloud_voxelize_no_deskew.yaml <https://github.com/MOLAorg/mp2p_icp/raw/master/demos/sm2mm_pointcloud_voxelize_no_deskew.yaml>`_
+            Download the example pipeline `sm2mm_pointcloud_voxelize_no_deskew.yaml <https://github.com/MOLAorg/mp2p_icp/raw/develop/mp2p_icp_core/demos/sm2mm_pointcloud_voxelize_no_deskew.yaml>`_
             and then run:
 
             .. code-block:: bash
@@ -266,7 +266,7 @@ Afterwards, visualizing :ref:`metric map files <mp2p_icp_basics>` (``*.mm``) can
 
         .. tab-item:: Build a voxel map + 2D grid map
 
-            Download the example pipeline `sm2mm_bonxai_voxelmap_gridmap_no_deskew.yaml <https://github.com/MOLAorg/mp2p_icp/raw/master/demos/sm2mm_bonxai_voxelmap_gridmap_no_deskew.yaml>`_
+            Download the example pipeline `sm2mm_bonxai_voxelmap_gridmap_no_deskew.yaml <https://github.com/MOLAorg/mp2p_icp/raw/develop/mp2p_icp_core/demos/sm2mm_bonxai_voxelmap_gridmap_no_deskew.yaml>`_
             and then run:
 
             .. code-block:: bash
@@ -338,7 +338,7 @@ and then visualize them with the GUI app :ref:`icp-log-viewer <app_icp-log-viewe
       # Generate ICP log files:
       MP2P_ICP_GENERATE_DEBUG_FILES=1 \
       MP2P_ICP_LOG_FILES_DECIMATION=1 \
-      mola-lo-gui-rosbag  [...]  # the rest remains the same
+      mola-lo-gui-rosbag2  [...]  # the rest remains the same
 
   You should now have a directory ``icp-logs`` with as many files as times ICP invocations.
   Then, visualize the logs in the GUI with:

@@ -280,21 +280,21 @@ How to install all MOLA modules:
     **Recommended**: This is the easiest way to install MOLA.
 
     In Debian/Ubuntu systems, activate your ROS environment (``setup.bash``) if not done automatically
-    in your ``~./bashrc`` file, then just run:
+    in your ``~/.bashrc`` file, then just run:
 
     .. code-block:: bash
 
-        # Install core MOLA modules and 3D LiDAR odometry:
+        # Install core MOLA modules and 3D LiDAR odometry
+        # (includes the readers for ROS 1/2 bags, rawlogs, KITTI, MulRan, ...):
         sudo apt install \
          ros-$ROS_DISTRO-mola \
          ros-$ROS_DISTRO-mola-state-estimation \
          ros-$ROS_DISTRO-mola-lidar-odometry
 
-         # If you want parsers for KITTI, MULRAN, EuROC, etc.
-         ros-$ROS_DISTRO-mola-academic-datasets
+    .. code-block:: bash
 
-         # If you want to parse ROS1 bags from your ROS2 system:
-         ros-$ROS_DISTRO-mola-input-rosbag1
+        # (OPTIONAL) All public dataset readers (e.g. EuRoC) and the KITTI metrics tool:
+        sudo apt install ros-$ROS_DISTRO-mola-academic-datasets
 
     .. code-block:: bash
 
