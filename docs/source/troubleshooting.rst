@@ -87,14 +87,18 @@ ROS 2 frames and topics
        launch ``mola_tf_base_link`` does not match the one in ``/tf``.
    * - LO starts but ``/tf`` is empty, or the map is not visible in RViz2
      - ``publish_localization_following_rep105:=False`` was not set while no
-       external odometry is running. The launch is waiting for an
-       ``odom -> base_link`` that never arrives.
+       external odometry is running. The launch waits for an
+       ``odom -> base_link`` that never arrives; recent versions fall back to
+       ``map -> base_link`` after a few seconds (bridge parameter
+       ``rep105_missing_odom_fallback_timeout``), older ones publish nothing.
+       Set ``publish_localization_following_rep105:=False`` when there is no
+       odometry source.
    * - Smoother is set, but ``map -> odom`` appears instead of
        ``map -> base_link``
-     - REP-105 is incompatible with the smoother. Set
-       ``publish_localization_following_rep105:=False``, or simply do not set
-       it: the launch default already matches when
-       ``use_state_estimator:=True``.
+     - The launch default is ``publish_localization_following_rep105:=True``
+       for any estimator. Set it to ``False`` to publish ``map -> base_link``.
+       To keep REP-105 with the smoother, see the external odometry recipe in
+       :ref:`ROS 2 configurations <mola_ros2_cookbook>`.
    * - Namespaced bag silently ignored on ``/tf``
      - Older ``mola_input_rosbag2`` hardcoded ``/tf``. Update the package and
        set ``MOLA_TF_TOPIC`` and ``MOLA_TF_STATIC_TOPIC``.

@@ -73,7 +73,7 @@
     container.innerHTML = '';
     const title = document.createElement('p');
     title.className = 'mola-cookbook-hint';
-    title.textContent = 'Edit any field — all command blocks below update and persist in your browser.';
+    title.textContent = 'Edit any field: every command block on this page is updated, and the values are kept in your browser.';
     container.appendChild(title);
 
     const grid = document.createElement('div');

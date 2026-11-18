@@ -167,8 +167,10 @@ lines, see above):
 
 ``MOLA_MAP_TO_ODOM_FRAME`` is the smoother name of the wheel odometry source (``odom_sensor_label``, default
 ``odom_wheels``) and ``MOLA_MAP_TO_ODOM_CHILD_FRAME`` the ``/tf`` frame its driver publishes ``odom -> base_link``
-for. Without wheel odometry, drop those variables and ``odom_topic_name``, and use
-``localization_publish_tf_source:=state_estimation`` (``map -> base_link``).
+for. Without wheel odometry, drop those variables and ``odom_topic_name``, use
+``localization_publish_tf_source:=state_estimation`` and set
+``publish_localization_following_rep105:=False`` (``map -> base_link``): with REP-105 on and no ``odom``
+frame, the ROS 2 bridge has no ``odom -> base_link`` to compose with.
 
 **Expected accuracy**: on an outdoor skid-steer ground robot at ~1 m/s with an RTK receiver whose fixes
 fell back to float or no-RTK for 1-2 minutes at a time under trees, replays against an RTK-aligned LiDAR
