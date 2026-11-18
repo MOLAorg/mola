@@ -1,7 +1,7 @@
 .. _building-maps:
 
 ======================
-Tutorial: build a map
+Build a map
 ======================
 
 This tutorial describes the steps for building metric maps using MOLA.
@@ -12,45 +12,26 @@ ____________________________________________
 
 |
 
-1. Prepare the input data
+1. Record the data
 ---------------------------------
-- Think what sensors do you want to use:
-
-  - At least, one **2D or 3D LiDAR**. It is possible to have multiple LiDARs.
-  - Optional: Encoder-based odometry, for wheeled robots.
-  - Optional: Low-cost GNSS (GPS) receiver, for georeferencing the final metric maps. 
-    You can use `mrpt_sensor_gnss_nmea <https://github.com/mrpt-ros-pkg/mrpt_sensors?tab=readme-ov-file#mrpt_sensor_gnss_nmea>`_ for 
-    standard GNSS USB devices providing NMEA messages.
-
-- Decide whether SLAM will run **online** (live) or **offline** (in postprocessing).
-
-- If running **offline** (**recommended**): Grab the data using `ros2 bag record <https://docs.ros.org/en/foxy/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html>`_
-  if you use ROS 2. Alternative options include using :ref:`MOLA-based dataset sources <supported_sensors>`.
-
-- If using ROS 2...
-
-  - ...and you only have **one LiDAR** as the **unique sensor**,
-    then setting up `ROS tf frames <https://www.google.com/search?q=ROS+tf+frames+tutorials>`_
-    is not mandatory, if you are happy with tracking the **sensor** pose (vs the vehicle pose).
-
-  - ...and you have wheels odometry or additional sensors on the robot, then having correct ``/tf`` messages
-    published is important to let the mapping algorithm know what is the **relative pose of the sensor** within
-    the vehicle.
-    
-- Even if having only one single LiDAR, correctly defining the sensor pose on the vehicle is important
-  for correctly tracking the *vehicle pose* instead of the *sensor pose*. This can be done by either...
-
-    - correctly setting up ``/tf``, or
-    - using the MOLA-LO applications :ref:`flag <mola_lo_gui_rosbag2>` to manually set the sensor pose on the vehicle without ``/tf``.
+- Sensors: at least one **2D or 3D LiDAR** (several are possible). Optionally, an **IMU**
+  (LiDAR-inertial odometry), **wheel odometry**, and a **GNSS receiver** to
+  :ref:`geo-reference <geo-referencing>` the map (e.g.
+  `mrpt_sensor_gnss_nmea <https://github.com/mrpt-ros-pkg/mrpt_sensors?tab=readme-ov-file#mrpt_sensor_gnss_nmea>`_
+  for NMEA receivers).
+- Building the map **offline** from a recording is recommended, so you can try several
+  configurations on the same data. With ROS 2, record the sensor topics plus ``/tf`` and
+  ``/tf_static`` with ``ros2 bag record``. Other recording formats are listed in
+  :ref:`supported_sensors`.
+- MOLA reads the pose of each sensor on the vehicle from ``/tf``. If your recording has no
+  ``/tf``, see :ref:`your_own_rosbag`.
 
 |
 
-
-
 2. Run MOLA-LO
 ---------------------------------
-The output of running LiDAR odometry on your dataset is a 
-an estimated trajectory and a **simple-map** (here is the main stuff to build maps from):
+The output of running LiDAR odometry on your dataset is an estimated trajectory and a
+**simple-map**, the input to build maps from:
 
 .. figure:: imgs/odometry_inputs_outputs.png
    :width: 400
@@ -78,7 +59,6 @@ or from the :ref:`UI controls <mola_lo_gui_common_parts>` in the ``mola_lidar_od
     .. tab-set::
 
         .. tab-item:: From a rosbag2 (GUI)
-          :selected:
 
             .. code-block:: bash
 
@@ -92,6 +72,7 @@ or from the :ref:`UI controls <mola_lo_gui_common_parts>` in the ``mola_lidar_od
                 Remember changing ``MOLA_LIDAR_TOPIC`` to your actual raw (unfiltered) LiDAR topic (``sensor_msgs/PointCloud2``).
 
         .. tab-item:: From a rosbag2 (CLI)
+          :selected:
 
             .. code-block:: bash
 
