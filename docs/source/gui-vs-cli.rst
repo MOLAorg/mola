@@ -71,11 +71,11 @@ on timing. An explicit setting in your environment still takes precedence:
   that nearest-neighbor queries never wait for, so the tree a query sees
   depends on the scheduler, and ties between equidistant neighbors can resolve
   differently from one run to the next. The pipelines default it to ``true``,
-  the right choice in real time. The default index of that map, the voxel hash,
-  has no rebuilds at all, so it is deterministic either way and ignores this
-  option. The default map class, ``mola::KeyframePointCloudMap``, is
-  unaffected, but some dataset wrappers switch to the incremental map
-  (``mola-lo-cli-kitti`` does).
+  the right choice in real time. ``mola::IncrementalPointCloud`` is the
+  default local map of the GICP pipelines, but its default index, the voxel
+  hash, has no rebuilds at all, so it is deterministic either way and ignores
+  this option: it only matters if the k-d tree index is selected.
+  ``mola::KeyframePointCloudMap`` is unaffected.
 
 State these yourself for other offline entry points. The last one is also
 needed with mola_lidar_odometry 3.3.0 and older, whose CLI does not default it:

@@ -117,7 +117,7 @@ Inspect the resulting map with:
 
 .. code-block:: bash
 
-    mm-viewer myMap.mm  -l libmola_metric_maps.so
+    mm-viewer myMap.mm
 
 
 4. Use in localization-only mode
@@ -155,7 +155,7 @@ Check the complete service call documentation :ref:`here <ros2api_runtime_params
 
 .. note::
     Other initialization options, such as GNSS-based, are possible via the smoother state estimation.
-    Documentation and examples to come soon!
+    See :ref:`mola_ros2_cookbook_4_6`.
 
 
 |
