@@ -228,6 +228,24 @@ Quick links
    :align: middle
    :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
 
+.. kilted badges ------
+
+.. |badgeKrel| image:: https://img.shields.io/ros/v/kilted/mola
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mola
+
+.. |badgeKrel_LO| image:: https://img.shields.io/ros/v/kilted/mola_lidar_odometry
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mola_lidar_odometry
+
+.. |badgeKrel_MP| image:: https://img.shields.io/ros/v/kilted/mp2p_icp
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mp2p_icp
+
+.. |badgeKrel_SE| image:: https://img.shields.io/ros/v/kilted/mola_state_estimation
+   :align: middle
+   :target: https://index.ros.org/?search_packages=true&pkgs=mola_state_estimation
+
 .. lyrical badges ------
 
 .. |badgeLrel| image:: https://img.shields.io/ros/v/lyrical/mola
@@ -316,18 +334,18 @@ How to install all MOLA modules:
 
     These are the **versions available** from ROS build farms for each main MOLA component:
 
-    +----------------------+--------------------+----------------+----------------+----------------+
-    | Repository           | ROS 2 Humble       | ROS 2 Jazzy    | ROS 2 Lyrical  | ROS 2 Rolling  |
-    |                      | (u22.04)           | (u24.04)       | (u26.04)       | (u24.04)       |
-    +======================+====================+================+================+================+
-    | MOLA                 | |badgeHrel|        | |badgeJrel|    | |badgeLrel|    | |badgeRrel|    |
-    +----------------------+--------------------+----------------+----------------+----------------+
-    | mola_lidar_odometry  | |badgeHrel_LO|     | |badgeJrel_LO| | |badgeLrel_LO| | |badgeRrel_LO| |
-    +----------------------+--------------------+----------------+----------------+----------------+
-    | mola_state_estimation| |badgeHrel_SE|     | |badgeJrel_SE| | |badgeLrel_SE| | |badgeRrel_SE| |
-    +----------------------+--------------------+----------------+----------------+----------------+
-    | mp2p_icp             | |badgeHrel_MP|     | |badgeJrel_MP| | |badgeLrel_MP| | |badgeRrel_MP| |
-    +----------------------+--------------------+----------------+----------------+----------------+
+    +----------------------+--------------------+----------------+----------------+----------------+----------------+
+    | Repository           | ROS 2 Humble       | ROS 2 Jazzy    | ROS 2 Kilted   | ROS 2 Lyrical  | ROS 2 Rolling  |
+    |                      | (u22.04)           | (u24.04)       | (u24.04)       | (u26.04)       | (u26.04)       |
+    +======================+====================+================+================+================+================+
+    | MOLA                 | |badgeHrel|        | |badgeJrel|    | |badgeKrel|    | |badgeLrel|    | |badgeRrel|    |
+    +----------------------+--------------------+----------------+----------------+----------------+----------------+
+    | mola_lidar_odometry  | |badgeHrel_LO|     | |badgeJrel_LO| | |badgeKrel_LO| | |badgeLrel_LO| | |badgeRrel_LO| |
+    +----------------------+--------------------+----------------+----------------+----------------+----------------+
+    | mola_state_estimation| |badgeHrel_SE|     | |badgeJrel_SE| | |badgeKrel_SE| | |badgeLrel_SE| | |badgeRrel_SE| |
+    +----------------------+--------------------+----------------+----------------+----------------+----------------+
+    | mp2p_icp             | |badgeHrel_MP|     | |badgeJrel_MP| | |badgeKrel_MP| | |badgeLrel_MP| | |badgeRrel_MP| |
+    +----------------------+--------------------+----------------+----------------+----------------+----------------+
 
 
 .. dropdown:: Build from sources

@@ -26,7 +26,7 @@ LiDAR odometry modules available. It supports:
 Both modes work in **mapping** (build a map from scratch) and **localization**
 (localize within a prebuilt map) configurations.
 
-**Key strengths:** Sub-centimeter accuracy when tuned for survey-grade applications,
+**Key strengths:** Centimeter-level accuracy when tuned for survey-grade applications,
 or lightweight real-time performance for navigation. Configurable pipeline via YAML.
 
 **Get started:** :ref:`Build your first map <building-maps>` |
@@ -66,21 +66,25 @@ GPS-available and GPS-denied areas, mixed indoor-outdoor scenarios.
 ========================================
 
 Based on the :ref:`smoother state estimator <mola_sta_est_index>`, this solution
-provides **RTK-quality georeferenced pose estimation without a prebuilt map**.
+provides **geo-referenced pose estimation without a prebuilt map**.
 
-By fusing **low-cost GNSS + LiDAR + IMU + kinematics**, the smoother estimates
-the vehicle pose in geodetic (latitude/longitude) or UTM coordinates in real time.
-No RTK base station is required - a standard consumer-grade GNSS receiver is sufficient.
+By fusing **GNSS + LiDAR + IMU + kinematics**, the smoother estimates the vehicle
+pose in geodetic (latitude/longitude) or UTM coordinates in real time. The trajectory
+keeps the **centimeter-level local accuracy** of LiDAR-inertial odometry, while its
+absolute accuracy is that of the GNSS: centimeter-level with an RTK receiver, and
+meter-level with a consumer-grade receiver, refined by fusing many fixes along the
+trajectory. GNSS outages (trees, buildings) are bridged by the LiDAR and wheel odometry.
 
 This enables:
 
-- Outdoor robot navigation with absolute positioning from the first second
+- Outdoor robot navigation with absolute positioning, as soon as the geo-reference
+  converges (about a second with RTK and an attitude IMU, or a few meters of driving)
 - Georeferenced trajectory logging for fleet management
 - Autonomous driving in open environments without prior mapping
 
 **Best for:** Agricultural robots, autonomous tractors, outdoor inspection platforms,
-delivery robots, and any application requiring absolute outdoor positioning without
-the cost and complexity of RTK infrastructure.
+delivery robots, and any application requiring absolute outdoor positioning, with
+the GNSS receiver chosen for the absolute accuracy it needs.
 
 |
 
@@ -195,7 +199,7 @@ Industry applications
          <svg viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
        </div>
        <p class="mola-ind-title">Surveying &amp; 3D Scanning</p>
-       <p class="mola-ind-body">Backpack mapping, drone-based surveying, forest inventory. Export to LAS/PLY for GIS workflows. Sub-centimeter accuracy with survey-grade pipeline tuning.</p>
+       <p class="mola-ind-body">Backpack mapping, drone-based surveying, forest inventory. Export to LAS/PLY for GIS workflows. Centimeter-level accuracy with survey-grade pipeline tuning.</p>
        <div class="mola-ind-links"><span>Solutions:</span> Full SLAM &middot; LO/LIO</div>
      </div>
 

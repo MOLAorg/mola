@@ -18,23 +18,25 @@ Fully configurable - no recompilation
 ---------------------------------------
 MOLA pipelines are defined entirely in **YAML**. Swap ICP matchers, change map layers,
 adjust filter chains, or switch between LO and LIO - all without rebuilding a single
-line of C++. No other SLAM framework offers this level of runtime configurability.
-This means faster iteration during development and safer updates in production.
+line of C++. This means faster iteration during development and safer updates in production.
 
 Flexible accuracy: real-time navigation to survey-grade
 --------------------------------------------------------
 The same framework serves both **fast, real-time AMR navigation** and
-**survey-grade mapping with sub-centimeter accuracy**. Tune the pipeline for your
+**survey-grade mapping with centimeter-level accuracy**. Tune the pipeline for your
 needs - there is no need to switch between different SLAM stacks for different
 accuracy requirements.
 
-Map-less RTK-quality outdoor georeferencing
----------------------------------------------
-Using the :ref:`smoother state estimator <mola_sta_est_index>` with a
-**low-cost GNSS receiver + LiDAR + IMU**, MOLA delivers geodetic-quality
-pose estimation in UTM/ENU coordinates - **without a prebuilt map and without
-an RTK base station**. This is ideal for outdoor robots, agricultural vehicles,
-and autonomous driving applications where absolute positioning matters.
+Map-less geo-referenced localization
+---------------------------------------
+Using the :ref:`smoother state estimator <mola_sta_est_index>` to fuse
+**LiDAR + IMU + GNSS** (and wheel odometry, if available), MOLA estimates the vehicle
+pose in UTM/ENU and latitude/longitude **without a prebuilt map**. The trajectory keeps
+the **centimeter-level local accuracy** of LiDAR-inertial odometry, and its absolute
+accuracy is that of the GNSS: centimeter-level with an RTK receiver, and meter-level
+with a consumer-grade receiver, refined by fusing many fixes along the trajectory.
+This is ideal for outdoor robots, agricultural vehicles, and autonomous driving
+applications where absolute positioning matters.
 
 Rich metric map ecosystem
 -----------------------------
@@ -54,10 +56,10 @@ QGIS, and surveying software.
 
 ROS 2 native AND standalone C++
 ---------------------------------
-Deploy with full **ROS 2 integration** (Humble, Jazzy, Kilted, Rolling) or as a
-**standalone C++ application** without any ROS dependency. No other SLAM SDK
-offers both cleanly. This gives you maximum flexibility for edge deployment,
-Docker containers, or integration into proprietary frameworks.
+Deploy with full **ROS 2 integration** (Humble, Jazzy, Kilted, Lyrical, Rolling) or as a
+**standalone C++ application** without any ROS dependency: the same modules run in
+both. This gives you maximum flexibility for edge deployment, Docker containers, or
+integration into proprietary frameworks.
 
 Multi-sensor, multi-environment
 ---------------------------------
@@ -76,8 +78,10 @@ MOLA is backed by peer-reviewed publications in top venues:
 - **IJRR 2025**: `A flexible framework for accurate LiDAR odometry, map manipulation, and localization <https://doi.org/10.1177/02783649251316881>`_
 - **RSS 2019**: `A Modular Optimization Framework for Localization and Mapping <https://ingmec.ual.es/~jlblanco/papers/blanco2019mola_rss2019.pdf>`_
 
-Benchmarked on KITTI (0.6% translation error), MulRan, HILTI, Kaist, and custom
-datasets. This is not a paper prototype - it is actively deployed in real-world robots.
+Benchmarked on KITTI (0.6% translation error), and ready to run on public datasets such as
+MulRan, Newer College, Oxford Spires, Hilti 2022, GrandTour or VBR (see
+:ref:`supported_datasets`). This is not a paper prototype - it is actively deployed in
+real-world robots.
 
 Pre-built for amd64 and arm64
 --------------------------------
