@@ -39,6 +39,7 @@
 
 // ROS & others
 #include <atomic>
+#include <chrono>
 #include <deque>
 #include <nav_msgs/msg/odometry.hpp>
 #include <optional>
@@ -183,6 +184,13 @@ class BridgeROS2 : public RawDataSourceBase,
     ///  105](https://ros.org/reps/rep-0105.html):
     ///   ``map -> odom``  (such as "map -> odom -> base_link" = "map -> base_link")
     bool publish_localization_following_rep105 = true;
+
+    /// With ``publish_localization_following_rep105=true``: if ``odom_frame`` has not
+    /// appeared in /tf this many seconds after the first localization result (e.g. a
+    /// robot without wheel odometry), switch to the direct mode (``map -> base_link``)
+    /// for the rest of the run instead of publishing nothing. The decision is taken
+    /// once, so ``base_link`` never changes its parent frame. 0 disables the fallback.
+    double rep105_missing_odom_fallback_timeout = 5.0;
 
     /// If enabled, during spinOnce(), the tf ``${odom_frame} => ${base_link_frame}`` will
     /// be queried and forwarded as an `CObservationOdometry` reading to the MOLA subsystem:
@@ -479,6 +487,16 @@ class BridgeROS2 : public RawDataSourceBase,
   };
   std::mutex                          cachedLocalizationTfMtx_;
   std::optional<CachedLocalizationTf> cachedLocalizationTf_;
+
+  // REP-105 fallback to the direct mode when there is no odom frame
+  // (see rep105_missing_odom_fallback_timeout):
+  std::mutex                                           rep105FallbackMtx_;
+  std::optional<std::chrono::steady_clock::time_point> rep105FirstUpdate_;
+  bool                                                 rep105OdomSeen_       = false;
+  bool                                                 rep105DirectFallback_ = false;
+
+  /// True if REP-105 publishing must fall back to the direct mode (no odom frame).
+  bool rep105FallbackToDirect();
 
   /// Re-broadcasts the cached localization /tf with a freshly-computed
   /// stamp (see ``CachedLocalizationTf`` for the stamping policy). Called
