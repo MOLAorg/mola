@@ -96,92 +96,45 @@ MOLA: LiDAR Odometry, SLAM and Localization
 
 .. raw:: html
 
-   <div style="text-align: center; margin: 1.5em 0 1em 0;">
-     <p style="font-size: 1.3em; color: #333; margin-bottom: 0.5em;">
-       <strong>Production-grade LiDAR SLAM for robotics and surveying</strong>
-     </p>
-     <p style="font-size: 1.05em; color: #555;">
-       Open Core - free for research, commercially licensable for products
-     </p>
-   </div>
+   <section class="mola-hero" aria-label="MOLA">
+     <video class="mola-hero-video" autoplay muted loop playsinline preload="auto"
+            poster="https://mrpt.github.io/videos/mola_hero_v1_poster.jpg">
+       <source src="https://mrpt.github.io/videos/mola_hero_v1_720p.mp4" type="video/mp4" media="(max-width: 900px)">
+       <source src="https://mrpt.github.io/videos/mola_hero_v1.mp4" type="video/mp4">
+     </video>
+     <div class="mola-hero-shade"></div>
+     <nav class="mola-hero-nav">
+       <a class="mola-hero-brand" href="index.html">MOLA</a>
+       <span class="mola-hero-links">
+         <a href="quickstart.html">Quickstart</a>
+         <a href="tutorials.html">Tutorials</a>
+         <a href="modules.html">Modules</a>
+         <a href="solutions.html">Solutions</a>
+         <a href="pricing.html">Pricing</a>
+         <a href="https://github.com/MOLAorg/mola">GitHub</a>
+       </span>
+     </nav>
+     <div class="mola-hero-content">
+       <p class="mola-hero-eyebrow">Open-source LiDAR SLAM &middot; C++ &middot; ROS 2</p>
+       <p class="mola-hero-title">Production-grade LiDAR SLAM<br/>for robots and surveying</p>
+       <p class="mola-hero-sub">LiDAR and LiDAR-inertial odometry, live SLAM with loop closure,
+         localization and geo-referencing, from handheld scanners to legged robots and cars.
+         Free for research, commercially licensable for products.</p>
+       <div class="mola-hero-cta">
+         <a class="mola-btn mola-btn-primary" href="quickstart.html">Get started</a>
+         <a class="mola-btn mola-btn-secondary" href="why-mola.html">Why MOLA</a>
+         <a class="mola-btn mola-btn-ghost" href="pricing.html">Plans &amp; pricing</a>
+       </div>
+     </div>
+     <p class="mola-hero-caption">Real data: GrandTour (ANYmal), Husky robot at the University of Almer&iacute;a,
+       TorWIC warehouse, Oxford Spires, VBR Rome.</p>
+   </section>
 
 :octicon:`mark-github` `MOLA`_ is a Modular system for Localization and Mapping,
 providing LiDAR Odometry (LO), LiDAR-inertial Odometry (LIO), SLAM, localization-only modes,
 and geo-referencing.
 
 .. raw:: html
-
-   <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
-     <div style="flex: 1; min-width: 280px;">
-       <video controls autoplay loop muted style="width: 100%;">
-         <source src="https://mrpt.github.io/videos/mola-lo-mulran-dcc02-demo-decaying-clouds.mp4" type="video/mp4">
-       </video>
-     </div>
-     <div style="flex: 1; min-width: 280px;">
-       <img src="https://mrpt.github.io/imgs/MOLA_LIO_Oxford_Spires_stairs.gif" style="width: 100%;" alt="MOLA LIO Oxford Spires stairs demo">
-     </div>
-   </div>
-
-|
-
-.. raw:: html
-
-   <style>
-   .mola-cards {
-     display: grid;
-     grid-template-columns: repeat(3, 1fr);
-     gap: 14px;
-     margin: 1.5rem 0 2rem;
-   }
-   @media (max-width: 600px) {
-     .mola-cards { grid-template-columns: 1fr; }
-   }
-   .mola-card {
-     display: block;
-     border: 1px solid #d0d7de;
-     border-radius: 8px;
-     padding: 20px 22px 18px;
-     background: #fff;
-     text-decoration: none !important;
-     color: inherit !important;
-     transition: border-color 0.15s, box-shadow 0.15s;
-   }
-   .mola-card:hover {
-     border-color: #0550ae;
-     box-shadow: 0 0 0 3px #e6f1fb;
-     text-decoration: none !important;
-   }
-   .mola-card-icon {
-     width: 34px; height: 34px;
-     border-radius: 7px;
-     background: #eef5fc;
-     display: flex; align-items: center; justify-content: center;
-     margin-bottom: 13px;
-   }
-   .mola-card-icon svg {
-     width: 18px; height: 18px;
-     stroke: #185FA5; fill: none;
-     stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-   }
-   .mola-card-title {
-     font-size: 15px; font-weight: 600;
-     color: #1f2328; margin: 0 0 6px;
-   }
-   .mola-card-body {
-     font-size: 13px; color: #57606a;
-     line-height: 1.55; margin: 0 0 14px;
-   }
-   .mola-card-cta {
-     font-size: 12px; font-weight: 600;
-     color: #0550ae;
-     display: flex; align-items: center; gap: 4px;
-   }
-   .mola-card-cta svg {
-     width: 12px; height: 12px;
-     stroke: #0550ae; fill: none;
-     stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
-   }
-   </style>
 
    <div class="mola-cards">
 

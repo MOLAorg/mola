@@ -1,0 +1,247 @@
+/* MOLA landing page (index): full-width video hero and cards. Only the index page
+   contains .mola-hero, so the :has() rules below do not affect other pages. */
+
+body:has(.mola-hero) {
+  overflow-x: hidden;
+}
+/* The landing page has its own top navigation: no sidebars or page title there. */
+body:has(.mola-hero) .sidebar-drawer,
+body:has(.mola-hero) .toc-drawer,
+body:has(.mola-hero) .mobile-header .header-right .toc-overlay-icon,
+body:has(.mola-hero) article > section > h1 {
+  display: none;
+}
+body:has(.mola-hero) .main > .content {
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+body:has(.mola-hero) .content-icon-container {
+  display: none;
+}
+
+.mola-hero {
+  position: relative;
+  width: 100vw;
+  left: 50%;
+  margin-left: -50vw;
+  margin-top: -1rem;
+  min-height: min(82vh, 860px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  background: #0b0f14;
+}
+.mola-hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mola-hero-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 10, 18, 0.88) 0%, rgba(5, 10, 18, 0.55) 45%, rgba(5, 10, 18, 0.1) 100%),
+    linear-gradient(0deg, rgba(5, 10, 18, 0.6) 0%, rgba(5, 10, 18, 0) 30%);
+}
+.mola-hero-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.6rem max(2rem, calc(50vw - 34rem));
+  z-index: 2;
+}
+.mola-hero-brand {
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+  color: #fff !important;
+  text-decoration: none !important;
+}
+.mola-hero-links a {
+  margin-left: 1.6rem;
+  color: rgba(255, 255, 255, 0.85) !important;
+  text-decoration: none !important;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+.mola-hero-links a:hover {
+  color: #fff !important;
+}
+.mola-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: min(54rem, calc(100vw - 4rem));
+  margin-left: max(2rem, calc(50vw - 34rem));
+  padding: 6rem 0 4rem;
+}
+.mola-hero-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #7cc4ff;
+  margin: 0 0 1rem;
+}
+.mola-hero-title {
+  font-size: clamp(2rem, 4.2vw, 3.4rem);
+  line-height: 1.08;
+  font-weight: 800;
+  margin: 0 0 1.2rem;
+  color: #fff;
+}
+.mola-hero-sub {
+  font-size: 1.12rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 2rem;
+}
+.mola-hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.mola-btn {
+  display: inline-block;
+  padding: 0.75rem 1.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.98rem;
+  text-decoration: none !important;
+  transition: transform 0.12s, background 0.12s;
+}
+.mola-btn:hover {
+  transform: translateY(-1px);
+}
+.mola-btn-primary {
+  background: #1f7aec;
+  color: #fff !important;
+}
+.mola-btn-primary:hover {
+  background: #3b8cf2;
+}
+.mola-btn-secondary {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff !important;
+  backdrop-filter: blur(6px);
+}
+.mola-btn-ghost {
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.mola-hero-caption {
+  position: absolute;
+  z-index: 1;
+  right: max(2rem, calc(50vw - 34rem));
+  bottom: 1rem;
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+@media (max-width: 720px) {
+  .mola-hero-links,
+  .mola-hero-caption {
+    display: none;
+  }
+  .mola-hero-content {
+    padding: 5rem 0 3rem;
+  }
+  .mola-hero-sub {
+    font-size: 1rem;
+  }
+  .mola-hero {
+    min-height: 70vh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mola-hero-video {
+    display: none;
+  }
+  .mola-hero {
+    background: #0b0f14 url("https://mrpt.github.io/videos/mola_hero_v1_poster.jpg") center / cover;
+  }
+}
+
+/* Cards (theme-aware colors) */
+.mola-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 2.5rem 0 2rem;
+}
+@media (max-width: 600px) {
+  .mola-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.mola-card {
+  display: block;
+  border: 1px solid var(--color-background-border);
+  border-radius: 10px;
+  padding: 20px 22px 18px;
+  background: var(--color-background-secondary);
+  text-decoration: none !important;
+  color: inherit !important;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.mola-card:hover {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(31, 122, 236, 0.15);
+}
+.mola-card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: rgba(31, 122, 236, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 13px;
+}
+.mola-card-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--color-brand-primary);
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mola-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-foreground-primary);
+  margin: 0 0 6px;
+}
+.mola-card-body {
+  font-size: 13px;
+  color: var(--color-foreground-secondary);
+  line-height: 1.55;
+  margin: 0 0 14px;
+}
+.mola-card-cta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-brand-primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mola-card-cta svg {
+  width: 12px;
+  height: 12px;
+  stroke: var(--color-brand-primary);
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
