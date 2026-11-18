@@ -119,8 +119,7 @@ MOLA: LiDAR Odometry, SLAM and Localization
        <p class="mola-hero-eyebrow">Open-source LiDAR SLAM &middot; C++ &middot; ROS 2</p>
        <p class="mola-hero-title">Production-grade LiDAR SLAM<br/>for robots and surveying</p>
        <p class="mola-hero-sub">LiDAR and LiDAR-inertial odometry, live SLAM with loop closure,
-         localization and geo-referencing, from handheld scanners to legged robots and cars.
-         Free for research, commercially licensable for products.</p>
+         localization and geo-referencing, from handheld scanners to legged robots and cars.</p>
        <div class="mola-hero-cta">
          <a class="mola-btn mola-btn-primary" href="quickstart.html">Get started</a>
          <a class="mola-btn mola-btn-secondary" href="why-mola.html">Why MOLA</a>
