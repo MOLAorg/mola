@@ -177,6 +177,8 @@ html_js_files = [
 html_css_files = [
     'css/mola_cookbook.css',
     'css/mola_landing.css',
+    'css/mola_solutions.css',
+    'css/mola_pricing.css',
 ]
 
 # Custom sidebar templates, must be a dictionary that maps document names
