@@ -56,7 +56,7 @@ QGIS, and surveying software.
 
 ROS 2 native AND standalone C++
 ---------------------------------
-Deploy with full **ROS 2 integration** (Humble, Jazzy, Kilted, Lyrical, Rolling) or as a
+Deploy with full **ROS 2 integration** (Humble, Jazzy, Lyrical, Rolling) or as a
 **standalone C++ application** without any ROS dependency: the same modules run in
 both. This gives you maximum flexibility for edge deployment, Docker containers, or
 integration into proprietary frameworks.
