@@ -536,7 +536,7 @@ These are the available initial localization methods, that can be used in the la
    .. code-block:: bash
 
       MOLA_LO_INITIAL_LOCALIZATION_METHOD="InitLocalization::FromStateEstimator" \
-      mola_lidar_odometry_cli ... \ # the rest as usual
+      mola-lidar-odometry-cli [...]  # the rest as usual
 
 
 - ``InitLocalization::FixedPose``: Initializes around a given SE(3) pose with covariance.
