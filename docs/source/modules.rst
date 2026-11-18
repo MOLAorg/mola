@@ -144,13 +144,3 @@ Maps, tools and visualization
        :ref:`choosing a visualizer <mola_lo_gui_visualizer_selection>`.
    * - `mola_demos <https://github.com/MOLAorg/mola/tree/develop/mola_demos>`_
      - Example ``mola-cli`` launch files and ROS 2 launch files.
-
-
-Reference pages
------------------
-
-.. toctree::
-  :maxdepth: 2
-
-  module-mola-launcher
-  module-mola-yaml

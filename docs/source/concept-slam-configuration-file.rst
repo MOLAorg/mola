@@ -1,10 +1,15 @@
 .. _yaml_slam_cfg_file:
+.. _mola-yaml:
 
 =============================================
 SLAM system YAML configuration file format
 =============================================
 
 Refer to `the example launch files in mola_demos <https://github.com/MOLAorg/mola/tree/develop/mola_demos/mola-cli-launchs>`_ for real examples to launch and run SLAM systems.
+
+The :ref:`YAML extensions <yaml_extensions>` described below are implemented in the ``mola_yaml``
+C++ library (BSD-3-Clause), used by all MOLA modules. To see how a file is expanded, run it through
+:ref:`mola-yaml-parser <mola_yaml_parser>`.
 
 File structure
 ================

@@ -1,11 +1,12 @@
 .. _mola-launcher:
+.. _mola_main_cli_tools:
 
-======================
-Module: mola-launcher
-======================
+======================================
+mola-cli and command-line tools
+======================================
 
-.. toctree::
-  :maxdepth: 2
+The ``mola_launcher`` package provides ``mola-cli``, the program that runs MOLA
+systems, and ``mola-yaml-parser``, to test the YAML pre-processor.
 
 ----
 
@@ -177,7 +178,7 @@ Example:
 ----
 
 .. index::
-   module: mola-launcher
+   pair: module; mola-launcher
 
 C++ library: `mola-launcher`
 #############################
