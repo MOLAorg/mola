@@ -44,10 +44,6 @@
 | ROS 2 Lyrical (u26.04) | [![Build Status](https://build.ros2.org/job/Ldev__mola__ubuntu_resolute_amd64/badge/icon)](https://build.ros2.org/job/Ldev__mola__ubuntu_resolute_amd64/) | [![Version](https://img.shields.io/ros/v/lyrical/mola)](https://index.ros.org/?search_packages=true&pkgs=mola) |
 | ROS 2 Rolling (u26.04) | [![Build Status](https://build.ros2.org/job/Rdev__mola__ubuntu_resolute_amd64/badge/icon)](https://build.ros2.org/job/Rdev__mola__ubuntu_resolute_amd64/) | [![Version](https://img.shields.io/ros/v/rolling/mola)](https://index.ros.org/?search_packages=true&pkgs=mola) |
 
-| EOL Distro | Last Release |
-| --- | ---
-| ROS 2 Iron (u22.04) | [![Version](https://img.shields.io/ros/v/iron/mola)](https://index.ros.org/?search_packages=true&pkgs=mola) |
-
 
 ## 🤖 What is MOLA?
 MOLA (Modular Optimization framework for Localization and mApping) is a 
