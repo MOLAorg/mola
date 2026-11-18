@@ -379,7 +379,7 @@ Only the axes that are not zero need to be given.
 
 ``mola_tf_base_link`` (``MOLA_TF_BASE_LINK``) is then only the name of the robot
 frame in MOLA outputs. The :ref:`mapper launchers <mola_ros2_cookbook_mapper>`
-do not support fixed sensor poses: they need ``/tf`` in the bag.
+do not support fixed sensor poses: they read them from ``/tf``.
 
 |
 
@@ -603,20 +603,33 @@ Some profiles select the smoother. To use the simple estimator instead, point
 .. _mola_ros2_cookbook_mapper:
 
 Global map with loop closure (mola_mapper)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------
 
 **When to use:** large or looping trajectories where odometry drift becomes
 visible, and you want a globally consistent map. :ref:`mola_mapper` adds
 loop closure and a global pose graph (with GNSS, gravity and gyroscope factors)
-on top of LIO and the smoother. It runs on recorded data only: its launch files
-read a bag or dataset and publish nothing to ROS 2. Results are written to
-files when the run ends.
+on top of LIO and the smoother, and feeds its corrections back to LIO. It runs
+live on ROS 2 topics, publishing the fused pose and ``/tf``, or on recorded data.
+The global map, trajectory and geo-reference are written to files when the run
+ends.
 
 .. container:: mola-tpl
 
    .. code-block:: bash
 
-      # Your own ROS 2 bag (needs /tf in the bag):
+      # Live, on ROS 2 topics (sensor poses from /tf; publishes map -> base_link):
+      MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
+      MOLA_IMU_TOPIC=__IMU_TOPIC__ \
+      MOLA_GNSS_TOPIC=__GNSS_TOPIC__ \
+      MOLA_TF_BASE_LINK=__BASE_LINK__ \
+      MOLA_MAPPER_OUTPUT_TUM=mapper.tum \
+        mola-cli $(ros2 pkg prefix mola_mapper)/share/mola_mapper/mola-cli-launchs/lio_smoother_mapper_ros2.yaml
+
+.. container:: mola-tpl
+
+   .. code-block:: bash
+
+      # Your own ROS 2 bag, read directly (needs /tf in the bag):
       MOLA_DESKEW_METHOD=MotionCompensationMethod::IMU \
       MOLA_LIDAR_TOPIC=__LIDAR_TOPIC__ \
       MOLA_IMU_TOPIC=__IMU_TOPIC__ \
@@ -630,10 +643,12 @@ files when the run ends.
       # A public dataset with a profile (same arguments as its mola-lo-gui-* launcher):
       mola-mapper-gui-vbr /path/to/vbr/colosseo_train0/
 
-``MOLA_GNSS_TOPIC`` is optional. For a headless run, add ``MOLA_WITH_GUI=false
-MOLA_QUIT_ON_DATASET_END=true``. Mapper launchers exist for the datasets listed
-in :ref:`mola_mapper_datasets`, and its parameters are in
-:ref:`mola_mapper_params`.
+``MOLA_GNSS_TOPIC`` is optional, and so is a wheel odometry topic in
+``MOLA_ODOM_TOPIC`` (live) or ``MOLA_ODOMETRY_TOPIC`` (bag). For a headless run,
+add ``MOLA_WITH_GUI=false`` (and ``MOLA_QUIT_ON_DATASET_END=true`` for a bag).
+Mapper launchers exist for the datasets listed in :ref:`mola_mapper_datasets`, the
+live launch file is described in :ref:`mola_mapper_ros2`, and the parameters are
+in :ref:`mola_mapper_params`.
 
 Alternatively, loop closure can be run afterwards on a ``.simplemap`` built by
 any recipe above, with ``mola-sm-lc-cli``: see

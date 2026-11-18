@@ -113,7 +113,7 @@ combining:
 creating reference maps for localization.
 
 **Available now:** ``mola_mapper``, the global back end for live SLAM with online loop
-closure and geo-referencing (see :ref:`mola_mapper` and :ref:`mola_mapper_ros2_node`).
+closure and geo-referencing, live on ROS 2 topics or on recorded data (see :ref:`mola_mapper`).
 
 |
 
