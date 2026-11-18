@@ -6,12 +6,6 @@ Troubleshooting
 
 Symptoms that come up repeatedly, and what is usually behind them.
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
-
 Nothing happens, or the odometry stops
 ---------------------------------------
 

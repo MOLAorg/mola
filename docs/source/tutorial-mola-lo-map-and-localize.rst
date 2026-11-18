@@ -7,11 +7,6 @@ MOLA-LO: Build a map and then localize
 This tutorial will show you how to build a map using MOLA-LO, then save the map to disk, 
 and how to load that map to use the LO localization mode.
 
-.. contents::
-   :depth: 1
-   :local:
-   :backlinks: none
-
 |
 
 This video shows the steps in the tutorial:

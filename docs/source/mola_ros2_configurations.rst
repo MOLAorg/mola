@@ -16,11 +16,6 @@ command line, and the expected ``/tf`` tree.
 
 ____________________________________________
 
-.. contents::
-   :depth: 2
-   :local:
-   :backlinks: none
-
 ____________________________________________
 
 |
