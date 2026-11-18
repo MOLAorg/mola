@@ -168,7 +168,8 @@ struct YAMLParseOptions
  *
  * This is a convenience wrapper equivalent to:
  *  1. `mrpt::containers::yaml::FromFile(fileName)`
- *  2. Setting `YAMLParseOptions::includesBasePath` to the file's directory.
+ *  2. Setting `YAMLParseOptions::includesBasePath` to the file's directory
+ *     (`.` if `fileName` has no directory part), unless `opts` sets it.
  *  3. `parse_yaml(yaml_to_string(raw), opts)`
  *  4. Re-parsing the result with `mrpt::containers::yaml::FromText()`.
  *

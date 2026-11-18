@@ -184,6 +184,16 @@ void test_parseIncludes()
     ASSERT_EQUAL_(y["config2"]["c"].as<int>(), 30);
     ASSERT_EQUAL_(y["config4"]["p4"].as<bool>(), true);
   }
+  {
+    // A file name without directory is relative to the current directory,
+    // also for ${CURRENT_YAML_FILE_PATH}:
+    const auto prevCwd = std::filesystem::current_path();
+    std::filesystem::current_path(MOLA_MODULE_SOURCE_DIR);
+    const auto y = mola::load_yaml_file("test_include_current_path.yaml");
+    std::filesystem::current_path(prevCwd);
+    ASSERT_EQUAL_(y["dir"].as<std::string>(), ".");
+    ASSERT_EQUAL_(y["params"]["a"].as<int>(), 10);
+  }
 }
 
 // ---------------------------------------------------------------------------

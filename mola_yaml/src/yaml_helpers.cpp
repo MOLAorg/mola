@@ -945,6 +945,13 @@ mrpt::containers::yaml mola::load_yaml_file(
   if (effectiveOpts.includesBasePath.empty())
   {
     effectiveOpts.includesBasePath = mrpt::system::extractFileDirectory(fileName);
+    // A file name without a directory part is relative to the current
+    // directory. Leaving the base path empty would expand
+    // ${CURRENT_YAML_FILE_PATH}/foo.yaml into the absolute path /foo.yaml.
+    if (effectiveOpts.includesBasePath.empty())
+    {
+      effectiveOpts.includesBasePath = ".";
+    }
   }
 
   return mrpt::containers::yaml::FromText(parse_yaml(yaml_to_string(rawYaml), effectiveOpts));
