@@ -196,7 +196,7 @@ for the different situations listed above:
          :width: 500
          :align: center
 
-      This is who is responsible of publishing each transformation:
+      These are the publishers of each transformation:
 
       - ``odom → base_link``: Wheel odometry module. High-frequency, relatively accurate in the short term, but drifts in the long term.
       - ``map → odom``: :ref:`Localization <localization-only>` module, which corrects the odometry drift.
@@ -219,7 +219,7 @@ for the different situations listed above:
          :width: 500
          :align: center
 
-      This is who is responsible of publishing each transformation:
+      These are the publishers of each transformation:
 
       - ``map → base_link``: :ref:`Localization <localization-only>` module.
       - ``enu → {map, utm}``: Published by ``mrpt_map_server`` (`github <https://github.com/mrpt-ros-pkg/mrpt_navigation/tree/ros2/mrpt_map_server/>`_)
@@ -234,7 +234,7 @@ for the different situations listed above:
          :width: 500
          :align: center
 
-      This is who is responsible of publishing each transformation:
+      These are the publishers of each transformation:
 
       - ``map → base_link``: Published by :ref:`state estimation data fusion <mola_sta_est_index>`.
         The odometry sources (``odom_{i}``) are fused from their topics, not published on ``/tf``.
