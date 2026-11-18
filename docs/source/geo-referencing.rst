@@ -37,7 +37,18 @@ The existing frames are :ref:`explained here <mola_ros2_tf_frames>`.
 
 3. Georeferenced maps in mm-viewer
 ----------------------------------------
-Write me!
+:ref:`mm-viewer <app_mm-viewer>` shows the geo-reference of a ``.mm`` map, if it has one:
+
+- **Apply georeferenced pose**: a checkbox that draws the map in the ``enu`` frame
+  (applying :math:`T_{\text{enu}}^{\text{map}}`), with the ENU axes next to the map ones.
+- **Mouse coordinates** in ``map``, ``enu`` or latitude/longitude units, with a button to
+  copy them, e.g. to look up a point in a GIS tool.
+- **Overlay of a polygon** given in latitude/longitude (e.g. a parcel or the boundary of the
+  working area), from a text file with one ``lat,lon`` vertex (WGS84 degrees) per line:
+
+  .. code-block:: bash
+
+      mm-viewer myMap.mm --georef-polygon area.txt
 
 |
 
