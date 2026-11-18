@@ -12,6 +12,7 @@ Tutorials
   tutorial-ouster-lio
   tutorial-ouster-mapping-lc
   tutorial-mola-lo-map-and-localize
+  tutorial-pf-localization
 
 
 .. toctree::
