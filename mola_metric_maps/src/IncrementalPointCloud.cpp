@@ -1528,10 +1528,12 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
   internal::LearnedScanContext learnedScanCtx;  // scan-level inputs, same for all pairings
   if (learned != nullptr)
   {
-    if (!(learnedVarianceScale > 0) || !std::isfinite(learnedVarianceScale))
+    // A range that keeps the scaled weights finite in single precision for
+    // any model that passed the checks at load time:
+    if (!(learnedVarianceScale >= 1e-6f && learnedVarianceScale <= 1e6f))
     {
       THROW_EXCEPTION_FMT(
-          "learned_cov_variance_scale must be positive and finite (it is %g)",
+          "learned_cov_variance_scale must be within [1e-6, 1e6] (it is %g)",
           creationOptions.learned_cov_variance_scale);
     }
     const uint64_t version = localPc->index_->contentVersion();

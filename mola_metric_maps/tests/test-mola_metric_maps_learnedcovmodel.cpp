@@ -142,7 +142,15 @@ int run(const std::string& dir)
     }
     else if (tag == "end")
     {
+      // Nothing may follow the end marker:
+      in >> std::ws;
+      ASSERT_(in.eof());
       ended = true;
+      break;
+    }
+    else
+    {
+      THROW_EXCEPTION_FMT("Unknown tag in the fixture: '%s'", tag.c_str());
     }
     ASSERT_(!in.fail());
   }

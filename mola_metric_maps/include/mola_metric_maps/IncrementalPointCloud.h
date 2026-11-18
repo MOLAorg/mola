@@ -523,7 +523,7 @@ class IncrementalPointCloud : public mrpt::maps::CGenericPointsMap,
 
     /** With `learned_cov_model_file`: a global factor on the learned
      *  covariances of every pairing (the variance, i.e. the squared sigma).
-     *  1 (default) keeps the model's own scale. */
+     *  1 (default) keeps the model's own scale. Valid range: [1e-6, 1e6]. */
     double learned_cov_variance_scale = 1.0;
   };
   TCreationOptions creationOptions;
