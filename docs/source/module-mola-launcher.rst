@@ -67,9 +67,6 @@ SYNOPSIS
          paths in which the program looks for module dynamic libraries, then
          exits.
 
-       --list-module-shared-dirs
-         Finds all MOLA module source/shared directories, then list them. Paths
-         can be added with the environment variable MOLA_MODULES_SHARED_PATH.
 
 
 Notes:
@@ -124,37 +121,6 @@ cores, with the same results (parallel sums are deterministic). The scans took
 every core awake. Set the environment variable ``MOLA_MAX_THREADS`` to another
 positive number to change it. ``mola-lidar-odometry-cli`` does the same.
 
-
-----
-
-.. index::
-   single: mola-dir
-
-.. _mola_dir:
-
-Application: ``mola-dir``
-##########################
-
-``mola-dir`` is a CLI program that finds the shared directory
-(see :ref:`concepts_module_shared_dir`) of a module.
-It is most-commonly useful inside evaluation expression of MOLA definition files (:ref:`yaml_slam_cfg_file`).
-
--------------
-SYNOPSIS
--------------
-
-.. code-block:: none
-
-    USAGE:
-
-       mola-dir  <module_name>
-
-
-Note: To list all known shared directories of modules, use:
-
-.. code-block:: none
-
-    mola-cli --list-module-shared-dirs
 
 ----
 
