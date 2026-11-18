@@ -67,15 +67,13 @@ How to install all MOLA modules:
 .. dropdown:: Build from sources
     :icon: code-square
 
-    Building tools
-    ~~~~~~~~~~~~~~~~~
+    **Building tools**
     MOLA uses ``colcon`` so you need to `install it first <https://colcon.readthedocs.io/en/released/user/installation.html>`_.
 
     Note that despite ROS 2 integration, a full ROS 2 installation is actually not **required** for MOLA, only ``colcon`` and ``ament``.
 
 
-    Get the sources
-    ~~~~~~~~~~~~~~~~~
+    **Get the sources**
 
     Clone the git repositories, including the submodules:
 
@@ -96,8 +94,7 @@ How to install all MOLA modules:
         # MOLA lidar odometry package:
         git clone https://github.com/MOLAorg/mola_lidar_odometry.git --recursive
 
-    Dependencies
-    ~~~~~~~~~~~~~~~~~
+    **Dependencies**
 
     Make sure you have all dependencies installed (make sure of having `rosdep already installed <https://wiki.ros.org/rosdep>`_):
 
@@ -107,8 +104,7 @@ How to install all MOLA modules:
         rosdep install --from-paths src --ignore-src -r -y
 
 
-    Build and test
-    ~~~~~~~~~~~~~~~~~
+    **Build and test**
 
     Now, compile as usual with colcon:
 
