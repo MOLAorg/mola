@@ -51,6 +51,9 @@ TITLE_OVERRIDES = {
     "rosbag1": "ROS 1 bags",
     "rosbag2": "ROS 2 bags",
     "ouster": "Ouster sensors (live)",
+    "fomo": "FoMo",
+    "ntu-viral": "NTU-VIRAL",
+    "vbr": "VBR",
 }
 
 
@@ -205,9 +208,18 @@ def paragraphs(lines):
     return blocks
 
 
+def first_paragraph(lines):
+    """The first prose paragraph of a text block, as one line."""
+    blocks = paragraphs(lines)
+    if not blocks:
+        return ""
+    return rst_escape(" ".join(ln.strip() for ln in blocks[0]))
+
+
 def emit_text(lines, out):
     """Render comment prose, using a literal block when layout matters."""
-    for block in paragraphs(lines):
+    blocks = paragraphs(lines)
+    for i, block in enumerate(blocks):
         preformatted = any(
             ln.startswith("  ") or "|" in ln or re.match(r"^\s*-\s", ln)
             for ln in block
@@ -231,6 +243,10 @@ def emit_text(lines, out):
                     joined += " " + piece
                 else:
                     joined = piece
+            # A comment that ends with a colon introduces the shell line
+            # below it, which is not shown here: end the sentence instead.
+            if i == len(blocks) - 1 and joined.endswith(":"):
+                joined = joined[:-1] + "."
             out.append(rst_escape(joined))
             out.append("")
 
@@ -357,7 +373,7 @@ def generate_page(name, prof, wrappers):
     return "\n".join(out) + "\n"
 
 
-def generate_index(names):
+def generate_index(names, profs):
     out = []
     out.append(".. _supported_datasets:")
     out.append("")
@@ -375,8 +391,7 @@ def generate_index(names):
     out.append("")
     out.append(
         "Each page is generated from that dataset's profile, which is also "
-        "what the wrappers, the batch evaluation harness and the regression "
-        "jobs read, so what is written here is what actually runs."
+        "what the wrappers read, so what is written here is what actually runs."
     )
     out.append("")
     out.append(
@@ -384,8 +399,20 @@ def generate_index(names):
         ":ref:`supported_sensors`."
     )
     out.append("")
+    out.append(".. list-table::")
+    out.append("   :header-rows: 1")
+    out.append("   :widths: 25 75")
+    out.append("")
+    out.append("   * - Dataset")
+    out.append("     - What it is")
+    for n in names:
+        title = TITLE_OVERRIDES.get(n, n)
+        out.append(f"   * - :ref:`{title} <dataset_{n.replace('-', '_')}>`")
+        out.append(f"     - {first_paragraph(profs[n]['header'])}")
+    out.append("")
     out.append(".. toctree::")
     out.append("   :maxdepth: 1")
+    out.append("   :hidden:")
     out.append("")
     for n in names:
         out.append(f"   {n}")
@@ -413,14 +440,16 @@ def main():
     names = sorted(
         f[:-3] for f in os.listdir(profiles_dir) if f.endswith(".sh")
     )
+    profs = {}
     for name in names:
         prof = parse_profile(os.path.join(profiles_dir, f"{name}.sh"))
+        profs[name] = prof
         page = generate_page(name, prof, wrappers.get(name, []))
         with open(os.path.join(out_dir, f"{name}.rst"), "w") as f:
             f.write(page)
 
     with open(os.path.join(out_dir, "index.rst"), "w") as f:
-        f.write(generate_index(names))
+        f.write(generate_index(names, profs))
 
     print(f"generate_dataset_pages: wrote {len(names)} dataset pages to {out_dir}")
     return 0

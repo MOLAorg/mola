@@ -68,76 +68,9 @@ out its topic names, frame ids, extrinsics or per-dataset tuning yourself. Each
 comes in two flavors: ``mola-lo-gui-<name>`` for interactive replay with the
 3D GUI, and ``mola-lo-cli-<name>`` for offline batch processing at full speed.
 
-The table below is the overview. For one dataset in particular, see
-:ref:`its own page <supported_datasets>`: where to put the data, the exact
-commands, and every tuned default with the reasoning behind it.
-
-.. list-table::
-   :widths: 20 55 25
-   :header-rows: 1
-
-   * - Dataset
-     - What it is
-     - Launcher suffix
-   * - `KITTI <https://www.cvlibs.net/datasets/kitti/>`_
-     - The odometry benchmark; a car with a Velodyne HDL-64.
-     - ``kitti``
-   * - `KITTI-360 <https://www.cvlibs.net/datasets/kitti-360/>`_
-     - Panoramic successor to KITTI.
-     - ``kitti360``
-   * - `MulRan <https://sites.google.com/view/mulran-pr/dataset>`_
-     - A car with an Ouster OS1-64 around Daejeon and Sejong.
-     - ``mulran``
-   * - `Newer College <https://ori-drs.github.io/newer-college-dataset/>`_
-     - Handheld rig walked around New College, Oxford; ships a survey-grade
-       prior map.
-     - ``newer-college``
-   * - `Oxford Spires <https://dynamic.robots.ox.ac.uk/datasets/oxford-spires>`_
-     - Hand-held / backpack VILENS payload around Oxford colleges.
-     - ``oxford-spires``
-   * - `Hilti-Oxford 2022 <https://hilti-challenge.com/>`_
-     - Hand-held survey pole through construction sites and the Sheldonian
-       Theatre.
-     - ``hilti2022``
-   * - `GrandTour <https://grand-tour.leggedrobotics.com>`_
-     - ANYbotics ANYmal-D quadruped carrying the "Boxi" payload; one bag per
-       topic.
-     - ``grandtour``
-   * - `BotanicGarden <https://github.com/robot-pesg/BotanicGarden>`_
-     - Ground robot driven through a botanical garden.
-     - ``botanicgarden``
-   * - `CitrusFarm <https://ucr-robotics.github.io/Citrus-Farm-Dataset/>`_
-     - Clearpath Jackal through citrus orchard rows.
-     - ``citrusfarm``
-   * - `ConSLAM <https://github.com/mac137/ConSLAM>`_
-     - Hand-held scanner in construction sites (ROS 1 or ROS 2 bags).
-     - ``conslam``
-   * - `GEODE <https://github.com/PengYu-Team/GEODE_dataset>`_
-     - Built around **degenerate geometry**: flat surfaces, stairwells, metro
-       tunnels, off-road, inland waterways.
-     - ``geode``
-   * - `TIERS <https://github.com/TIERS/tiers-lidars-dataset>`_
-     - Five LiDARs recording simultaneously, hence one launcher **per sensor**.
-     - ``tiers-ouster-os0``, ``tiers-ouster-os1``,
-       ``tiers-velodyne``, ``tiers-livox-horizon``, ``tiers-livox-avia``
-   * - `Paris-LuCo <https://github.com/PRBonn/kiss-icp>`_
-     - The ParisLuco128 sequence used by CT-ICP and others.
-     - ``paris-luco``
-   * - `NTU-VIRAL <https://ntu-aris.github.io/ntu_viral_dataset/>`_
-     - Drone with two Ouster OS1-16 (the horizontal one is used), a VectorNav
-       IMU, cameras and UWB.
-     - ``ntu-viral``
-   * - `VBR <https://rvp-group.net/slam-benchmark.html>`_
-     - Vision Benchmark in Rome: one sensor head carried by hand (Ouster
-       OS0-128) or on a car (Ouster OS1-64); bags split in chunks.
-     - ``vbr``
-   * - `FoMo <https://fomo.norlab.ulaval.ca>`_
-     - A year of repeated off-road drives in a boreal forest, from bare ground
-       to deep snow; RoboSense 128-channel LiDAR. Needs a conversion to
-       rosbag2 first.
-     - ``fomo``
-
-So, for example:
+The list of supported datasets, with one page each (where to put the data, the exact
+commands, and every tuned default with the reasoning behind it), is in
+:ref:`supported_datasets`. For example:
 
 .. code-block:: bash
 
