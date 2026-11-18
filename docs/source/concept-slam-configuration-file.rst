@@ -119,17 +119,17 @@ is replaced by the full contents of the referenced file.
 
     modules:
       - type: CLASS_NAME1
-        params:
-          # Include a file whose path is built from an environment variable:
-          $include{${MY_CONFIG_DIR}/sensor_params.yaml}
+        # Include a file whose path is built from an environment variable:
+        params: $include{${MY_CONFIG_DIR}/sensor_params.yaml}
 
-        config:
-          # Include a file relative to this file's own directory:
-          $include{params/lidar_odometry.yaml}
+      - type: CLASS_NAME2
+        # Include a file relative to this file's own directory:
+        params: $include{params/lidar_odometry.yaml}
 
-          # Include a file whose path comes from a shell command
-          # (e.g. a ROS 2 package share directory):
-          $include{$(ros2 pkg prefix mola_lidar_odometry)/share/mola_lidar_odometry/config/lo_default.yaml}
+      - type: CLASS_NAME3
+        # Include a file whose path comes from a shell command
+        # (e.g. a ROS 2 package share directory):
+        params: $include{$(ros2 pkg prefix my_package)/share/my_package/params/default.yaml}
 
 .. note::
 
@@ -383,20 +383,29 @@ order (first match wins):
          $include{$(ros2 pkg prefix my_robot_config)/share/my_robot_config/calib/${ROBOT_VARIANT|default}/lidar.yaml}
 
 
-Mathematical formulas: ``$f{expr}``
--------------------------------------
+Mathematical formulas
+-----------------------
 
-The pattern ``$f{expr}`` evaluates a mathematical expression using the
+Formulas are **not** expanded by this pre-processor. Some modules evaluate them
+when reading their own parameters, with the
 `ExprTk library <https://github.com/ArashPartow/exprtk>`_ (via
-`mrpt-expr <https://docs.mrpt.org/reference/latest/group_mrpt_expr_grp.html>`_).
-Refer to the ExprTk documentation for the full list of built-in functions and
-operators.  User-defined variables may be available depending on the context in
-which the YAML file is parsed.
+`mrpt-expr <https://docs.mrpt.org/reference/latest/group_mrpt_expr_grp.html>`_)
+and variables that depend on the module (e.g. ``ESTIMATED_OBSERVATION_RADIUS``
+in MOLA-LO pipelines):
 
-.. code-block:: yaml
+- Parameters of ``mp2p_icp`` filters and of MOLA-LO that are declared as
+  dynamic parameters accept a formula as a plain string:
 
-    half_fov_rad: $f{deg2rad(45.0)}
-    diagonal:     $f{sqrt(3.0^2 + 4.0^2)}
+  .. code-block:: yaml
+
+      max_distance_to_keep_keyframes: "max(100.0, 1.50*ESTIMATED_OBSERVATION_RADIUS)"
+
+- Within the ``metric_map_definition`` block of an ``mp2p_icp`` generator, a
+  formula must be wrapped as ``$f{expr}``:
+
+  .. code-block:: yaml
+
+      remove_points_farther_than: "$f{max(100.0, ESTIMATED_OBSERVATION_RADIUS)}"
 
 
 .. _yaml_preprocessing_order:
@@ -439,22 +448,18 @@ when a token falls inside a comment:
      - Value of ``VAR``, or ``default``
      - 3rd
      - Left verbatim
-   * - ``$f{expr}``
-     - Result of mathematical expression
-     - Context-dependent
-     - Left verbatim
 
 
 Debugging pre-processing
 --------------------------
 
-Set the environment variable ``VERBOSE=1`` before launching any MOLA
+Set the environment variable ``MOLA_YAML_VERBOSE=1`` before launching any MOLA
 executable to print each external file (``$include{}`` or ``$import``) as it is
 resolved:
 
 .. code-block:: bash
 
-    VERBOSE=1 ros2 launch my_slam_system slam.launch.py
+    MOLA_YAML_VERBOSE=1 ros2 launch my_slam_system slam.launch.py
 
 Each resolved file prints a line of the form::
 
