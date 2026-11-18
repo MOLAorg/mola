@@ -44,7 +44,7 @@ Prerequisites
 
 You must have the following MOLA packages installed:
 
-- ``mola_lidar_odometry`` (provides ``mola-lo-gui-rosbag2``)
+- ``mola_lidar_odometry`` (provides ``mola-lo-cli-rosbag2`` and ``mola-lo-gui-rosbag2``)
 - ``mola_sm_loop_closure`` (provides ``mola-sm-lc-cli``)
 - ``mola_state_estimation`` (provides ``mola-sm-georeferencing``)
 - ``mp2p_icp`` (provides ``sm2mm`` and ``mm-viewer``)
@@ -69,8 +69,10 @@ You should see files like ``loop-closure-f2f-lidar3d-gicp.yaml`` listed there.
 Step 1: Run MOLA-LIO to generate the raw simplemap
 ----------------------------------------------------
 
-Use ``mola-lo-gui-rosbag2`` to run the LIO pipeline on your rosbag.
-The environment variables below configure the pipeline specifically for Ouster sensors.
+Use ``mola-lo-cli-rosbag2`` to run the LIO pipeline on your rosbag. It processes every
+scan, as fast as the computer allows: unlike the GUI, it never drops a scan when the
+processing falls behind real time (see :ref:`gui_vs_cli`), which matters for an accurate
+map. The environment variables below configure the pipeline specifically for Ouster sensors.
 
 .. code-block:: bash
 
@@ -85,12 +87,13 @@ The environment variables below configure the pipeline specifically for Ouster s
     MOLA_TF_BASE_LINK=os_sensor \
     MOLA_LIDAR_TOPIC=/ouster/points \
     MOLA_IMU_TOPIC=/ouster/imu \
-    mola-lo-gui-rosbag2   YOUR_DATASET.mcap
+    mola-lo-cli-rosbag2   YOUR_DATASET.mcap
 
 .. note::
 
     Replace ``YOUR_DATASET`` with the actual path to your ``.db3``
-    or ``.mcap`` rosbag file.
+    or ``.mcap`` rosbag file. To watch the data first, ``mola-lo-gui-rosbag2`` takes the
+    same variables.
 
 **Key environment variables explained:**
 
@@ -124,7 +127,7 @@ The environment variables below configure the pipeline specifically for Ouster s
 .. dropdown:: What output files does this step produce?
    :icon: file-directory
 
-   After the GUI process completes (or when you close the window):
+   When the run ends:
 
    - ``final_map.simplemap``: The keyframe map with all poses and sensor observations.
    - ``final_map_Images/``: Directory containing the externally stored observation files
