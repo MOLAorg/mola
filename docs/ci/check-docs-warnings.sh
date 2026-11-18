@@ -33,6 +33,7 @@ fi
 
 # Warnings that mean a page renders wrong, not merely noisily.
 BREAKAGE='Include file .* not found'
+BREAKAGE+='|Problems with "include" directive path'
 BREAKAGE+='|toctree contains reference to nonexisting document'
 BREAKAGE+='|Unknown target name'
 BREAKAGE+='|undefined label'
@@ -44,7 +45,7 @@ BREAKAGE+='|may not begin with a transition'
 GENERATED='/source/(class_|struct_|enum_|namespace_|group_|union_|page_|global\.rst|doxygen-index)'
 
 findings=$(
-  grep -E 'WARNING|ERROR' "$LOG" \
+  grep -E 'WARNING|ERROR|CRITICAL' "$LOG" \
     | grep -vE "$GENERATED" \
     | grep -vE 'undefined label: .doxid-' \
     | grep -E "$BREAKAGE" \
