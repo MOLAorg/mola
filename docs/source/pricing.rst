@@ -20,12 +20,76 @@ Community vs. Pro
 .. raw:: html
 
    <style>
+   /* Palette: light defaults, overridden below for Furo's dark theme */
+   .mola-pricing-wrap {
+     --mp-border: #d0d7de;
+     --mp-border-soft: #eaeef2;
+     --mp-text: #1f2328;
+     --mp-muted: #57606a;
+     --mp-accent: #0550ae;
+     --mp-accent-sub: #3b82b8;
+     --mp-pro-bg: #eef5fc;
+     --mp-pro-strong-bg: #dbeafe;
+     --mp-pro-strong-border: #bfdbfe;
+     --mp-section-bg: #f6f8fa;
+     --mp-check: #1a7f37;
+     --mp-dash: #bbbbbb;
+     --mp-tip-bg: #1f2328;
+     --mp-wip-bg: #fff8c5;
+     --mp-wip-fg: #7d4e00;
+     --mp-wip-border: #e8c84a;
+     --mp-road-bg: #ddf4ff;
+     --mp-road-border: #80caff;
+   }
+   body[data-theme="dark"] .mola-pricing-wrap {
+     --mp-border: #30363d;
+     --mp-border-soft: #21262d;
+     --mp-text: #e6edf3;
+     --mp-muted: #9198a1;
+     --mp-accent: #58a6ff;
+     --mp-accent-sub: #79b8ff;
+     --mp-pro-bg: #0d1d33;
+     --mp-pro-strong-bg: #13294a;
+     --mp-pro-strong-border: #1f3b63;
+     --mp-section-bg: #161b22;
+     --mp-check: #3fb950;
+     --mp-dash: #6e7681;
+     --mp-tip-bg: #30363d;
+     --mp-wip-bg: #3b2e00;
+     --mp-wip-fg: #e3b341;
+     --mp-wip-border: #6b5300;
+     --mp-road-bg: #0c2d4a;
+     --mp-road-border: #1f6feb;
+   }
+   @media (prefers-color-scheme: dark) {
+     body:not([data-theme="light"]) .mola-pricing-wrap {
+       --mp-border: #30363d;
+       --mp-border-soft: #21262d;
+       --mp-text: #e6edf3;
+       --mp-muted: #9198a1;
+       --mp-accent: #58a6ff;
+       --mp-accent-sub: #79b8ff;
+       --mp-pro-bg: #0d1d33;
+       --mp-pro-strong-bg: #13294a;
+       --mp-pro-strong-border: #1f3b63;
+       --mp-section-bg: #161b22;
+       --mp-check: #3fb950;
+       --mp-dash: #6e7681;
+       --mp-tip-bg: #30363d;
+       --mp-wip-bg: #3b2e00;
+       --mp-wip-fg: #e3b341;
+       --mp-wip-border: #6b5300;
+       --mp-road-bg: #0c2d4a;
+       --mp-road-border: #1f6feb;
+     }
+   }
+
    .mola-pricing-wrap { margin: 2rem 0; font-size: 14px; font-family: inherit; }
 
    .mola-pricing-table {
      width: 100%;
      border-collapse: collapse;
-     border: 1px solid #d0d7de;
+     border: 1px solid var(--mp-border);
      border-radius: 8px;
      overflow: hidden;
    }
@@ -37,7 +101,7 @@ Community vs. Pro
 
    /* Pro column tint */
    .mola-pricing-table td.pro-col,
-   .mola-pricing-table th.pro-col { background: #eef5fc; }
+   .mola-pricing-table th.pro-col { background: var(--mp-pro-bg); }
 
    /* Header row */
    .mola-pricing-table thead tr th {
@@ -45,19 +109,19 @@ Community vs. Pro
      text-align: center;
      font-size: 15px;
      font-weight: 600;
-     border-bottom: 1px solid #d0d7de;
-     color: #1f2328;
+     border-bottom: 1px solid var(--mp-border);
+     color: var(--mp-text);
    }
    .mola-pricing-table thead tr th.col-feat-h {
      text-align: left;
      font-weight: 400;
      font-size: 13px;
-     color: #57606a;
+     color: var(--mp-muted);
    }
    .mola-pricing-table thead tr th.pro-col {
-     color: #0550ae;
-     background: #dbeafe;
-     border-bottom-color: #bfdbfe;
+     color: var(--mp-accent);
+     background: var(--mp-pro-strong-bg);
+     border-bottom-color: var(--mp-pro-strong-border);
    }
 
    /* Section header rows */
@@ -67,21 +131,21 @@ Community vs. Pro
      font-weight: 600;
      letter-spacing: 0.07em;
      text-transform: uppercase;
-     color: #57606a;
-     background: #f6f8fa;
-     border-top: 1px solid #d0d7de;
-     border-bottom: 1px solid #d0d7de;
+     color: var(--mp-muted);
+     background: var(--mp-section-bg);
+     border-top: 1px solid var(--mp-border);
+     border-bottom: 1px solid var(--mp-border);
    }
    .mola-pricing-table tr.section-row td.pro-col {
-     background: #dbeafe;
+     background: var(--mp-pro-strong-bg);
    }
 
    /* Data rows */
    .mola-pricing-table tr.data-row td {
      padding: 9px 16px;
-     border-bottom: 1px solid #eaeef2;
+     border-bottom: 1px solid var(--mp-border-soft);
      vertical-align: middle;
-     color: #1f2328;
+     color: var(--mp-text);
      line-height: 1.45;
    }
    .mola-pricing-table tr.data-row:last-child td { border-bottom: none; }
@@ -90,50 +154,51 @@ Community vs. Pro
    .mola-pricing-table tr.data-row td.pro-col {
      text-align: center;
      font-size: 13px;
-     color: #0550ae;
+     color: var(--mp-accent);
      font-weight: 500;
    }
    .mola-pricing-table tr.data-row td.comm-col {
-     color: #57606a;
+     color: var(--mp-muted);
    }
 
    /* Price row */
    .mola-pricing-table tr.price-row td {
      padding: 16px 16px;
-     border-top: 2px solid #d0d7de;
+     border-top: 2px solid var(--mp-border);
      vertical-align: middle;
    }
+   .mola-pricing-table tr.price-row td.price-head { color: var(--mp-muted); font-size: 13px; }
    .mola-pricing-table tr.price-row td.comm-col { text-align: center; }
-   .mola-pricing-table tr.price-row td.pro-col  { text-align: center; background: #dbeafe; }
+   .mola-pricing-table tr.price-row td.pro-col  { text-align: center; background: var(--mp-pro-strong-bg); }
 
-   .price-label    { font-size: 22px; font-weight: 700; color: #1f2328; }
-   .price-sub      { font-size: 12px; color: #57606a; margin-top: 3px; }
-   .price-pro      { font-size: 14px; font-weight: 600; color: #0550ae; }
-   .price-pro-sub  { font-size: 12px; color: #3b82b8; margin-top: 3px; }
+   .price-label    { font-size: 22px; font-weight: 700; color: var(--mp-text); }
+   .price-sub      { font-size: 12px; color: var(--mp-muted); margin-top: 3px; }
+   .price-pro      { font-size: 14px; font-weight: 600; color: var(--mp-accent); }
+   .price-pro-sub  { font-size: 12px; color: var(--mp-accent-sub); margin-top: 3px; }
 
    /* Icons */
-   .check-icon { color: #1a7f37; font-size: 15px; }
-   .dash-icon  { color: #bbb; font-size: 18px; line-height: 1; }
+   .check-icon { color: var(--mp-check); font-size: 15px; }
+   .dash-icon  { color: var(--mp-dash); font-size: 18px; line-height: 1; }
 
    /* Info tooltip */
    .info-wrap { display: inline-block; position: relative; margin-left: 5px; vertical-align: middle; }
    .info-btn {
      display: inline-flex; align-items: center; justify-content: center;
      width: 15px; height: 15px; border-radius: 50%;
-     background: #d0d7de; color: #57606a;
+     background: var(--mp-border); color: var(--mp-muted);
      font-size: 10px; font-weight: 700; font-style: normal;
      cursor: pointer; border: none; padding: 0;
      font-family: inherit; line-height: 1;
      transition: background 0.15s;
    }
-   .info-btn:hover { background: #0550ae; color: #fff; }
+   .info-btn:hover { background: var(--mp-accent); color: #fff; }
    .info-tooltip {
      display: none;
      position: absolute;
      left: 50%; bottom: calc(100% + 6px);
      transform: translateX(-50%);
      width: 230px;
-     background: #1f2328; color: #fff;
+     background: var(--mp-tip-bg); color: #fff;
      font-size: 12px; line-height: 1.5;
      padding: 8px 10px; border-radius: 6px;
      z-index: 99; font-weight: 400; text-align: left;
@@ -144,7 +209,7 @@ Community vs. Pro
      position: absolute; top: 100%; left: 50%;
      transform: translateX(-50%);
      border: 5px solid transparent;
-     border-top-color: #1f2328;
+     border-top-color: var(--mp-tip-bg);
    }
    .info-wrap:hover .info-tooltip,
    .info-btn:focus + .info-tooltip { display: block; }
@@ -152,20 +217,20 @@ Community vs. Pro
    /* Badges */
    .badge-wip {
      display: inline-block; font-size: 10px; padding: 1px 6px;
-     background: #fff8c5; color: #7d4e00;
-     border: 1px solid #e8c84a; border-radius: 4px;
+     background: var(--mp-wip-bg); color: var(--mp-wip-fg);
+     border: 1px solid var(--mp-wip-border); border-radius: 4px;
      margin-left: 6px; vertical-align: middle; font-weight: 500;
      white-space: nowrap;
    }
    .badge-road {
      display: inline-block; font-size: 10px; padding: 1px 6px;
-     background: #ddf4ff; color: #0550ae;
-     border: 1px solid #80caff; border-radius: 4px;
+     background: var(--mp-road-bg); color: var(--mp-accent);
+     border: 1px solid var(--mp-road-border); border-radius: 4px;
      margin-left: 6px; vertical-align: middle; font-weight: 500;
      white-space: nowrap;
    }
    .feat-note {
-     display: block; font-size: 11px; color: #57606a;
+     display: block; font-size: 11px; color: var(--mp-muted);
      margin-top: 2px; font-weight: 400;
    }
    </style>
@@ -329,7 +394,7 @@ Community vs. Pro
 
        <!-- ── Price ── -->
        <tr class="price-row">
-         <td style="color:#57606a; font-size:13px;">Price</td>
+         <td class="price-head">Price</td>
          <td class="comm-col">
            <div class="price-label">Free</div>
            <div class="price-sub">Open-source, forever</div>
