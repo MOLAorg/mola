@@ -467,8 +467,8 @@ The MOLA framework is composed of several repositories with different open-sourc
      - ROS 2 nodes: map server, localization, point cloud pipeline
 
    * - `MOLA <https://github.com/MOLAorg/mola>`_
-     - GPL-3
-     - MOLA kernel, visualization, relocalization
+     - GPL-3 (BSD-3: ``mola_bridge_ros2``, ``mola_yaml``, ``mola_traj_tools``, ``mola_demos``)
+     - MOLA kernel, launcher, dataset inputs, metric maps, visualization, relocalization
 
    * - `mola_lidar_odometry <https://github.com/MOLAorg/mola_lidar_odometry/>`_
      - GPL-3
@@ -476,7 +476,7 @@ The MOLA framework is composed of several repositories with different open-sourc
 
    * - `mola_state_estimation <https://github.com/MOLAorg/mola_state_estimation/>`_
      - GPL-3
-     - State estimators: smoother, IMU/GNSS/kinematics fusion
+     - State estimators: smoother, IMU/GNSS/kinematics fusion; map and trajectory georeferencing tools
 
    * - `mola_mapper <https://github.com/MOLAorg/mola_mapper/>`_
      - GPL-3
@@ -484,10 +484,11 @@ The MOLA framework is composed of several repositories with different open-sourc
 
    * - `mola_sm_loop_closure <https://github.com/MOLAorg/mola_sm_loop_closure/>`_
      - GPL-3
-     - Map georeferencing, loop closure for consistent large maps
+     - Offline loop closure of simple-maps, for consistent large maps
 
-**BSD-3 modules** (MRPT, mp2p_icp, mrpt_navigation) can be freely used in any project,
-including closed-source commercial products.
+**BSD-3 modules** (MRPT, mp2p_icp, mrpt_navigation, and the BSD-3 packages of the MOLA
+repository listed above) can be freely used in any project, including closed-source
+commercial products.
 
 **GPL-3 modules** (MOLA core, lidar odometry, state estimation, mapper, loop closure) require
 that derivative works also be released under GPL-3. If your product is closed-source,
