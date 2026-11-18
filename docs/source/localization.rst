@@ -71,7 +71,34 @@ This video shows the steps in the tutorial:
 Based on the smoother state estimator, this solution allows for improved localization in a prebuilt map
 by fusing the output of LiDAR odometry (LO or LIO) with GNSS and kinematic data.
 
-Write me!
+MOLA-LO runs in localization-only mode against a **geo-referenced** map, and the smoother fuses its
+poses with wheel odometry and GNSS. The GNSS fixes give the initial pose in the map, so no manual
+initial guess is needed: MOLA-LO stays idle until the smoother has converged on it
+(``gnss_mode:=relocalize``), and then keeps the pose of the smoother as its motion prior. Wheel odometry
+carries the pose through stretches where the scans match the map poorly.
+
+This combines two :ref:`ROS 2 configuration recipes <mola_ros2_cookbook>`:
+:ref:`relocalization with GNSS <mola_ros2_cookbook_4_6>` and
+:ref:`external odometry in the smoother <mola_ros2_cookbook_4_4>`:
+
+.. code-block:: bash
+
+    MOLA_ODOM_AS_ROBOT_POSE_OBS=false \
+    ros2 launch mola_lidar_odometry ros2-lidar-odometry.launch.py \
+      lidar_topic_name:=/ouster/points \
+      imu_topic_name:=/ouster/imu use_imu_for_lio:=True \
+      gnss_topic_name:=/gps \
+      odom_topic_name:=/odom \
+      mola_initial_map_mm_file:=/path/to/geo-referenced-map.mm \
+      use_state_estimator:=True \
+      start_mapping_enabled:=False \
+      gnss_mode:=relocalize \
+      publish_localization_following_rep105:=False
+
+``MOLA_ODOM_AS_ROBOT_POSE_OBS=false`` fuses the wheel odometry as planar odometry, with its own motion
+model (see :ref:`below <localization-lo_georef_gnss_imu_kinematics>`). This publishes ``map -> base_link``;
+to keep the ``odom -> base_link`` of the wheel odometry driver instead (REP-105), publish ``map -> odom``
+from the smoother as explained in the next section.
 
 |
 
