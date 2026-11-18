@@ -11,36 +11,32 @@
   Home <index.html#http://>
   how-to-install
   quickstart
-  why-mola
   your-own-rosbag
   gui-vs-cli
-  building-maps
-  localization
-  geo-referencing
-  ros2api
-  mola_ros2_configurations
-  map-tools
   troubleshooting
 
 .. toctree::
-  :maxdepth: 1
+  :maxdepth: 2
   :hidden:
-  :caption: Datasets
+  :caption: Guides
 
+  building-maps
+  localization
+  geo-referencing
+  mola_ros2_configurations
   datasets/index
 
 .. toctree::
   :maxdepth: 2
   :hidden:
-  :caption: Solutions & pricing
+  :caption: Tutorials
 
-  solutions
-  pricing
+  tutorials
 
 .. toctree::
   :maxdepth: 2
   :hidden:
-  :caption: 3D LiDAR
+  :caption: LiDAR odometry
 
   mola_lidar_odometry
   mola_lo_apps
@@ -51,42 +47,48 @@
 .. toctree::
   :maxdepth: 2
   :hidden:
-  :caption: Full 3D SLAM
+  :caption: SLAM and state estimation
 
   mola_mapper
-
-.. toctree::
-  :maxdepth: 2
-  :hidden:
-  :caption: State estimation
-
   mola_state_estimators
 
 .. toctree::
   :maxdepth: 2
   :hidden:
-  :caption: mp2p_icp
+  :caption: Maps and mp2p_icp
 
+  map-tools
   module-mp2p-icp
   mp2p_icp_basics
   mp2p_icp_filters
   mp2p_icp_optimal-transformations
   sm2mm_pipelines
 
-
 .. toctree::
   :maxdepth: 2
   :hidden:
-  :caption: Learn more
+  :caption: Reference
 
-  tutorials
-  mola_architecture
-  dataset-conversions
+  ros2api
   supported-sensors
+  dataset-conversions
+  concept-slam-configuration-file
+  module-mola-launcher
+  mola_architecture
+  tutorial-mola-cmake-commands
   modules
   changelog
   doxygen-index
   bibliography
+
+.. toctree::
+  :maxdepth: 2
+  :hidden:
+  :caption: Product
+
+  why-mola
+  solutions
+  pricing
 
 
 =====================================================
