@@ -288,7 +288,17 @@ def _demote_headings_to_rubrics(text: str) -> str:
     # common reST underline chars
     underline_re = re.compile(r'^[=\-~^"+`#*]{3,}\s*$')
     while i < len(lines):
-        if i + 1 < len(lines) and underline_re.match(lines[i + 1]) and lines[i].strip():
+        # Title with an overline, as in the first line of catkin changelogs:
+        if (
+            i + 2 < len(lines)
+            and underline_re.match(lines[i])
+            and lines[i + 1].strip()
+            and underline_re.match(lines[i + 2])
+        ):
+            out.append(f'.. rubric:: {lines[i + 1].strip()}')
+            out.append('')
+            i += 3
+        elif i + 1 < len(lines) and underline_re.match(lines[i + 1]) and lines[i].strip():
             title = lines[i].strip()
             # replace any "Title\n------" with a rubric
             out.append(f'.. rubric:: {title}')
