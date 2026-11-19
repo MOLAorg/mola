@@ -1743,6 +1743,12 @@ void IncrementalPointCloud::nn_search_cov2cov_impl(
 
       p.cov_inv.asEigen() =
           (covGlobal + R * covLocal * R.transpose()).inverse() / learnedVarianceScale;
+      // A model with unbounded outputs may overflow single precision: such a
+      // pairing carries no usable weight.
+      if (!p.cov_inv.asEigen().allFinite())
+      {
+        keepPair[i] = 0;
+      }
       return;
     }
 

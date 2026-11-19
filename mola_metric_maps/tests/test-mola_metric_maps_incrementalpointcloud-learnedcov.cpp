@@ -49,8 +49,10 @@ auto& rng = mrpt::random::getRandomGenerator();
 /** Writes a table-only model. Every cell gets the shape of the shipped plane
  *  regularization, (lambda, 1, 1) with lambda = 1e-3, and the log-scale of
  *  `logScale(side, cell)`; the last cell index (N_CELLS) is the isotropic
- *  fallback. */
-void writeModel(const std::string& path, const std::function<double(int, int)>& logScale)
+ *  fallback. `outputBias` is the bias of the log-scale output of the network. */
+void writeModel(
+    const std::string& path, const std::function<double(int, int)>& logScale,
+    double outputBias = 0.0)
 {
   // a1 = -softplus(p1) ~ 0, a0 = a1 - softplus(p0) = log(1e-3):
   const double p0 = std::log(std::expm1(-std::log(1e-3)));
@@ -86,7 +88,7 @@ void writeModel(const std::string& path, const std::function<double(int, int)>& 
     zeros("W1", HIDDEN * HIDDEN);
     zeros("b1", HIDDEN);
     zeros("W2", 3 * HIDDEN);
-    zeros("b2", 3);
+    f << "b2 0 0 " << outputBias << "\n";
   }
   f << "end\n";
 }
@@ -127,7 +129,8 @@ void fill(mola::IncrementalPointCloud& map, const mrpt::maps::CSimplePointsMap& 
 
 /// Pairs a copy of `pts` against itself, with the given model and variance scale.
 mp2p_icp::MatchedPointWithCovList pairings(
-    const mrpt::maps::CSimplePointsMap& pts, const std::string& model, double varianceScale = 1.0)
+    const mrpt::maps::CSimplePointsMap& pts, const std::string& model, double varianceScale = 1.0,
+    bool expectAllPaired = true)
 {
   mola::IncrementalPointCloud global;
   mola::IncrementalPointCloud local;
@@ -138,7 +141,10 @@ mp2p_icp::MatchedPointWithCovList pairings(
 
   mp2p_icp::MatchedPointWithCovList out;
   global.nn_search_cov2cov(local, mrpt::poses::CPose3D::Identity(), 0.1f, out);
-  ASSERT_EQUAL_(out.size(), pts.size());
+  if (expectAllPaired)
+  {
+    ASSERT_EQUAL_(out.size(), pts.size());
+  }
   return out;
 }
 
@@ -259,6 +265,24 @@ void test_range_bins_and_variance_scale()
 }
 
 // -------------------------------------------------------------------------
+void test_overflowing_model_output()
+{
+  // An unbounded model whose scale overflows single precision: no pairing
+  // with a non-finite weight may come out.
+  const auto path = tmpFile("overflow.txt");
+  writeModel(
+      path, [](int, int) { return 0.0; }, 100.0);
+
+  const auto pts     = surface();
+  const auto learned = pairings(*pts, path, 1.0, false);
+  for (const auto& p : learned)
+  {
+    ASSERT_(p.cov_inv.asEigen().allFinite());
+  }
+  ASSERT_(learned.empty());
+}
+
+// -------------------------------------------------------------------------
 void test_bad_model_files()
 {
   const auto pts = surface();
@@ -299,6 +323,7 @@ int main()
     rng.randomize(1234U);
     test_shipped_equivalent_model();
     test_range_bins_and_variance_scale();
+    test_overflowing_model_output();
     test_bad_model_files();
     std::cout << "All tests passed.\n";
     return 0;
