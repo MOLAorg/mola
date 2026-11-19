@@ -15,10 +15,6 @@
 #  - Cosmetic warnings (image sizes, unparseable C++ cross-references on builtin
 #    types, duplicate link targets in the generated changelog). They are noisy,
 #    pre-existing, and do not break what the reader sees.
-#  - Missing image files. These *are* real breakage, but mp2p_icp currently
-#    references 17 example figures that were never committed, so gating on them
-#    would fail every pull request until someone produces those images. Add
-#    'image file not readable' to the list below once that is resolved.
 #
 # Usage: check-docs-warnings.sh <sphinx-build-log>
 
@@ -40,6 +36,7 @@ BREAKAGE+='|undefined label'
 BREAKAGE+="|isn't included in any toctree"
 BREAKAGE+='|Undefined substitution referenced'
 BREAKAGE+='|may not begin with a transition'
+BREAKAGE+='|image file not readable'
 
 # Files whose warnings are not actionable here.
 GENERATED='/source/(class_|struct_|enum_|namespace_|group_|union_|page_|global\.rst|doxygen-index)'
