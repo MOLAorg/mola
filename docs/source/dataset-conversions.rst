@@ -44,15 +44,15 @@ To convert a ROS bag into a RawLog, you need two items:
 - The program ``rosbag2rawlog``, and
 - the **configuration file** specifying what ROS messages should be converted.
 
-There are two versions of ``rosbag2rawlog``, for **ROS 1** and **ROS 2 bags**:
+``rosbag2rawlog`` is part of `mrpt_ros_bridge <https://github.com/MRPT/mrpt_ros_bridge>`_,
+which has one version for each ROS generation:
 
 .. tab-set::
 
     .. tab-item:: ROS 2 bags
       :selected:
 
-      ``rosbag2rawlog`` for **ROS 2 bags** is shipped in the ROS package ``rosbag2rawlog`` of
-      `mrpt_ros_bridge <https://github.com/MRPT/mrpt_ros_bridge>`_, so it can be installed with:
+      From the ``ros2`` branch (the default one), released as a binary package:
 
       .. code-block:: bash
 
@@ -60,16 +60,23 @@ There are two versions of ``rosbag2rawlog``, for **ROS 1** and **ROS 2 bags**:
 
     .. tab-item:: ROS 1 bags
 
-      ``rosbag2rawlog`` for **ROS 1 bags** belongs to MRPT 2.x (it is not part of MRPT 3), and it is
-      generated only *if* ROS 1 is detected at cmake configuration time. Note that MOLA can also read
-      ROS 1 bags directly (see :ref:`supported_sensors`). You can either build MRPT from sources after activating
-      your ROS 1 environment, or install the Ubuntu package ``mrpt-apps``, which already ships ``rosbag2rawlog``
-      for Ubuntu versions <=22.04 (In Ubuntu 24.04, ROS 1 packages were removed upstream).
-      To ensure having the latest version, consider installing it from `the PPA <https://launchpad.net/~joseluisblancoc/+archive/ubuntu/mrpt-stable>`_.
+      From the ``ros1`` branch, built from sources in a ROS 1 (Noetic) workspace:
+
+      .. code-block:: bash
+
+        source /opt/ros/noetic/setup.bash
+        mkdir -p ~/ros1_ws/src && cd ~/ros1_ws/src
+        git clone -b ros1 https://github.com/MRPT/mrpt_ros_bridge.git
+        cd ~/ros1_ws
+        rosdep install --from-paths src --ignore-src -r -y
+        colcon build --symlink-install
+
+      Note that MOLA can also read ROS 1 bags directly, with no ROS 1 installation
+      (see :ref:`supported_sensors`).
 
 |
 
-Once you have ``rosbag2rawlog`` installed it can be invoked like:
+Once you have ``rosbag2rawlog`` installed it can be invoked like (ROS 2 version):
 
 .. dropdown:: rosbag2rawlog CLI arguments
   :open:
@@ -251,7 +258,8 @@ the dataset source of :ref:`a MOLA system with the ROS 2 bridge <mola-dataset-to
 
 4. ROS1 ⇒ ROS2
 ----------------------------
-One way to use rosbags from ROS 1 with MOLA is to port them to ROS 2 bags.
+MOLA reads ROS 1 bags directly (see :ref:`supported_sensors`). To use them with ROS 2 tools,
+they can be converted to ROS 2 bags.
 
 You can use the Python package ``rosbags`` to `perform the conversion <https://ternaris.gitlab.io/rosbags/topics/convert.html>`_,
 like in this example:
@@ -261,7 +269,9 @@ like in this example:
     rosbags-convert --src my_ros1.bag --dst my_ros2.mcap --dst-storage mcap
 
 
-An alternative is to use :ref:`rosbag2rawlog <rosbag2rawlog>` (the ROS 1 version!) to convert them to RawLogs, then use them as input to MOLA.
+An alternative is to convert them to RawLogs with the ROS 1 version of
+:ref:`rosbag2rawlog <rosbag2rawlog>`, then use them as input to MOLA.
+
 
 |
 

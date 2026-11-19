@@ -8,7 +8,7 @@ The ``mola_metric_maps`` Python package wraps the map classes of the
 `mola_metric_maps <https://github.com/MOLAorg/mola/tree/develop/mola_metric_maps>`_
 C++ library. They are the layers of the ``.mm`` maps built by MOLA, and are used together
 with the ``mp2p_icp`` Python package (``MetricMap``, file formats, ICP) and the ``mrpt``
-one (MRPT 3: points, poses, base map classes).
+one (points, poses, base map classes).
 
 Install
 =======
