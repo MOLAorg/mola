@@ -24,7 +24,7 @@
 
 #include <map>
 
-#if defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
 #include <dlfcn.h>
 #endif
 
@@ -59,7 +59,9 @@ void internal_load_lib_modules(
 {
   MRPT_TRY_START
 
-#if defined(__unix__)
+#if defined(__APPLE__)
+#define DLL_EXT "dylib"
+#elif defined(__unix__)
 #define DLL_EXT "so"
 #else
 #define DLL_EXT "dll"
@@ -83,7 +85,7 @@ void internal_load_lib_modules(
       // Already loaded?
       if (loaded_lib_handled.count(lib.name) != 0) continue;  // skip
 
-#if defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
       // Check if already loaded?
       {
         void* handle = dlopen(lib.wholePath.c_str(), RTLD_NOLOAD);
@@ -103,7 +105,7 @@ void internal_load_lib_modules(
         // Not fatal: the library may provide modules this system does not use
         // (e.g. a GUI with missing system dependencies on a headless machine).
         // If one of its modules is requested, that error lists this one.
-#if defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
         const char* err = dlerror();
         if (!err)
         {
@@ -146,7 +148,7 @@ void internal_unload_lib_modules()
   {
     // printf("[mola-launcher] Unloading: %s\n",
     // lib.second.lib_path.c_str());
-#if defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
     dlclose(lib.second.handle);
 #else
     FreeLibrary(lib.second.handle);
