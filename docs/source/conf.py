@@ -62,6 +62,19 @@ mermaid_output_format = 'raw'  # render via JS in the browser; keeps diagrams ve
 
 extensions += ['doxyrest', 'cpplexer']
 extensions += ['sphinx_sitemap', 'sphinxext.opengraph']
+extensions += ['sphinx_reredirects']
+
+# Pages that were merged into others or renamed: keep their old URLs working.
+redirects = {
+    "concept-mola-architecture": "mola_architecture.html",
+    "concept-module-directories-paths": "mola_architecture.html#how-mola-finds-its-modules",
+    "concept-simulation-real-time": "mola_architecture.html#time-datasets-and-live-sensors",
+    "concept-state-vector": "mola_architecture.html",
+    "module-mola-yaml": "concept-slam-configuration-file.html",
+    "tutorial-mola-main-cli-tools": "module-mola-launcher.html",
+    "mola_mapper_ros2_node": "mola_mapper.html#running-from-a-rosbag2-with-mola-cli",
+    "mp2p_icp_applications": "map-tools.html",
+}
 
 # --- Findability -----------------------------------------------------------
 # Canonical URL of the published site. Sphinx emits <link rel="canonical">

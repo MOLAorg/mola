@@ -22,7 +22,6 @@ modules:
       isam2_relinearize_skip: 1
       # ------
       # Select state space representation for KeyFrame poses:
-      # See options in: https://docs.mola-slam.org/latest/concept-state-vector.html
       state_vector: SE3
       # --- constant velocity model params (see papers) ---
       const_vel_model_std_pos: 1.0  # [m]
