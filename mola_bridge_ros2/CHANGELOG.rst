@@ -3,6 +3,12 @@ Changelog for package mola_bridge_ros2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+* Per-topic odometry_as_robot_pose_observation, so planar wheel odometry and SE(3) LiDAR/visual odometry can be fused together.
+* REP-105: fall back to map->base_link if no odom frame appears in /tf (rep105_missing_odom_fallback_timeout).
+* Contributors: Jose Luis Blanco-Claraco
+
 3.5.0 (2026-11-15)
 ------------------
 * New sensor_msgs/Image input, so camera images can be attached to keyframes.

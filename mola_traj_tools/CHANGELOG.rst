@@ -2,6 +2,9 @@
 Changelog for package mola_traj_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.5.0 (2026-11-15)
 ------------------
 * Fix traj_tf_left (left-multiplies every pose, as documented) and traj_rebase (offset composition order).

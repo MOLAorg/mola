@@ -2,6 +2,11 @@
 Changelog for package mola_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* VizInterface: optional update_viewport_camera() (look-at, azimuth, elevation and distance at once).
+* Contributors: Jose Luis Blanco-Claraco
+
 3.5.0 (2026-11-15)
 ------------------
 

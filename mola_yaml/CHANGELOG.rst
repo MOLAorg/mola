@@ -2,6 +2,11 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Resolve a file name without directory against the current directory.
+* Contributors: Jose Luis Blanco-Claraco
+
 3.5.0 (2026-11-15)
 ------------------
 * Fix a test failure with MRPT >= 3.6.0.

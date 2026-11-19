@@ -2,6 +2,11 @@
 Changelog for package mola_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* MolaDLL_Loader: load module libraries on macOS.
+* Contributors: Dhruv Patel, Jose Luis Blanco-Claraco
+
 3.5.0 (2026-11-15)
 ------------------
 

@@ -3,6 +3,9 @@ Changelog for package mola_relocalization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+Forthcoming
+-----------
+
 3.5.0 (2026-11-15)
 ------------------
 * RelocalizationICP_SE2: optional abort_requested() callback, to stop a running search (e.g. on shutdown).

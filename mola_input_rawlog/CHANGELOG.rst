@@ -2,6 +2,9 @@
 Changelog for package mola_input_rawlog
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.5.0 (2026-11-15)
 ------------------
 

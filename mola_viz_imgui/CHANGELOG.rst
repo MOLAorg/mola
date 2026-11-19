@@ -2,6 +2,12 @@
 Changelog for package mola_viz_imgui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Record the 3D view to a video file (sRGB storage, per-frame wall clock times in <video>.times.txt).
+* Implement update_viewport_camera().
+* Contributors: Jose Luis Blanco-Claraco
+
 3.5.0 (2026-11-15)
 ------------------
 * Show a dataset ground-truth trajectory.
