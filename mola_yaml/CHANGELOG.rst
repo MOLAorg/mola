@@ -2,8 +2,8 @@
 Changelog for package mola_yaml
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.6.0 (2026-11-20)
+------------------
 * Resolve a file name without directory against the current directory.
 * Contributors: Jose Luis Blanco-Claraco
 

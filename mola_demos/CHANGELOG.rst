@@ -2,8 +2,8 @@
 Changelog for package mola_demos
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.6.0 (2026-11-20)
+------------------
 * Docs: redirect the URLs of merged and renamed pages.
 * Contributors: Jose Luis Blanco-Claraco
 

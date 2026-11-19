@@ -2,8 +2,8 @@
 Changelog for package mola_metric_maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.6.0 (2026-11-20)
+------------------
 * Opt-in gravity-aligned surface-side view filter (SurfaceSideGravityAligned).
 * pip wheel: lower bounds instead of exact pins for the mp2p-icp and mrpt3 build requirements.
 * Contributors: Jose Luis Blanco-Claraco

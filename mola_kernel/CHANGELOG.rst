@@ -2,8 +2,8 @@
 Changelog for package mola_kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.6.0 (2026-11-20)
+------------------
 * VizInterface: optional update_viewport_camera() (look-at, azimuth, elevation and distance at once).
 * Contributors: Jose Luis Blanco-Claraco
 
