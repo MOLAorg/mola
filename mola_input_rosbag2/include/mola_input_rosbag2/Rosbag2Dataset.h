@@ -269,39 +269,6 @@ class Rosbag2Dataset : public RawDataSourceBase,
       std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
       const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
 
-#if MRPT_ROS2_BRIDGE_VERSION < 0x030400
-
-  Obs toPointCloud2(
-      std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
-      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
-
-  Obs toLidar2D(
-      std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg,
-      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
-
-  Obs toRotatingScan(
-      std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg,
-      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
-
-  Obs toIMU(
-      std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg,
-      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
-
-  Obs toGPS(
-      std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg,
-      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
-
-  Obs toOdometry(std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg);
-
-  Obs toImage(
-      std::string_view msg, const rosbag2_storage::SerializedBagMessage& rosmsg,
-      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose);
-
-  bool findOutSensorPose(
-      mrpt::poses::CPose3D& des, const std::string& target_frame, const std::string& source_frame,
-      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose, const std::string_view label);
-#endif
-
   /// Builds a CObservationRobotPose, which carries a full SE(3) pose plus its
   /// 6x6 covariance, from `nav_msgs/msg/Odometry`,
   /// `geometry_msgs/msg/PoseWithCovarianceStamped` or
