@@ -16,12 +16,8 @@ project(mola_input_rosbag2 LANGUAGES CXX)
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola_common REQUIRED)
 # find dependencies:
-find_package(mrpt_obs REQUIRED)
-find_package(mrpt_libros_bridge REQUIRED)
-# 4.1.0: the rosbag2To*() converters, and MRPT >= 3.3.0 (images decoded from memory).
-if(mrpt_libros_bridge_VERSION VERSION_LESS 4.1.0)
-  message(FATAL_ERROR "mrpt_libros_bridge >= 4.1.0 is required (found: ${mrpt_libros_bridge_VERSION})")
-endif()
+find_package(mrpt_obs 3.3.0 REQUIRED)  # 3.3.0: CImage::loadFromEncodedBuffer()
+find_package(mrpt_libros_bridge 4.1.0 REQUIRED)  # 4.1.0: the rosbag2To*() converters
 
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)

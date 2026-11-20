@@ -16,7 +16,7 @@
   <depend>cli11</depend>
   <depend>gps_msgs</depend>  <!-- optional -->
   <depend>mola_kernel</depend>
-  <depend>mrpt_obs</depend>
+  <depend version_gte="3.3.0">mrpt_obs</depend>
   <depend version_gte="4.1.0">mrpt_libros_bridge</depend>
   <depend>rclcpp</depend>
   <depend>rosbag2_cpp</depend>

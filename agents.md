@@ -726,7 +726,7 @@ colcon build --symlink-install
 | **nanoflann** (`nanoflann_vendor`) | k-d trees for `IncrementalPointCloud` / `KeyframePointCloudMap`; version-gated features |
 | **TBB** | Intel Threading Building Blocks for parallelism (optional) |
 | **glfw3** | Windowing for `mola_viz_imgui` (Dear ImGui and ImPlot are vendored in `3rdparty/`) |
-| **OpenCV** | Not used: MRPT 3 decodes images (`mola_input_rosbag2` has no `cv_bridge`). Only `mola_input_video`'s live camera mode needs an MRPT built with OpenCV |
+| **OpenCV** | Not used with MRPT 3, which decodes images itself. `mola_input_rosbag2` needs MRPT >= 3.3.0 and `mrpt_libros_bridge` >= 4.1.0 for that, not `cv_bridge`. Only `mola_input_video`'s live camera mode needs an MRPT built with OpenCV |
 | **rclcpp** | ROS 2 C++ client library (optional, only if ROS 2 present) |
 | **rosbag2_cpp** | ROS 2 bag I/O (mola_input_rosbag2) |
 | **tf2** | ROS 2 transforms (mola_bridge_ros2) |
