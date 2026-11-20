@@ -16,8 +16,8 @@ project(mola_input_rosbag2 LANGUAGES CXX)
 # MOLA CMake scripts: "mola_xxx()"
 find_package(mola_common REQUIRED)
 # find dependencies:
-find_package(mrpt_obs REQUIRED)
-find_package(mrpt_libros_bridge REQUIRED)
+find_package(mrpt_obs 3.3.0 REQUIRED)  # 3.3.0: CImage::loadFromEncodedBuffer()
+find_package(mrpt_libros_bridge 4.1.0 REQUIRED)  # 4.1.0: the rosbag2To*() converters
 
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -25,7 +25,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(tf2_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(gps_msgs QUIET) # optional
 
@@ -55,24 +54,12 @@ mola_add_library(
     tf2_geometry_msgs::tf2_geometry_msgs
     tf2_msgs::tf2_msgs__rosidl_typesupport_cpp
     sensor_msgs::sensor_msgs_library
-    cv_bridge::cv_bridge
     ${gps_msgs_TARGETS}
   CMAKE_DEPENDENCIES
     mola_kernel
     mrpt_obs
     mrpt_libros_bridge
 )
-
-# Convert package versions to hex so they can be used in preprocessor for wider
-# versions compatibility of "one-source for all":
-mola_version_to_hexadecimal(cv_bridge_VERSION_HEX ${cv_bridge_VERSION})
-target_compile_definitions(${PROJECT_NAME} PRIVATE CV_BRIDGE_VERSION=${cv_bridge_VERSION_HEX})
-message(STATUS "Found: cv_bridge_VERSION: ${cv_bridge_VERSION} (${cv_bridge_VERSION_HEX})")
-
-# Same for mrpt_libros_bridge
-mola_version_to_hexadecimal(mrpt_libros_bridge_VERSION_HEX ${mrpt_libros_bridge_VERSION})
-target_compile_definitions(${PROJECT_NAME} PRIVATE MRPT_ROS2_BRIDGE_VERSION=${mrpt_libros_bridge_VERSION_HEX})
-message(STATUS "Found: mrpt_libros_bridge_VERSION: ${mrpt_libros_bridge_VERSION} (${mrpt_libros_bridge_VERSION_HEX})")
 
 if (gps_msgs_FOUND)
   target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GPS_MSGS)

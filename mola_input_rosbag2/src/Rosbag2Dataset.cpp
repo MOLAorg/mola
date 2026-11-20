@@ -44,35 +44,15 @@
 #include <mrpt/ros2bridge/laser_scan.h>
 #include <mrpt/ros2bridge/point_cloud2.h>
 #include <mrpt/ros2bridge/pose.h>
+#include <mrpt/ros2bridge/rosbag2_to_mrpt.h>
 #include <mrpt/ros2bridge/time.h>
 #include <mrpt/system/filesystem.h>
 #include <mrpt/version.h>
+#include <rmw/rmw.h>
 
 #include <chrono>
 #include <cmath>
 #include <deque>
-#include <set>
-#include <stdexcept>
-#include <tf2/buffer_core.hpp>
-#include <tf2/convert.hpp>
-#include <tf2/exceptions.hpp>
-#include <type_traits>
-#include <utility>
-
-#include "RgbdAssembler.h"
-
-#if CV_BRIDGE_VERSION < 0x030400
-#include <cv_bridge/cv_bridge.h>
-#else
-#include <cv_bridge/cv_bridge.hpp>
-#endif
-
-#if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
-#include <mrpt/ros2bridge/rosbag2_to_mrpt.h>
-#endif
-
-#include <rmw/rmw.h>
-
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -88,9 +68,18 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <set>
 #include <std_msgs/msg/int32.hpp>
+#include <stdexcept>
+#include <tf2/buffer_core.hpp>
+#include <tf2/convert.hpp>
+#include <tf2/exceptions.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_msgs/msg/tf_message.hpp>
+#include <type_traits>
+#include <utility>
+
+#include "RgbdAssembler.h"
 
 using namespace mola;
 
@@ -617,7 +606,6 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       continue;
     }
 
-#if MRPT_ROS2_BRIDGE_VERSION >= 0x030400
     // Map sensor type → rosbag2 conversion function
     using ConvFunc = std::function<Obs(
         std::string_view, const SerializedBagMessage&, tf2::BufferCore&, const std::string&,
@@ -649,12 +637,8 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
                    const std::string&                         base_link_frame,
                    const std::optional<mrpt::poses::CPose3D>& fixed_sensor_pose) -> Obs
                 {
-#if MRPT_ROS2_BRIDGE_VERSION >= 0x030500
                   return mrpt::ros2bridge::rosbag2ToGPS(
                       sensor_label, rosmsg, tfBuffer, base_link_frame, fixed_sensor_pose, true);
-#else
-                  THROW_EXCEPTION("mrpt_ros_bridge >=3.5.0 required for GpsFix messages");
-#endif
                 }),
         },
     };
@@ -716,65 +700,6 @@ void Rosbag2Dataset::initialize_rds(const Yaml& c)
       MRPT_LOG_INFO_STREAM("Installing callback for topic '" << topic << "'");
       lookup_[topic].emplace_back(callback);
     }
-#else
-    // To be removed:
-    if (sensorType == "CObservationPointCloud")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      { return catchExceptions([=]() { return toPointCloud2(sensorLabel, m, fixedSensorPose); }); };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationImage")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      { return catchExceptions([=]() { return toImage(sensorLabel, m, fixedSensorPose); }); };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservation2DRangeScan")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      { return catchExceptions([=]() { return toLidar2D(sensorLabel, m, fixedSensorPose); }); };
-
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationRotatingScan")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m) {
-        return catchExceptions([=]() { return toRotatingScan(sensorLabel, m, fixedSensorPose); });
-      };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationIMU")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      { return catchExceptions([=]() { return toIMU(sensorLabel, m, fixedSensorPose); }); };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationGPS_NavSatFix")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      { return catchExceptions([=]() { return toGPS(sensorLabel, m, fixedSensorPose); }); };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationOdometry")
-    {
-      auto callback = [=](const rosbag2_storage::SerializedBagMessage& m)
-      { return catchExceptions([=]() { return toOdometry(sensorLabel, m); }); };
-      lookup_[topic].emplace_back(callback);
-    }
-    else if (sensorType == "CObservationRobotPose")
-    {
-      const std::string rosMsgType = topic2type.count(topic) ? topic2type.at(topic) : std::string();
-      auto              callback   = [this, sensorLabel, fixedSensorPose,
-                       rosMsgType](const rosbag2_storage::SerializedBagMessage& m)
-      {
-        return catchExceptions(
-            [this, sensorLabel, m, rosMsgType, fixedSensorPose]()
-            { return toRobotPose(sensorLabel, m, rosMsgType, fixedSensorPose); });
-      };
-      lookup_[topic].emplace_back(callback);
-    }
-#endif
 
     // TODO: Handle more cases?
 
@@ -1357,286 +1282,6 @@ std::optional<mola::TransformTree> Rosbag2Dataset::transform_tree(
   return tree;
 }
 
-// TODO: Remove once this package is well available
-#if MRPT_ROS2_BRIDGE_VERSION < 0x030400
-bool Rosbag2Dataset::findOutSensorPose(
-    mrpt::poses::CPose3D& des, const std::string& frame, const std::string& referenceFrame,
-    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose, const std::string_view label)
-{
-  if (fixedSensorPose)
-  {
-    des = fixedSensorPose.value();
-    return true;
-  }
-
-  try
-  {
-    geometry_msgs::msg::TransformStamped ref_to_trgFrame =
-        tfBuffer_->lookupTransform(referenceFrame, frame, {} /*latest value*/);
-
-    tf2::Transform tf;
-    tf2::fromMsg(ref_to_trgFrame.transform, tf);
-    des = mrpt::ros2bridge::fromROS(tf);
-
-    MRPT_LOG_DEBUG_FMT(
-        "[findOutSensorPose] Found pose %s -> %s: %s", referenceFrame.c_str(), frame.c_str(),
-        des.asString().c_str());
-
-    return true;
-  }
-  catch (const tf2::TransformException& ex)
-  {
-    MRPT_LOG_ERROR_STREAM(
-        "findOutSensorPose (label='" << label << "', " << frame << "<-" << referenceFrame
-                                     << "): " << ex.what());
-    return false;
-  }
-}
-
-Rosbag2Dataset::Obs Rosbag2Dataset::toPointCloud2(
-    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
-    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
-{
-  rclcpp::SerializedMessage                                   serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<sensor_msgs::msg::PointCloud2> serializer;
-
-  sensor_msgs::msg::PointCloud2 pts;
-  serializer.deserialize_message(&serMsg, &pts);
-
-  auto ptsObs         = mrpt::obs::CObservationPointCloud::Create();
-  ptsObs->sensorLabel = label;
-  ptsObs->timestamp   = mrpt::ros2bridge::fromROS(pts.header.stamp);
-
-  bool sensorPoseOK = findOutSensorPose(
-      ptsObs->sensorPose, pts.header.frame_id, base_link_frame_id_, fixedSensorPose, label);
-  ASSERT_(sensorPoseOK);
-
-  // Convert points:
-  std::set<std::string> fields = mrpt::ros2bridge::extractFields(pts);
-
-  // We need X Y Z:
-  if (0 == fields.count("x") || 0 == fields.count("y") || 0 == fields.count("z"))
-  {
-    return {};
-  }
-
-  // Generic map:
-  if (fields.count("ring") != 0 || fields.count("time") != 0 || fields.count("timestamp") != 0 ||
-      fields.count("t") != 0 || fields.count("intensity") != 0)
-  {
-    auto mrptPts       = mrpt::maps::CGenericPointsMap::Create();
-    ptsObs->pointcloud = mrptPts;
-
-    if (!mrpt::ros2bridge::fromROS(pts, *mrptPts))
-    {
-      THROW_EXCEPTION("Could not convert pointcloud from ROS to CGenericPointsMap");
-    }
-
-    // Fix timestamps for Livox driver:
-    // It uses doubles for timestamps, but they are actually nanoseconds!
-    auto* ts =
-        mrptPts->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
-    if (ts && !ts->empty())
-    {
-      const auto [minIt, maxIt] = std::minmax_element(ts->begin(), ts->end());
-      const float time_span     = *maxIt - *minIt;
-      if (time_span > 1e5F)
-      {
-        // they must be nanoseconds, convert to seconds:
-        for (auto& t : *ts)
-        {
-          t *= 1e-9F;
-        }
-      }
-    }
-
-    // converted ok:
-    return {ptsObs};
-  }
-
-  // Simple XYZ map
-  {
-    auto mrptPts       = mrpt::maps::CSimplePointsMap::Create();
-    ptsObs->pointcloud = mrptPts;
-
-    if (!mrpt::ros2bridge::fromROS(pts, *mrptPts))
-    {
-      THROW_EXCEPTION("Could not convert pointcloud from ROS to CSimplePointsMap");
-    }
-  }
-
-  return {ptsObs};
-}
-
-Rosbag2Dataset::Obs Rosbag2Dataset::toLidar2D(
-    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
-    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
-{
-  rclcpp::SerializedMessage                                 serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<sensor_msgs::msg::LaserScan> serializer;
-
-  sensor_msgs::msg::LaserScan scan;
-  serializer.deserialize_message(&serMsg, &scan);
-
-  auto scanObs = mrpt::obs::CObservation2DRangeScan::Create();
-
-  // Extract sensor pose from tf frames, if enabled:
-  mrpt::poses::CPose3D sensorPose;
-  mrpt::ros2bridge::fromROS(scan, sensorPose, *scanObs);
-
-  scanObs->sensorLabel = label;
-  scanObs->timestamp   = mrpt::ros2bridge::fromROS(scan.header.stamp);
-
-  bool sensorPoseOK = findOutSensorPose(
-      scanObs->sensorPose, scan.header.frame_id, base_link_frame_id_, fixedSensorPose, label);
-  ASSERT_(sensorPoseOK);
-
-  return {scanObs};
-}
-
-Rosbag2Dataset::Obs Rosbag2Dataset::toRotatingScan(
-    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
-    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
-{
-  rclcpp::SerializedMessage                                   serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<sensor_msgs::msg::PointCloud2> serializer;
-
-  sensor_msgs::msg::PointCloud2 pts;
-  serializer.deserialize_message(&serMsg, &pts);
-
-  // Convert points:
-  std::set<std::string> fields = mrpt::ros2bridge::extractFields(pts);
-
-  // We need X Y Z:
-  if (!fields.count("x") || !fields.count("y") || !fields.count("z") || !fields.count("ring"))
-  {
-    return {};
-  }
-
-  // As a structured 2D range images, if we have ring numbers:
-  auto                       obsRotScan = mrpt::obs::CObservationRotatingScan::Create();
-  const mrpt::poses::CPose3D sensorPose;
-
-  if (!mrpt::ros2bridge::fromROS(pts, *obsRotScan, sensorPose))
-  {
-    THROW_EXCEPTION(
-        "Could not convert pointcloud from ROS to "
-        "CObservationRotatingScan. Trying another format.");
-  }
-
-  obsRotScan->sensorLabel = label;
-  obsRotScan->timestamp   = mrpt::ros2bridge::fromROS(pts.header.stamp);
-
-  bool sensorPoseOK = findOutSensorPose(
-      obsRotScan->sensorPose, pts.header.frame_id, base_link_frame_id_, fixedSensorPose, label);
-  ASSERT_(sensorPoseOK);
-
-  return {obsRotScan};
-}
-
-Rosbag2Dataset::Obs Rosbag2Dataset::toIMU(
-    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
-    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
-{
-  rclcpp::SerializedMessage                           serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<sensor_msgs::msg::Imu> serializer;
-
-  sensor_msgs::msg::Imu imu;
-  serializer.deserialize_message(&serMsg, &imu);
-
-  auto imuObs = mrpt::obs::CObservationIMU::Create();
-
-  imuObs->sensorLabel = label;
-  imuObs->timestamp   = mrpt::ros2bridge::fromROS(imu.header.stamp);
-
-  // Convert data:
-  mrpt::ros2bridge::fromROS(imu, *imuObs);
-
-  bool sensorPoseOK = findOutSensorPose(
-      imuObs->sensorPose, imu.header.frame_id, base_link_frame_id_, fixedSensorPose, label);
-  ASSERT_(sensorPoseOK);
-
-  return {imuObs};
-}
-
-Rosbag2Dataset::Obs Rosbag2Dataset::toGPS(
-    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
-    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
-{
-  rclcpp::SerializedMessage                                 serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<sensor_msgs::msg::NavSatFix> serializer;
-
-  sensor_msgs::msg::NavSatFix gps;
-  serializer.deserialize_message(&serMsg, &gps);
-
-  auto gpsObs = mrpt::obs::CObservationGPS::Create();
-
-  gpsObs->sensorLabel = label;
-  gpsObs->timestamp   = mrpt::ros2bridge::fromROS(gps.header.stamp);
-
-  // Convert data:
-  mrpt::ros2bridge::fromROS(gps, *gpsObs);
-
-  bool sensorPoseOK = findOutSensorPose(
-      gpsObs->sensorPose, gps.header.frame_id, base_link_frame_id_, fixedSensorPose, label);
-  ASSERT_(sensorPoseOK);
-
-  return {gpsObs};
-}
-
-Rosbag2Dataset::Obs Rosbag2Dataset::toOdometry(
-    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg)
-{
-  rclcpp::SerializedMessage                             serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<nav_msgs::msg::Odometry> serializer;
-
-  nav_msgs::msg::Odometry odo;
-  serializer.deserialize_message(&serMsg, &odo);
-
-  auto mrptObs = mrpt::obs::CObservationOdometry::Create();
-
-  mrptObs->sensorLabel = label;
-  mrptObs->timestamp   = mrpt::ros2bridge::fromROS(odo.header.stamp);
-
-  // Convert data:
-  const auto pose   = mrpt::ros2bridge::fromROS(odo.pose);
-  mrptObs->odometry = {pose.mean.x(), pose.mean.y(), pose.mean.yaw()};
-
-  mrptObs->hasVelocities       = true;
-  mrptObs->velocityLocal.vx    = odo.twist.twist.linear.x;
-  mrptObs->velocityLocal.vy    = odo.twist.twist.linear.y;
-  mrptObs->velocityLocal.omega = odo.twist.twist.angular.z;
-
-  return {mrptObs};
-}
-
-Rosbag2Dataset::Obs Rosbag2Dataset::toImage(
-    std::string_view label, const rosbag2_storage::SerializedBagMessage& rosmsg,
-    const std::optional<mrpt::poses::CPose3D>& fixedSensorPose)
-{
-  rclcpp::SerializedMessage                             serMsg(*rosmsg.serialized_data);
-  static rclcpp::Serialization<sensor_msgs::msg::Image> serializer;
-
-  auto image = std::make_shared<sensor_msgs::msg::Image>();
-  serializer.deserialize_message(&serMsg, image.get());
-
-  auto imgObs = mrpt::obs::CObservationImage::Create();
-
-  imgObs->sensorLabel = label;
-  imgObs->timestamp   = mrpt::ros2bridge::fromROS(image->header.stamp);
-
-  auto cv_ptr = cv_bridge::toCvShare(image);
-
-  imgObs->image = mrpt::img::CImage(cv_ptr->image, mrpt::img::DEEP_COPY);
-
-  bool sensorPoseOK = findOutSensorPose(
-      imgObs->cameraPose, image->header.frame_id, base_link_frame_id_, fixedSensorPose, label);
-  ASSERT_(sensorPoseOK);
-
-  return {imgObs};
-}
-#endif
-
 namespace
 {
 /// A source that leaves `pose.covariance` all zeros is not claiming a perfect
@@ -1858,15 +1503,14 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toCompressedImage(
   imgObs->sensorLabel = label;
   imgObs->timestamp   = mrpt::ros2bridge::fromROS(image.header.stamp);
 
-  auto cv_ptr = cv_bridge::toCvCopy(image, "bgr8");
-
-  // MRPT 3.x's CImage no longer wraps cv::Mat directly (removed to drop the
-  // OpenCV dependency), so copy the decoded pixels via the raw-buffer loader
-  // instead; swapRedBlue=true converts cv_bridge's BGR order to MRPT's RGB.
-  ASSERT_(cv_ptr->image.isContinuous());
-  imgObs->image.loadFromMemoryBuffer(
-      cv_ptr->image.cols, cv_ptr->image.rows, mrpt::img::CH_RGB, cv_ptr->image.data,
-      /*swapRedBlue=*/true);
+  // Decoded by MRPT itself (JPEG, PNG), keeping the channels as stored, like
+  // raw sensor_msgs/msg/Image topics.
+  if (!imgObs->image.loadFromEncodedBuffer(image.data.data(), image.data.size()))
+  {
+    THROW_EXCEPTION_FMT(
+        "toCompressedImage (label='%s'): could not decode the image (format='%s')",
+        std::string(label).c_str(), image.format.c_str());
+  }
 
   if (fixedSensorPose)
   {
