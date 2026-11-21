@@ -138,7 +138,12 @@ All plugin modules derive from these virtual base classes:
   the rosbag1/rosbag2 inputs), `mola_viz_imgui` draws it once (magenta line,
   XYZ corners every `ground_truth_corner_spacing` m, default 10, axis length
   `ground_truth_corner_scale`) with a "Ground truth" toggle in the "View"
-  menu. `output_console_message()` (the
+  menu. `create_3d_view_subwindow()` (feature macro
+  `MOLA_KERNEL_VIZ_HAS_3D_VIEW_SUBWINDOWS`) adds dockable windows with a 3D
+  view of their own (scene and orbit camera); the 3D object and camera methods
+  address one by passing its name as `viewportName` (`scene_target()` in
+  `MolaVizImGuiCore`), and the "View" menu reopens them. The nanogui `MolaViz`
+  returns false: draw in "main" instead. `output_console_message()` (the
   older fading on-screen text overlay) is a no-op on the `mola_viz_imgui`
   backend, superseded by the Console subwindow above; still implemented on
   the nanogui `MolaViz` backend.
