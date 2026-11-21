@@ -128,7 +128,7 @@ bool ExecutableBase::module_is_time_to_publish_diagnostics() const
 std::vector<ExecutableBase::DiagnosticsOutput>
     ExecutableBase::module_move_out_diagnostics_messages()
 {
-  auto lck    = mrpt::lockHelper(requested_system_shutdown_mtx_);
+  auto lck    = mrpt::lockHelper(module_diagnostics_out_queue_mtx_);
   auto myCopy = std::move(module_diagnostics_out_queue_);
   module_diagnostics_out_queue_.clear();
   return myCopy;
