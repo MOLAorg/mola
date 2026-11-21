@@ -499,7 +499,9 @@ class VizInterface
    *
    * Creating a view that already exists is a no-op (returns true). The view
    * is a dockable window that the user can close and reopen from the "View"
-   * menu; its contents are kept while closed.
+   * menu; its contents are kept while closed. A `viewportName` that names no
+   * view works as before: a viewport of the main scene, and the camera setters
+   * move the main camera.
    *
    * \param viewName     Name to pass as `viewportName`. Must not be "main".
    * \param title        Window title (empty: @p viewName).

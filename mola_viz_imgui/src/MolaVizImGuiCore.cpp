@@ -524,7 +524,7 @@ void MolaVizImGuiCore::render_menu_bar(PerWindowData& wd)
   {
     render_app_menu();
 
-    if (plots_enabled_ || ground_truth_available_)
+    if (plots_enabled_ || ground_truth_available_ || !wd.views_3d.empty())
     {
       render_view_menu(wd);
     }
@@ -630,15 +630,49 @@ void MolaVizImGuiCore::render_view_menu(PerWindowData& wd)
 
   if (!wd.views_3d.empty())
   {
-    ImGui::Separator();
+    if (ground_truth_available_ || plots_enabled_)
+    {
+      ImGui::Separator();
+    }
     for (auto& [name, v] : wd.views_3d)
     {
-      ImGui::MenuItem(v.title.c_str(), nullptr, &v.open);
+      // The view name keeps items apart if two views share a title:
+      ImGui::MenuItem((v.title + "##" + name).c_str(), nullptr, &v.open);
     }
   }
 
   ImGui::EndMenu();
 }
+
+namespace
+{
+void apply_camera(MolaVizImGuiCore::CameraState& c, mrpt::imgui::CImGuiSceneView& view)
+{
+  if (!c.dirty)
+  {
+    return;
+  }
+  auto& cam = view.cameraController;
+  cam.setAzimuthDegrees(c.azimuth_deg);
+  cam.setElevationDegrees(c.elevation_deg);
+  cam.setZoomDistance(c.zoom);
+  cam.setCameraPointing(c.look_at[0], c.look_at[1], c.look_at[2]);
+  cam.setProjectiveModel(!c.orthographic);
+  c.dirty = false;
+}
+
+// After rendering: the user may have moved the camera with the mouse.
+void read_back_camera(MolaVizImGuiCore::CameraState& c, const mrpt::imgui::CImGuiSceneView& view)
+{
+  const auto& cam = view.cameraController;
+  c.azimuth_deg   = cam.getAzimuthDegrees();
+  c.elevation_deg = cam.getElevationDegrees();
+  c.zoom          = cam.getZoomDistance();
+  c.look_at[0]    = cam.getCameraPointingX();
+  c.look_at[1]    = cam.getCameraPointingY();
+  c.look_at[2]    = cam.getCameraPointingZ();
+}
+}  // namespace
 
 void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
 {
@@ -649,16 +683,7 @@ void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
   if (wd.background_scene_view->scene() != wd.background_scene)
     wd.background_scene_view->setScene(wd.background_scene);
 
-  if (wd.cam_dirty)
-  {
-    auto& cam = wd.background_scene_view->cameraController;
-    cam.setAzimuthDegrees(wd.cam_azimuth_deg);
-    cam.setElevationDegrees(wd.cam_elevation_deg);
-    cam.setZoomDistance(wd.cam_zoom);
-    cam.setCameraPointing(wd.cam_look_at[0], wd.cam_look_at[1], wd.cam_look_at[2]);
-    cam.setProjectiveModel(!wd.cam_orthographic);
-    wd.cam_dirty = false;
-  }
+  apply_camera(wd.cam, *wd.background_scene_view);
 
   ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -686,13 +711,7 @@ void MolaVizImGuiCore::render_background_scene(PerWindowData& wd)
     wd.background_scene_view->render();
 #endif
 
-    const auto& cam      = wd.background_scene_view->cameraController;
-    wd.cam_azimuth_deg   = cam.getAzimuthDegrees();
-    wd.cam_elevation_deg = cam.getElevationDegrees();
-    wd.cam_zoom          = cam.getZoomDistance();
-    wd.cam_look_at[0]    = cam.getCameraPointingX();
-    wd.cam_look_at[1]    = cam.getCameraPointingY();
-    wd.cam_look_at[2]    = cam.getCameraPointingZ();
+    read_back_camera(wd.cam, *wd.background_scene_view);
   }
   ImGui::End();
 }
@@ -1153,12 +1172,16 @@ MolaVizImGuiCore::SceneTarget MolaVizImGuiCore::scene_target(
     t.scene               = v.scene.get();
     t.viewport            = "main";
     t.view                = &v;
+    t.cam                 = &v.cam;
     t.decaying_clouds     = &v.decaying_clouds;
     t.max_decaying_clouds = &v.max_decaying_clouds;
     return t;
   }
+  // Unknown names stay in the background scene, as before views existed (its
+  // camera is the main one):
   t.scene               = wd.background_scene.get();
   t.viewport            = viewportName;
+  t.cam                 = &wd.cam;
   t.decaying_clouds     = &wd.decaying_clouds;
   t.max_decaying_clouds = &wd.max_decaying_clouds;
   return t;
@@ -1177,7 +1200,10 @@ std::future<bool> MolaVizImGuiCore::create_3d_view_subwindow(
           return false;
         }
         auto it = windows_.find(parentWindow);
-        if (it == windows_.end()) return false;
+        if (it == windows_.end())
+        {
+          return false;
+        }
         auto&           wd = it->second;
         std::lock_guard lk(wd.background_scene_mtx);
         if (wd.views_3d.count(viewName))
@@ -1202,26 +1228,22 @@ void MolaVizImGuiCore::render_3d_views(PerWindowData& wd)
   const ImGuiViewport* mainVp    = ImGui::GetMainViewport();
   int                  viewIndex = 0;
 
+  // Closable only if the "View" menu can open it again:
+  const bool reopenable = wd.glfw_window != nullptr && menu_bar_enabled_;
+
   for (auto& [name, v] : wd.views_3d)
   {
     const float firstY = mainVp->WorkPos.y + 30.0f + 420.0f * static_cast<float>(viewIndex++);
-    if (!v.open) continue;
-
+    if (!v.open)
+    {
+      continue;
+    }
     if (!v.scene_view)
     {
       v.scene_view = std::make_unique<mrpt::imgui::CImGuiSceneView>();
       v.scene_view->setScene(v.scene);
     }
-    if (v.cam_dirty)
-    {
-      auto& cam = v.scene_view->cameraController;
-      cam.setAzimuthDegrees(v.cam_azimuth_deg);
-      cam.setElevationDegrees(v.cam_elevation_deg);
-      cam.setZoomDistance(v.cam_zoom);
-      cam.setCameraPointing(v.cam_look_at[0], v.cam_look_at[1], v.cam_look_at[2]);
-      cam.setProjectiveModel(!v.cam_orthographic);
-      v.cam_dirty = false;
-    }
+    apply_camera(v.cam, *v.scene_view);
 
     // The view name keeps the window identity if two views share a title:
     const std::string imguiName = v.title + "###view3d_" + name;
@@ -1229,20 +1251,12 @@ void MolaVizImGuiCore::render_3d_views(PerWindowData& wd)
         ImVec2(mainVp->WorkPos.x + mainVp->WorkSize.x - 540.0f, firstY), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(520.0f, 400.0f), ImGuiCond_FirstUseEver);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    const bool visible = ImGui::Begin(imguiName.c_str(), &v.open);
+    const bool visible = ImGui::Begin(imguiName.c_str(), reopenable ? &v.open : nullptr);
     ImGui::PopStyleVar();
     if (visible)
     {
       v.scene_view->render();
-
-      // The user may have moved the camera with the mouse:
-      const auto& cam     = v.scene_view->cameraController;
-      v.cam_azimuth_deg   = cam.getAzimuthDegrees();
-      v.cam_elevation_deg = cam.getElevationDegrees();
-      v.cam_zoom          = cam.getZoomDistance();
-      v.cam_look_at[0]    = cam.getCameraPointingX();
-      v.cam_look_at[1]    = cam.getCameraPointingY();
-      v.cam_look_at[2]    = cam.getCameraPointingZ();
+      read_back_camera(v.cam, *v.scene_view);
     }
     ImGui::End();
   }
@@ -1666,11 +1680,10 @@ std::future<bool> MolaVizImGuiCore::update_viewport_look_at(
             return false;  // frame node not in scene yet; skip camera update
           }
         }
-        auto* lookAtXyz = target.view ? target.view->cam_look_at : wd.cam_look_at;
-        lookAtXyz[0]    = worldLookAt.x;
-        lookAtXyz[1]    = worldLookAt.y;
-        lookAtXyz[2]    = worldLookAt.z;
-        (target.view ? target.view->cam_dirty : wd.cam_dirty) = true;
+        target.cam->look_at[0] = worldLookAt.x;
+        target.cam->look_at[1] = worldLookAt.y;
+        target.cam->look_at[2] = worldLookAt.z;
+        target.cam->dirty      = true;
         return true;
       });
   std::lock_guard lk(guiThreadPendingTasksMtx_);
@@ -1687,14 +1700,16 @@ std::future<bool> MolaVizImGuiCore::update_viewport_camera_azimuth(
       {
         auto it = windows_.find(parentWindow);
         if (it == windows_.end()) return false;
-        auto&      wd      = it->second;
-        const auto target  = scene_target(wd, viewportName);
-        float&     azimDeg = target.view ? target.view->cam_azimuth_deg : wd.cam_azimuth_deg;
+        const auto target = scene_target(it->second, viewportName);
         if (absolute_falseForRelative)
-          azimDeg = static_cast<float>(mrpt::RAD2DEG(azimuth));
+        {
+          target.cam->azimuth_deg = static_cast<float>(mrpt::RAD2DEG(azimuth));
+        }
         else
-          azimDeg += static_cast<float>(mrpt::RAD2DEG(azimuth));
-        (target.view ? target.view->cam_dirty : wd.cam_dirty) = true;
+        {
+          target.cam->azimuth_deg += static_cast<float>(mrpt::RAD2DEG(azimuth));
+        }
+        target.cam->dirty = true;
         return true;
       });
   std::lock_guard lk(guiThreadPendingTasksMtx_);
@@ -1710,16 +1725,9 @@ std::future<bool> MolaVizImGuiCore::update_viewport_camera_orthographic(
       {
         auto it = windows_.find(parentWindow);
         if (it == windows_.end()) return false;
-        auto&      wd     = it->second;
-        const auto target = scene_target(wd, viewportName);
-        if (target.view)
-        {
-          target.view->cam_orthographic = orthographic;
-          target.view->cam_dirty        = true;
-          return true;
-        }
-        wd.cam_orthographic = orthographic;
-        wd.cam_dirty        = true;
+        const auto target        = scene_target(it->second, viewportName);
+        target.cam->orthographic = orthographic;
+        target.cam->dirty        = true;
         return true;
       });
   std::lock_guard lk(guiThreadPendingTasksMtx_);
@@ -1739,26 +1747,15 @@ std::future<bool> MolaVizImGuiCore::update_viewport_camera(
         {
           return false;
         }
-        auto&      wd     = it->second;
-        const auto target = scene_target(wd, viewportName);
-        const auto apply  = [&](auto& c)
-        {
-          c.cam_azimuth_deg   = static_cast<float>(mrpt::RAD2DEG(azimuth));
-          c.cam_elevation_deg = static_cast<float>(mrpt::RAD2DEG(elevation));
-          c.cam_zoom          = static_cast<float>(zoomDistance);
-          c.cam_look_at[0]    = lookAt.x;
-          c.cam_look_at[1]    = lookAt.y;
-          c.cam_look_at[2]    = lookAt.z;
-          c.cam_dirty         = true;
-        };
-        if (target.view)
-        {
-          apply(*target.view);
-        }
-        else
-        {
-          apply(wd);
-        }
+        const auto target = scene_target(it->second, viewportName);
+        auto&      cam    = *target.cam;
+        cam.azimuth_deg   = static_cast<float>(mrpt::RAD2DEG(azimuth));
+        cam.elevation_deg = static_cast<float>(mrpt::RAD2DEG(elevation));
+        cam.zoom          = static_cast<float>(zoomDistance);
+        cam.look_at[0]    = lookAt.x;
+        cam.look_at[1]    = lookAt.y;
+        cam.look_at[2]    = lookAt.z;
+        cam.dirty         = true;
         return true;
       });
   std::lock_guard lk(guiThreadPendingTasksMtx_);
