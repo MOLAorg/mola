@@ -235,6 +235,13 @@ class MolaVizImGui : public ExecutableBase, public VizInterface
     return core_ptr_->execute_custom_code_on_background_scene(userCode, parentWindow);
   }
 
+  std::future<bool> create_3d_view_subwindow(
+      const std::string& viewName, const std::string& title = "",
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override
+  {
+    return core_ptr_->create_3d_view_subwindow(viewName, title, parentWindow);
+  }
+
   /** @} */
 
   // =========================================================================

@@ -518,6 +518,7 @@ void MolaVizImGui::gui_thread()
     wd.decaying_clouds.clear();
     wd.background_scene.reset();
     wd.background_scene_view.reset();
+    wd.views_3d.clear();  // their GL resources too
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

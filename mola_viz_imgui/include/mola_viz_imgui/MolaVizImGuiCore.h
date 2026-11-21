@@ -296,6 +296,10 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
       const std::function<void(mrpt::viz::Scene&)>& userCode,
       const std::string&                            parentWindow = DEFAULT_WINDOW_NAME) override;
 
+  std::future<bool> create_3d_view_subwindow(
+      const std::string& viewName, const std::string& title = "",
+      const std::string& parentWindow = DEFAULT_WINDOW_NAME) override;
+
   /** @} */
   // =========================================================================
   /** @name VizInterface — observation handler API
@@ -497,6 +501,29 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
     bool  paused       = false;  // freeze the view for inspection
   };
 
+  /** An extra 3D view (create_3d_view_subwindow()): a dockable window with a
+   *  scene of its own (objects in its "main" viewport) and its own camera. */
+  struct View3DState
+  {
+    std::string                       title;
+    std::shared_ptr<mrpt::viz::Scene> scene;
+
+    /// Created on the GUI thread the first time the view is drawn.
+    std::unique_ptr<mrpt::imgui::CImGuiSceneView> scene_view;
+
+    bool open = true;  // drives ImGui::Begin(title, &open) -> [x] button
+
+    float cam_azimuth_deg   = 110.0f;
+    float cam_elevation_deg = 30.0f;
+    float cam_zoom          = 30.0f;
+    float cam_look_at[3]    = {0.0f, 0.0f, 0.0f};
+    bool  cam_orthographic  = false;
+    bool  cam_dirty         = true;
+
+    std::deque<DecayingCloud> decaying_clouds;
+    size_t                    max_decaying_clouds = 100;
+  };
+
   struct PerWindowData
   {
     GLFWwindow* glfw_window = nullptr;  // nullptr in embed mode
@@ -526,6 +553,10 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
 
     std::deque<DecayingCloud> decaying_clouds;
     size_t                    max_decaying_clouds = 100;
+
+    /** Extra 3D views, by name (their `viewportName`). They share
+     *  `background_scene_mtx` with the background scene. */
+    std::map<std::string, View3DState> views_3d;
 
     mola::gui::MenuBar menu_bar;
 
@@ -586,13 +617,27 @@ class MolaVizImGuiCore : public VizInterface, public mrpt::system::COutputLogger
   // Per-frame rendering helpers
   void render_menu_bar(PerWindowData& win);
   void render_background_scene(PerWindowData& win);
+  void render_3d_views(PerWindowData& win);
   void render_subwindow(SubWindowState& sw);
   void render_sensor_windows(const window_name_t& parentName, PerWindowData& win);
   void render_console_window(PerWindowData& win);
   void render_app_menu();
   void render_view_menu(PerWindowData& win);
-  void render_plot_windows(PerWindowData& win);
-  void render_plot_toolbar(PlotWindowState& st);
+
+  /** Where the 3D objects and camera of a `viewportName` of a window go: one
+   *  of its extra 3D views (their own scene, "main" viewport), or else that
+   *  viewport of its background scene. */
+  struct SceneTarget
+  {
+    mrpt::viz::Scene*          scene = nullptr;
+    std::string                viewport;
+    View3DState*               view                = nullptr;  // nullptr: background
+    std::deque<DecayingCloud>* decaying_clouds     = nullptr;
+    size_t*                    max_decaying_clouds = nullptr;
+  };
+  static SceneTarget scene_target(PerWindowData& win, const std::string& viewportName);
+  void               render_plot_windows(PerWindowData& win);
+  void               render_plot_toolbar(PlotWindowState& st);
   void render_widget_description(const mola::gui::WindowDescription& desc, SubWindowState& sw);
   void render_tab(const mola::gui::Tab& tab, const std::string& ctx);
   void render_any_widget(const mola::gui::AnyWidget& w, const std::string& ctx);

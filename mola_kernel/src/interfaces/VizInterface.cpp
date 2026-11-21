@@ -39,6 +39,15 @@ std::future<bool> VizInterface::update_viewport_camera(
   return p.get_future();
 }
 
+std::future<bool> VizInterface::create_3d_view_subwindow(
+    [[maybe_unused]] const std::string& viewName, [[maybe_unused]] const std::string& title,
+    [[maybe_unused]] const std::string& parentWindow)
+{
+  std::promise<bool> p;
+  p.set_value(false);
+  return p.get_future();
+}
+
 const std::string VizInterface::BACKEND_NANOGUI = "nanogui";
 const std::string VizInterface::BACKEND_IMGUI   = "imgui";
 

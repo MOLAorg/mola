@@ -24,6 +24,8 @@
  *       APIs (removed).
  * 2026: Added register_metric() / push_metric() for streaming time-series
  *       metrics to live plot windows (ImGui backend only; no-op on nanogui).
+ * 2026: Added create_3d_view_subwindow(): extra 3D views, each with its own
+ *       scene and camera (ImGui backend only; returns false on nanogui).
  */
 #pragma once
 
@@ -51,6 +53,11 @@
 /** Feature macro: when defined, VizInterface offers update_viewport_camera()
  *  (look-at point, azimuth, elevation and distance of the viewport camera). */
 #define MOLA_KERNEL_VIZ_HAS_CAMERA_ORIENTATION 1
+
+/** Feature macro: when defined, VizInterface offers create_3d_view_subwindow():
+ *  sub-windows with a 3D view of their own, addressed by the `viewportName`
+ *  argument of the 3D object and camera methods. */
+#define MOLA_KERNEL_VIZ_HAS_3D_VIEW_SUBWINDOWS 1
 
 namespace mola
 {
@@ -471,6 +478,39 @@ class VizInterface
   virtual std::future<bool> update_viewport_camera(
       const mrpt::math::TPoint3Df& lookAt, double azimuth, double elevation, double zoomDistance,
       const std::string& viewportName = "main", const std::string& parentWindow = "main");
+
+  /** @} */
+
+  // =========================================================================
+  /** @name Extra 3D views
+   * @{ */
+
+  /**
+   * \brief Creates a sub-window with a 3D view of its own: a scene separate
+   *        from the main one, with its own orbit camera (same mouse controls).
+   *
+   * Objects are drawn into it with the usual methods (update_3d_object(),
+   * update_3d_object_frame(), insert_point_cloud_with_decay(),
+   * clear_all_point_clouds_with_decay(), update_viewport_look_at() and the
+   * other camera setters), passing @p viewName as their `viewportName`, and
+   * the same @p parentWindow. Objects never show up in the main view, so a
+   * module can show something on its own, e.g. a front end its local map,
+   * apart from the global map of a mapper.
+   *
+   * Creating a view that already exists is a no-op (returns true). The view
+   * is a dockable window that the user can close and reopen from the "View"
+   * menu; its contents are kept while closed.
+   *
+   * \param viewName     Name to pass as `viewportName`. Must not be "main".
+   * \param title        Window title (empty: @p viewName).
+   * \param parentWindow Host window name.
+   * \return future<bool>; true once the view exists, false if the backend has
+   *         no extra views (nanogui), in which case objects sent to
+   *         @p viewName are not shown: draw them in "main" instead.
+   */
+  virtual std::future<bool> create_3d_view_subwindow(
+      const std::string& viewName, const std::string& title = "",
+      const std::string& parentWindow = "main");
 
   /** @} */
 };
