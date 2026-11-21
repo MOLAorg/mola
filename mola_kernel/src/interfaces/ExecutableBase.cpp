@@ -113,15 +113,23 @@ void ExecutableBase::changeParameters(const mrpt::containers::yaml& names_values
 void ExecutableBase::module_publish_diagnostics(const DiagnosticsOutput& msg)
 {
   auto lck = mrpt::lockHelper(module_diagnostics_out_queue_mtx_);
+  // Bound the memory used if nobody drains the queue (e.g. no ROS 2 bridge):
+  if (module_diagnostics_out_queue_.size() >= MAX_QUEUED_DIAGNOSTICS)
+  {
+    module_diagnostics_out_queue_.erase(module_diagnostics_out_queue_.begin());
+  }
   module_diagnostics_out_queue_.push_back(msg);
-  module_diagnostics_last_clockwall_stamp_ = mrpt::Clock::nowDouble();
+  module_diagnostics_last_clockwall_stamp_.store(mrpt::Clock::nowDouble());
 }
 
 bool ExecutableBase::module_is_time_to_publish_diagnostics() const
 {
-  if (module_diagnostics_period_sec_ <= 0) return false;
+  if (module_diagnostics_period_sec_ <= 0)
+  {
+    return false;
+  }
 
-  const double dt = mrpt::Clock::nowDouble() - module_diagnostics_last_clockwall_stamp_;
+  const double dt = mrpt::Clock::nowDouble() - module_diagnostics_last_clockwall_stamp_.load();
   return dt >= module_diagnostics_period_sec_;
 }
 

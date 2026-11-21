@@ -256,6 +256,11 @@ shallow). CLIs: `mola-sm-attach-from-rosbag2` (`mola_input_rosbag2`) and
   thread publishes the queue with its own `/rosout` publisher, never through
   `RCLCPP_*`/rcutils (no global logging mutex, no second terminal print, no
   publishing after `rclcpp::shutdown()` from a module destructor).
+- Module messages queued with `ExecutableBase::module_publish_diagnostics()` go to
+  `mola_diagnostics/<module>/<label>` (label characters invalid in a topic become `_`):
+  `std::string`/`Yaml` as `String`, `double`/`float`/`int` as `Float32`, `bool` as `Bool`;
+  other value types are dropped with a warning. Each module queue keeps the newest
+  `MAX_QUEUED_DIAGNOSTICS` messages, since nothing drains it without the bridge.
 - `nav_msgs/Odometry` topics are forwarded as `CObservationRobotPose` (SE(3), for LiDAR or
   visual odometry) or `CObservationOdometry` (planar: the smoother applies its wheel motion
   model): param `odometry_as_robot_pose_observation`, overridable per `subscribe` entry.
