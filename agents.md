@@ -713,6 +713,12 @@ Guard with `#if defined(...)`, never with a version check.
 - **Config**: `colcon_defaults.yaml` (symlink install, RelWithDebInfo, compile_commands.json)
 - **CMake macros** (from `mola_common`): `mola_add_library()`, `find_mola_package()`
 - **Platforms**: Linux Ubuntu 22.04/24.04, AMD64 and ARM64
+- **ABI and versions**: shared libraries get the SOVERSION `MAJOR.MINOR` of `package.xml`, so a
+  patch release must keep the ABI. Changing the layout of a public type (data members added,
+  removed or reordered, virtual functions) or an exported signature needs a minor bump
+  (`catkin_prepare_release --bump minor`): otherwise packages built against the previous patch
+  release load the new library and silently corrupt memory (e.g. a struct grown by the library
+  overruns the caller's stack copy).
 
 Build standalone:
 ```bash
