@@ -70,7 +70,7 @@ jobs:
         run: apt-get update && apt-get install -y git curl gnupg2 ca-certificates
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -168,7 +168,7 @@ jobs:
         run: apt-get update && apt-get install -y git
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           persist-credentials: false # safer

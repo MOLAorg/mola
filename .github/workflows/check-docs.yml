@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out mola
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: MOLAorg/mola
@@ -36,28 +36,28 @@ jobs:
       # The sibling checkouts must sit next to mola: the .rst stubs in
       # mola/docs/source reach them as ../../../<repo>/docs/...
       - name: Check out mp2p_icp
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: MOLAorg/mp2p_icp
           path: src/mp2p_icp
 
       - name: Check out mola_lidar_odometry
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: MOLAorg/mola_lidar_odometry
           path: src/mola_lidar_odometry
 
       - name: Check out mola_mapper
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: MOLAorg/mola_mapper
           path: src/mola_mapper
 
       - name: Check out mola_state_estimation
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: MOLAorg/mola_state_estimation
@@ -67,12 +67,12 @@ jobs:
       # pull request triggered this run, so the doc set is built against the
       # proposed changes rather than that repository's default branch.
       - name: Check out the code under test
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           path: src/${{ github.event.repository.name }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -113,7 +113,7 @@ jobs:
 
       - name: Upload the build log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sphinx-log
           path: src/mola/docs/sphinx.log
