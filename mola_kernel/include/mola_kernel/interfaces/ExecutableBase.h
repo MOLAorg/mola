@@ -26,6 +26,8 @@
 #include <mrpt/version.h>
 
 #include <any>
+#include <atomic>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -195,6 +197,11 @@ class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
     std::any                value;
   };
 
+  /** Maximum number of diagnostics messages a module keeps queued until
+   * module_move_out_diagnostics_messages() drains them. Once full, the oldest
+   * ones are dropped, so the queue stays bounded if nobody consumes it. */
+  static constexpr std::size_t MAX_QUEUED_DIAGNOSTICS = 1000;
+
   [[nodiscard]] auto module_move_out_diagnostics_messages() -> std::vector<DiagnosticsOutput>;
 
  protected:
@@ -204,8 +211,11 @@ class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
     requested_system_shutdown_ = true;
   }
 
+  /** Queues a diagnostics message. Thread-safe. The queue holds at most
+   * MAX_QUEUED_DIAGNOSTICS messages, dropping the oldest ones. */
   void module_publish_diagnostics(const DiagnosticsOutput& msg);
 
+  /** Thread-safe. */
   [[nodiscard]] bool module_is_time_to_publish_diagnostics() const;
 
   /** Period (seconds) to publish loop diagnostics. Zero means disabled. */
@@ -221,7 +231,7 @@ class ExecutableBase : public mrpt::system::COutputLogger,  // for logging
 
   std::mutex                     module_diagnostics_out_queue_mtx_;
   std::vector<DiagnosticsOutput> module_diagnostics_out_queue_;
-  double                         module_diagnostics_last_clockwall_stamp_ = 0;
+  std::atomic<double>            module_diagnostics_last_clockwall_stamp_{0.0};
 };
 
 // Impl:

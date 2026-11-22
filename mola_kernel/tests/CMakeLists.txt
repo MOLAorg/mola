@@ -8,6 +8,13 @@ mola_add_test(
 )
 
 mola_add_test(
+  TARGET  test-executable-base-diagnostics
+  SOURCES test_executable_base_diagnostics.cpp
+  LINK_LIBRARIES
+    mola::mola_kernel
+)
+
+mola_add_test(
   TARGET  test-parallelism
   SOURCES test_parallelism.cpp
   LINK_LIBRARIES

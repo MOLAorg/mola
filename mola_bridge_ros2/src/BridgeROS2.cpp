@@ -67,6 +67,7 @@
 
 // ROS 2:
 #include <algorithm>
+#include <cctype>
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <geographic_msgs/msg/geo_pose_stamped.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
@@ -74,6 +75,7 @@
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp/node.hpp>
 #include <set>
+#include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -2827,6 +2829,21 @@ std::string module_name_to_valid_topic(const std::string& s)
 
   return s.substr(lastPos + 1);
 }
+
+/// 'Foo:alive' -> 'Foo_alive': replaces characters not allowed in ROS topic
+/// names, since creating a publisher for an invalid name throws.
+std::string diagnostics_label_to_valid_topic(const std::string& s)
+{
+  std::string ret = s;
+  for (auto& c : ret)
+  {
+    if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '/')
+    {
+      c = '_';
+    }
+  }
+  return ret;
+}
 }  // namespace
 
 void BridgeROS2::publishDiagnostics()
@@ -2846,7 +2863,7 @@ void BridgeROS2::publishDiagnostics()
 
     for (const auto& diag : diagnosticsMsgs)
     {
-      const std::string topic = topicPrefix + diag.label;
+      const std::string topic = topicPrefix + diagnostics_label_to_valid_topic(diag.label);
 
       // TODO: No way to embed this in std_msgs (!): diag.timestamp;
 
@@ -2887,6 +2904,13 @@ void BridgeROS2::publishDiagnostics()
         auto                   pubDiag = get_publisher<std_msgs::msg::Float32>(topic, qos);
         std_msgs::msg::Float32 msg;
         msg.data = static_cast<float>(*valInt);
+        pubDiag->publish(msg);
+      }
+      else if (const auto* valBool = std::any_cast<bool>(&diag.value); valBool)
+      {
+        auto                pubDiag = get_publisher<std_msgs::msg::Bool>(topic, qos);
+        std_msgs::msg::Bool msg;
+        msg.data = *valBool;
         pubDiag->publish(msg);
       }
       else
