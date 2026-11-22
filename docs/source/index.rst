@@ -89,6 +89,7 @@
   why-mola
   solutions
   pricing
+  MOLA cloud (online app) <https://app.mola-slam.org>
 
 
 =====================================================
@@ -112,6 +113,7 @@ MOLA: LiDAR Odometry, SLAM and Localization
          <a href="modules.html">Modules</a>
          <a href="solutions.html">Solutions</a>
          <a href="pricing.html">Pricing</a>
+         <a href="https://app.mola-slam.org">MOLA cloud</a>
          <a href="https://github.com/MOLAorg/mola">GitHub</a>
        </span>
      </nav>
@@ -124,6 +126,7 @@ MOLA: LiDAR Odometry, SLAM and Localization
          <a class="mola-btn mola-btn-primary" href="quickstart.html">Get started</a>
          <a class="mola-btn mola-btn-secondary" href="why-mola.html">Why MOLA</a>
          <a class="mola-btn mola-btn-ghost" href="pricing.html">Plans &amp; pricing</a>
+         <a class="mola-btn mola-btn-ghost" href="https://app.mola-slam.org">Try MOLA cloud</a>
        </div>
      </div>
      <p class="mola-hero-caption">Real data: GrandTour (ANYmal), Husky robot at the University of Almer&iacute;a,
@@ -170,6 +173,18 @@ and geo-referencing.
        <p class="mola-card-body">Compare Community (free) vs. Pro (commercial license).</p>
        <span class="mola-card-cta">
          See plans
+         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+       </span>
+     </a>
+
+     <a class="mola-card" href="https://app.mola-slam.org">
+       <div class="mola-card-icon">
+         <svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+       </div>
+       <p class="mola-card-title">MOLA cloud</p>
+       <p class="mola-card-body">Upload a ROS bag and get a 3D map, or calibrate your LiDAR and cameras, in the browser.</p>
+       <span class="mola-card-cta">
+         Open the app
          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
        </span>
      </a>
