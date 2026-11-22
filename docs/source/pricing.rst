@@ -318,7 +318,8 @@ Beyond the Pro license, we offer:
 - **Fleet deployment consulting** (multi-robot map sharing, configuration management)
 - **On-site or remote training** for your engineering team
 - **Map post-processing service** - send us your raw sensor data and receive
-  optimized, georeferenced metric maps
+  optimized, georeferenced metric maps, or build them yourself online: upload a
+  ROS bag to `MOLA cloud <https://app.mola-slam.org>`_
 
 For consulting inquiries or demo requests, use the form below:
 
