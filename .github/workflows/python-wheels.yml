@@ -47,7 +47,7 @@ jobs:
         os: [ubuntu-24.04, ubuntu-24.04-arm]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -91,7 +91,7 @@ jobs:
       # which cibuildwheel copies into its containers as /project.
       - name: Check out mola_test_datasets (husky map only)
         if: steps.deps.outputs.available == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: MOLAorg/mola_test_datasets
@@ -110,7 +110,7 @@ jobs:
         env:
           CIBW_TEST_ENVIRONMENT: MOLA_TEST_DATASETS_DIR=/project/mola_test_datasets/datasets
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.deps.outputs.available == 'true'
         with:
           name: wheels-${{ matrix.os }}
@@ -127,7 +127,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: wheels-*
           merge-multiple: true
