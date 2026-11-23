@@ -50,6 +50,12 @@
 #include <mrpt/ros2bridge/point_cloud2.h>
 #include <mrpt/ros2bridge/pose.h>
 #include <mrpt/ros2bridge/time.h>
+#if __has_include(<mrpt/ros2bridge/rgbd.h>)
+#include <mrpt/ros2bridge/rgbd.h>
+#define MOLA_ROS2BRIDGE_HAS_RGBD 1
+#else
+#define MOLA_ROS2BRIDGE_HAS_RGBD 0
+#endif
 #include <mrpt/system/filesystem.h>
 #include <mrpt/topography/conversions.h>
 #include <mrpt/version.h>  // For MRPT_VERSION
@@ -74,6 +80,8 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp/node.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <set>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32.hpp>
@@ -2752,6 +2760,10 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
           [this, output_sensor_label, fixedSensorPose](const sensor_msgs::msg::Image& o)
           { this->callbackOnImage(o, output_sensor_label, fixedSensorPose); }));
     }
+    else if (type == "RGBD")
+    {
+      internalSubscribeRgbd(topic, output_sensor_label, fixedSensorPose, qos);
+    }
     else if (type == "GpsFix")
     {
       subsGPSMsg_.emplace_back(rosNode_->create_subscription<gps_msgs::msg::GPSFix>(
@@ -2790,6 +2802,130 @@ void BridgeROS2::internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& 
       THROW_EXCEPTION_FMT("Unhandled type=`%s` for topic=`%s`", type.c_str(), topic_name.c_str());
     }
   }
+}
+
+struct BridgeROS2::RgbdSensor
+{
+#if MOLA_ROS2BRIDGE_HAS_RGBD
+  std::shared_ptr<mrpt::ros2bridge::RgbdAssembler> assembler;
+#endif
+  std::vector<rclcpp::SubscriptionBase::SharedPtr> subs;
+};
+
+void BridgeROS2::internalSubscribeRgbd(
+    [[maybe_unused]] const mrpt::containers::yaml&              entry,
+    [[maybe_unused]] const std::string&                         outSensorLabel,
+    [[maybe_unused]] const std::optional<mrpt::poses::CPose3D>& fixedSensorPose,
+    [[maybe_unused]] const rclcpp::QoS&                         qos)
+{
+#if MOLA_ROS2BRIDGE_HAS_RGBD
+  using mrpt::ros2bridge::RgbdAssembler;
+
+  auto [topics, p]  = mrpt::ros2bridge::rgbdSensorFromYaml(entry, outSensorLabel);
+  p.fixedSensorPose = fixedSensorPose;
+
+  auto s       = std::make_shared<RgbdSensor>();
+  s->assembler = std::make_shared<RgbdAssembler>(p, tf_buffer_, params_.base_link_frame);
+
+  // Forwards the frames that a message completes. Never throws: an exception
+  // would stop the executor, and all other inputs.
+  const auto forward = [this, a = s->assembler.get(), label = outSensorLabel](const auto& feed)
+  {
+    try
+    {
+      const size_t noTf     = a->droppedWithoutTf();
+      const size_t unpaired = a->droppedUnpaired();
+      for (const auto& o : feed(*a))
+      {
+        this->sendObservationsToFrontEnds(o);
+      }
+      if (a->droppedWithoutTf() != noTf)
+      {
+        MRPT_LOG_THROTTLE_WARN_FMT(
+            5.0, "RGB-D sensor '%s': %zu frame(s) dropped without /tf: %s", label.c_str(),
+            a->droppedWithoutTf(), a->lastTfError().c_str());
+      }
+      if (a->droppedUnpaired() != unpaired)
+      {
+        MRPT_LOG_THROTTLE_WARN_FMT(
+            5.0,
+            "RGB-D sensor '%s': %zu image(s) dropped without a depth/intensity counterpart "
+            "within max_time_offset (the last one's closest was %.1f ms away).",
+            label.c_str(), a->droppedUnpaired(), 1e3 * a->lastEvictedClosestDt());
+      }
+    }
+    catch (const std::exception& e)
+    {
+      MRPT_LOG_THROTTLE_ERROR_FMT(5.0, "Dropping RGB-D frame of '%s': %s", label.c_str(), e.what());
+    }
+  };
+
+  const auto subscribeImage = [&](const std::string& topic, bool isDepth)
+  {
+    if (mrpt::ros2bridge::isCompressedImageTopic(topic))
+    {
+      s->subs.push_back(rosNode_->create_subscription<sensor_msgs::msg::CompressedImage>(
+          topic, qos,
+          [forward, isDepth](const sensor_msgs::msg::CompressedImage& m)
+          {
+            forward([&](RgbdAssembler& a)
+                    { return isDepth ? a.onDepthImage(m) : a.onIntensityImage(m); });
+          }));
+    }
+    else
+    {
+      s->subs.push_back(rosNode_->create_subscription<sensor_msgs::msg::Image>(
+          topic, qos,
+          [forward, isDepth](const sensor_msgs::msg::Image& m)
+          {
+            forward([&](RgbdAssembler& a)
+                    { return isDepth ? a.onDepthImage(m) : a.onIntensityImage(m); });
+          }));
+    }
+  };
+  const auto subscribeInfo = [&](const std::string& topic, bool isDepth)
+  {
+    s->subs.push_back(rosNode_->create_subscription<sensor_msgs::msg::CameraInfo>(
+        topic, qos,
+        [forward, isDepth](const sensor_msgs::msg::CameraInfo& m)
+        {
+          forward(
+              [&](RgbdAssembler& a)
+              {
+                if (isDepth)
+                {
+                  a.onDepthCameraInfo(m);
+                }
+                else
+                {
+                  a.onIntensityCameraInfo(m);
+                }
+                return RgbdAssembler::Obs{};
+              });
+        }));
+  };
+
+  subscribeImage(topics.depth, true);
+  subscribeInfo(topics.depthCameraInfo, true);
+  if (p.withIntensity)
+  {
+    subscribeImage(topics.intensity, false);
+    subscribeInfo(topics.intensityCameraInfo, false);
+  }
+  rgbdSensors_.push_back(s);
+
+  MRPT_LOG_INFO_STREAM(
+      "RGB-D sensor '" << outSensorLabel << "': depth='" << topics.depth << "' ("
+                       << topics.depthCameraInfo << ")"
+                       << (p.withIntensity ? ", intensity='" + topics.intensity + "' (" +
+                                                 topics.intensityCameraInfo + ")"
+                                           : std::string(", no intensity")));
+#else
+  THROW_EXCEPTION_FMT(
+      "msg_type 'RGBD' (sensor '%s') needs mrpt_libros_bridge >= 4.2.0, but this module was "
+      "built against an older version.",
+      outSensorLabel.c_str());
+#endif
 }
 
 void BridgeROS2::publishStaticTFs()

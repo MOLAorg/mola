@@ -228,6 +228,36 @@ The rest will be discarded, after emitting a warning to the terminal.
         sensor_label: 'odom'  # mandatory entry
         #odom_frame_id: '/odom'
 
+.. dropdown:: Example: RGB-D camera (depth, color and camera_info topics)
+
+  RGB-D and depth cameras become ``CObservation3DRangeScan`` observations, built out of a
+  depth image, an optional intensity (color or infrared) image and the ``camera_info`` of
+  each. Images may be raw (``sensor_msgs/Image``) or, if their topic ends in
+  ``/compressed`` or ``/compressedDepth``, as recorded by ``image_transport``. Needs
+  ``mrpt_libros_bridge`` >= 4.2.0.
+
+  .. code-block:: yaml
+
+    sensors:
+      kinect:
+        type: 'CObservation3DRangeScan'
+        topic: '/kinect/depth/image_raw'                  # 16UC1 (mm), 32FC1 (m), or compressedDepth
+        intensity_topic: '/kinect/rgb/image_raw/compressed'  # optional
+        #camera_info_topic: ...            # default: sibling "camera_info" topic
+        #intensity_camera_info_topic: ...  # default: sibling "camera_info" topic
+        #max_time_offset: 0.010            # [s] to pair depth and intensity frames
+        #max_range: 10.0                   # [m]
+        #intensity_16bit_scale: 1.0        # mono16 intensity (e.g. infrared) into 8 bits
+        #intensity_channel: visible        # or "ir"
+        #fixed_sensor_pose: "0 0 0 0 0 0"  # depth camera, +X forward
+
+    # For robots running in a namespace (default: /tf and /tf_static):
+    #tf_topic: '/my_robot/tf'
+    #tf_static_topic: '/my_robot/tf_static'
+
+  Frames that cannot be converted (no ``camera_info`` yet, no ``/tf``, or no counterpart
+  image within ``max_time_offset``) are counted and reported at the end.
+
 
 |
 

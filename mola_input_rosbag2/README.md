@@ -37,11 +37,33 @@ sensors:
     intensity_topic: /camera/camera/color/image_raw   # optional
     #camera_info_topic: ...            # default: sibling "camera_info" topic
     #intensity_camera_info_topic: ...  # default: sibling "camera_info" topic
-    #max_time_offset: 0.005            # [s] to pair depth and intensity frames
+    #max_time_offset: 0.010            # [s] to pair depth and intensity frames
     #is_optional: false                # skip the sensor if a topic is missing
     #max_range: 10.0                   # [m]
+    #intensity_16bit_scale: 1.0        # mono16 intensity (e.g. infrared) into 8 bits
+    #intensity_channel: visible        # or "ir"
     #fixed_sensor_pose: "x y z yaw_deg pitch_deg roll_deg"  # depth camera, +X forward
 ```
+
+Depth and intensity topics may also be `sensor_msgs/CompressedImage`, as recorded by
+`image_transport`: `compressedDepth` (PNG or RVL, 16UC1 or 32FC1) for the depth and
+JPEG/PNG for the intensity. For example, a ZED camera, whose depth (32FC1) is
+registered to the left color image and may have a lower resolution:
+
+```yaml
+  - topic: /zed/zed_node/depth/depth_registered/compressedDepth
+    type: CObservation3DRangeScan
+    sensorLabel: zed
+    intensity_topic: /zed/zed_node/rgb/image_rect_color/compressed
+    max_range: 20.0
+```
+
+Compressed topics and the `intensity_*` and `max_queue_length` options need
+`mrpt_libros_bridge` >= 4.2.0, which builds the observations
+(`mrpt::ros2bridge::RgbdAssembler`, shared with `rosbag2rawlog`, `BridgeROS2` and
+`mola_input_rosbag1`). Points take their color from an intensity image of another
+resolution than the depth image, and through its lens distortion, with MRPT
+versions that define `MRPT_HAS_3DSCAN_INTENSITY_PROJECTION`.
 
 Depth and intensity keep their own resolution and intrinsics
 (`cameraParams`, `cameraParamsIntensity`), and `relativePoseIntensityWRTDepth`

@@ -218,7 +218,11 @@ keyframes of a simplemap (nearest keyframe of each one, nearest one per keyframe
 written as jpg/png to `<output>_Images/`, as a new observation since `CImage` copies are
 shallow). CLIs: `mola-sm-attach-from-rosbag2` (`mola_input_rosbag2`) and
 `mola-sm-attach-from-rosbag1` (`mola_input_rosbag1` repo). `BridgeROS2` subscribes to
-`sensor_msgs/Image` (`msg_type: Image`; Bayer encodings demosaiced).
+`sensor_msgs/Image` (`msg_type: Image`; Bayer encodings demosaiced) and RGB-D cameras
+(`msg_type: RGBD`). RGB-D frames (raw or compressed depth/intensity + camera_info) are built
+by `mrpt::ros2bridge::RgbdAssembler` (`mrpt_libros_bridge` >= 4.2.0) in `BridgeROS2`,
+`mola_input_rosbag2` and `mola_input_rosbag1`; built against an older bridge, they throw when
+configured (`mola_input_rosbag2` keeps its own raw-only `RgbdAssembler` fallback until then).
 
 ### `mola_launcher` — CLI Entry Point
 - **`mola-cli`**: main executable, takes YAML config, loads and orchestrates modules
