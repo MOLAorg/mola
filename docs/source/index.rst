@@ -43,7 +43,7 @@
   :hidden:
   :caption: LiDAR odometry
 
-  mola_lidar_odometry
+  LiDAR odometry (LO/LIO) <mola_lidar_odometry>
   mola_lo_apps
   mola_lo_pipelines
   mola_lo_diagnostics
