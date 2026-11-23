@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" role="img" aria-label="LiDAR-camera calibration target: four circular holes and four ArUco markers">
+<title>LiDAR-camera calibration target: four circular holes and four ArUco markers</title>
+<path d="M20 20h440v320h-440zM132 110a36 36 0 1 0 72 0a36 36 0 1 0 -72 0zM276 110a36 36 0 1 0 72 0a36 36 0 1 0 -72 0zM132 250a36 36 0 1 0 72 0a36 36 0 1 0 -72 0zM276 250a36 36 0 1 0 72 0a36 36 0 1 0 -72 0z" fill="#e6e9ee" fill-rule="evenodd" stroke="#7a8594" stroke-width="1.5"/>
+<g fill="#111418" shape-rendering="crispEdges">
+<rect x="37" y="37" width="66" height="66" fill="#ffffff"/>
+<rect x="40" y="40" width="60" height="7.5"/>
+<rect x="40" y="47.5" width="37.5" height="7.5"/>
+<rect x="92.5" y="47.5" width="7.5" height="7.5"/>
+<rect x="40" y="55" width="7.5" height="7.5"/>
+<rect x="55" y="55" width="7.5" height="7.5"/>
+<rect x="92.5" y="55" width="7.5" height="7.5"/>
+<rect x="40" y="62.5" width="7.5" height="7.5"/>
+<rect x="55" y="62.5" width="7.5" height="7.5"/>
+<rect x="85" y="62.5" width="15" height="7.5"/>
+<rect x="40" y="70" width="7.5" height="7.5"/>
+<rect x="55" y="70" width="22.5" height="7.5"/>
+<rect x="92.5" y="70" width="7.5" height="7.5"/>
+<rect x="40" y="77.5" width="7.5" height="7.5"/>
+<rect x="55" y="77.5" width="22.5" height="7.5"/>
+<rect x="85" y="77.5" width="15" height="7.5"/>
+<rect x="40" y="85" width="15" height="7.5"/>
+<rect x="62.5" y="85" width="22.5" height="7.5"/>
+<rect x="92.5" y="85" width="7.5" height="7.5"/>
+<rect x="40" y="92.5" width="60" height="7.5"/>
+<rect x="377" y="37" width="66" height="66" fill="#ffffff"/>
+<rect x="380" y="40" width="60" height="7.5"/>
+<rect x="380" y="47.5" width="30" height="7.5"/>
+<rect x="417.5" y="47.5" width="7.5" height="7.5"/>
+<rect x="432.5" y="47.5" width="7.5" height="7.5"/>
+<rect x="380" y="55" width="15" height="7.5"/>
+<rect x="410" y="55" width="15" height="7.5"/>
+<rect x="432.5" y="55" width="7.5" height="7.5"/>
+<rect x="380" y="62.5" width="45" height="7.5"/>
+<rect x="432.5" y="62.5" width="7.5" height="7.5"/>
+<rect x="380" y="70" width="7.5" height="7.5"/>
+<rect x="425" y="70" width="15" height="7.5"/>
+<rect x="380" y="77.5" width="7.5" height="7.5"/>
+<rect x="395" y="77.5" width="7.5" height="7.5"/>
+<rect x="410" y="77.5" width="7.5" height="7.5"/>
+<rect x="432.5" y="77.5" width="7.5" height="7.5"/>
+<rect x="380" y="85" width="22.5" height="7.5"/>
+<rect x="417.5" y="85" width="7.5" height="7.5"/>
+<rect x="432.5" y="85" width="7.5" height="7.5"/>
+<rect x="380" y="92.5" width="60" height="7.5"/>
+<rect x="37" y="257" width="66" height="66" fill="#ffffff"/>
+<rect x="40" y="260" width="60" height="7.5"/>
+<rect x="40" y="267.5" width="7.5" height="7.5"/>
+<rect x="62.5" y="267.5" width="15" height="7.5"/>
+<rect x="85" y="267.5" width="15" height="7.5"/>
+<rect x="40" y="275" width="15" height="7.5"/>
+<rect x="62.5" y="275" width="22.5" height="7.5"/>
+<rect x="92.5" y="275" width="7.5" height="7.5"/>
+<rect x="40" y="282.5" width="7.5" height="7.5"/>
+<rect x="55" y="282.5" width="7.5" height="7.5"/>
+<rect x="77.5" y="282.5" width="22.5" height="7.5"/>
+<rect x="40" y="290" width="7.5" height="7.5"/>
+<rect x="62.5" y="290" width="37.5" height="7.5"/>
+<rect x="40" y="297.5" width="15" height="7.5"/>
+<rect x="70" y="297.5" width="7.5" height="7.5"/>
+<rect x="85" y="297.5" width="15" height="7.5"/>
+<rect x="40" y="305" width="15" height="7.5"/>
+<rect x="85" y="305" width="15" height="7.5"/>
+<rect x="40" y="312.5" width="60" height="7.5"/>
+<rect x="377" y="257" width="66" height="66" fill="#ffffff"/>
+<rect x="380" y="260" width="60" height="7.5"/>
+<rect x="380" y="267.5" width="7.5" height="7.5"/>
+<rect x="402.5" y="267.5" width="7.5" height="7.5"/>
+<rect x="417.5" y="267.5" width="7.5" height="7.5"/>
+<rect x="432.5" y="267.5" width="7.5" height="7.5"/>
+<rect x="380" y="275" width="7.5" height="7.5"/>
+<rect x="395" y="275" width="45" height="7.5"/>
+<rect x="380" y="282.5" width="15" height="7.5"/>
+<rect x="432.5" y="282.5" width="7.5" height="7.5"/>
+<rect x="380" y="290" width="15" height="7.5"/>
+<rect x="402.5" y="290" width="7.5" height="7.5"/>
+<rect x="425" y="290" width="15" height="7.5"/>
+<rect x="380" y="297.5" width="7.5" height="7.5"/>
+<rect x="410" y="297.5" width="30" height="7.5"/>
+<rect x="380" y="305" width="15" height="7.5"/>
+<rect x="402.5" y="305" width="7.5" height="7.5"/>
+<rect x="417.5" y="305" width="7.5" height="7.5"/>
+<rect x="432.5" y="305" width="7.5" height="7.5"/>
+<rect x="380" y="312.5" width="60" height="7.5"/>
+</g>
+</svg>

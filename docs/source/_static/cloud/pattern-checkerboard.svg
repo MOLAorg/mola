@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 372 300" role="img" aria-label="Checkerboard calibration pattern, 9 x 7 squares">
+<title>Checkerboard calibration pattern, 9 x 7 squares</title>
+<rect width="372" height="300" fill="#ffffff"/>
+<g fill="#111418" shape-rendering="crispEdges">
+<rect x="24" y="24" width="36" height="36"/>
+<rect x="96" y="24" width="36" height="36"/>
+<rect x="168" y="24" width="36" height="36"/>
+<rect x="240" y="24" width="36" height="36"/>
+<rect x="312" y="24" width="36" height="36"/>
+<rect x="60" y="60" width="36" height="36"/>
+<rect x="132" y="60" width="36" height="36"/>
+<rect x="204" y="60" width="36" height="36"/>
+<rect x="276" y="60" width="36" height="36"/>
+<rect x="24" y="96" width="36" height="36"/>
+<rect x="96" y="96" width="36" height="36"/>
+<rect x="168" y="96" width="36" height="36"/>
+<rect x="240" y="96" width="36" height="36"/>
+<rect x="312" y="96" width="36" height="36"/>
+<rect x="60" y="132" width="36" height="36"/>
+<rect x="132" y="132" width="36" height="36"/>
+<rect x="204" y="132" width="36" height="36"/>
+<rect x="276" y="132" width="36" height="36"/>
+<rect x="24" y="168" width="36" height="36"/>
+<rect x="96" y="168" width="36" height="36"/>
+<rect x="168" y="168" width="36" height="36"/>
+<rect x="240" y="168" width="36" height="36"/>
+<rect x="312" y="168" width="36" height="36"/>
+<rect x="60" y="204" width="36" height="36"/>
+<rect x="132" y="204" width="36" height="36"/>
+<rect x="204" y="204" width="36" height="36"/>
+<rect x="276" y="204" width="36" height="36"/>
+<rect x="24" y="240" width="36" height="36"/>
+<rect x="96" y="240" width="36" height="36"/>
+<rect x="168" y="240" width="36" height="36"/>
+<rect x="240" y="240" width="36" height="36"/>
+<rect x="312" y="240" width="36" height="36"/>
+</g>
+</svg>

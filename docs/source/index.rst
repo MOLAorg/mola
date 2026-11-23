@@ -84,6 +84,15 @@
 .. toctree::
   :maxdepth: 2
   :hidden:
+  :caption: Online tools
+
+  Build a map from a ROS bag <rosbag-to-point-cloud-map>
+  Camera calibration <camera-calibration-online>
+  LiDAR-camera calibration <lidar-camera-calibration-online>
+
+.. toctree::
+  :maxdepth: 2
+  :hidden:
   :caption: Product
 
   why-mola

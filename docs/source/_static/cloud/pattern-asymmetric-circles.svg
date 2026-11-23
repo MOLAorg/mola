@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 270" role="img" aria-label="Asymmetric circle grid calibration pattern, 4 x 11">
+<title>Asymmetric circle grid calibration pattern, 4 x 11</title>
+<rect width="360" height="270" fill="#ffffff"/>
+<g fill="#111418" shape-rendering="crispEdges">
+<circle cx="30" cy="30" r="10"/>
+<circle cx="30" cy="90" r="10"/>
+<circle cx="30" cy="150" r="10"/>
+<circle cx="30" cy="210" r="10"/>
+<circle cx="60" cy="60" r="10"/>
+<circle cx="60" cy="120" r="10"/>
+<circle cx="60" cy="180" r="10"/>
+<circle cx="60" cy="240" r="10"/>
+<circle cx="90" cy="30" r="10"/>
+<circle cx="90" cy="90" r="10"/>
+<circle cx="90" cy="150" r="10"/>
+<circle cx="90" cy="210" r="10"/>
+<circle cx="120" cy="60" r="10"/>
+<circle cx="120" cy="120" r="10"/>
+<circle cx="120" cy="180" r="10"/>
+<circle cx="120" cy="240" r="10"/>
+<circle cx="150" cy="30" r="10"/>
+<circle cx="150" cy="90" r="10"/>
+<circle cx="150" cy="150" r="10"/>
+<circle cx="150" cy="210" r="10"/>
+<circle cx="180" cy="60" r="10"/>
+<circle cx="180" cy="120" r="10"/>
+<circle cx="180" cy="180" r="10"/>
+<circle cx="180" cy="240" r="10"/>
+<circle cx="210" cy="30" r="10"/>
+<circle cx="210" cy="90" r="10"/>
+<circle cx="210" cy="150" r="10"/>
+<circle cx="210" cy="210" r="10"/>
+<circle cx="240" cy="60" r="10"/>
+<circle cx="240" cy="120" r="10"/>
+<circle cx="240" cy="180" r="10"/>
+<circle cx="240" cy="240" r="10"/>
+<circle cx="270" cy="30" r="10"/>
+<circle cx="270" cy="90" r="10"/>
+<circle cx="270" cy="150" r="10"/>
+<circle cx="270" cy="210" r="10"/>
+<circle cx="300" cy="60" r="10"/>
+<circle cx="300" cy="120" r="10"/>
+<circle cx="300" cy="180" r="10"/>
+<circle cx="300" cy="240" r="10"/>
+<circle cx="330" cy="30" r="10"/>
+<circle cx="330" cy="90" r="10"/>
+<circle cx="330" cy="150" r="10"/>
+<circle cx="330" cy="210" r="10"/>
+</g>
+</svg>

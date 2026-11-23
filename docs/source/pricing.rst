@@ -136,7 +136,7 @@ Community vs. Pro
            Sensor extrinsic calibration (LiDAR&#8209;camera)
            <span class="feat-note">Pro: source code, to run on your own machines. Anyone: online in MOLA cloud, with tokens</span>
          </td>
-         <td class="comm-col"><a href="https://app.mola-slam.org">Online (MOLA cloud)</a></td>
+         <td class="comm-col"><a href="lidar-camera-calibration-online.html">Online (MOLA cloud)</a></td>
          <td class="pro-col"><span class="check-icon">&#10004;</span> Local + online</td>
        </tr>
        <tr class="data-row">

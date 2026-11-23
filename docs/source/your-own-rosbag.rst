@@ -17,6 +17,10 @@ The short version, if your bag is well behaved:
 
 A directory containing ``metadata.yaml`` works in place of the ``.mcap`` file.
 
+.. tip::
+   You can also upload the bag to MOLA cloud, which detects the topics and the vehicle frame for
+   you: :ref:`ROS bag to 3D point cloud map, online <rosbag-to-point-cloud-map>`.
+
 
 1. Which topic is my LiDAR?
 ----------------------------

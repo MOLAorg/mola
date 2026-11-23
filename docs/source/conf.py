@@ -192,6 +192,7 @@ html_css_files = [
     'css/mola_landing.css',
     'css/mola_solutions.css',
     'css/mola_pricing.css',
+    'css/mola_cloud.css',
 ]
 
 # Custom sidebar templates, must be a dictionary that maps document names

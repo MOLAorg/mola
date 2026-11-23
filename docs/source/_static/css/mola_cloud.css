@@ -1,0 +1,323 @@
+/* MOLA cloud landing pages (camera calibration, LiDAR-camera calibration,
+   ROS bag to map). Colors come from Furo's variables, so both themes work. */
+
+/* Intro panel: lead text and calls to action, with an illustration */
+.mc-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1.5rem 2rem;
+  align-items: center;
+  margin: 0.5rem 0 1.5rem;
+  padding: 1.5rem 1.6rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(31, 122, 236, 0.13) 0%, rgba(31, 122, 236, 0) 60%),
+    var(--color-background-secondary);
+}
+.mc-hero > * {
+  min-width: 0;
+}
+.mc-eyebrow {
+  margin: 0 0 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-brand-content);
+}
+.mc-lead {
+  margin: 0 0 1.2rem;
+  font-size: 1.08rem;
+  line-height: 1.6;
+  color: var(--color-foreground-primary);
+}
+.mc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+}
+.mc-note {
+  margin: 0.8rem 0 0;
+  font-size: 0.82rem;
+  color: var(--color-foreground-secondary);
+}
+.mc-hero-art {
+  margin: 0;
+}
+.mc-hero-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--color-background-border);
+}
+.mc-hero-art figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--color-foreground-secondary);
+}
+
+/* Buttons. .mola-btn-primary (blue) comes from mola_landing.css; this adds an
+   outline button that reads on light and dark page backgrounds. */
+.mola-btn.mc-btn-outline {
+  color: var(--color-brand-content) !important;
+  border: 1px solid var(--color-brand-content);
+  background: transparent;
+}
+.mola-btn.mc-btn-outline:hover {
+  background: rgba(31, 122, 236, 0.08);
+}
+.mola-btn:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+/* Key facts: four label/value pairs under the intro */
+.mc-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 2rem;
+  padding: 0;
+  list-style: none;
+}
+.mc-facts li {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--color-brand-primary);
+  background: var(--color-background-secondary);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-foreground-secondary);
+}
+.mc-facts strong {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-foreground-primary);
+}
+
+/* Numbered steps: the order is the workflow */
+.mc-steps {
+  counter-reset: mc-step;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 1rem 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 36em) {
+  .mc-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.mc-steps li {
+  counter-increment: mc-step;
+  position: relative;
+  margin: 0;
+  padding: 2.6rem 1rem 1rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 10px;
+  background: var(--color-background-primary);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--color-foreground-secondary);
+}
+.mc-steps li::before {
+  content: counter(mc-step);
+  position: absolute;
+  top: 0.9rem;
+  left: 1rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: var(--color-brand-primary);
+  color: var(--color-background-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4rem;
+  text-align: center;
+}
+.mc-steps strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.95rem;
+  color: var(--color-foreground-primary);
+}
+
+/* Figure grid (calibration patterns) */
+.mc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+.mc-item {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-background-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--color-background-primary);
+}
+.mc-item-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  max-width: 100%;
+  padding: 0.9rem;
+  background: #ffffff; /* the paper of a printed pattern, in both themes */
+  border-bottom: 1px solid var(--color-background-border);
+}
+.mc-item-art img {
+  max-width: 100%;
+  max-height: 100%;
+}
+.mc-item-art.mc-item-art-text {
+  background: var(--color-background-secondary);
+  color: var(--color-foreground-secondary);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.mc-item-art-text svg {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.4rem;
+  stroke: var(--color-brand-content);
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mc-item figcaption {
+  padding: 0.75rem 0.9rem 0.9rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--color-foreground-secondary);
+}
+.mc-item figcaption strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.92rem;
+  color: var(--color-foreground-primary);
+}
+.mc-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(31, 122, 236, 0.12);
+  color: var(--color-brand-content);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 0.1rem;
+}
+
+/* A single wide illustration with a caption */
+.mc-figure {
+  margin: 1rem 0 1.5rem;
+}
+.mc-figure img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--color-background-border);
+}
+.mc-figure.mc-figure-narrow img {
+  max-width: 34rem;
+  border: none;
+}
+.mc-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--color-foreground-secondary);
+}
+
+/* Closing call to action */
+.mc-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin: 2.5rem 0 1.5rem;
+  padding: 1.4rem 1.6rem;
+  border-radius: 12px;
+  background: var(--color-brand-primary);
+  color: var(--color-background-primary);
+}
+.mc-cta > div {
+  min-width: 0;
+}
+.mc-cta-title {
+  margin: 0 0 0.2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-background-primary);
+}
+.mc-cta-sub {
+  margin: 0;
+  font-size: 0.88rem;
+  opacity: 0.9;
+  color: var(--color-background-primary);
+}
+.mola-btn.mc-btn-inverse {
+  background: var(--color-background-primary);
+  color: var(--color-brand-primary) !important;
+}
+
+/* Related pages */
+.mc-related {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.9rem;
+  margin: 1rem 0 2rem;
+}
+.mc-related a {
+  display: block;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 10px;
+  text-decoration: none !important;
+  color: inherit !important;
+  transition: border-color 0.15s;
+}
+.mc-related a:hover,
+.mc-related a:focus-visible {
+  border-color: var(--color-brand-primary);
+}
+.mc-related strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.92rem;
+  color: var(--color-brand-content);
+}
+.mc-related span {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--color-foreground-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mola-btn,
+  .mc-related a {
+    transition: none;
+  }
+  .mola-btn:hover {
+    transform: none;
+  }
+}

@@ -6,6 +6,10 @@ Build a map
 
 This tutorial describes the steps for building metric maps using MOLA.
 
+.. tip::
+   To try it without installing anything, upload your ROS bag to MOLA cloud:
+   :ref:`ROS bag to 3D point cloud map, online <rosbag-to-point-cloud-map>`.
+
 
 1. Record the data
 ---------------------------------
