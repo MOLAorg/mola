@@ -4,8 +4,15 @@
 body:has(.mola-hero) {
   overflow-x: hidden;
 }
-/* The landing page has its own top navigation: no sidebars or page title there. */
-body:has(.mola-hero) .sidebar-drawer,
+/* The landing page has its own top navigation: no sidebars or page title there.
+   Only on wide screens for the navigation sidebar: below Furo's 63em breakpoint
+   it is the drawer that the header's menu button opens (the hero's own links are
+   hidden on phones), and hiding it left that button showing an empty overlay. */
+@media (min-width: 63.01em) {
+  body:has(.mola-hero) .sidebar-drawer {
+    display: none;
+  }
+}
 body:has(.mola-hero) .toc-drawer,
 body:has(.mola-hero) .mobile-header .header-right .toc-overlay-icon,
 body:has(.mola-hero) article > section > h1 {
