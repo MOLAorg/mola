@@ -1,3 +1,8 @@
+:og:description: Open-source LiDAR SLAM for ROS 2 and C++: LiDAR and LiDAR-inertial odometry, live SLAM with loop closure, map-based localization and GNSS geo-referencing, from handheld scanners to legged robots and cars.
+
+.. meta::
+   :description: MOLA is open-source LiDAR SLAM for ROS 2 and C++: LiDAR and LiDAR-inertial odometry, SLAM with loop closure, localization and GNSS geo-referencing.
+
 .. MOLA documentation master file, created by
    sphinx-quickstart on Sat May  4 17:03:47 2019.
 
@@ -101,9 +106,9 @@
   MOLA cloud (online app) <https://app.mola-slam.org>
 
 
-=====================================================
-MOLA: LiDAR Odometry, SLAM and Localization
-=====================================================
+======================================================
+MOLA: LiDAR Odometry, SLAM and Localization for ROS 2
+======================================================
 
 .. raw:: html
 

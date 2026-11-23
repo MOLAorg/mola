@@ -1,5 +1,15 @@
 {% extends "!page.html" %}
 
+{#- Furo titles the home page with the site name alone ("MOLA documentation").
+    Use its own heading instead: it is the page search engines show most. -#}
+{% block htmltitle %}
+{%- if pagename == master_doc and title -%}
+<title>{{ title|striptags|e }}</title>
+{%- else -%}
+{{ super() }}
+{%- endif -%}
+{% endblock %}
+
 {% block scripts %}
 {{ super() }}
 <!-- Default Statcounter code for mola-slam
