@@ -1,4 +1,6 @@
 :og:description: Find the extrinsic calibration between a LiDAR and a camera online. Record a ROS bag of a board with four holes and four ArUco markers, upload it, and get the camera pose with its residuals and images of the LiDAR points drawn over the camera view.
+:og:image: _static/social/lidar-camera-calibration-online.jpg
+:og:image:alt: LiDAR-camera calibration online with MOLA cloud
 
 .. meta::
    :description: LiDAR-camera extrinsic calibration online: record a ROS bag of a target board with four holes and four ArUco markers, upload it, and get the camera pose and overlay images.

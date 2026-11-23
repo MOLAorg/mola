@@ -1,4 +1,6 @@
 :og:description: Calibrate a camera online from a phone video, a folder of images or a ROS 2 bag. Checkerboard, ChArUco, circle grids, AprilGrid, or no pattern at all. Pinhole and fisheye lenses. Results as ROS camera_info, OpenCV and MRPT YAML files.
+:og:image: _static/social/camera-calibration-online.png
+:og:image:alt: Camera calibration online, from a video, with MOLA cloud
 
 .. meta::
    :description: Calibrate a camera online from a video, a folder of images or a ROS 2 bag. Checkerboard, ChArUco, circle grid, AprilGrid or no pattern. Pinhole and fisheye lenses.

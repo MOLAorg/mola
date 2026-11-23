@@ -1,4 +1,6 @@
 :og:description: Upload a ROS 1 or ROS 2 bag recorded with a 3D LiDAR and get a 3D point cloud map built with LiDAR SLAM and loop closure: LAS and PLY files, the trajectory, geo-referenced outputs when there is GNSS, and a 3D viewer in the browser.
+:og:image: _static/social/rosbag-to-point-cloud-map.jpg
+:og:image:alt: ROS bag to 3D point cloud map, online, with MOLA cloud
 
 .. meta::
    :description: Turn a ROS bag into a 3D point cloud map online, with LiDAR SLAM and loop closure. LAS and PLY files, trajectory, GNSS geo-referencing and a 3D viewer. No install.

@@ -88,12 +88,19 @@ html_baseurl = 'https://docs.mola-slam.org/latest/'
 sitemap_url_scheme = '{link}'
 
 # OpenGraph tags, so a link to these pages in chat or on social media shows
-# the page title and its own summary instead of a bare URL. Deliberately
-# text-only: the project logo is 120x120, and link previews expect roughly
-# 1200x630, so it would be upscaled into something worse than no image.
+# the page title, its own summary and a 1200x630 preview card. Every page uses
+# the site card unless it names its own with an ":og:image:" field at its top
+# (the MOLA cloud landing pages do). Cards live in _static/social/, all 1200x630.
 ogp_site_url = html_baseurl
 ogp_site_name = 'MOLA documentation'
 ogp_description_length = 200
+ogp_image = '_static/social/mola-docs.jpg'
+ogp_image_alt = 'MOLA: LiDAR odometry, SLAM and localization'
+ogp_custom_meta_tags = [
+    '<meta property="og:image:width" content="1200" />',
+    '<meta property="og:image:height" content="630" />',
+    '<meta name="twitter:card" content="summary_large_image" />',
+]
 
 bibtex_bibfiles = ['refs.bib']
 
@@ -143,6 +150,10 @@ pygments_style = None
 #
 # html_theme = 'alabaster'
 html_theme = "furo"
+
+# Page titles read "<page> - MOLA documentation", without the version: a title
+# that changes on every release is a new title for search engines each time.
+html_title = 'MOLA documentation'
 
 html_logo = 'imgs/mola-slam-logo.png'
 
