@@ -7,7 +7,7 @@
 # Released under GNU GPL v3. See LICENSE file
 # ------------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.22...3.31)  # Ubuntu 22.04+
 project(mola_viz_imgui LANGUAGES CXX)
 
 # MOLA CMake scripts: "mola_xxx()"
