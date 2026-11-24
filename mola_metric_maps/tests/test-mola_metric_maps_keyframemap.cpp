@@ -1719,11 +1719,14 @@ void test_kdtree_serialization_incompatible_index()
   }
 
   // Bump the version field that follows the nanoflann index magic number
-  // ("NLFN", little endian), as if the blob came from another release.
+  // ("NLFN", little endian), as if the blob came from another release. Older
+  // nanoflann versions write no such header: then this is a plain round trip.
+#if defined(MRPT_HAS_KDTREE_SAVE_LOAD_INDEX) && defined(NANOFLANN_VERSION) && \
+    NANOFLANN_VERSION >= 0x1A1
   auto*        data  = reinterpret_cast<uint8_t*>(buf.getRawBufferData());
   const size_t len   = buf.getTotalBytesCount();
   bool         found = false;
-  for (size_t i = 0; i + 8 <= len; i++)
+  for (size_t i = 0; i + 8 <= len && !found; i++)
   {
     if (data[i] == 0x4E && data[i + 1] == 0x4C && data[i + 2] == 0x46 && data[i + 3] == 0x4E)
     {
@@ -1731,7 +1734,6 @@ void test_kdtree_serialization_incompatible_index()
       found = true;
     }
   }
-#if defined(MRPT_HAS_KDTREE_SAVE_LOAD_INDEX)
   ASSERT_(found);
 #endif
   buf.Seek(0);
