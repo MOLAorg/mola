@@ -1397,9 +1397,11 @@ void test_base_class_remap_then_append()
 void test_invalid_view_filter_mode_rejected()
 {
   // Offsets from the end of the stream: the index type byte is followed by the
-  // voxel size (v6), and the view filter mode byte by the angle, the minimum
-  // distance between points (v5) and those two.
-  constexpr size_t indexTypeFromEnd = sizeof(float) + 1;
+  // voxel size (v6) and the learned covariance options (v7: an empty string,
+  // i.e. its 32-bit length alone, and a double), and the view filter mode byte
+  // by the angle, the minimum distance between points (v5) and those.
+  constexpr size_t v7Tail           = sizeof(uint32_t) + sizeof(double);
+  constexpr size_t indexTypeFromEnd = v7Tail + sizeof(float) + 1;
   constexpr size_t viewModeFromEnd  = indexTypeFromEnd + 2 * sizeof(double) + 1;
 
   for (const size_t fromEnd : {viewModeFromEnd, indexTypeFromEnd})

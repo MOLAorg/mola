@@ -443,7 +443,13 @@ Classes registered by `src/register.cpp` (these are the names a YAML must use):
   met, so every estimate is redone after each map change, at a large cost. Eviction is out of reach either way: a well-populated point keeps
   its covariance when its neighbors are trimmed away behind the vehicle. Not for
   loop closure (a global SE(3) re-map would force a full rebuild) -- use
-  `KeyframePointCloudMap` there. Caveats: with the k-d tree point removal is
+  `KeyframePointCloudMap` there. Optional learned per-point covariances
+  (`learned_cov_model_file`, empty by default, src/learned_point_cov.*): a
+  table + small MLP per pairing side, trained offline, replaces the plane
+  regularization in `nn_search_cov2cov()`; it uses its own training
+  neighborhood (stored in the model file), not the map's k/radius/planarity
+  options, and caches the query side per index `contentVersion()`. The
+  view-direction filter keeps the regularized covariances. Caveats: with the k-d tree point removal is
   lazy, and with either index freed slots wait for reuse, so the
   inherited `size()` counts more than the live slots (use
   `livePointCount()`, or `compact()` to drop them); `nn_*` indices are storage

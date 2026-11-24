@@ -119,7 +119,28 @@ if(MOLA_HAS_INCREMENTAL_POINT_CLOUD)
     Eigen3::Eigen
   )
 
-  # Part of the test above runs on real LiDAR geometry, when available:
+  # Learned per-point covariances (learned_cov_model_file):
+  mola_add_test(
+    TARGET  test-mola_metric_maps_incrementalpointcloud_learnedcov
+    SOURCES test-mola_metric_maps_incrementalpointcloud-learnedcov.cpp
+    LINK_LIBRARIES
+    mola_metric_maps
+    Eigen3::Eigen
+  )
+
+  # The learned covariance model against the training code's numbers (compiles
+  # the model source directly: it is not part of the installed API):
+  mola_add_test(
+    TARGET  test-mola_metric_maps_learnedcovmodel
+    SOURCES test-mola_metric_maps_learnedcovmodel.cpp ../src/learned_point_cov.cpp
+    LINK_LIBRARIES
+    mola_metric_maps
+    Eigen3::Eigen
+  )
+  target_compile_definitions(test-mola_metric_maps_learnedcovmodel
+    PRIVATE LEARNED_COV_TEST_DATA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/data\")
+
+  # Part of the covcache test runs on real LiDAR geometry, when available:
   if(mola_test_datasets_FOUND)
     target_compile_definitions(test-mola_metric_maps_incrementalpointcloud_covcache
       PRIVATE TEST_DATASETS_ROOT=\"${mola_test_datasets_DIR}/../datasets/\")
