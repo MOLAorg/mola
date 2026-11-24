@@ -1703,6 +1703,56 @@ void test_approximate_cov_mode_switch_invalidates_cache()
 // ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
+// ── 25b. a baked KD-tree from another nanoflann version does not lose the map ──
+// The baked index blob is only valid for the exact nanoflann version that wrote
+// it. Loading a map baked by another version must still work, rebuilding the
+// index instead of throwing.
+void test_kdtree_serialization_incompatible_index()
+{
+  auto m = makeMapFromCloud(makeCloudWithViews(makeGridPts(0.f, 0.f, 0.f, 1.f, 10, 10)));
+  m.creationOptions.serialize_kdtrees = true;
+
+  mrpt::io::CMemoryStream buf;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar << m;
+  }
+
+  // Bump the version field that follows the nanoflann index magic number
+  // ("NLFN", little endian), as if the blob came from another release.
+  auto*        data  = reinterpret_cast<uint8_t*>(buf.getRawBufferData());
+  const size_t len   = buf.getTotalBytesCount();
+  bool         found = false;
+  for (size_t i = 0; i + 8 <= len; i++)
+  {
+    if (data[i] == 0x4E && data[i + 1] == 0x4C && data[i + 2] == 0x46 && data[i + 3] == 0x4E)
+    {
+      data[i + 4] ^= 0x01;
+      found = true;
+    }
+  }
+#if defined(MRPT_HAS_KDTREE_SAVE_LOAD_INDEX)
+  ASSERT_(found);
+#endif
+  buf.Seek(0);
+
+  mola::KeyframePointCloudMap m2;
+  {
+    auto ar = mrpt::serialization::archiveFrom(buf);
+    ar >> m2;
+  }
+  ASSERT_EQUAL_(m2.point_count(), m.point_count());
+
+  m2.creationOptions.max_search_keyframes = 1;
+  m2.icp_get_prepared_as_global(mrpt::poses::CPose3D::Identity());
+  mrpt::math::TPoint3Df query{0.f, 0.f, 0.f};
+  mrpt::math::TPoint3Df result;
+  float                 dsqr = 0;
+  uint64_t              idx  = 0;
+  ASSERT_(m2.nn_single_search(query, result, dsqr, idx));
+  ASSERT_LT_(dsqr, 4.0f);
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
   try
@@ -1791,6 +1841,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 
     std::cout << "test_kdtree_serialization_roundtrip ...\n";
     test_kdtree_serialization_roundtrip();
+
+    std::cout << "test_kdtree_serialization_incompatible_index ...\n";
+    test_kdtree_serialization_incompatible_index();
 
     std::cout << "test_covariance_serialization_roundtrip ...\n";
     test_covariance_serialization_roundtrip();

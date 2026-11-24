@@ -431,7 +431,17 @@ void KeyframePointCloudMap::serializeFrom(mrpt::serialization::CArchive& in, uin
               // Install the precomputed index so the first query does not rebuild
               // it. Points were just deserialized above (which marks the tree
               // outdated), so this must come after kf.pointcloud(pc).
-              pc->kdtree_load_index_3D(ss);
+              try
+              {
+                pc->kdtree_load_index_3D(ss);
+              }
+              catch (const std::exception&)
+              {
+                // A corrupt blob, or one baked by another nanoflann version,
+                // must not lose the map: the points are already installed and
+                // a failed load leaves the index outdated, so it is just
+                // rebuilt on the first query.
+              }
 #endif
             }
           }
