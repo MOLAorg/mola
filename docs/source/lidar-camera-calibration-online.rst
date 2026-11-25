@@ -118,11 +118,12 @@ The camera intrinsics come from the ``CameraInfo`` messages in the bag, from a Y
 upload, or from a :ref:`camera calibration <camera-calibration-online>` you ran before.
 
 
-Running it on your own machines
-=================================
+MOLA Pro accounts
+===================
 
-To run the calibration on your own machines, the source code of the tool is included in
-:ref:`MOLA Pro <pricing>`.
+The calibration tool is proprietary and runs only in MOLA cloud. Every
+:ref:`MOLA Pro <pricing>` license includes a MOLA cloud Pro account for the organization, with
+a monthly token allowance.
 
 **Coming soon, for Pro accounts:** calibrating every LiDAR, camera, IMU and GNSS antenna of a
 vehicle at once, without a target, from a drive in circles and figure-eights.

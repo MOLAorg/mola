@@ -133,16 +133,32 @@ Community vs. Pro
        </tr>
        <tr class="data-row">
          <td>
-           Sensor extrinsic calibration (LiDAR&#8209;camera)
-           <span class="feat-note">Pro: source code, to run on your own machines. Anyone: online in MOLA cloud, with tokens</span>
+           MOLA cloud account
+           <span class="feat-note">Map building and sensor calibration online, paid with tokens. Pro: included with the license, for the whole organization</span>
          </td>
-         <td class="comm-col"><a href="lidar-camera-calibration-online.html">Online (MOLA cloud)</a></td>
-         <td class="pro-col"><span class="check-icon">&#10004;</span> Local + online</td>
+         <td class="comm-col"><a href="https://app.mola-slam.org">Free account</a> (10 tokens/month)</td>
+         <td class="pro-col"><span class="check-icon">&#10004;</span> Pro account: 100 tokens/month, 200&nbsp;GB, priority queue</td>
        </tr>
        <tr class="data-row">
-         <td>Map post-processing service</td>
+         <td>
+           Sensor calibration (LiDAR&#8209;camera, camera intrinsics)
+           <span class="feat-note">Proprietary tools, offered as online services in MOLA cloud</span>
+         </td>
+         <td class="comm-col"><a href="lidar-camera-calibration-online.html">Online (MOLA cloud)</a></td>
+         <td class="pro-col"><span class="check-icon">&#10004;</span> Online, with the included tokens</td>
+       </tr>
+       <tr class="data-row">
+         <td>Map lab: map post-processing pipelines in MOLA cloud <span class="badge-wip">coming soon</span></td>
          <td class="comm-col"><span class="dash-icon">&mdash;</span></td>
          <td class="pro-col"><span class="check-icon">&#10004;</span></td>
+       </tr>
+       <tr class="data-row">
+         <td>
+           Targetless full sensor-suite calibration <span class="badge-wip">in development</span>
+           <span class="feat-note">Every LiDAR, camera, IMU and GNSS antenna of a vehicle at once, from an ordinary recording</span>
+         </td>
+         <td class="comm-col"><span class="dash-icon">&mdash;</span></td>
+         <td class="pro-col"><span class="check-icon">&#10004;</span> Online (MOLA cloud)</td>
        </tr>
        <tr class="data-row">
          <td>Visual odometry <span class="badge-wip">in development</span></td>
@@ -218,7 +234,8 @@ To request a Pro license, please :ref:`contact us <mola_contact>` using the form
 After purchase, you will receive:
 
 1. **Credentials** for the private apt repository and Docker registry
-2. A **welcome email** with onboarding instructions and support channel access
+2. A **MOLA cloud Pro account** for your organization at `app.mola-slam.org <https://app.mola-slam.org>`_
+3. A **welcome email** with onboarding instructions and support channel access
 
 .. note::
 
@@ -266,6 +283,10 @@ The MOLA framework is composed of several repositories with different open-sourc
      - GPL-3
      - State estimators: smoother, IMU/GNSS/kinematics fusion; map and trajectory georeferencing tools
 
+   * - `mola_imu_preintegration <https://github.com/MOLAorg/mola_imu_preintegration/>`_
+     - GPL-3
+     - IMU preintegration, used by LiDAR odometry and state estimation
+
    * - `mola_mapper <https://github.com/MOLAorg/mola_mapper/>`_
      - GPL-3
      - Live SLAM: global keyframe map, online loop closure, global pose graph, georeferencing
@@ -280,7 +301,8 @@ commercial products.
 
 **GPL-3 modules** (MOLA core, lidar odometry, state estimation, mapper, loop closure) require
 that derivative works also be released under GPL-3. If your product is closed-source,
-you need a **MOLA Pro commercial license**.
+you need a **MOLA Pro commercial license**, which covers all GPL-3 MOLA modules, including
+those released during the license term.
 
 |
 
@@ -307,6 +329,21 @@ Frequently asked questions
 **How many developers / machines does Pro cover?**
   Unlimited, within one organization. No per-seat or per-machine fees.
 
+**Are licenses annual or perpetual?**
+  Pro and OEM licenses are annual. With OEM, every unit shipped while the license is active
+  keeps a perpetual right to run the MOLA version installed on it, even if the license is not
+  renewed. A Pro license can be upgraded to OEM, crediting the unused part of the Pro fee.
+
+**Can we modify the source code?**
+  Yes, at no extra cost, as long as MOLA source code (original or modified) is not
+  redistributed to third parties. OEM licensees ship their modified versions in binary form
+  inside their products.
+
+**Is the source code of the calibration tools included?**
+  No. The calibration tools are proprietary and offered as online services in
+  `MOLA cloud <https://app.mola-slam.org>`_. A MOLA cloud Pro account is included with every Pro
+  and OEM license.
+
 |
 
 .. _mola_contact:
@@ -320,9 +357,8 @@ Beyond the Pro license, we offer:
 - **Custom pipeline development** for your specific sensors and environment
 - **Fleet deployment consulting** (multi-robot map sharing, configuration management)
 - **On-site or remote training** for your engineering team
-- **Map post-processing service** - send us your raw sensor data and receive
-  optimized, georeferenced metric maps, or build them yourself online: upload a
-  ROS bag to `MOLA cloud <https://app.mola-slam.org>`_
+- **Maps from your recordings**: build optimized, georeferenced metric maps yourself
+  online, by uploading a ROS bag to `MOLA cloud <https://app.mola-slam.org>`_
 
 For consulting inquiries or demo requests, use the form below:
 
