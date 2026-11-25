@@ -120,8 +120,13 @@
       KLD_minSamplesPerBin: 0
 
     # If defined, this block will override the likelihoodOptions field of the 
-    # de-serialized metric map (.mm) used as global map:
+    # de-serialized metric map (.mm) used as global map.
+    #
+    # The log-likelihood is -mean(min(d_i^2, max_corr_distance^2))/sigma_dist,
+    # with d_i the distance from each used point to its closest map point, so
+    # sigma_dist is a variance in m^2 and large values give a flat likelihood.
+    # See the mrpt_pf_localization README for tuning hints.
     override_likelihood_point_maps:
-      sigma_dist: 0.2  # [m]
+      sigma_dist: 0.2  # [m^2]
       max_corr_distance: 3.0 # [m]
       decimation: 1
