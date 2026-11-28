@@ -620,6 +620,26 @@ void BridgeROS2::initialize_rds(const Yaml& c)
 
   MRPT_LOG_DEBUG_STREAM("Initializing with these params:\n" << cfgCopy);
 
+#if !MOLA_ROS2BRIDGE_HAS_RGBD
+  // Checked here, so it fails at start up instead of stopping the ROS node thread:
+  const auto subscribeEntries = cfg.has("subscribe") ? cfg["subscribe"] : Yaml();
+  if (subscribeEntries.isSequence())
+  {
+    for (const auto& topicItem : subscribeEntries.asSequence())
+    {
+      const auto t = mrpt::containers::yaml(topicItem);
+      // (entries with an empty topic are optional slots, skipped)
+      if (t.isMap() && t.has("msg_type") && t["msg_type"].as<std::string>() == "RGBD" &&
+          t.has("topic") && !t["topic"].as<std::string>().empty())
+      {
+        THROW_EXCEPTION(
+            "msg_type 'RGBD' needs a mrpt_libros_bridge newer than 4.2.0, but this module was "
+            "built against an older version.");
+      }
+    }
+  }
+#endif
+
   // params for ROS2->MOLA:
   YAML_LOAD_OPT(params_, base_link_frame, std::string);
   YAML_LOAD_OPT(params_, odom_frame, std::string);
@@ -2827,17 +2847,30 @@ void BridgeROS2::internalSubscribeRgbd(
   auto s       = std::make_shared<RgbdSensor>();
   s->assembler = std::make_shared<RgbdAssembler>(p, tf_buffer_, params_.base_link_frame);
 
+  const std::string infoTopics =
+      topics.depthCameraInfo + (p.withIntensity ? ", " + topics.intensityCameraInfo : "");
+
   // Forwards the frames that a message completes. Never throws: an exception
-  // would stop the executor, and all other inputs.
-  const auto forward = [this, a = s->assembler.get(), label = outSensorLabel](const auto& feed)
+  // would stop the executor, and all other inputs. The assembler is not thread-safe: all its
+  // callbacks run in the node default (mutually exclusive) callback group.
+  const auto forward =
+      [this, a = s->assembler.get(), label = outSensorLabel, infoTopics](const auto& feed)
   {
+    const ProfilerEntry tle(profiler_, "callbackOnRgbd");
     try
     {
       const size_t noTf     = a->droppedWithoutTf();
       const size_t unpaired = a->droppedUnpaired();
+      const size_t noInfo   = a->droppedWithoutCameraInfo();
       for (const auto& o : feed(*a))
       {
         this->sendObservationsToFrontEnds(o);
+      }
+      if (a->droppedWithoutCameraInfo() != noInfo)
+      {
+        MRPT_LOG_THROTTLE_WARN_FMT(
+            5.0, "RGB-D sensor '%s': %zu image(s) dropped before their camera_info (%s) arrived.",
+            label.c_str(), a->droppedWithoutCameraInfo(), infoTopics.c_str());
       }
       if (a->droppedWithoutTf() != noTf)
       {
@@ -2921,10 +2954,8 @@ void BridgeROS2::internalSubscribeRgbd(
                                                  topics.intensityCameraInfo + ")"
                                            : std::string(", no intensity")));
 #else
-  THROW_EXCEPTION_FMT(
-      "msg_type 'RGBD' (sensor '%s') needs mrpt_libros_bridge >= 4.2.0, but this module was "
-      "built against an older version.",
-      outSensorLabel.c_str());
+  // Unreachable: rejected by initialize_rds().
+  THROW_EXCEPTION_FMT("msg_type 'RGBD' (sensor '%s') is not supported.", outSensorLabel.c_str());
 #endif
 }
 

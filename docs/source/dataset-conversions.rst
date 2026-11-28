@@ -233,8 +233,8 @@ The rest will be discarded, after emitting a warning to the terminal.
   RGB-D and depth cameras become ``CObservation3DRangeScan`` observations, built out of a
   depth image, an optional intensity (color or infrared) image and the ``camera_info`` of
   each. Images may be raw (``sensor_msgs/Image``) or, if their topic ends in
-  ``/compressed`` or ``/compressedDepth``, as recorded by ``image_transport``. Needs
-  ``mrpt_libros_bridge`` >= 4.2.0.
+  ``/compressed`` or ``/compressedDepth``, as recorded by ``image_transport``. Needs a
+  ``mrpt_libros_bridge`` newer than 4.2.0.
 
   .. code-block:: yaml
 

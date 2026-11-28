@@ -50,7 +50,7 @@
 #include <mrpt/ros2bridge/rgbd.h>
 #define MOLA_ROS2BRIDGE_HAS_RGBD 1
 #else
-// TODO: Remove this fallback (RgbdAssembler.{h,cpp}) once mrpt_libros_bridge >= 4.2.0
+// TODO: Remove this fallback (RgbdAssembler.{h,cpp}) once a mrpt_libros_bridge newer than 4.2.0
 // is generally available.
 #include "RgbdAssembler.h"
 #define MOLA_ROS2BRIDGE_HAS_RGBD 0
@@ -1354,7 +1354,7 @@ Rosbag2Dataset::Obs Rosbag2Dataset::toRobotPose(
 
 #if MOLA_ROS2BRIDGE_HAS_RGBD
 void Rosbag2Dataset::installRgbdCallbacks(
-    const mrpt::containers::yaml& sensor, const std::string& depthTopic,
+    const mrpt::containers::yaml& sensor, const std::string& /*depthTopic: sensor["topic"]*/,
     const std::string& sensorLabel, const std::optional<mrpt::poses::CPose3D>& fixedSensorPose,
     bool useBagRecvTimeAsTimestamp, const std::map<std::string, std::string>& topic2type)
 {
@@ -1362,10 +1362,8 @@ void Rosbag2Dataset::installRgbdCallbacks(
   using mrpt::ros2bridge::RgbdTopic;
   using rosbag2_storage::SerializedBagMessage;
 
-  auto sensorCfg     = sensor;
-  sensorCfg["topic"] = depthTopic;
-  auto [topics, p]   = mrpt::ros2bridge::rgbdSensorFromYaml(sensorCfg, sensorLabel);
-  p.fixedSensorPose  = fixedSensorPose;
+  auto [topics, p]  = mrpt::ros2bridge::rgbdSensorFromYaml(sensor, sensorLabel);
+  p.fixedSensorPose = fixedSensorPose;
 
   constexpr const char* kImage      = "sensor_msgs/msg/Image";
   constexpr const char* kCompressed = "sensor_msgs/msg/CompressedImage";
@@ -1400,82 +1398,87 @@ void Rosbag2Dataset::installRgbdCallbacks(
   { return topic2type.at(t) == kCompressed; };
 
   auto assembler = std::make_shared<RgbdAssembler>(p, tfBuffer_, base_link_frame_id_);
-  // (header stamp, bag receive time) [ns] of recent depth images, in arrival
+  // (header stamp, bag receive time) of recent depth images, in arrival
   // order: an observation takes its depth image's receive time, whichever
   // image completes the pair.
-  auto         depthRecvTimes = std::make_shared<std::deque<std::pair<int64_t, int64_t>>>();
-  const size_t maxRecvTimes   = 2 * p.maxQueueLength;
+  auto depthRecvTimes = std::make_shared<std::deque<std::pair<mrpt::Clock::time_point, int64_t>>>();
+  const size_t maxRecvTimes = 2 * p.maxQueueLength;
 
-  const auto onMessage = [this, assembler, useBagRecvTimeAsTimestamp, depthRecvTimes, maxRecvTimes](
+  const auto onMessage = [this, assembler, sensorLabel, useBagRecvTimeAsTimestamp, depthRecvTimes,
+                          maxRecvTimes](
                              const SerializedBagMessage& m, RgbdTopic which, bool compressed) -> Obs
   {
-    return catchExceptions(
-        [&]() -> Obs
+    // Errors (e.g. a wrong image format) tend to repeat on every frame: throttled.
+    try
+    {
+      const size_t droppedBefore       = assembler->droppedUnpaired();
+      const size_t droppedNoInfoBefore = assembler->droppedWithoutCameraInfo();
+      const size_t droppedNoTfBefore   = assembler->droppedWithoutTf();
+
+      std_msgs::msg::Header header;
+      const auto v = mrpt::ros2bridge::rosbag2ToRgbd(*assembler, which, compressed, m, &header);
+      Obs        obs(v.begin(), v.end());
+
+      if (useBagRecvTimeAsTimestamp && which == RgbdTopic::Depth)
+      {
+        // The same conversion that gives the observation its timestamp:
+        depthRecvTimes->emplace_back(
+            mrpt::ros2bridge::fromROS(header.stamp), bagMessageRecvTimestampNs(m));
+        while (depthRecvTimes->size() > maxRecvTimes)
         {
-          const size_t droppedBefore       = assembler->droppedUnpaired();
-          const size_t droppedNoInfoBefore = assembler->droppedWithoutCameraInfo();
-          const size_t droppedNoTfBefore   = assembler->droppedWithoutTf();
-
-          std_msgs::msg::Header header;
-          const auto v = mrpt::ros2bridge::rosbag2ToRgbd(*assembler, which, compressed, m, &header);
-          Obs        obs(v.begin(), v.end());
-
-          if (useBagRecvTimeAsTimestamp && which == RgbdTopic::Depth)
+          depthRecvTimes->pop_front();
+        }
+      }
+      if (assembler->droppedWithoutCameraInfo() != droppedNoInfoBefore)
+      {
+        MRPT_LOG_THROTTLE_INFO_FMT(
+            5.0, "RGB-D sensor '%s': %zu frame(s) skipped while waiting for camera_info.",
+            sensorLabel.c_str(), assembler->droppedWithoutCameraInfo());
+      }
+      if (assembler->droppedWithoutTf() != droppedNoTfBefore)
+      {
+        MRPT_LOG_THROTTLE_WARN_FMT(
+            5.0, "RGB-D sensor '%s': %zu frame(s) skipped without /tf: %s", sensorLabel.c_str(),
+            assembler->droppedWithoutTf(), assembler->lastTfError().c_str());
+      }
+      if (assembler->droppedUnpaired() != droppedBefore)
+      {
+        MRPT_LOG_THROTTLE_WARN_FMT(
+            5.0,
+            "RGB-D sensor '%s': %zu image(s) dropped so far without a depth/intensity "
+            "counterpart within max_time_offset (the last one's closest was %.1f ms away).",
+            sensorLabel.c_str(), assembler->droppedUnpaired(),
+            1e3 * assembler->lastEvictedClosestDt());
+      }
+      if (useBagRecvTimeAsTimestamp)
+      {
+        for (auto& o : obs)
+        {
+          // Newest first, in case header stamps repeat after a clock reset:
+          for (auto it = depthRecvTimes->rbegin(); it != depthRecvTimes->rend(); ++it)
           {
-            const int64_t stampNs =
-                static_cast<int64_t>(header.stamp.sec) * 1000000000LL + header.stamp.nanosec;
-            depthRecvTimes->emplace_back(stampNs, bagMessageRecvTimestampNs(m));
-            while (depthRecvTimes->size() > maxRecvTimes)
+            if (it->first == o->timestamp)
             {
-              depthRecvTimes->pop_front();
+              o->timestamp = mrpt::Clock::fromDouble(1e-9 * static_cast<double>(it->second));
+              break;
             }
           }
-          if (assembler->droppedWithoutCameraInfo() != droppedNoInfoBefore)
-          {
-            MRPT_LOG_THROTTLE_INFO_FMT(
-                5.0, "RGB-D sensor: %zu frame(s) skipped while waiting for camera_info.",
-                assembler->droppedWithoutCameraInfo());
-          }
-          if (assembler->droppedWithoutTf() != droppedNoTfBefore)
-          {
-            MRPT_LOG_THROTTLE_WARN_FMT(
-                5.0, "RGB-D sensor: %zu frame(s) skipped without /tf: %s",
-                assembler->droppedWithoutTf(), assembler->lastTfError().c_str());
-          }
-          if (assembler->droppedUnpaired() != droppedBefore)
-          {
-            MRPT_LOG_THROTTLE_WARN_FMT(
-                5.0,
-                "RGB-D sensor: %zu image(s) dropped so far without a depth/intensity "
-                "counterpart within max_time_offset (the last one's closest was %.1f ms away).",
-                assembler->droppedUnpaired(), 1e3 * assembler->lastEvictedClosestDt());
-          }
-          if (useBagRecvTimeAsTimestamp)
-          {
-            for (auto& o : obs)
-            {
-              // Stamps match within the resolution of mrpt::Clock.
-              const auto t =
-                  static_cast<int64_t>(std::llround(1e9 * mrpt::Clock::toDouble(o->timestamp)));
-              // Newest first, in case header stamps repeat after a clock reset:
-              for (auto it = depthRecvTimes->rbegin(); it != depthRecvTimes->rend(); ++it)
-              {
-                if (std::abs(it->first - t) <= 1000)
-                {
-                  o->timestamp = mrpt::Clock::fromDouble(1e-9 * static_cast<double>(it->second));
-                  break;
-                }
-              }
-            }
-          }
-          return obs;
-        });
+        }
+      }
+      return obs;
+    }
+    catch (const std::exception& e)
+    {
+      MRPT_LOG_THROTTLE_ERROR_FMT(
+          5.0, "Dropping RGB-D frame of '%s': %s", sensorLabel.c_str(), e.what());
+      return {};
+    }
   };
 
   const auto install = [&](const std::string& topic, RgbdTopic which)
   {
     const bool compressed =
-        which == RgbdTopic::Depth || which == RgbdTopic::Intensity ? isCompressed(topic) : false;
+        (which == RgbdTopic::Depth || which == RgbdTopic::Intensity) && isCompressed(topic);
     lookup_[topic].emplace_back([onMessage, which, compressed](const SerializedBagMessage& m)
                                 { return onMessage(m, which, compressed); });
   };
@@ -1508,8 +1511,21 @@ void Rosbag2Dataset::installRgbdCallbacks(
   RgbdAssembler::Parameters p;
   p.sensorLabel     = sensorLabel;
   p.fixedSensorPose = fixedSensorPose;
-  p.maxTimeOffset   = sensor.getOrDefault<double>("max_time_offset", p.maxTimeOffset);
-  p.maxRange        = sensor.getOrDefault<float>("max_range", p.maxRange);
+  // Same default as the bridge assembler:
+  p.maxTimeOffset = sensor.getOrDefault<double>("max_time_offset", 0.010);
+  p.maxRange      = sensor.getOrDefault<float>("max_range", p.maxRange);
+  for (const char* key :
+       {"intensity_channel", "intensity_16bit_scale", "max_queue_length", "rectified",
+        "intensity_rectified"})
+  {
+    if (sensor.has(key))
+    {
+      MRPT_LOG_WARN_FMT(
+          "RGB-D sensor '%s': option '%s' ignored, it needs a mrpt_libros_bridge newer than "
+          "4.2.0.",
+          sensorLabel.c_str(), key);
+    }
+  }
 
   const auto intensityTopic = sensor.getOrDefault<std::string>("intensity_topic", "");
   p.withIntensity           = !intensityTopic.empty();

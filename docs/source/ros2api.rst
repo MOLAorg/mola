@@ -49,13 +49,17 @@ the following fields:
        the bridge callbacks: prefer low-rate camera topics and a small ``qos.depth``.
        8-bit Bayer encodings are demosaiced with ``mrpt_libros_bridge`` >= 4.1.0
        (16-bit Bayer is not supported); images that cannot be converted are dropped.
-       ``RGBD`` (``mrpt_libros_bridge`` >= 4.2.0) builds ``CObservation3DRangeScan``
+       ``RGBD`` (``mrpt_libros_bridge`` newer than 4.2.0) builds ``CObservation3DRangeScan``
        observations: ``topic`` is the depth image, plus the optional keys
        ``intensity_topic``, ``camera_info_topic``, ``intensity_camera_info_topic``,
-       ``max_time_offset``, ``max_range``, ``intensity_16bit_scale`` and
-       ``intensity_channel`` (as in ``mola_input_rosbag2``). Topics ending in
-       ``/compressed`` (JPEG/PNG) or ``/compressedDepth`` are subscribed as
-       ``sensor_msgs/CompressedImage``.
+       ``max_time_offset``, ``max_range``, ``max_queue_length``, ``rectified``,
+       ``intensity_rectified``, ``intensity_16bit_scale`` and ``intensity_channel`` (as in
+       ``mola_input_rosbag2``). Topics ending in ``/compressed`` (JPEG/PNG) or
+       ``/compressedDepth`` are subscribed as ``sensor_msgs/CompressedImage``. ``qos`` applies
+       to the images and their ``camera_info``; images are also decoded in the bridge
+       callbacks, so prefer a small ``qos.depth``. ``fixed_sensor_pose`` replaces only the
+       depth camera pose: the intensity camera pose still comes from ``/tf``, unless both
+       images share their ``frame_id``.
    * - ``output_sensor_label``
      - Yes
      - Label assigned to the MOLA observation forwarded to front-ends.

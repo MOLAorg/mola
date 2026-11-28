@@ -42,6 +42,9 @@ sensors:
     #max_range: 10.0                   # [m]
     #intensity_16bit_scale: 1.0        # mono16 intensity (e.g. infrared) into 8 bits
     #intensity_channel: visible        # or "ir"
+    #max_queue_length: 10              # frames waiting for their counterpart, per stream
+    #rectified: ...                    # depth without lens distortion (default: topic has "image_rect")
+    #intensity_rectified: ...          # the same, for the intensity image
     #fixed_sensor_pose: "x y z yaw_deg pitch_deg roll_deg"  # depth camera, +X forward
 ```
 
@@ -61,8 +64,9 @@ registered to the left color image and may have a lower resolution:
 Note that the `compressedDepth` publisher of `image_transport` discards depth beyond its
 `depth_max` parameter (default: 10 m) when recording.
 
-Compressed topics and the `intensity_*` and `max_queue_length` options need
-`mrpt_libros_bridge` >= 4.2.0, which builds the observations
+Compressed topics and the `intensity_channel`, `intensity_16bit_scale`, `max_queue_length`,
+`rectified` and `intensity_rectified` options need a `mrpt_libros_bridge` newer than 4.2.0
+(older versions ignore them, with a warning), which builds the observations
 (`mrpt::ros2bridge::RgbdAssembler`, shared with `rosbag2rawlog`, `BridgeROS2` and
 `mola_input_rosbag1`). Points take their color from an intensity image of another
 resolution than the depth image, and through its lens distortion, with MRPT
@@ -70,13 +74,14 @@ versions that define `MRPT_HAS_3DSCAN_INTENSITY_PROJECTION`.
 
 Depth and intensity keep their own resolution and intrinsics
 (`cameraParams`, `cameraParamsIntensity`), and `relativePoseIntensityWRTDepth`
-comes from `/tf`. Depth already registered to the intensity camera (e.g. an
+comes from `/tf` (`fixed_sensor_pose` only replaces the depth camera pose on the robot).
+Depth already registered to the intensity camera (e.g. an
 `aligned_depth_to_color` topic) shares its optical frame, so both cameras then
 coincide. Depth and intensity frames whose stamps differ by more than
 `max_time_offset` are dropped, with a periodic warning: raise it for cameras
 whose streams are not hardware-synchronized. With
-`use_bag_recv_time_as_timestamp`, an observation takes the receive time of the
-image that completed its pair.
+`use_bag_recv_time_as_timestamp`, an observation takes the receive time of its
+depth image.
 
 ## Build and install
 Refer to the [root MOLA repository](https://github.com/MOLAorg/mola).
