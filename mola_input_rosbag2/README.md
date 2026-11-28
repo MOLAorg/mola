@@ -66,7 +66,8 @@ Note that the `compressedDepth` publisher of `image_transport` discards depth be
 
 Compressed topics and the `intensity_channel`, `intensity_16bit_scale`, `max_queue_length`,
 `rectified` and `intensity_rectified` options need a `mrpt_libros_bridge` newer than 4.2.0
-(older versions ignore them, with a warning), which builds the observations
+(with older versions, compressed topics are rejected and those options ignored with a
+warning), which builds the observations
 (`mrpt::ros2bridge::RgbdAssembler`, shared with `rosbag2rawlog`, `BridgeROS2` and
 `mola_input_rosbag1`). Points take their color from an intensity image of another
 resolution than the depth image, and through its lens distortion, with MRPT
