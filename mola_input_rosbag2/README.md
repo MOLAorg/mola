@@ -58,6 +58,9 @@ registered to the left color image and may have a lower resolution:
     max_range: 20.0
 ```
 
+Note that the `compressedDepth` publisher of `image_transport` discards depth beyond its
+`depth_max` parameter (default: 10 m) when recording.
+
 Compressed topics and the `intensity_*` and `max_queue_length` options need
 `mrpt_libros_bridge` >= 4.2.0, which builds the observations
 (`mrpt::ros2bridge::RgbdAssembler`, shared with `rosbag2rawlog`, `BridgeROS2` and
