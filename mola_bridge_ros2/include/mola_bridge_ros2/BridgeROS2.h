@@ -549,6 +549,14 @@ class BridgeROS2 : public RawDataSourceBase,
 
   void internalAnalyzeTopicsToSubscribe(const mrpt::containers::yaml& ds_subscribe);
 
+  /// RGB-D and depth cameras (`msg_type: RGBD`): several topics per sensor.
+  struct RgbdSensor;
+  std::vector<std::shared_ptr<RgbdSensor>> rgbdSensors_;
+
+  void internalSubscribeRgbd(
+      const mrpt::containers::yaml& entry, const std::string& outSensorLabel,
+      const std::optional<mrpt::poses::CPose3D>& fixedSensorPose, const rclcpp::QoS& qos);
+
   void publishStaticTFs();
   void publishDiagnostics();
 
